@@ -14,8 +14,11 @@ permissions:
   contents: read
   packages: read
 
+# Run the JS-based actions (checkout/cache/upload-pages-artifact) on Node 24; Node 20
+# is deprecated and removed from runners in Sep 2026.
 env:
   IMAGE: ghcr.io/jdahlin/ginext-ci
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   # Resolve (and build-if-missing) the CI image, which ships the GIR dev
