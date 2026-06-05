@@ -26,32 +26,35 @@ triplets, so `GLib/GObject/Gio/GModule-2.0.typelib` come for free. The wrinkle:
   (glib self-introspecting its bundled girepository). Historically this was
   hand-extracted from MSYS2.
 
-### Our approach: overlay ports (tracked follow-up)
+### Our approach: a leaf `glib-gir` overlay (no cycle)
 
 `tools/win/vcpkg-overlays/` holds local overlay ports (wired in via
-`overlay-ports` in `vcpkg-configuration.json`):
+`overlay-ports` in `vcpkg-configuration.json`).
 
-1. **`glib`** — the cyclic one. glib 2.88 generates a *consistent*
-   `GLib/GObject/Gio/GModule-2.0` + `GIRepository-3.0` typelib set from its own
-   meson build (the `GIRepository-3.0` namespace matches glib's bundled
-   `libgirepository-2.0`; this is a different, newer world than the standalone
-   gobject-introspection 1.86 `GIRepository-2.0`/`libgirepository-1.0` typelibs).
-   The robust way to get them is the upstream-blessed **two-pass / `@bootstrap`**
-   build: glib-bootstrap (no GI) → gobject-introspection → glib (full, with
-   typelibs). A post-install "scan only" hack was rejected because the scan needs
-   glib's annotated *sources*, which the package doesn't install — at which point
-   building glib with introspection is cleaner and correct.
-2. **`gtk`** and **`gstreamer`** — flip introspection back **on**
-   (`-Dintrospection=enabled`). These have *no* cycle: they depend on
-   gobject-introspection normally, so the scanner is available and their full
-   typelib stacks (Gtk/Gdk/Gsk/Pango/Graphene/GdkPixbuf, Gst*) are produced by
-   vcpkg directly — replacing the old `gir-build.ps1` buildtree-poking and the
-   hand-built cp314 scanner.
+An opt-in `introspection` *feature* on glib does **not** work: on a native build
+host==target, so a `host: true` dep doesn't form a separate node and
+`glib[introspection] → gobject-introspection → glib` collapses into a real cycle
+(vcpkg "cycle detected"). Confirmed empirically.
 
-Result, once landed: **all typelibs become vcpkg build artifacts** under
-`installed/<triplet>/lib/girepository-1.0/`. No MSYS2 extraction, no manual
-scanner, no `C:\dev\gitl`. These overlays need real build iteration and are
-validated through the Windows CI in this series — see status below.
+Instead, **`glib-gir`** is a separate **leaf** port (nothing depends back on it,
+so no cycle). It depends on stock `glib` + `gobject-introspection`, compiles the
+matching glib sources a second time with `-Dintrospection=enabled`, and installs
+**only** the typelibs the other two ports don't already own:
+`GIRepository-3.0` (glib's self-introspection of its bundled `libgirepository-2.0`)
+plus, on Windows, the `GLibWin32-2.0` / `GioWin32-2.0` platform typelibs. The
+`GLib/GObject/Gio/GModule-2.0` typelibs continue to come from
+`gobject-introspection`. This single overlay reproducibly replaces every typelib
+that previously had to be hand-extracted from MSYS2.
+
+The hard part was the Windows `g-ir-scanner` runtime (distutils, pkg-config,
+`VCPKG_GI_DATADIR`, `gdump.c`); the portfile reuses gobject-introspection's own
+`vcpkg-port-config.cmake` for the setuptools venv and wires the scanner env. See
+the port-notes memory for the specifics.
+
+**`gtk` / `gstreamer`** would use the same recipe (no cycle — they depend on
+gobject-introspection normally) to produce their full typelib stacks, replacing
+the old `gir-build.ps1` buildtree-poking and hand-built cp314 scanner. They are a
+tracked follow-up (heavy source builds; opt-in features) — see status below.
 
 ## Toolchain (host-native per triplet)
 
@@ -79,10 +82,16 @@ All paths (vcpkg root, LLVM, Python, triplet) are parameterized — see
 
 - [x] `vcpkg.json` + `vcpkg-configuration.json` (manifest + pinned baseline)
 - [x] de-hardcode `build-env.ps1` / `build.ps1` / `setup.ps1` (triplet-agnostic)
+- [x] **`glib-gir` overlay** — leaf port that compiles glib a second time with
+      introspection on and ships only `GIRepository-3.0` + (Windows)
+      `GLibWin32-2.0` / `GioWin32-2.0`. Validated on arm64-windows; reproducibly
+      replaces the MSYS2-sourced typelibs.
 - [x] GitHub Actions `windows-latest` (x64) + `windows-11-arm` (arm64) builders —
-      pure-vcpkg dep install + clang-cl build of ginext (`.github/workflows/ci-windows.yml`)
-- [ ] overlay `glib` two-pass → `GIRepository-3.0` + consistent core typelibs
-- [ ] overlay `gtk` + `gstreamer` introspection
-- [ ] enable the CI test step once the typelib overlays land
+      pure-vcpkg dep install + clang-cl build + **core test suite**
+      (`.github/workflows/ci-windows.yml`)
+- [ ] `gtk` + `gstreamer` introspection overlays (follow-up): same scanner-env
+      recipe as `glib-gir`, no cycle — but heavy/uncertain source builds on
+      arm64 (vcpkg flags these ports unsupported there). Opt-in manifest features
+      (`gtk`, `gstreamer`); their suites need these to run.
 
 See the port notes memory for the LLP64/source fixes already committed.

@@ -100,11 +100,13 @@ jobs:
         shell: pwsh
         run: powershell -File tools\win\build.ps1 -WithGiTests:$false
 
-      # Tests require the introspection typelibs produced by the overlay ports
-      # (tracked follow-up, see tools/win/BOOTSTRAP.md). Enable once those land.
-      # - name: Run core suite
-      #   shell: pwsh
-      #   run: |
-      #     . tools\win\build-env.ps1
-      #     $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
-      #     & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py src/ginext/tests/ -q
+      # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
+      # platform typelibs, so the core tests run without any out-of-band typelibs.
+      # (gtk/gstreamer suites need their introspection overlays -- tracked
+      # follow-up, see tools/win/BOOTSTRAP.md.)
+      - name: Run core suite
+        shell: pwsh
+        run: |
+          . tools\win\build-env.ps1
+          $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
+          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py src/ginext/tests/ -q

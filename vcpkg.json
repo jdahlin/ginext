@@ -7,12 +7,12 @@
     "Default feature set covers the core GObject-Introspection runtime needed to",
     "build and test ginext itself; gtk/gstreamer are opt-in for the wider suites."
   ],
-  "builtin-baseline": "059d760472984042e1b4db0d40efd935a1adcbc9",
   "dependencies": [
     {
       "name": "gobject-introspection",
       "features": ["cairo"]
     },
+    "glib-gir",
     {
       "name": "cairo",
       "default-features": false,
