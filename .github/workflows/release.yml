@@ -65,6 +65,10 @@ jobs:
       - name: Build distributions
         run: |
           set -eux
+          # meson dist (core sdist) shells out to git; the container runs as root
+          # while the checkout is owned by another uid, so git refuses with
+          # "dubious ownership" and meson reports "only works with Git repos".
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           rm -rf dist && mkdir -p dist
           # The standard PEP 517 `build` frontend (full isolation, ignores the
           # repo's uv-workspace no-build-isolation config).
