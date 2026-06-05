@@ -89,6 +89,13 @@ All paths (vcpkg root, LLVM, Python, triplet) are parameterized — see
 - [x] GitHub Actions `windows-latest` (x64) + `windows-11-arm` (arm64) builders —
       pure-vcpkg dep install + clang-cl build + **core test suite**
       (`.github/workflows/ci-windows.yml`)
+- [ ] ginext's own **gi test typelibs** (GIMarshallingTests/Regress/Utility/
+      GoiBench) on Windows: `gnome.generate_gir` runs g-ir-scanner under the
+      build venv (3.14) against vcpkg's cp312 `_giscanner` → ABI mismatch. Needs
+      a 3.14-matched scanner (or pointing meson's `g-ir-scanner` at a vcpkg 3.12
+      venv with setuptools, like the glib-gir overlay does). Until then CI skips
+      the handful of tests that require those typelibs; the rest of the core
+      suite runs (≈896 passed locally on arm64).
 - [ ] `gtk` + `gstreamer` introspection overlays (follow-up): same scanner-env
       recipe as `glib-gir`, no cycle — but heavy/uncertain source builds on
       arm64 (vcpkg flags these ports unsupported there). Opt-in manifest features
