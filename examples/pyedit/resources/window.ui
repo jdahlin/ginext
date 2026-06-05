@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <template class="PyeditWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">pyedit</property>
+    <property name="default-width">900</property>
+    <property name="default-height">700</property>
+    <property name="content">
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <property name="child">
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="AdwHeaderBar" id="header_bar">
+                <property name="title-widget">
+                  <object class="AdwWindowTitle" id="window_title">
+                    <property name="title" translatable="yes">pyedit</property>
+                  </object>
+                </property>
+                <child type="start">
+                  <object class="GtkButton" id="new_tab_button">
+                    <property name="action-name">win.new-tab</property>
+                    <property name="icon-name">tab-new-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">New Tab (Ctrl+N)</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="open_button">
+                    <property name="action-name">win.open</property>
+                    <property name="label" translatable="yes">_Open</property>
+                    <property name="use-underline">true</property>
+                    <property name="tooltip-text" translatable="yes">Open File (Ctrl+O)</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkMenuButton" id="primary_menu_button">
+                    <property name="icon-name">open-menu-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Main Menu</property>
+                    <property name="primary">true</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkToggleButton" id="search_button">
+                    <property name="action-name">win.find</property>
+                    <property name="icon-name">edit-find-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Find (Ctrl+F)</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkButton" id="save_button">
+                    <property name="action-name">win.save</property>
+                    <property name="icon-name">document-save-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Save (Ctrl+S)</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+
+            <child>
+              <object class="AdwTabBar" id="tab_bar">
+                <property name="view">tab_view</property>
+                <property name="autohide">false</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkStack" id="content_stack">
+                <property name="vexpand">true</property>
+                <property name="hexpand">true</property>
+
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">tabs</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="vexpand">true</property>
+                        <child>
+                          <object class="AdwTabView" id="tab_view">
+                            <property name="hexpand">true</property>
+                            <property name="vexpand">true</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="search_bar_slot">
+                            <property name="orientation">vertical</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkBox" id="statusbar">
+                            <property name="orientation">horizontal</property>
+                            <property name="spacing">12</property>
+                            <property name="margin-top">3</property>
+                            <property name="margin-bottom">3</property>
+                            <property name="margin-start">8</property>
+                            <property name="margin-end">8</property>
+                            <style><class name="statusbar"/></style>
+                            <child>
+                              <object class="GtkLabel" id="status_position">
+                                <property name="xalign">0</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="status_filler">
+                                <property name="hexpand">true</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="status_lang">
+                                <property name="xalign">1</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkStackPage">
+                    <property name="name">empty</property>
+                    <property name="child">
+                      <object class="AdwStatusPage" id="empty_state">
+                        <property name="icon-name">document-edit-symbolic</property>
+                        <property name="title" translatable="yes">Open a Document</property>
+                        <property name="description" translatable="yes">Create a new document (Ctrl+N), or open an existing one (Ctrl+O).</property>
+                        <property name="child">
+                          <object class="GtkBox">
+                            <property name="orientation">horizontal</property>
+                            <property name="spacing">12</property>
+                            <property name="halign">center</property>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="action-name">win.new-tab</property>
+                                <property name="label" translatable="yes">_New File</property>
+                                <property name="use-underline">true</property>
+                                <style>
+                                  <class name="suggested-action"/>
+                                  <class name="pill"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton">
+                                <property name="action-name">win.open</property>
+                                <property name="label" translatable="yes">_Open File…</property>
+                                <property name="use-underline">true</property>
+                                <style>
+                                  <class name="pill"/>
+                                </style>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

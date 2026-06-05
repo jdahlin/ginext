@@ -1,0 +1,431 @@
+[project]
+name = "ginext"
+version = "0.0.1"
+description = "Fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+gio = [
+    "ginext-gio>=0.0.1",
+]
+gtk = [
+    "ginext-gtk>=0.0.1",
+]
+gst = [
+    "ginext-gst>=0.0.1",
+]
+libsoup = [
+    "ginext-libsoup>=0.0.1",
+]
+dev = [
+    "pytest>=8",
+    "pytest-xdist>=3",
+]
+# Real-app integration: Drawing (apps/drawing-run) needs pycairo. Kept
+# optional so a clean checkout doesn't pull cairo headers unless the
+# user is going to run `make drawing`.
+apps = [
+    "numpy>=2",
+    "pycairo>=1.27",
+]
+# Bench comparison: examples/draw-bench/microbench.py --backend=gi runs
+# against real PyGObject. Optional so a clean checkout doesn't compile
+# pygobject (~3 s + needs gobject-introspection-1.0 dev headers). Use
+# `uv sync --extra bench` to pull it in.
+bench = [
+    "PyGObject>=3.50",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "pymdown-extensions>=10",
+]
+
+[project.scripts]
+commander-example = "ginext._example_commander:run_app"
+commander-mypy = "ginext._example_commander:run_mypy"
+commander-compileall = "ginext._example_commander:run_compileall"
+
+[dependency-groups]
+dev = [
+    # meson-python is the build backend; keeping it (plus meson/ninja) in the
+    # venv lets uv build the ginext editable wheel without build isolation, so
+    # the meson/python paths baked into build/cp314t/build.ninja stay valid
+    # across runs (an isolated build bakes an ephemeral temp path that breaks
+    # the import-time rebuild — see no-build-isolation-package below).
+    "meson-python>=0.16",
+    "meson>=1.0",
+    "ninja>=1.10",
+    "setuptools>=80",
+    "pytest>=8",
+    "pytest-xdist>=3",
+    "mypy>=1.15",
+    "ginext-gio",
+    "ginext-gtk",
+    "ginext-gst",
+    "ginext-libsoup",
+    "ginext-gi-compat",
+    "ginext-stubgen",
+    "ruff>=0.15.12",
+    "tox>=4.53.1",
+    "tox-uv>=1",
+    "pre-commit>=4.6.0",
+    # PEP 561 stub package for the invoked GI namespaces (Gtk, Gio, ...). Installed
+    # so `from ginext import Gio` type-checks against real generated types instead
+    # of the dynamic Namespace fallback — including inside ginext's own tests.
+    # ginext's own library API stays inline-typed (src/ginext/*.pyi).
+    "ginext-stubs",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+# Build the ginext editable wheel against the persistent venv (not an
+# ephemeral isolated build env) so its meson-python rebuild hook keeps working
+# when imported from any workspace member (e.g. `uv run pytest packages/...`).
+no-build-isolation-package = ["ginext"]
+
+[tool.uv.workspace]
+members = [
+    "packages/ginext-gio",
+    "packages/ginext-gtk",
+    "packages/ginext-gst",
+    "packages/ginext-libsoup",
+    "packages/ginext-gi-compat",
+    "packages/ginext-stubgen",
+    "examples/commander",
+]
+
+[tool.uv.sources]
+ginext = { workspace = true }
+ginext-gio = { workspace = true }
+ginext-gtk = { workspace = true }
+ginext-gst = { workspace = true }
+ginext-libsoup = { workspace = true }
+ginext-gi-compat = { workspace = true }
+ginext-stubgen = { workspace = true }
+commander = { workspace = true }
+# Non-editable path install so the stub-only `ginext-stubs/` dir lands in
+# site-packages where mypy's PEP 561 stub discovery finds it.
+ginext-stubs = { path = "packages/ginext-stubs" }
+
+[tool.ty.src]
+exclude = [
+    ".claude/**",
+    "examples/**",
+    "packages/ginext-gi-compat/tests/pygobject/**",
+    "packages/ginext-gio/src/ginext_gio/_overlays/**",
+    "packages/ginext-gtk/src/ginext_gtk/_overlays/**",
+]
+
+[tool.ty.environment]
+extra-paths = ["stubs"]
+
+[tool.ty.rules]
+deprecated = "ignore"
+
+[tool.mypy]
+mypy_path = [
+    "stubs",
+    "src",
+    "packages/ginext-gi-compat/src",
+    "packages/ginext-gio/src",
+    "packages/ginext-gtk/src",
+    "packages/ginext-gst/src",
+    "packages/ginext-libsoup/src",
+    "packages/ginext-stubgen/src",
+]
+plugins = ["src/ginext/mypy_plugin.py"]
+ignore_missing_imports = false
+explicit_package_bases = true
+namespace_packages = true
+# Forbid explicit `Any` in annotations. Adopted incrementally: files that still
+# contain residual Any carry a `# mypy: disable-error-code="explicit-any"` header
+# (see the Ratchet comment in each). Remove that header as a file is cleaned.
+disallow_any_explicit = true
+exclude = [
+    "^examples/",
+    "^apps/",
+    # compat (gi.repository / pygobject layer): excluded from strict checking
+    # for now — tracked separately.
+    "^packages/ginext-gi-compat/",
+    # conftest modules collide across packages (same module name) and are test
+    # fixtures, not shipped surface.
+    "/conftest\\.py$",
+    # mypy 2.1.0 crashes with INTERNAL ERROR (AssertionError) on this file — mypy bug
+    "^packages/ginext-gtk/src/ginext_gtk/_overlays/Gtk\\.py$",
+    # Dead script: imports goi.tests.gir_coverage which was deleted; the stub
+    # lives in stubs/ (gitignored) so it resolves locally but not in CI.
+    "^scripts/check_gir_test_coverage\\.py$",
+    # gst plugin test uses dynamic module attributes (module.PLUGIN = ...) which
+    # mypy rejects; ruff B010 prevents the setattr() workaround.
+    "^packages/ginext-gst/tests/plugins/test_plugin_registration\\.py$",
+    # These test files import `goi` (old package name). stubs/goi/ resolves it
+    # locally but stubs/ is gitignored so it's absent in CI.
+    "^src/ginext/tests/enum/test_enum_methods\\.py$",
+    "^src/ginext/tests/cairo/test_foreign_backlog\\.py$",
+    # These files have type: ignore comments that become unused when gi stubs
+    # are absent (gi.* resolves to Any). Exclude rather than chase Any cascades.
+    "^src/ginext/tests/features/test_feature_flags\\.py$",
+    "^src/ginext/tests/namespace/test_lazy_namespace_jit\\.py$",
+    "^packages/ginext-gtk/tests/gtk4/test_custom_sorter_compat\\.py$",
+]
+
+[[tool.mypy.overrides]]
+# ginext_gio.aio and ginext_gio.classbuild are relative imports inside the
+# ginext-gio package. The error code flips between import-not-found (editable
+# install absent) and import-untyped (installed but no py.typed). Suppress both.
+module = ["ginext_gio._overlays.Gio"]
+disable_error_code = ["import-not-found", "import-untyped"]
+
+[[tool.mypy.overrides]]
+# gi-compat (gi.repository) is not strict-clean and its stubs live in stubs/
+# (gitignored). Without stubs/ mypy falls back to the gi-compat source files
+# and reports hundreds of errors. Suppress them — tracked separately.
+module = ["gi", "gi.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# gtk3_builder calls gi._gtktemplate._extract_handler_and_args which is untyped
+# when gi stubs are absent (gi resolves to Any in CI). GTK3 is compat-only.
+module = ["ginext_gtk._overlays.gtk3_builder"]
+disable_error_code = ["no-untyped-call"]
+
+[[tool.mypy.overrides]]
+# src/ginext/GObject.pyi inherits from gi.repository.GObject.Object. When
+# gi.repository is suppressed (no stubs in CI), _CompatGObject becomes Any and
+# the inheritance / attr-defined / unused-ignore errors fire. Suppress them here
+# since the same file passes cleanly with real gi stubs (locally).
+module = ["ginext.GObject"]
+disable_error_code = ["misc", "attr-defined", "name-defined", "unused-ignore", "override", "assignment"]
+
+[tool.ruff]
+extend-exclude = [
+    "examples",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "A",  # flake8-builtins: builtin-variable-shadowing family.
+    "BLE001",  # flake8-blind-except: blind-except.
+    "E722",  # pycodestyle: bare-except.
+    "TID251",  # flake8-tidy-imports: banned-api.
+    "SLF",  # flake8-self: private-member-access family.
+    "SIM",  # flake8-simplify: simplification family.
+    "B009",  # flake8-bugbear: get-attr-with-constant.
+    "B010",  # flake8-bugbear: set-attr-with-constant.
+    "B028",  # flake8-bugbear: no-explicit-stacklevel.
+    "B904",  # flake8-bugbear: raise-without-from-inside-except.
+    "PGH",  # pygrep-hooks: pygrep-hooks family.
+    "RUF100",  # Ruff-specific: unused-noqa.
+    "C416",  # flake8-comprehensions: unnecessary-comprehension.
+    "PIE810",  # flake8-pie: multiple-starts-ends-with.
+    "RET502",  # flake8-return: implicit-return-value.
+    "TC001",  # flake8-type-checking: typing-only-first-party-import.
+    "TC003",  # flake8-type-checking: typing-only-standard-library-import.
+    "TC006",  # flake8-type-checking: runtime-cast-value.
+    "PTH108",  # flake8-use-pathlib: os-unlink.
+    "PTH110",  # flake8-use-pathlib: os-path-exists.
+    "PTH123",  # flake8-use-pathlib: builtin-open.
+]
+ignore = [
+    "SIM105",  # Explicit narrow except/pass is fine; BLE001/E722 still catch broad catches.
+]
+
+[tool.ruff.lint.flake8-builtins]
+ignorelist = ["IOError", "Warning"]
+
+[tool.ruff.lint.flake8-self]
+ignore-names = [
+    "_arg_types",
+    "_asdict",
+    "_classes_by_gtype",
+    "_class_struct_name",
+    "_class_from_namespace_profile",
+    "_compat_accu_data",
+    "_compat_accumulator",
+    "_compat_arg_types",
+    "_compat_connections",
+    "_compat_flags",
+    "_compat_forget_connection",
+    "_compat_return_type",
+    "_deprecations",
+    "_dispatching",
+    "_extract_handler_and_args",
+    "_field_defaults",
+    "_fields",
+    "_from_gobject_pointer",
+    "_getframe",
+    "_ginext_display_available",
+    "_is_imported",
+    "_gobject_name",
+    "_gobject_ptr",
+    "_load_namespace",
+    "_make",
+    "_module_owner",
+    "_name_",
+    "_namespace",
+    "_profile",
+    "_pygobject_compat_args",
+    "_pygobject_compat_constructor",
+    "_pygobject_compat_shape",
+    "_pygobject_compat_sorter",
+    "_pygobject_template_init_hook",
+    "_record_builder",
+    "_register",
+    "_replace",
+    "_signal_arg_count",
+    "_signal_id",
+    "_value_",
+    "_version",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"stubs/**/*.pyi" = ["A002", "E501", "F401"]
+"scripts/*.py" = ["BLE001"]
+"src/ginext/_aioloop.py" = ["SLF001"]
+"src/ginext/aio.py" = ["BLE001", "F822", "SLF001"]
+"src/ginext/gobject.py" = ["SLF001"]
+"src/ginext/namespace.py" = ["SLF001"]
+"src/ginext/_overlays/GIRepository.py" = ["F811"]
+"src/ginext/overlay/callbacks.py" = ["SIM105"]
+"src/ginext/tests/**/*.py" = ["SLF001"]
+"src/ginext/tests/boxed/test_boxed_field_array.py" = ["E402"]
+"src/ginext/tests/cairo/test_foreign_backlog.py" = ["E402"]
+"src/ginext/tests/enum/test_enum_methods.py" = ["E402"]
+"src/ginext/tests/gobject/test_GObject_Object.py" = ["E402"]
+"src/ginext/tests/gobject/test_GObject_Object_vfunc.py" = ["E402"]
+"src/ginext/tests/gobject/test_object_lifecycle.py" = ["E402"]
+"src/ginext/tests/signal/test_GObject_Object_gsignals.py" = ["E402"]
+"src/ginext/tests/signal/test_GObject_Object_signal.py" = ["E402"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"ctypes".msg = "ctypes is banned; call introspection api"
+
+[tool.pytest.ini_options]
+# `--dist=loadgroup` honors @pytest.mark.xdist_group("X").
+# `-m "not gtk3"` excludes only the Gtk-3 tests so a default run never loads
+# Gtk 3 alongside the default Gtk 4 (the two majors can't share a process);
+# everything else — ginext core, gio, gi-compat, and Gtk 4 — still runs. Run
+# the Gtk 3 suite explicitly via `make test` (or `GINEXT_VERSIONS=Gtk:3.0
+# pytest -m gtk3`). The previous `-m gtk4` default silently deselected every
+# non-Gtk test (e.g. `pytest src/ginext/` collected nothing).
+# --import-mode=importlib keeps in-package test trees (src/goi/tests,
+# src/ginext/tests) from colliding with the installed packages of the
+# same name (otherwise pytest would try to resolve conftests as
+# goi.tests.conftest / ginext.tests.conftest and fail).
+addopts = "-p no:benchmark --dist=loadgroup --import-mode=importlib -m 'not gtk3'"
+faulthandler_timeout = 30
+testpaths = [
+    "src/ginext/tests",
+    "packages/ginext-gio/tests",
+    "packages/ginext-gtk/tests",
+    "packages/ginext-gi-compat/tests",
+    "packages/ginext-gst/tests",
+    "packages/ginext-libsoup/tests",
+    "packages/ginext-stubgen/tests",
+]
+markers = [
+    "gtk3: test imports or initializes Gtk/Gdk 3",
+    "gtk4: test imports or initializes Gtk/Gdk 4",
+    "subprocess(timeout=30): rerun the test body in a fresh pytest subprocess",
+]
+# Some tests reach into top-level helpers (tools.*, examples.*) at the
+# repo root, so the root needs to be on sys.path.
+pythonpath = [
+    ".",
+    "packages/ginext-gio/src",
+    "packages/ginext-gtk/src",
+    "packages/ginext-gtk/tests",
+    "packages/ginext-gst/src",
+    "packages/ginext-libsoup/src",
+    "packages/ginext-gi-compat/src",
+    "packages/ginext-stubgen/src",
+]
+filterwarnings = [
+    "ignore:'asyncio\\.get_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:'asyncio\\.set_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:.* positional/keyword construction is deprecated:DeprecationWarning",
+]
+
+[tool.tox]
+env_list = ["py313", "py314", "py314d", "py314t-gil", "py314t-nogil", "py315", "py315t-gil", "py315t-nogil"]
+labels = { release = ["py313", "py314", "py314d", "py314t-gil", "py314t-nogil", "py315", "py315t-gil", "py315t-nogil", "release-build", "asan", "ubsan"] }
+
+[tool.tox.env_run_base]
+runner = "uv-venv-runner"
+skip_install = true
+uv_python_preference = "managed"
+allowlist_externals = ["make"]
+pass_env = ["GOI_GI_TESTS_BUILDDIR"]
+commands = [["make", "test", "PYTHON={env_python}", "PYTHON_ENV_NAME={env_name}", "PYGIR_TEST_PYTHON_GIL={env:PYGIR_TEST_PYTHON_GIL:}", "PYTEST_ARGS={posargs}"]]
+
+[tool.tox.env.py313]
+base_python = "python3.13"
+
+[tool.tox.env.py313.set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+
+[tool.tox.env.py314]
+base_python = "python3.14"
+
+[tool.tox.env.py314.set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+
+[tool.tox.env.py314d]
+base_python = "python3.14d"
+
+[tool.tox.env.py314d.set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+
+[tool.tox.env."py314t-gil"]
+base_python = "python3.14t"
+
+[tool.tox.env."py314t-gil".set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+PYGIR_TEST_PYTHON_GIL = "1"
+
+[tool.tox.env."py314t-nogil"]
+base_python = "python3.14t"
+
+[tool.tox.env."py314t-nogil".set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+PYGIR_TEST_PYTHON_GIL = "0"
+
+[tool.tox.env.py315]
+base_python = "python3.15"
+
+[tool.tox.env.py315.set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+
+[tool.tox.env."py315t-gil"]
+base_python = "python3.15t"
+
+[tool.tox.env."py315t-gil".set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+PYGIR_TEST_PYTHON_GIL = "1"
+
+[tool.tox.env."py315t-nogil"]
+base_python = "python3.15t"
+
+[tool.tox.env."py315t-nogil".set_env]
+CFLAGS = "-Wno-error=stringop-overflow -Wno-stringop-overflow"
+PYGIR_TEST_PYTHON_GIL = "0"
+
+[tool.tox.env.release-build]
+base_python = "python3.14"
+commands = [["make", "release", "PYTHON={env_python}", "PYTHON_ENV_NAME={env_name}"]]
+
+[tool.tox.env.asan]
+base_python = "python3.14d"
+commands = [["make", "test-asan", "PYTEST_ARGS={posargs:src/ginext/tests/}"]]
+
+[tool.tox.env.ubsan]
+base_python = "python3.14d"
+commands = [["make", "test-ubsan", "PYTEST_ARGS={posargs:src/ginext/tests/}"]]
+
+[build-system]
+requires = [
+    "meson-python>=0.16",
+]
+build-backend = "mesonpy"

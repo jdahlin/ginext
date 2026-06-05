@@ -1,0 +1,38 @@
+.commander-toolbar {
+  min-height: 27px;
+  padding: 1px 2px;
+  border-bottom: 1px solid #b8b8b8;
+  background: #efefef;
+}
+
+.toolbar-button {
+  min-width: 23px;
+  min-height: 23px;
+  padding: 1px;
+  margin: 0 1px 0 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  background-image: none;
+  outline: none;
+}
+
+.toolbar-button:hover {
+  background: #dbeeff;
+  box-shadow: none;
+}
+
+.toolbar-button:active {
+  background: #c7e2f8;
+  box-shadow: none;
+}
+
+.toolbar-button:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.toolbar-spacer {
+  min-width: 5px;
+}

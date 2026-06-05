@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <object class="GtkStringList" id="palette_model"/>
+  <object class="GtkStringList" id="cursor_shape_model"/>
+
+  <template class="TerminalPreferences" parent="AdwPreferencesWindow">
+    <property name="title" translatable="yes">Preferences</property>
+    <property name="modal">true</property>
+    <property name="search-enabled">true</property>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Appearance</property>
+        <property name="icon-name">applications-graphics-symbolic</property>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Font</property>
+            <child>
+              <object class="AdwSwitchRow" id="use_system_font_row">
+                <property name="title" translatable="yes">Use System Monospace Font</property>
+                <property name="subtitle" translatable="yes">When enabled, the system's default monospace font is used.</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="font_row">
+                <property name="title" translatable="yes">Terminal Font</property>
+                <property name="subtitle" translatable="yes">Pick a font for the terminal.</property>
+                <property name="activatable-widget">font_button</property>
+                <child type="suffix">
+                  <object class="GtkFontDialogButton" id="font_button">
+                    <property name="valign">center</property>
+                    <property name="dialog">
+                      <object class="GtkFontDialog">
+                        <property name="title" translatable="yes">Terminal Font</property>
+                        <property name="modal">true</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Colors</property>
+            <child>
+              <object class="AdwComboRow" id="palette_row">
+                <property name="title" translatable="yes">Color Palette</property>
+                <property name="subtitle" translatable="yes">Built-in palette used for foreground, background and ANSI colors.</property>
+                <property name="model">palette_model</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="opacity_row">
+                <property name="title" translatable="yes">Background Opacity</property>
+                <property name="subtitle" translatable="yes">Lower values let the desktop show through.</property>
+                <child type="suffix">
+                  <object class="GtkScale" id="opacity_scale">
+                    <property name="valign">center</property>
+                    <property name="hexpand">true</property>
+                    <property name="width-request">200</property>
+                    <property name="draw-value">true</property>
+                    <property name="value-pos">right</property>
+                    <property name="digits">0</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">10</property>
+                        <property name="upper">100</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">10</property>
+                        <property name="value">100</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Cursor</property>
+            <child>
+              <object class="AdwComboRow" id="cursor_shape_row">
+                <property name="title" translatable="yes">Cursor Shape</property>
+                <property name="model">cursor_shape_model</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="allow_bold_row">
+                <property name="title" translatable="yes">Allow Bold Text</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Behavior</property>
+        <property name="icon-name">applications-system-symbolic</property>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Scrolling</property>
+            <child>
+              <object class="AdwSpinRow" id="scrollback_row">
+                <property name="title" translatable="yes">Scrollback Lines</property>
+                <property name="subtitle" translatable="yes">Use -1 for unlimited scrollback.</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">-1</property>
+                    <property name="upper">1000000</property>
+                    <property name="step-increment">1000</property>
+                    <property name="page-increment">10000</property>
+                    <property name="value">10000</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="scroll_on_output_row">
+                <property name="title" translatable="yes">Scroll on Output</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="scroll_on_keystroke_row">
+                <property name="title" translatable="yes">Scroll on Keystroke</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Sound</property>
+            <child>
+              <object class="AdwSwitchRow" id="audible_bell_row">
+                <property name="title" translatable="yes">Audible Bell</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

@@ -1,0 +1,32 @@
+using Gtk 4.0;
+
+template $PygirPlaygroundTemplateRow : Gtk.ListBoxRow {
+  activatable: true;
+  selectable: false;
+
+  Gtk.Box {
+    orientation: vertical;
+    spacing: 4;
+    margin-top: 10;
+    margin-bottom: 10;
+    margin-start: 12;
+    margin-end: 12;
+
+    Gtk.Label title_label {
+      xalign: 0;
+      styles ["heading"]
+    }
+
+    Gtk.Label summary_label {
+      xalign: 0;
+      wrap: true;
+      styles ["dim-label"]
+    }
+
+    Gtk.Label tech_label {
+      xalign: 0;
+      ellipsize: end;
+      styles ["caption", "dim-label"]
+    }
+  }
+}

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <template class="TerminalWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">Terminal</property>
+    <property name="default-width">900</property>
+    <property name="default-height">600</property>
+    <property name="content">
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <property name="child">
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="AdwHeaderBar" id="header_bar">
+                <property name="title-widget">
+                  <object class="GtkLabel" id="title_label">
+                    <property name="label" translatable="yes">Terminal</property>
+                    <property name="single-line-mode">true</property>
+                    <property name="ellipsize">end</property>
+                    <style><class name="title"/></style>
+                  </object>
+                </property>
+                <child type="end">
+                  <object class="GtkMenuButton" id="primary_menu_button">
+                    <property name="icon-name">open-menu-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Main Menu</property>
+                    <property name="primary">true</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkButton" id="new_tab_button">
+                    <property name="action-name">win.new-tab</property>
+                    <property name="icon-name">tab-new-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">New Tab (Ctrl+Shift+T)</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+
+            <child>
+              <object class="AdwTabBar" id="tab_bar">
+                <property name="view">tab_view</property>
+                <property name="autohide">true</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="AdwTabView" id="tab_view">
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

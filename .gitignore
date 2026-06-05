@@ -1,0 +1,48 @@
+.agents
+.codex
+history
+apps
+.vscode
+.idea/
+build/
+build-*/
+venv*/
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.so
+*.egg-info/
+dist/
+wheelhouse/
+stubs/
+# Generated stub files — run `make stubs` or `uv run python -m ginext_stubgen install`
+packages/ginext-stubs/ginext-stubs/*.pyi
+packages/ginext-stubs/.stub-generated.stamp
+# mypy incremental cache (per-package dirs; see ci/run-mypy.sh)
+.mypy_cache/
+**/.mypy_cache/
+memory/
+pygobject
+!src/ginext/tests/pygobject/
+!src/ginext/tests/pygobject/**
+src/ginext/tests/pygobject/.ruff_cache/
+src/ginext/tests/pygobject/__pycache__/
+!packages/ginext-gi-compat/tests/pygobject/
+!packages/ginext-gi-compat/tests/pygobject/**
+packages/ginext-gi-compat/tests/pygobject/__pycache__/
+tags
+# Editor / IDE local state
+.obsidian/
+core.*
+src/gitlab-agent-bot/.env
+src/gitlab-agent-bot/.venv/
+src/gitlab-agent-bot/.ruff_cache/
+src/gitlab-agent-bot/work/
+# Third-party apps used as integration smoke tests (Drawing etc.) —
+# checked out locally for `make drawing` / `make showtime`, not vendored.
+# pyedit is our own showcase and IS tracked.
+/apps/drawing/
+/apps/drawing-run/
+/apps/gnome-text-editor/
+/apps/showtime/

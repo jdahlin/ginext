@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <template class="CommanderPreferencesDialog" parent="AdwPreferencesDialog">
+    <property name="title" translatable="yes">Preferences</property>
+    <property name="search-enabled">false</property>
+    <property name="content-width">560</property>
+    <property name="content-height">360</property>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">General</property>
+        <property name="icon-name">preferences-system-symbolic</property>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Appearance</property>
+            <property name="description" translatable="yes">Tune how compact the commander shell feels.</property>
+
+            <child>
+              <object class="AdwActionRow" id="style_row">
+                <property name="title" translatable="yes">Style</property>
+                <property name="subtitle" translatable="yes">Balanced</property>
+                <property name="activatable-widget">style_scale</property>
+                <child type="suffix">
+                  <object class="GtkScale" id="style_scale">
+                    <property name="orientation">horizontal</property>
+                    <property name="valign">center</property>
+                    <property name="hexpand">true</property>
+                    <property name="width-request">240</property>
+                    <property name="draw-value">false</property>
+                    <property name="digits">0</property>
+                    <property name="round-digits">0</property>
+                    <property name="has-origin">false</property>
+                    <property name="adjustment">
+                      <object class="GtkAdjustment">
+                        <property name="lower">0</property>
+                        <property name="upper">4</property>
+                        <property name="step-increment">1</property>
+                        <property name="page-increment">1</property>
+                        <property name="value">2</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

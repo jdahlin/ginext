@@ -1,0 +1,52 @@
+# Native-mode-only stub overlays.
+#
+# These describe the public `from ginext import <Namespace>` surface (the
+# ginext-stubs package). They do not affect the `gi.repository` compat stubs.
+#
+# Architecture goal: this file should contain ONLY item_type generics metadata
+# (no class bodies) once all Python-implemented types have inline .pyi files
+# in src/ginext/ and the overlay harvester covers the overlay Python files.
+# The GObject Signal/Property stubs below are temporary until inline .pyi files
+# exist for src/ginext/signal/ and src/ginext/gobject/properties.py.
+
+[ns."GObject"]
+prelude = '''
+from enum import IntEnum, IntFlag
+
+class GEnum(IntEnum):
+    """Base class for Python-defined GObject enum types (pending implementation)."""
+    __gtype__: "ClassVar[Type]"
+
+class GFlags(IntFlag):
+    """Base class for Python-defined GObject flags types (pending implementation)."""
+    __gtype__: "ClassVar[Type]"
+
+class SignalDescriptor:
+    """Descriptor for defining a GObject signal on a Python subclass.
+
+    Use this as a class attribute in GObject subclasses::
+
+        class MyObj(GObject.Object):
+            my_signal: SignalDescriptor = SignalDescriptor(return_type=None)
+    """
+    def __init__(self, name: str = ..., *args: Any, **kwargs: Any) -> None: ...
+    def __get__(self, instance: Any, owner: Any = ...) -> Any: ...
+    def __set_name__(self, owner: Any, name: str) -> None: ...
+    def connect(self, obj: Any, handler: Callable[..., Any], *args: Any) -> int: ...
+    def emit(self, obj: Any, *args: Any) -> Any: ...
+
+class Property:
+    """Descriptor for defining a typed GObject property on a Python subclass."""
+    def __init__(self, type: Any = ..., default: Any = ..., **kwargs: Any) -> None: ...
+    def __get__(self, instance: Any, owner: Any = ...) -> Any: ...
+    def __set__(self, instance: Any, value: Any) -> None: ...
+    def __set_name__(self, owner: Any, name: str) -> None: ...
+    def getter(self, fget: Callable[..., Any]) -> Property: ...
+    def setter(self, fset: Callable[..., Any]) -> Property: ...
+'''
+
+[ns."GObject".classes."SignalDescriptor"]
+reserves = ["SignalDescriptor"]
+
+[ns."GObject".classes."Property"]
+reserves = ["Property"]

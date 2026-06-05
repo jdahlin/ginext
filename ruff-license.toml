@@ -1,0 +1,29 @@
+# Isolated config for the license-header check. Kept separate from
+# pyproject.toml because flake8-copyright (CPY) is a ruff preview rule;
+# enabling `preview` here avoids turning on unstable preview behavior for
+# the main lint run. Run via the `ruff-license` pre-commit hook.
+preview = true
+force-exclude = true
+# License headers are only enforced under src/ginext (vendored pygobject
+# copies under tests/pygobject are exempt).
+extend-exclude = ["src/ginext/tests/pygobject"]
+
+[lint]
+select = ["CPY"]
+
+[lint.flake8-copyright]
+# Require the SPDX tag followed by the complete LGPL-2.1-or-later notice.
+notice-rgx = '''# SPDX-License-Identifier: LGPL-2\.1-or-later
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2\.1 of the License, or \(at your option\) any later version\.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE\.  See the GNU
+# Lesser General Public License for more details\.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, see <http://www\.gnu\.org/licenses/>\.'''

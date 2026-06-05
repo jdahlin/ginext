@@ -1,0 +1,13 @@
+option(
+  'build_gi_tests',
+  type : 'boolean',
+  value : false,
+  description : 'Build the vendored gobject-introspection-tests sources (Regress, GIMarshallingTests, ...). Required for tests/test_gi_conformance.py.',
+)
+
+option(
+  'ginext_sanitize',
+  type : 'string',
+  value : '',
+  description : 'Sanitizers (e.g. address, undefined) applied to the ginext extension only, leaving the introspection-scanned test typelibs uninstrumented. Use instead of the global b_sanitize where the g-ir-scanner link cannot find the sanitizer runtime (macOS).',
+)

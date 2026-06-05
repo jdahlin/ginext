@@ -1,0 +1,211 @@
+.commander-pane {
+  min-width: 280px;
+  background: @view_bg_color;
+  border-right: 1px solid alpha(@window_fg_color, 0.12);
+}
+
+.commander-pane:last-child {
+  border-right: 0;
+}
+
+.pane-header,
+.path-row {
+  min-height: 26px;
+  padding: 0 4px;
+  background: alpha(@headerbar_bg_color, 0.72);
+  border-bottom: 1px solid alpha(@window_fg_color, 0.08);
+}
+
+.pane-header-icon {
+  margin: 0;
+  padding: 0;
+}
+
+.active-pane .path-row entry {
+  background: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+.tiny-command {
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.location-switcher {
+  min-height: 24px;
+  min-width: 110px;
+  padding: 0;
+}
+
+.location-switcher button {
+  min-height: 24px;
+  padding: 0 4px;
+}
+
+.free-label {
+  font-weight: 700;
+}
+
+.path-row entry {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font: 11px "JetBrains Mono", "Liberation Mono", monospace;
+}
+
+.file-scroller {
+  padding: 0;
+  margin: 0;
+}
+
+.file-view {
+  background: @view_bg_color;
+  color: @view_fg_color;
+  font: 11px "Cantarell", "Inter", sans-serif;
+  font-weight: 500;
+  padding: 0;
+  margin: 0;
+}
+
+.file-view header button {
+  min-height: 24px;
+  padding: 0 6px;
+  font-weight: 700;
+  background: alpha(@headerbar_bg_color, 0.6);
+  border-bottom: 1px solid alpha(@window_fg_color, 0.08);
+}
+
+.file-view row {
+  min-height: 22px;
+  padding: 0;
+  margin: 0;
+}
+
+.file-view cell {
+  padding: 0;
+  margin: 0;
+}
+
+.file-view row:selected {
+  background: alpha(@accent_bg_color, 0.14);
+  color: @view_fg_color;
+}
+
+.active-pane .file-view row:selected {
+  background: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+.name-cell,
+.text-cell,
+.size-cell {
+  min-height: 22px;
+  padding: 0 4px;
+}
+
+.size-cell {
+  padding-right: 6px;
+}
+
+.pane-status {
+  min-height: 24px;
+  padding: 0 8px;
+  border-top: 1px solid alpha(@window_fg_color, 0.08);
+  background: alpha(@headerbar_bg_color, 0.48);
+  font-weight: 700;
+}
+
+.style-level-0 .pane-header,
+.style-level-0 .path-row,
+.style-level-0 .file-view header button,
+.style-level-0 .pane-status {
+  min-height: 18px;
+}
+
+.style-level-0 .tiny-command,
+.style-level-0 .location-switcher,
+.style-level-0 .location-switcher button,
+.style-level-0 .path-row entry {
+  min-height: 17px;
+}
+
+.style-level-0 .file-view row,
+.style-level-0 .name-cell,
+.style-level-0 .text-cell,
+.style-level-0 .size-cell {
+  min-height: 16px;
+}
+
+.style-level-0 .path-row entry {
+  padding: 0 3px;
+  border-radius: 4px;
+}
+
+.style-level-1 .pane-header,
+.style-level-1 .path-row,
+.style-level-1 .file-view header button,
+.style-level-1 .pane-status {
+  min-height: 21px;
+}
+
+.style-level-1 .tiny-command,
+.style-level-1 .location-switcher,
+.style-level-1 .location-switcher button,
+.style-level-1 .path-row entry {
+  min-height: 20px;
+}
+
+.style-level-1 .file-view row,
+.style-level-1 .name-cell,
+.style-level-1 .text-cell,
+.style-level-1 .size-cell {
+  min-height: 18px;
+}
+
+.style-level-1 .path-row entry {
+  padding: 0 4px;
+  border-radius: 6px;
+}
+
+.style-level-3 .pane-header,
+.style-level-3 .path-row,
+.style-level-3 .file-view header button,
+.style-level-3 .pane-status {
+  min-height: 28px;
+}
+
+.style-level-3 .tiny-command,
+.style-level-3 .location-switcher,
+.style-level-3 .location-switcher button,
+.style-level-3 .path-row entry {
+  min-height: 26px;
+}
+
+.style-level-3 .file-view row,
+.style-level-3 .name-cell,
+.style-level-3 .text-cell,
+.style-level-3 .size-cell {
+  min-height: 24px;
+}
+
+.style-level-4 .pane-header,
+.style-level-4 .path-row,
+.style-level-4 .file-view header button,
+.style-level-4 .pane-status {
+  min-height: 30px;
+}
+
+.style-level-4 .tiny-command,
+.style-level-4 .location-switcher,
+.style-level-4 .location-switcher button,
+.style-level-4 .path-row entry {
+  min-height: 28px;
+}
+
+.style-level-4 .file-view row,
+.style-level-4 .name-cell,
+.style-level-4 .text-cell,
+.style-level-4 .size-cell {
+  min-height: 26px;
+}

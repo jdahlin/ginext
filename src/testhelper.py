@@ -1,0 +1,70 @@
+# Copyright 2026 Johan Dahlin
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, see <http://www.gnu.org/licenses/>.
+
+from __future__ import annotations
+
+from gi.repository import GObject
+
+
+def value_array_get_nth_type(value_or_array: object, index: int) -> int:
+    from ginext import private
+
+    temp = None
+    if isinstance(value_or_array, GObject.Value):
+        holder: GObject.Value = value_or_array
+    else:
+        temp = GObject.Value(GObject.ValueArray, value_or_array)
+        holder = temp
+    return int(private.gvalue_array_get_nth_type(holder, index))
+
+
+def connectcallbacks(obj: GObject.Object) -> None:
+    """Partial Python replacement for PyGObject's test helper extension."""
+    obj.connect("test1", lambda source, data: None, "user-data")
+    obj.connect("test2", lambda source, value: None)
+    obj.connect("test3", lambda source, value: 20)
+    obj.connect("test4", lambda source, *args: None)
+    obj.connect("test-float", lambda source, value: value)
+    obj.connect("test-double", lambda source, value: value)
+    obj.connect(
+        "test-int64",
+        lambda source, value: value - 1 if value == 9223372036854775807 else value,
+    )
+    obj.connect("test-string", lambda source, value: value)
+    obj.connect("test-object", lambda source, value: value)
+    obj.connect(
+        "test-paramspec",
+        lambda source: GObject.param_spec_boolean(
+            "test-param", "test", "test boolean", True, GObject.ParamFlags.READABLE
+        ),
+    )
+    obj.connect("test-paramspec-in", lambda source, value: value)
+    obj.connect("test-gvalue", lambda source, value: value)
+    obj.connect("test-gvalue-ret", _gvalue_ret_callback)
+
+
+def _gvalue_ret_callback(source: object, value_type: object) -> object:
+    type_name = getattr(value_type, "gtype_name", None)
+    if type_name == "gint" or value_type == 24:
+        return 2**31 - 1
+    if type_name == "guint" or value_type == 28:
+        return 2**32 - 1
+    if type_name == "gint64" or value_type == 40:
+        return 2**63 - 1
+    if type_name == "guint64" or value_type == 44:
+        return 2**64 - 1
+    if type_name == "gchararray" or value_type == 64:
+        return "hello"
+    return None

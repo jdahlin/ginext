@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Simple Blocker",
+  "version": "0.1",
+  "description": "Tiny built-in content-filter example for the goi browser.",
+  "permissions": [],
+  "browser_specific_settings": {
+    "goi": {
+      "content_filters": [
+        "content-filters/privacy.json"
+      ]
+    }
+  }
+}

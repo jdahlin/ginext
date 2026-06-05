@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="GtkSource" version="5.0"/>
+  <template class="PyeditPage" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <child>
+      <object class="GtkBox" id="content_box">
+        <property name="orientation">horizontal</property>
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkScrolledWindow" id="scroller">
+            <property name="hexpand">true</property>
+            <property name="vexpand">true</property>
+            <property name="hscrollbar-policy">automatic</property>
+            <property name="vscrollbar-policy">automatic</property>
+            <property name="child">
+              <object class="GtkSourceView" id="view">
+                <property name="monospace">true</property>
+                <property name="smart-backspace">true</property>
+                <property name="smart-home-end">before</property>
+                <property name="left-margin">8</property>
+                <property name="right-margin">8</property>
+                <property name="top-margin">4</property>
+                <property name="bottom-margin">4</property>
+                <property name="show-line-numbers">true</property>
+                <property name="highlight-current-line">true</property>
+                <property name="auto-indent">true</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSourceMap" id="map">
+            <property name="view">view</property>
+            <property name="visible">false</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

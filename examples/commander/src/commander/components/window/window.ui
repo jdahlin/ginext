@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <template class="GoiCommanderWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">Commander</property>
+    <property name="default-width">1094</property>
+    <property name="default-height">803</property>
+    <property name="content">
+      <object class="AdwToolbarView" id="toolbar_view">
+        <child type="top">
+          <object class="AdwHeaderBar" id="header_bar">
+            <property name="title-widget">
+              <object class="AdwWindowTitle" id="window_title">
+                <property name="title" translatable="yes">Commander</property>
+                <property name="subtitle" translatable="yes">Balanced</property>
+              </object>
+            </property>
+            <child type="end">
+              <object class="GtkMenuButton" id="primary_menu_button">
+                <property name="icon-name">open-menu-symbolic</property>
+                <property name="tooltip-text" translatable="yes">Main Menu</property>
+                <property name="primary">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <property name="content">
+          <object class="GtkBox" id="root">
+            <property name="orientation">vertical</property>
+            <style>
+              <class name="commander-root"/>
+            </style>
+            <child>
+              <object class="GtkBox" id="panels_slot">
+                <property name="orientation">vertical</property>
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox" id="command_row">
+                <property name="orientation">vertical</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox" id="function_row">
+                <property name="orientation">vertical</property>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="WebBrowserSettings" parent="AdwPreferencesWindow">
+    <property name="title" translatable="yes">Settings</property>
+    <property name="default-width">560</property>
+    <property name="default-height">640</property>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Content</property>
+        <property name="icon-name">applications-internet-symbolic</property>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Page Features</property>
+            <child>
+              <object class="AdwSwitchRow" id="javascript_row">
+                <property name="title" translatable="yes">JavaScript</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="webgl_row">
+                <property name="title" translatable="yes">WebGL</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="webrtc_row">
+                <property name="title" translatable="yes">WebRTC</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="media_stream_row">
+                <property name="title" translatable="yes">Camera and Microphone APIs</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="media_autoplay_row">
+                <property name="title" translatable="yes">Media Autoplay</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="clipboard_access_row">
+                <property name="title" translatable="yes">JavaScript Clipboard Access</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="popup_windows_row">
+                <property name="title" translatable="yes">Scripted Pop-up Windows</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Rendering</property>
+            <child>
+              <object class="AdwSwitchRow" id="smooth_scrolling_row">
+                <property name="title" translatable="yes">Smooth Scrolling</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="tabs_to_links_row">
+                <property name="title" translatable="yes">Tab Key Focuses Links</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="print_backgrounds_row">
+                <property name="title" translatable="yes">Print Backgrounds</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Privacy</property>
+        <property name="icon-name">channel-secure-symbolic</property>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Storage and Tracking</property>
+            <child>
+              <object class="AdwSwitchRow" id="itp_row">
+                <property name="title" translatable="yes">Intelligent Tracking Prevention</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="third_party_cookies_row">
+                <property name="title" translatable="yes">Third-party Cookies</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="persistent_credentials_row">
+                <property name="title" translatable="yes">Persistent HTTP Credentials</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="dns_prefetching_row">
+                <property name="title" translatable="yes">DNS Prefetching</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="page_cache_row">
+                <property name="title" translatable="yes">Page Cache</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Developer</property>
+        <property name="icon-name">applications-engineering-symbolic</property>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Tools</property>
+            <child>
+              <object class="AdwSwitchRow" id="developer_extras_row">
+                <property name="title" translatable="yes">Web Inspector</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

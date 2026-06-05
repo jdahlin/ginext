@@ -1,0 +1,37 @@
+[project]
+name = "ginext-gi-compat"
+version = "0.0.1"
+description = "PyGObject gi compatibility layer for ginext"
+requires-python = ">=3.14"
+dependencies = [
+    "ginext>=0.0.1",
+    "ginext-gio>=0.0.1",
+    "ginext-gtk>=0.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gi"]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.per-file-ignores]
+"src/gi/_gtktemplate.py" = ["A002", "SLF001"]
+"src/gi/_ossighelper.py" = ["SLF001"]
+"src/gi/events.py" = ["SLF001"]
+"tests/**/*.py" = ["SLF001"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:benchmark --dist=loadgroup --import-mode=importlib"
+testpaths = ["tests"]
+# Repo root, so conftests can import the shared dbus_fixtures module.
+pythonpath = ["../.."]
+filterwarnings = [
+    "ignore:'asyncio\\.get_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:'asyncio\\.set_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:.* positional/keyword construction is deprecated:DeprecationWarning",
+]

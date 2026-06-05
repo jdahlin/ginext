@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GoiTemplatedWindow" parent="GtkWindow">
+    <property name="title">goi Templated Hello</property>
+    <property name="default-width">320</property>
+    <property name="default-height">120</property>
+    <child>
+      <object class="GtkBox" id="root_box">
+        <property name="orientation">vertical</property>
+        <property name="spacing">8</property>
+        <property name="margin">16</property>
+        <child>
+          <object class="GtkLabel" id="greeting">
+            <property name="label">Hello from a Gtk.Template!</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="quit_btn">
+            <property name="label">Click me to quit</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

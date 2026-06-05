@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <enum id="org.ginext.test.Fruit">
+    <value nick="apple" value="0"/>
+    <value nick="banana" value="1"/>
+    <value nick="cherry" value="2"/>
+  </enum>
+
+  <flags id="org.ginext.test.Perms">
+    <value nick="read" value="1"/>
+    <value nick="write" value="2"/>
+    <value nick="exec" value="4"/>
+  </flags>
+
+  <schema id="org.ginext.test" path="/org/ginext/test/">
+    <key name="b-val" type="b">
+      <default>true</default>
+      <summary>A boolean setting</summary>
+      <description>Used to test boolean get/set.</description>
+    </key>
+    <key name="i-val" type="i">
+      <default>42</default>
+    </key>
+    <key name="u-val" type="u">
+      <default>7</default>
+    </key>
+    <key name="x-val" type="x">
+      <default>9000000000</default>
+    </key>
+    <key name="t-val" type="t">
+      <default>9000000000</default>
+    </key>
+    <key name="d-val" type="d">
+      <default>3.14</default>
+    </key>
+    <key name="s-val" type="s">
+      <default>'hello'</default>
+    </key>
+    <key name="strv-val" type="as">
+      <default>['a','b']</default>
+    </key>
+    <key name="fruit" enum="org.ginext.test.Fruit">
+      <default>'apple'</default>
+    </key>
+    <key name="perms" flags="org.ginext.test.Perms">
+      <default>['read']</default>
+    </key>
+    <key name="ranged" type="i">
+      <range min="1" max="100"/>
+      <default>50</default>
+    </key>
+    <key name="variant-val" type="(ii)">
+      <default>(1,2)</default>
+    </key>
+    <child name="child" schema="org.ginext.test.child"/>
+  </schema>
+
+  <schema id="org.ginext.test.child" path="/org/ginext/test/child/">
+    <key name="c-val" type="s">
+      <default>'child-default'</default>
+    </key>
+  </schema>
+
+  <schema id="org.ginext.nopath">
+    <key name="np-int" type="i">
+      <default>99</default>
+    </key>
+  </schema>
+</schemalist>

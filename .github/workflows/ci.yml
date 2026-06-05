@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Mirror GitLab's `interruptible: true` — cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Build the CI image from ci/Dockerfile once and push it to GHCR so the test
+  # jobs can run inside it via `container:` (mirrors GitLab's prebuilt CI_IMAGE).
+  build-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ci
+          file: ci/Dockerfile
+          push: true
+          tags: ghcr.io/jdahlin/ginext-ci:debian-testing
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # GitLab stages `test` + `extended`: the pytest jobs. Each writes JUnit XML.
+  test:
+    needs: build-image
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jdahlin/ginext-ci:debian-testing
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [test, test-debug, test-asan, test-ubsan]
+    name: ${{ matrix.target }}
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/uv
+          key: uv-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-
+      - name: Configure pytest workers
+        # GitLab pinned PYTEST_WORKERS=8 because its runner misreported CPUs.
+        # GitHub runners report correctly, so derive it from the host.
+        run: |
+          echo "PYTEST_WORKERS=$(nproc)" >> "$GITHUB_ENV"
+          uv --version
+      - name: make ${{ matrix.target }}
+        run: make ${{ matrix.target }} PYTEST_JUNIT_DIR="reports/junit/${{ matrix.target }}"
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.target }}
+          path: reports/junit/
+          if-no-files-found: ignore
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: reports/junit/**/*.xml
+          check_name: ${{ matrix.target }} results
+          fail_on_failure: false
+
+  # GitLab `typecheck` job: separate caches (mypy + generated stubs), no JUnit.
+  typecheck:
+    needs: build-image
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/jdahlin/ginext-ci:debian-testing
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/uv
+          key: uv-${{ hashFiles('uv.lock') }}
+          restore-keys: uv-
+      # mypy incremental cache (validated by content hash; run-mypy.sh wipes a
+      # poisoned cache and retries, so cross-commit reuse is safe).
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .mypy_cache
+            examples/commander/.mypy_cache
+          key: mypy-${{ github.ref_name }}
+          restore-keys: mypy-
+      # Generated .pyi stubs + content stamp; a valid stamp lets `make stubs`
+      # skip GIR-parsing regeneration.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            packages/ginext-stubs/ginext-stubs
+            packages/ginext-stubs/.stub-generated.stamp
+          key: stubs-${{ github.ref_name }}
+          restore-keys: stubs-
+      - run: uv --version
+      - run: make typecheck

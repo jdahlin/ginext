@@ -1,0 +1,32 @@
+[project]
+name = "ginext-libsoup"
+version = "0.0.1"
+description = "Soup namespace overlay for ginext"
+requires-python = ">=3.14"
+dependencies = ["ginext>=0.0.1", "ginext-gio>=0.0.1"]
+
+[project.entry-points."ginext.overlays"]
+Soup = "ginext_libsoup:_overlays/Soup.py"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ginext_libsoup"]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+addopts = "-p no:benchmark --dist=loadgroup --import-mode=importlib"
+testpaths = ["tests"]
+pythonpath = ["../.."]
+filterwarnings = [
+    "ignore:'asyncio\\.get_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:'asyncio\\.set_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    "ignore:.* positional/keyword construction is deprecated:DeprecationWarning",
+]

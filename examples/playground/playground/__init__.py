@@ -1,0 +1,1 @@
+"""Pygir playground application prototype."""

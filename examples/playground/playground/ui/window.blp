@@ -1,0 +1,130 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PygirPlaygroundWindow : Adw.ApplicationWindow {
+  title: "Pygir Playground";
+  default-width: 1180;
+  default-height: 760;
+
+  Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      title-widget: Gtk.Label {
+        label: "Pygir Playground";
+      };
+    }
+
+    Gtk.Paned main_paned {
+      orientation: horizontal;
+      wide-handle: true;
+      position: 360;
+
+      [start]
+      Gtk.Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+        width-request: 320;
+
+        Gtk.Label {
+          label: "Gallery";
+          xalign: 0;
+          styles ["title-3"]
+        }
+
+        Gtk.SearchEntry search_entry {
+          placeholder-text: "Search templates";
+          search-changed => $on_search_changed();
+        }
+
+        Gtk.ScrolledWindow {
+          vexpand: true;
+
+          Gtk.ListBox gallery_list {
+            selection-mode: none;
+            row-activated => $on_row_activated();
+            styles ["boxed-list"]
+          }
+        }
+      }
+
+      [end]
+      Gtk.Box {
+        orientation: vertical;
+        spacing: 12;
+        margin-top: 18;
+        margin-bottom: 18;
+        margin-start: 18;
+        margin-end: 18;
+
+        Gtk.Label title_label {
+          xalign: 0;
+          styles ["title-1"]
+        }
+
+        Gtk.Label summary_label {
+          xalign: 0;
+          wrap: true;
+          styles ["dim-label"]
+        }
+
+        Gtk.Box tech_box {
+          orientation: horizontal;
+          spacing: 6;
+        }
+
+        Gtk.Frame {
+          hexpand: true;
+          vexpand: true;
+          styles ["card"]
+
+          Gtk.Box {
+            orientation: vertical;
+            spacing: 8;
+            halign: center;
+            valign: center;
+            margin-top: 36;
+            margin-bottom: 36;
+            margin-start: 36;
+            margin-end: 36;
+
+            Gtk.Label preview_title {
+              xalign: 0;
+              styles ["title-2"]
+            }
+
+            Gtk.Label preview_subtitle {
+              xalign: 0;
+              wrap: true;
+              styles ["dim-label"]
+            }
+          }
+        }
+
+        Gtk.Box {
+          orientation: horizontal;
+          spacing: 6;
+
+          Gtk.Button run_button {
+            label: "Run";
+            clicked => $on_run_clicked();
+            styles ["suggested-action"]
+          }
+
+          Gtk.Button reload_button {
+            label: "Reload";
+            clicked => $on_reload_clicked();
+          }
+
+          Gtk.Button restore_button {
+            label: "Restore";
+            clicked => $on_restore_clicked();
+          }
+        }
+      }
+    }
+  }
+}

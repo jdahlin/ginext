@@ -1,0 +1,54 @@
+.lister-root {
+  background: #fff;
+  color: #000;
+  font: 11px "Liberation Sans", "DejaVu Sans", sans-serif;
+}
+
+.lister-menu-row {
+  min-height: 22px;
+  border-bottom: 1px solid #b5b5b5;
+  background: #f7f7f7;
+}
+
+.compact-menu {
+  font: 11px "Liberation Sans", "DejaVu Sans", sans-serif;
+}
+
+.compact-menu button {
+  min-height: 18px;
+  padding: 0 5px;
+  margin: 0;
+  border-radius: 0;
+}
+
+popover.menu contents {
+  padding: 2px 0;
+  border-radius: 0;
+}
+
+popover.menu modelbutton {
+  min-height: 18px;
+  padding: 1px 16px 1px 8px;
+  font: 11px "Liberation Sans", "DejaVu Sans", sans-serif;
+}
+
+.lister-percent {
+  min-width: 44px;
+  padding: 0 8px 0 4px;
+  font-weight: 700;
+}
+
+.lister-view {
+  background: #fff;
+  color: #000;
+  font: 11px "Liberation Mono", "DejaVu Sans Mono", monospace;
+  padding: 1px 3px 0 3px;
+}
+
+.lister-status {
+  min-height: 18px;
+  padding: 0 4px;
+  border-top: 1px solid #aaa;
+  background: #f4f4f4;
+  font-weight: 700;
+}

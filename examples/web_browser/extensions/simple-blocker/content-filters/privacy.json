@@ -1,0 +1,27 @@
+[
+  {
+    "trigger": {
+      "url-filter": ".*doubleclick\\.net/.*",
+      "resource-type": [
+        "script",
+        "image",
+        "raw"
+      ]
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": ".*google-analytics\\.com/.*",
+      "resource-type": [
+        "script",
+        "raw"
+      ]
+    },
+    "action": {
+      "type": "block"
+    }
+  }
+]

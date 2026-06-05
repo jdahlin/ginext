@@ -1,0 +1,46 @@
+[project]
+name = "commander"
+version = "0.0.0"
+description = "Commander-style file manager example for ginext"
+requires-python = ">=3.14"
+dependencies = [
+    "ginext[gtk]",
+    "pycairo>=1.27",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+ginext = { workspace = true }
+ginext-stubs = { path = "../../packages/ginext-stubs" }
+
+[dependency-groups]
+dev = [
+    "ginext-stubs",
+    "mypy>=2.1.0",
+    "ruff>=0.15.12",
+]
+
+[project.scripts]
+commander = "commander.app:main"
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = [
+    "src",
+]
+plugins = ["../../src/ginext/mypy_plugin.py"]
+packages = ["commander"]
+explicit_package_bases = true
+namespace_packages = true
+show_error_codes = true
+warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

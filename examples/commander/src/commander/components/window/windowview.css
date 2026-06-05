@@ -1,0 +1,233 @@
+.commander-root {
+  background: @window_bg_color;
+  color: @window_fg_color;
+  font: 11px "Cantarell", "Inter", sans-serif;
+}
+
+.center-button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 2px;
+  margin: 0 2px;
+}
+
+.panels-row {
+  border-bottom: 1px solid alpha(@window_fg_color, 0.14);
+}
+
+.quick-view {
+  background: @view_bg_color;
+  color: @view_fg_color;
+  border-right: 1px solid alpha(@window_fg_color, 0.12);
+}
+
+.quick-view-frame {
+  background: @view_bg_color;
+}
+
+.quick-view-header {
+  min-height: 28px;
+  padding: 4px 8px;
+  background: alpha(@headerbar_bg_color, 0.8);
+  border-bottom: 1px solid alpha(@window_fg_color, 0.1);
+  font-weight: 700;
+}
+
+.quick-view-message {
+  padding: 12px;
+}
+
+.quick-view-text {
+  font: 11px "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+.quick-view-pdf {
+  background: alpha(@window_fg_color, 0.1);
+}
+
+.center-bar {
+  min-width: 48px;
+  padding: 72px 6px 0;
+  background: alpha(@headerbar_bg_color, 0.72);
+  border-left: 1px solid alpha(@window_fg_color, 0.1);
+  border-right: 1px solid alpha(@window_fg_color, 0.1);
+}
+
+.command-line {
+  min-height: 38px;
+  padding: 6px 8px;
+  background: alpha(@headerbar_bg_color, 0.54);
+}
+
+.command-line label {
+  min-width: 70px;
+  font: 12px "JetBrains Mono", "Liberation Mono", monospace;
+  font-weight: 700;
+}
+
+.command-line entry {
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font: 11px "JetBrains Mono", "Liberation Mono", monospace;
+}
+
+.function-bar {
+  min-height: 42px;
+  padding: 6px 6px 8px;
+  background: alpha(@headerbar_bg_color, 0.36);
+  border-top: 1px solid alpha(@window_fg_color, 0.08);
+}
+
+.function-button {
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.style-level-0 .center-button {
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0 1px;
+}
+
+.style-level-0 .center-bar {
+  min-width: 36px;
+  padding-top: 60px;
+}
+
+.style-level-0 .command-line {
+  min-height: 30px;
+  padding: 2px 4px;
+}
+
+.style-level-0 .command-line entry {
+  min-height: 22px;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+
+.style-level-0 .function-bar {
+  min-height: 32px;
+  padding: 2px 4px 4px;
+}
+
+.style-level-0 .function-button {
+  min-height: 24px;
+  padding: 0 10px;
+}
+
+.style-level-0 .quick-view-header {
+  min-height: 20px;
+  padding: 2px 4px;
+}
+
+.style-level-1 .center-button {
+  min-width: 26px;
+  min-height: 26px;
+}
+
+.style-level-1 .center-bar {
+  min-width: 40px;
+  padding-top: 64px;
+}
+
+.style-level-1 .command-line {
+  min-height: 33px;
+  padding: 3px 5px;
+}
+
+.style-level-1 .command-line entry {
+  min-height: 24px;
+  padding: 0 5px;
+  border-radius: 8px;
+}
+
+.style-level-1 .function-bar {
+  min-height: 35px;
+  padding: 3px 5px 5px;
+}
+
+.style-level-1 .function-button {
+  min-height: 26px;
+  padding: 0 11px;
+}
+
+.style-level-1 .quick-view-header {
+  min-height: 22px;
+  padding: 2px 5px;
+}
+
+.style-level-3 .center-button {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.style-level-3 .center-bar {
+  min-width: 52px;
+  padding-top: 76px;
+}
+
+.style-level-3 .command-line {
+  min-height: 40px;
+  padding: 7px 10px;
+}
+
+.style-level-3 .command-line entry {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 12px;
+}
+
+.style-level-3 .function-bar {
+  min-height: 46px;
+  padding: 7px 8px 10px;
+}
+
+.style-level-3 .function-button {
+  min-height: 32px;
+  padding: 0 16px;
+}
+
+.style-level-3 .quick-view-header {
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.style-level-4 .center-button {
+  min-width: 34px;
+  min-height: 34px;
+  margin: 0 3px;
+}
+
+.style-level-4 .center-bar {
+  min-width: 56px;
+  padding-top: 80px;
+}
+
+.style-level-4 .command-line {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.style-level-4 .command-line entry {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 14px;
+}
+
+.style-level-4 .function-bar {
+  min-height: 50px;
+  padding: 8px 10px 12px;
+}
+
+.style-level-4 .function-button {
+  min-height: 34px;
+  padding: 0 18px;
+}
+
+.style-level-4 .quick-view-header {
+  min-height: 32px;
+  padding: 6px 12px;
+}

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <template class="WebBrowserWindow" parent="AdwApplicationWindow">
+    <property name="title" translatable="yes">Web</property>
+    <property name="default-width">1024</property>
+    <property name="default-height">768</property>
+    <property name="content">
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <property name="child">
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="AdwHeaderBar" id="header_bar">
+                <property name="title-widget">
+                  <object class="GtkEntry" id="address_entry">
+                    <property name="hexpand">true</property>
+                    <property name="width-chars">40</property>
+                    <property name="placeholder-text" translatable="yes">Search or enter web address</property>
+                    <property name="primary-icon-name">channel-insecure-symbolic</property>
+                    <property name="primary-icon-tooltip-text" translatable="yes">Page security</property>
+                    <property name="primary-icon-activatable">false</property>
+                    <property name="input-purpose">url</property>
+                  </object>
+                </property>
+                <child type="start">
+                  <object class="GtkButton" id="back_button">
+                    <property name="action-name">win.back</property>
+                    <property name="icon-name">go-previous-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Back (Alt+Left)</property>
+                    <property name="sensitive">false</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="forward_button">
+                    <property name="action-name">win.forward</property>
+                    <property name="icon-name">go-next-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Forward (Alt+Right)</property>
+                    <property name="sensitive">false</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="reload_button">
+                    <property name="action-name">win.reload</property>
+                    <property name="icon-name">view-refresh-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Reload (Ctrl+R)</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="home_button">
+                    <property name="action-name">win.home</property>
+                    <property name="icon-name">go-home-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Home</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="new_tab_button">
+                    <property name="action-name">win.new-tab</property>
+                    <property name="icon-name">tab-new-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">New Tab (Ctrl+T)</property>
+                  </object>
+                </child>
+
+                <child type="end">
+                  <object class="GtkMenuButton" id="primary_menu_button">
+                    <property name="icon-name">open-menu-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Main Menu</property>
+                    <property name="primary">true</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkToggleButton" id="bookmark_button">
+                    <property name="action-name">win.bookmark</property>
+                    <property name="icon-name">starred-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Bookmark this page (Ctrl+D)</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkMenuButton" id="history_button">
+                    <property name="icon-name">document-open-recent-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">History</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkBox" id="find_bar">
+                <property name="visible">false</property>
+                <property name="orientation">horizontal</property>
+                <property name="spacing">6</property>
+                <property name="halign">end</property>
+                <property name="margin-start">6</property>
+                <property name="margin-end">6</property>
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <child>
+                  <object class="GtkSearchEntry" id="find_entry">
+                    <property name="width-chars">28</property>
+                    <property name="placeholder-text" translatable="yes">Find in page</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="find_count_label">
+                    <property name="width-chars">12</property>
+                    <property name="xalign">0</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="find_prev_button">
+                    <property name="icon-name">go-up-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Previous Match</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="find_next_button">
+                    <property name="icon-name">go-down-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Next Match</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="find_close_button">
+                    <property name="icon-name">window-close-symbolic</property>
+                    <property name="tooltip-text" translatable="yes">Close Find</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+
+            <child>
+              <object class="AdwTabBar" id="tab_bar">
+                <property name="view">tab_view</property>
+                <property name="autohide">false</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="AdwTabView" id="tab_view">
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkProgressBar" id="progress_bar">
+                <property name="visible">false</property>
+                <style><class name="osd"/></style>
+              </object>
+            </child>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

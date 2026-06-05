@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <menu id="primary_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_New Tab</attribute>
+        <attribute name="action">win.new-tab</attribute>
+        <attribute name="accel">&lt;Primary&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">New _Window</attribute>
+        <attribute name="action">app.new-window</attribute>
+        <attribute name="accel">&lt;Primary&gt;&lt;Shift&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_Open…</attribute>
+        <attribute name="action">win.open</attribute>
+        <attribute name="accel">&lt;Primary&gt;o</attribute>
+      </item>
+      <submenu id="recent_menu">
+        <attribute name="label" translatable="yes">Open _Recent</attribute>
+        <section id="recent_files_section">
+          <!-- populated at runtime by Window._rebuild_recent_menu -->
+        </section>
+        <section>
+          <item>
+            <attribute name="label" translatable="yes">_Clear History</attribute>
+            <attribute name="action">win.clear-recents</attribute>
+          </item>
+        </section>
+      </submenu>
+    </section>
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Save</attribute>
+        <attribute name="action">win.save</attribute>
+        <attribute name="accel">&lt;Primary&gt;s</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Save _As…</attribute>
+        <attribute name="action">win.save-as</attribute>
+        <attribute name="accel">&lt;Primary&gt;&lt;Shift&gt;s</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Save A_ll</attribute>
+        <attribute name="action">win.save-all</attribute>
+        <attribute name="accel">&lt;Primary&gt;&lt;Alt&gt;s</attribute>
+      </item>
+    </section>
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Find…</attribute>
+        <attribute name="action">win.find</attribute>
+        <attribute name="accel">&lt;Primary&gt;f</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Find and _Replace…</attribute>
+        <attribute name="action">win.replace</attribute>
+        <attribute name="accel">&lt;Primary&gt;h</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_Go to Line…</attribute>
+        <attribute name="action">win.goto-line</attribute>
+        <attribute name="accel">&lt;Primary&gt;i</attribute>
+      </item>
+    </section>
+    <section>
+      <submenu>
+        <attribute name="label" translatable="yes">_View</attribute>
+        <item>
+          <attribute name="label" translatable="yes">_Line Numbers</attribute>
+          <attribute name="action">win.toggle-line-numbers</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Highlight Current Line</attribute>
+          <attribute name="action">win.toggle-highlight-line</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Right _Margin</attribute>
+          <attribute name="action">win.toggle-right-margin</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Wrap Text</attribute>
+          <attribute name="action">win.toggle-wrap</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Overview _Map</attribute>
+          <attribute name="action">win.toggle-map</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">_Fullscreen</attribute>
+          <attribute name="action">win.toggle-fullscreen</attribute>
+          <attribute name="accel">F11</attribute>
+        </item>
+      </submenu>
+    </section>
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Preferences</attribute>
+        <attribute name="action">app.preferences</attribute>
+        <attribute name="accel">&lt;Primary&gt;comma</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
+        <attribute name="action">win.show-help-overlay</attribute>
+        <attribute name="accel">&lt;Primary&gt;question</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">_About Pyedit</attribute>
+        <attribute name="action">app.about</attribute>
+      </item>
+    </section>
+  </menu>
+
+  <menu id="tab_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes">_Close Tab</attribute>
+        <attribute name="action">tab.close</attribute>
+        <attribute name="accel">&lt;Primary&gt;w</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Close _Other Tabs</attribute>
+        <attribute name="action">tab.close-others</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Move to New _Window</attribute>
+        <attribute name="action">tab.move-to-new-window</attribute>
+      </item>
+    </section>
+  </menu>
+</interface>

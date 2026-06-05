@@ -1,0 +1,70 @@
+# clang-format does not have a native version-pinning mechanism.
+# This config was written for clang-format 21. Run `clang-format --version`
+# and verify it reports 21.x before reformatting; older versions may produce
+# different output for some options used here.
+---
+Language:        Cpp
+BasedOnStyle:    GNU
+
+# Indentation: 2 spaces, no tabs (GLib/GTK standard)
+IndentWidth:     2
+TabWidth:        2
+UseTab:          Never
+IndentCaseLabels: false
+ContinuationIndentWidth: 4
+
+# Line length
+ColumnLimit:     100
+
+# Braces: GNU style — function body brace on new line (no indent),
+# control-flow braces on their own line indented to body level.
+BreakBeforeBraces: GNU
+
+# Return type on its own line for all function definitions:
+#   static void
+#   my_func (void)
+#   {
+BreakAfterReturnType: All
+
+# Pointers stay with the variable name: `type *var`
+PointerAlignment: Right
+
+# Space before ALL opening parens — the most distinctive GLib/GTK trait:
+#   g_free (ptr);    if (x)    sizeof (int)
+SpaceBeforeParens: Always
+
+# Don't bin-pack: keep all parameters on one line or each on its own
+BinPackParameters: false
+BinPackArguments:  false
+
+# Align continuation parameters to the opening paren:
+#   foo (long_arg1,
+#        long_arg2);
+AlignAfterOpenBracket:                    Align
+AllowAllArgumentsOnNextLine:              false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Don't merge short constructs onto one line
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# Keep #include order as written
+SortIncludes: Never
+
+# Don't reflow existing comments
+ReflowComments: false
+
+# Trailing comments: don't force-align across lines
+AlignTrailingComments:
+  Kind:           Never
+
+# Miscellaneous GLib/GTK conventions
+AlignOperands:             true
+BreakBeforeTernaryOperators: true
+SpaceAfterCStyleCast:      false
+SpacesInParentheses:       false
+SpacesInSquareBrackets:    false
+MaxEmptyLinesToKeep:       2
+KeepEmptyLinesAtTheStartOfBlocks: false

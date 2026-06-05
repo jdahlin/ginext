@@ -1,0 +1,328 @@
+# native_overlays.toml — declarations for symbols whose Python surface is
+# installed via C type slots, not GIR or the runtime overlay TOMLs.
+#
+# These end up in `src/_goi/repository/<NS>2.pyi` exactly as written; the
+# generator's only job is to insert the right block into the right class.
+# Per-symbol entries use Python source syntax verbatim — no DSL, no
+# parsing pretense.
+#
+# When the runtime grows or changes a slot, edit this file. Keeping the
+# augmentation declarative (vs. hardcoded inside the generator) makes it
+# easy for reviewers to see exactly what extra surface the C side adds.
+
+[ns."GObject"]
+
+# Free-standing helper class for `obj.props.<name>`. Implementation:
+# src/_goi/GObject/Object-propsproxy.c. Emitted at module scope.
+prelude = '''
+class _PropsProxy:
+    """Dynamic proxy returned by ``GObject.props``.
+
+    Supports attribute access (``obj.props.label``), iteration over the
+    property names of the owning object, membership testing, and length.
+    All attribute reads/writes go through GObject's property machinery.
+    """
+    def __getattr__(self, name: str) -> Any: ...
+    def __setattr__(self, name: str, value: Any) -> None: ...
+    def __iter__(self) -> Any: ...
+    def __contains__(self, name: str) -> bool: ...
+    def __len__(self) -> int: ...
+    def __dir__(self) -> list[str]: ...
+'''
+
+# Members added to GObject.Object by C-side type slot installation.
+# Sources: Object-connect.c, Object-signal.c, Object-properties.c,
+# Object-attrs.c, Object-propsproxy.c. The ``reserves`` list prevents
+# the GIR generator from re-emitting these names (which would either
+# redefine inside Object or trip [override] in subclasses).
+[ns."GObject".classes."Object"]
+body = '''
+def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+@classmethod
+def new(cls, *args: Any, **kwargs: Any) -> "Self": ...
+@classmethod
+def newv(cls, *args: Any, **kwargs: Any) -> "Self": ...
+def connect(self, signal: str, handler: Callable[..., Any], *args: Any) -> int: ...
+def connect_after(self, signal: str, handler: Callable[..., Any], *args: Any) -> int: ...
+def connect_object(self, signal: str, handler: Callable[..., Any], obj: Any, *args: Any) -> int: ...
+def disconnect(self, handler_id: int) -> None: ...
+def disconnect_by_func(self, handler: Callable[..., Any]) -> None: ...
+def handler_block(self, handler_id: int) -> None: ...
+def handler_unblock(self, handler_id: int) -> None: ...
+def handler_disconnect(self, handler_id: int) -> None: ...
+def handler_is_connected(self, handler_id: int) -> bool: ...
+def emit(self, signal: str, *args: Any) -> Any: ...
+def freeze_notify(self) -> "_FreezeNotifyContext": ...
+def thaw_notify(self) -> None: ...
+def bind_property(self, source_property: str, target: "Object", target_property: str, flags: Any = ...) -> "Binding": ...
+def get_property(self, property_name: str) -> Any: ...
+def set_property(self, property_name: str, value: Any) -> None: ...
+def get_data(self, *args: Any, **kwargs: Any) -> Any: ...
+def steal_data(self, *args: Any, **kwargs: Any) -> Any: ...
+def set_data(self, key: str, data: Any) -> None: ...
+def get_properties(self, *args: Any, **kwargs: Any) -> list[Any]: ...
+def scoped(self, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any: ...
+def __init_subclass__(cls, *, type_name: str = ..., **kwargs: object) -> None: ...
+__gtype_name__: Final[str]
+def _is_floating_for_test(self) -> bool: ...
+props: "_PropsProxy"
+gimeta: ClassVar[_GIMeta]
+'''
+reserves = [
+    "__init__", "__init_subclass__",
+    "connect", "connect_after", "connect_object",
+    "disconnect", "disconnect_by_func",
+    "handler_block", "handler_unblock", "handler_disconnect",
+    "handler_is_connected",
+    "new", "newv",
+    "get_data", "steal_data", "get_properties",
+    "emit", "freeze_notify", "thaw_notify",
+    "bind_property", "get_property", "set_property",
+    "get_data", "set_data", "scoped", "props",
+    "_is_floating_for_test", "gimeta",
+]
+
+# GObject.Type: implemented in C as GoiGType (src/_goi/GObject/Type.c).
+# GIR aliases ``Type`` to ``gsize``, which collapses to ``int`` — that's
+# wrong for the Python wrapper, which has __int__/__eq__/__hash__ and
+# carries a typed handle. The ``replace_alias`` flag tells the generator
+# to drop the GIR alias and emit ``body`` as the type definition.
+[ns."GObject".classes."Type"]
+replace_alias = true
+body = '''
+"""A GType handle. Implements __int__/__eq__/__hash__ in C."""
+name: str
+parent: "Type"
+fundamental: "Type"
+def __init__(self, value: "type | int | Type") -> None: ...
+def __int__(self) -> int: ...
+def __eq__(self, other: object) -> bool: ...
+def __hash__(self) -> int: ...
+def is_a(self, type_: "Type") -> bool: ...
+@staticmethod
+def from_name(name: str) -> "Type": ...
+@staticmethod
+def from_python(cls: type) -> "Type": ...
+pytype: type | None
+'''
+reserves = [
+    "__init__", "__int__", "__eq__", "__hash__",
+    "name", "parent", "fundamental", "is_a",
+    "from_name", "from_python", "pytype",
+]
+
+
+# Item-typed list models. `item_type = "_T"` makes the class generic over its
+# element type; the generator auto-parameterizes the GObject.Object-typed
+# members (see Emitter._apply_item_type). _T has a PEP 696 default of its bound
+# so a bare `Gio.ListStore` resolves to `Gio.ListStore[GObject.Object]`.
+[ns."Gio".classes."Initable"]
+# Initable.newv has the same name as GObject.Object.newv; both use *args
+# so classes implementing both don't trip [misc] for conflicting definitions.
+body = '''
+@classmethod
+def newv(cls, *args: Any, **kwargs: Any) -> "Self": ...
+'''
+reserves = ["newv"]
+
+[ns."Gio"]
+prelude = '''
+_T = TypeVar("_T", bound=GObject.Object, default=GObject.Object)
+
+# install_gio_error_classes attaches a SimpleNamespace of GIO exception
+# classes here at namespace-build time (GError subclasses, IOError, etc.).
+errors: Any
+'''
+
+[ns."Gio".classes."ListModel"]
+item_type = "_T"
+extra_bases = ["Generic[_T]"]
+# Sequence read-protocol (ginext-gio Gio.py overlay) — on the interface, so
+# every list model (ListStore + the Gtk wrappers/selections) inherits it typed.
+body = '''
+def __len__(self) -> int: ...
+def __bool__(self) -> bool: ...
+@overload
+def __getitem__(self, index: int) -> _T: ...
+@overload
+def __getitem__(self, index: slice) -> list[_T]: ...
+def __iter__(self) -> Iterator[_T]: ...
+'''
+reserves = ["__len__", "__bool__", "__getitem__", "__iter__"]
+
+[ns."Gio".classes."ListStore"]
+item_type = "_T"
+# new() takes the item GType, which must link to _T (the generator can't infer
+# that from `type | GObject.Type`). The mutation protocol (ginext-gio Gio.py
+# overlay) is ListStore-only; slice assignment is unsupported at runtime, so
+# __setitem__ is int-only. Everything else is auto-parameterized.
+# item_type also accepts `int` (a raw gtype) or any duck-typed gtype carrier.
+body = '''
+@classmethod
+def new(cls, item_type: type[_T] | GObject.Type | int | Any) -> "ListStore[_T]": ...
+def __init__(self, *, item_type: type[_T] | GObject.Type | int | Any = ..., **kwargs: Any) -> None: ...
+def __contains__(self, item: _T) -> bool: ...
+def __setitem__(self, key: int, value: _T) -> None: ...
+def __delitem__(self, key: int | slice) -> None: ...
+'''
+reserves = ["new", "__init__", "__contains__", "__setitem__", "__delitem__"]
+
+
+[ns."GLib"]
+# GLib.Error body: message/code/domain are C-level attributes; __init__ is a
+# C slot. These move to an inline .pyi once the C is annotated (typing-debt §3).
+
+# OptionEntry field widening: ginext accepts plain int for enum fields and None
+# for pointer fields, matching the C marshaller's permissive coercion behavior.
+[ns."GLib".classes."OptionEntry"]
+body = '''
+arg: "OptionArg | int"
+arg_data: int | None
+'''
+reserves = ["arg", "arg_data"]
+
+[ns."GLib".classes."Source"]
+# Source.__init__ is overlaid (ginext constructs Sources via __new__);
+# reserve it so the GIR doesn't emit a second definition.
+reserves = ["__init__"]
+
+[ns."GLib".classes."Bytes"]
+# GIR models get_data as (data: list[int]|None, size: int) out-param tuple, but
+# ginext's C marshaller returns the data directly as Python bytes.
+# Bytes.new accepts bytes/bytearray/list[int] at runtime (C marshaller coerces).
+# get_size() returns the byte count.
+body = '''
+@classmethod
+def new(cls, data: "bytes | bytearray | list[int] | None" = ...) -> "Bytes": ...
+def get_data(self) -> bytes: ...
+def get_size(self) -> int: ...
+'''
+reserves = ["new", "get_data", "get_size"]
+
+[ns."GLib".classes."Variant"]
+body = '''
+def __init__(self, format_string: str, value: Any = ...) -> None: ...
+'''
+reserves = ["__init__"]
+
+[ns."GLib".classes."Error"]
+# extra_bases is now in _overlays/GLib.py: overlay.bases("Error", ["Exception"])
+# new_literal/matches: domain is typed as Quark (int) in GIR but ginext accepts
+# str (auto-converts via g_quark_from_string).
+body = '''
+message: str
+code: int
+domain: str | int
+def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+@classmethod
+def new_literal(cls, domain: "str | int", code: int, message: str) -> "Self": ...
+def matches(self, domain: "str | int", code: int) -> bool: ...
+'''
+reserves = ["__init__", "message", "code", "domain", "new_literal", "matches"]
+
+
+[ns."Gtk"]
+prelude = '''
+_T = TypeVar("_T", bound=GObject.Object, default=GObject.Object)
+
+from ginext_gtk._gtktemplate import Child as Child, Template as Template
+'''
+
+[ns."Gtk".classes."Widget"]
+# Gtk.Widget class-side template API (used by _gtktemplate.py).
+body = '''
+@classmethod
+def set_template(cls, template_bytes: "GLib.Bytes") -> None: ...
+@classmethod
+def set_template_from_resource(cls, resource_path: str) -> None: ...
+@classmethod
+def bind_template_child_full(cls, name: str, internal_child: bool, struct_offset: int) -> None: ...
+@classmethod
+def set_connect_func(cls, connect_func: Any, connect_data: Any = ...) -> None: ...
+'''
+reserves = ["set_template", "set_template_from_resource", "bind_template_child_full", "set_connect_func"]
+
+[ns."Gtk".classes."BuilderScope"]
+# do_create_closure is a vfunc; return object (Closure or None) to avoid
+# the [override] error when subclasses return None/object.
+body = '''
+def do_create_closure(self, builder: Any, func_name: str, flags: int, obj: Any) -> object: ...
+'''
+reserves = ["do_create_closure"]
+
+[ns."Gtk".classes."PropertyExpression"]
+body = '''
+@overload
+def __new__(cls: type[Self]) -> Self: ...
+@overload
+def __new__(cls: type[Self], this_type: type, expression: Expression | None = ..., *, property_name: str) -> Self: ...
+@overload
+def __new__(cls: type[Self], property_name: str, *, this_type: type) -> Self: ...
+@overload
+def __new__(cls: type[Self], *parts: Any, this_type: type | None = ...) -> Self: ...
+@overload
+def __init__(self) -> None: ...
+@overload
+def __init__(self, this_type: type, expression: Expression | None = ..., *, property_name: str) -> None: ...
+@overload
+def __init__(self, property_name: str, *, this_type: type) -> None: ...
+@overload
+def __init__(self, *parts: Any, this_type: type | None = ...) -> None: ...
+'''
+reserves = ["__new__", "__init__"]
+
+# Generic wrappers/selections: items are whatever the wrapped model holds.
+[ns."Gtk".classes."FilterListModel"]
+item_type = "_T"
+[ns."Gtk".classes."SortListModel"]
+item_type = "_T"
+[ns."Gtk".classes."SliceListModel"]
+item_type = "_T"
+[ns."Gtk".classes."FlattenListModel"]
+item_type = "_T"
+[ns."Gtk".classes."MapListModel"]
+item_type = "_T"
+[ns."Gtk".classes."SelectionFilterModel"]
+item_type = "_T"
+[ns."Gtk".classes."SingleSelection"]
+item_type = "_T"
+[ns."Gtk".classes."MultiSelection"]
+item_type = "_T"
+[ns."Gtk".classes."NoSelection"]
+item_type = "_T"
+
+# Concrete-item containers: the element type is fixed.
+[ns."Gtk".classes."StringList"]
+item_type = "StringObject"
+[ns."Gtk".classes."DirectoryList"]
+item_type = "Gio.FileInfo"
+[ns."Gtk".classes."BookmarkList"]
+item_type = "Gio.FileInfo"
+[ns."Gtk".classes."MultiFilter"]
+item_type = "Filter"
+[ns."Gtk".classes."AnyFilter"]
+item_type = "Filter"
+[ns."Gtk".classes."EveryFilter"]
+item_type = "Filter"
+[ns."Gtk".classes."MultiSorter"]
+item_type = "Sorter"
+[ns."Gtk".classes."TreeListModel"]
+item_type = "TreeListRow"
+
+[ns."Gtk".classes."TextIter"]
+# forward/backward_find_char: ginext overlay accepts an optional user_data arg
+# that is forwarded to the predicate callback.
+body = '''
+def forward_find_char(self, pred: Callable[..., bool], user_data: object = ..., limit: "TextIter | None" = ...) -> bool: ...
+def forward_search(self, str_: str, flags: "TextSearchFlags | int", limit: "TextIter | None" = ...) -> "tuple[TextIter, TextIter] | None": ...
+def backward_find_char(self, pred: Callable[..., bool], user_data: object = ..., limit: "TextIter | None" = ...) -> bool: ...
+'''
+reserves = ["forward_find_char", "forward_search", "backward_find_char"]
+
+[ns."Gsk".classes."Stroke"]
+# get_dash: GIR models this as (array: list[float]|None, n_dashes: int) out-param
+# tuple, but ginext returns the array directly (n_dashes is implicit from len).
+body = '''
+def get_dash(self) -> list[float] | None: ...
+'''
+reserves = ["get_dash"]

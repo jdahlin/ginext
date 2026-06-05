@@ -1,0 +1,56 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --no-project --with ruff>=0.15.12 ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --no-project --with ruff>=0.15.12 ruff format
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-license
+        name: ruff license header
+        entry: uv run --no-project --with ruff>=0.15.12 ruff check --config ruff-license.toml
+        language: system
+        types_or: [python, pyi]
+        files: ^src/ginext/
+
+      - id: check-noqa
+        name: check noqa
+        entry: python3 scripts/check_noqa.py
+        language: system
+        types_or: [python, pyi]
+
+      - id: no-literal-getattr-default
+        name: no literal getattr with default
+        language: pygrep
+        entry: 'getattr\([^,\n]+,\s*["''][A-Za-z_][A-Za-z0-9_]*["'']\s*,'
+        types_or: [python, pyi]
+        exclude: >-
+          (?x)^(
+            conftest\.py|
+            examples/|
+            src/testhelper\.py|
+            src/ginext/__init__\.py|
+            src/ginext/classbuild\.py|
+            src/ginext/gobject\.py|
+            src/ginext/namespace\.py|
+            src/ginext/signal\.py|
+            src/ginext/tests/|
+            src/ginext/_overlays/|
+            src/ginext/overlay/|
+            packages/.*/tests/|
+            packages/ginext-gi-compat/src/gi/|
+            packages/ginext-gtk/src/ginext_gtk/
+          )
+
+      - id: clang-format
+        name: clang-format
+        entry: clang-format -i
+        language: system
+        files: \.(c|h|cc|cpp|cxx|hh|hpp)$

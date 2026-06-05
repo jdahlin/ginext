@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="Adw" version="1.0"/>
+
+  <object class="GtkStringList" id="scheme_model"/>
+
+  <template class="PyeditPreferences" parent="AdwPreferencesWindow">
+    <property name="title" translatable="yes">Preferences</property>
+    <property name="modal">true</property>
+    <property name="search-enabled">true</property>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Editor</property>
+        <property name="icon-name">document-edit-symbolic</property>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Font</property>
+            <child>
+              <object class="AdwSwitchRow" id="use_system_font_row">
+                <property name="title" translatable="yes">Use System Monospace Font</property>
+                <property name="subtitle" translatable="yes">When enabled, the system's default monospace font is used.</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwActionRow" id="font_row">
+                <property name="title" translatable="yes">Editor Font</property>
+                <property name="subtitle" translatable="yes">Pick a font for the editor.</property>
+                <property name="activatable-widget">font_button</property>
+                <child type="suffix">
+                  <object class="GtkFontDialogButton" id="font_button">
+                    <property name="valign">center</property>
+                    <property name="dialog">
+                      <object class="GtkFontDialog">
+                        <property name="title" translatable="yes">Editor Font</property>
+                        <property name="modal">true</property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Display</property>
+            <child>
+              <object class="AdwSwitchRow" id="line_numbers_row">
+                <property name="title" translatable="yes">Display Line Numbers</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="highlight_line_row">
+                <property name="title" translatable="yes">Highlight Current Line</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="right_margin_row">
+                <property name="title" translatable="yes">Display Right Margin</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSpinRow" id="right_margin_position_row">
+                <property name="title" translatable="yes">Right Margin Position</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">1</property>
+                    <property name="upper">200</property>
+                    <property name="step-increment">1</property>
+                    <property name="page-increment">10</property>
+                    <property name="value">80</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="show_map_row">
+                <property name="title" translatable="yes">Show Overview Map</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Indentation</property>
+            <child>
+              <object class="AdwSpinRow" id="tab_width_row">
+                <property name="title" translatable="yes">Tab Width</property>
+                <property name="adjustment">
+                  <object class="GtkAdjustment">
+                    <property name="lower">1</property>
+                    <property name="upper">16</property>
+                    <property name="step-increment">1</property>
+                    <property name="value">4</property>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="insert_spaces_row">
+                <property name="title" translatable="yes">Insert Spaces Instead of Tabs</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="auto_indent_row">
+                <property name="title" translatable="yes">Enable Automatic Indentation</property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwSwitchRow" id="wrap_text_row">
+                <property name="title" translatable="yes">Wrap Text</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Color Scheme</property>
+            <child>
+              <object class="AdwComboRow" id="scheme_row">
+                <property name="title" translatable="yes">Style Scheme</property>
+                <property name="model">scheme_model</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+      </object>
+    </child>
+
+    <child>
+      <object class="AdwPreferencesPage">
+        <property name="title" translatable="yes">Session</property>
+        <property name="icon-name">applications-system-symbolic</property>
+        <child>
+          <object class="AdwPreferencesGroup">
+            <property name="title" translatable="yes">Session</property>
+            <child>
+              <object class="AdwSwitchRow" id="restore_session_row">
+                <property name="title" translatable="yes">Restore Previous Session</property>
+                <property name="subtitle" translatable="yes">Reopen documents on startup.</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

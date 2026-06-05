@@ -1,0 +1,1 @@
+ginext - Modern Python bindings for gobject-introspection
