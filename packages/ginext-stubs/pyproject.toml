@@ -1,8 +1,28 @@
 [project]
 name = "ginext-stubs"
-version = "0.0.1"
+version = "0.8.0"
 description = "PEP 561 type stubs for ginext's native namespaces (from ginext import Gtk, ...)"
+readme = { content-type = "text/markdown", text = """
+# ginext-stubs
+
+PEP 561 type stubs for ginext's native namespaces (from ginext import Gtk, ...)
+
+Part of [ginext](https://github.com/jdahlin/ginext) — fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python.
+""" }
 requires-python = ">=3.14"
+license = "LGPL-2.1-or-later"
+authors = [{ name = "Johan Dahlin", email = "jdahlin@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/jdahlin/ginext"
+Repository = "https://github.com/jdahlin/ginext"
+Issues = "https://github.com/jdahlin/ginext/issues"
 
 [build-system]
 requires = ["hatchling"]

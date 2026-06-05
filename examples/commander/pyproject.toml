@@ -4,7 +4,7 @@ version = "0.0.0"
 description = "Commander-style file manager example for ginext"
 requires-python = ">=3.14"
 dependencies = [
-    "ginext[gtk]",
+    "gi[gtk]",
     "pycairo>=1.27",
 ]
 
@@ -13,7 +13,7 @@ requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-ginext = { workspace = true }
+gi = { workspace = true }
 ginext-stubs = { path = "../../packages/ginext-stubs" }
 
 [dependency-groups]

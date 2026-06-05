@@ -1,0 +1,106 @@
+name: Release
+
+# Push a version tag to release. The tag must match the canonical version in the
+# repo (meson.build, see scripts/bump_version.py): `make bump VERSION=0.8.0`,
+# commit, then `git tag v0.8.0 && git push --tags`.
+#
+# All tags publish to PyPI. Pre-release tags (v0.8.0rc1, v0.8.0a1, v0.8.0b2)
+# upload as PyPI pre-releases — `pip install gi` ignores them unless the user
+# opts in with `--pre`, so they double as a low-stakes pipeline rehearsal.
+#
+# Auth is PyPI Trusted Publishing (OIDC) — no API token secret. Each project
+# name (gi, ginext-gio, ginext-gtk, ginext-gst, ginext-libsoup,
+# ginext-gi-compat, ginext-stubs) must have a configured trusted publisher on
+# PyPI bound to repo jdahlin/ginext, workflow release.yml, environment pypi.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: read # pull the CI image from GHCR
+
+env:
+  IMAGE: ghcr.io/jdahlin/ginext-ci
+  # Run the JS-based actions on Node 24 (Node 20 is removed from runners Sep 2026).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # Assert the tag matches the repo's canonical version and resolve the CI image
+  # tag (same content-hash scheme as ci.yml) used to build the core sdist.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      image: ${{ steps.img.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          repo="$(python3 scripts/bump_version.py --check)"
+          if [ "$tag" != "$repo" ]; then
+            echo "::error::tag v$tag does not match repo version $repo (run scripts/bump_version.py)"
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+      - id: img
+        run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+  # Build inside the CI image: it carries the GLib / girepository-2.0 / libffi dev
+  # headers that the core's meson-python sdist (`meson dist` → configure) needs,
+  # plus uv. Pure-Python overlays produce py3-none-any wheels; the native core
+  # produces an sdist only (binary core wheels come from a later cibuildwheel job).
+  build:
+    needs: guard
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.guard.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build distributions
+        run: |
+          set -eux
+          rm -rf dist && mkdir -p dist
+          # uvx runs the standard PEP 517 `build` frontend with isolation, which
+          # ignores the repo's uv-workspace no-build-isolation config.
+          for pkg in ginext-gio ginext-gtk ginext-gst ginext-libsoup \
+                     ginext-gi-compat; do
+            uvx --from build pyproject-build --outdir dist "packages/$pkg"
+          done
+          # ginext-stubs has a custom wheel-only backend (no build_sdist); its
+          # wheel is generated from GIR at build time.
+          uvx --from build pyproject-build --wheel --outdir dist packages/ginext-stubs
+          # Native core: sdist only for now.
+          uvx --from build pyproject-build --sdist --outdir dist .
+      - name: Check metadata
+        run: uvx twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # OIDC token for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      # Bootstrap vs steady state, no edit needed: if the PYPI_API_TOKEN secret
+      # is set the action uses token auth (creates the projects on first upload,
+      # which sidesteps the pending-publisher form); once the projects exist and
+      # have trusted publishers configured, delete the secret and the empty
+      # password makes the action fall back to OIDC (id-token: write above).
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
