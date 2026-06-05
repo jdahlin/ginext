@@ -10,40 +10,54 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Default token perms for all jobs: read code + pull the CI image from GHCR.
+# The image job alone elevates to packages: write to push.
 permissions:
   contents: read
+  packages: read
+
+env:
+  IMAGE: ghcr.io/jdahlin/ginext-ci
 
 jobs:
-  # Build the CI image from ci/Dockerfile once and push it to GHCR so the test
-  # jobs can run inside it via `container:` (mirrors GitLab's prebuilt CI_IMAGE).
-  build-image:
+  # Build the CI image from ci/Dockerfile and push it to GHCR — but ONLY when the
+  # Dockerfile actually changes. The image is tagged by a hash of ci/Dockerfile,
+  # so an unchanged Dockerfile resolves to an existing tag and the build is
+  # skipped; the test/typecheck jobs just pull it (mirrors GitLab's prebuilt
+  # CI_IMAGE). Requires the repo's Actions token to have packages: write
+  # (Settings → Actions → General → Workflow permissions → Read and write).
+  image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - id: tag
+        run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: ci
-          file: ci/Dockerfile
-          push: true
-          tags: ghcr.io/jdahlin/ginext-ci:debian-testing
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build & push image only if this Dockerfile hash isn't already published
+        run: |
+          if docker manifest inspect "${{ steps.tag.outputs.ref }}" >/dev/null 2>&1; then
+            echo "Image ${{ steps.tag.outputs.ref }} already exists — reusing, no rebuild."
+          else
+            echo "ci/Dockerfile changed — building ${{ steps.tag.outputs.ref }}"
+            docker build -t "${{ steps.tag.outputs.ref }}" -f ci/Dockerfile ci
+            docker push "${{ steps.tag.outputs.ref }}"
+          fi
 
   # GitLab stages `test` + `extended`: the pytest jobs. Each writes JUnit XML.
   test:
-    needs: build-image
+    needs: image
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jdahlin/ginext-ci:debian-testing
+      image: ${{ needs.image.outputs.ref }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -58,15 +72,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/.cache/uv
+          path: .cache/uv
           key: uv-${{ hashFiles('uv.lock') }}
           restore-keys: uv-
       - name: Configure pytest workers
-        # GitLab pinned PYTEST_WORKERS=8 because its runner misreported CPUs.
-        # GitHub runners report correctly, so derive it from the host.
-        run: |
-          echo "PYTEST_WORKERS=$(nproc)" >> "$GITHUB_ENV"
-          uv --version
+        # GitLab pinned PYTEST_WORKERS=8 (its runner misreported CPUs); GitHub
+        # runners report correctly, so derive it from the host.
+        run: echo "PYTEST_WORKERS=$(nproc)" >> "$GITHUB_ENV"
       - name: make ${{ matrix.target }}
         run: make ${{ matrix.target }} PYTEST_JUNIT_DIR="reports/junit/${{ matrix.target }}"
       - name: Upload JUnit reports
@@ -76,20 +88,13 @@ jobs:
           name: junit-${{ matrix.target }}
           path: reports/junit/
           if-no-files-found: ignore
-      - name: Publish test results
-        if: always()
-        uses: mikepenz/action-junit-report@v5
-        with:
-          report_paths: reports/junit/**/*.xml
-          check_name: ${{ matrix.target }} results
-          fail_on_failure: false
 
   # GitLab `typecheck` job: separate caches (mypy + generated stubs), no JUnit.
   typecheck:
-    needs: build-image
+    needs: image
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/jdahlin/ginext-ci:debian-testing
+      image: ${{ needs.image.outputs.ref }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -99,7 +104,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/.cache/uv
+          path: .cache/uv
           key: uv-${{ hashFiles('uv.lock') }}
           restore-keys: uv-
       # mypy incremental cache (validated by content hash; run-mypy.sh wipes a
@@ -120,5 +125,4 @@ jobs:
             packages/ginext-stubs/.stub-generated.stamp
           key: stubs-${{ github.ref_name }}
           restore-keys: stubs-
-      - run: uv --version
       - run: make typecheck
