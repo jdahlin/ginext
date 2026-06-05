@@ -73,8 +73,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache/uv
-          key: uv-${{ hashFiles('uv.lock') }}
-          restore-keys: uv-
+          # Per-job key so the parallel jobs don't race to save the same cache
+          # ("another job may be creating this cache"); restore-keys still lets a
+          # cold job seed from any sibling's cache.
+          key: uv-${{ matrix.target }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ matrix.target }}-
+            uv-
       - name: Configure pytest workers
         # GitLab pinned PYTEST_WORKERS=8 (its runner misreported CPUs); GitHub
         # runners report correctly, so derive it from the host.
@@ -105,8 +110,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .cache/uv
-          key: uv-${{ hashFiles('uv.lock') }}
-          restore-keys: uv-
+          key: uv-typecheck-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-typecheck-
+            uv-
       # mypy incremental cache (validated by content hash; run-mypy.sh wipes a
       # poisoned cache and retries, so cross-commit reuse is safe).
       - uses: actions/cache@v4
