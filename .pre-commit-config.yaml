@@ -1,6 +1,14 @@
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
   - repo: local
     hooks:
+      - id: no-ai-co-authored-by
+        name: forbid AI Co-Authored-By trailer
+        language: pygrep
+        entry: '(?i)^\s*Co-Authored-By:.*(claude|anthropic|gpt|copilot|openai)'
+        stages: [commit-msg]
+
       - id: ruff-check
         name: ruff check
         entry: uv run --no-project --with ruff>=0.15.12 ruff check --fix --exit-non-zero-on-fix
