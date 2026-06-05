@@ -81,6 +81,15 @@ jobs:
           "$dst\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Append
           "GINEXT_BASE_PYTHON=$dst\python.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
           & "$dst\python.exe" --version
+          # If this Python reports a LIBPC, meson does a pkg-config lookup and
+          # pulls python-3.x.pc, whose GCC-style `-include Python.h` Cflags break
+          # clang-cl. Remove any python*.pc so meson falls back to sysconfig.
+          $libpc = & "$dst\python.exe" -c "import sysconfig;print(sysconfig.get_config_var('LIBPC') or '')"
+          Write-Host "LIBPC=$libpc"
+          $dirs = @($libpc) + (Get-ChildItem $dst -Recurse -Directory -Filter pkgconfig -EA SilentlyContinue).FullName
+          foreach ($d in ($dirs | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique)) {
+            Get-ChildItem "$d\python*.pc" -EA SilentlyContinue | ForEach-Object { Write-Host "removing $_"; Remove-Item $_ -Force }
+          }
 
       - uses: astral-sh/setup-uv@v5
 
@@ -148,6 +157,18 @@ jobs:
         # Call directly (not `powershell -File`), so the [switch] binds the
         # boolean $false instead of the literal string "$false".
         run: '& tools\win\build.ps1 -WithGiTests:$false'
+
+      - name: Dump meson python-dependency log on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
+          $log = "build\win-$arch\meson-logs\meson-log.txt"
+          if (Test-Path $log) {
+            Write-Host "=== python / pkgconfig lines ==="
+            Select-String -Path $log -Pattern 'LIBPC|pkgconfig|Run-time dependency python|python-3|-include|Python.h' |
+              Select-Object -First 40 | ForEach-Object { $_.Line }
+          } else { Write-Host "no $log" }
 
       # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
       # platform typelibs, so the core tests run without any out-of-band typelibs.
