@@ -6,7 +6,7 @@ requires-python = ">=3.14"
 dependencies = ["ginext>=0.0.1"]
 
 [project.entry-points."ginext.overlays"]
-Gst = "ginext_gst:_overlays/Gst.py"
+Gst = "ginext_gst:_overlays.Gst"
 
 [build-system]
 requires = ["hatchling"]

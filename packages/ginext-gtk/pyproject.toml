@@ -6,10 +6,10 @@ requires-python = ">=3.14"
 dependencies = ["ginext>=0.0.1", "ginext-gio>=0.0.1", "pycairo"]
 
 [project.entry-points."ginext.overlays"]
-Gtk = "ginext_gtk:_overlays/Gtk.py"
-Gdk = "ginext_gtk:_overlays/Gdk.py"
-Pango = "ginext_gtk:_overlays/Pango.py"
-Gsk = "ginext_gtk:_overlays/Gsk.py"
+Gtk = "ginext_gtk:_overlays.Gtk"
+Gdk = "ginext_gtk:_overlays.Gdk"
+Pango = "ginext_gtk:_overlays.Pango"
+Gsk = "ginext_gtk:_overlays.Gsk"
 
 [project.entry-points."ginext.implied_defaults"]
 gtk = "ginext_gtk._defaults:IMPLIED_DEFAULTS"
