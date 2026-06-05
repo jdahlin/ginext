@@ -1,22 +1,32 @@
-site_name: goi
-site_description: GTK and GNOME app development with Python, via GObject Introspection
-site_url: https://example.invalid/goi/
-repo_url: https://github.com/jdahlin/goi
-docs_dir: docs/book
+site_name: ginext
+site_description: Modern Python bindings for GObject Introspection
+site_url: https://jdahlin.github.io/ginext/
+repo_url: https://github.com/jdahlin/ginext
+repo_name: jdahlin/ginext
+
+docs_dir: docs
+
+# Kept in the repo but not part of the published site: the old long-form book
+# and the internal design notes.
+exclude_docs: |
+  book/
+  internals/
+  README.md
+  stubgen.md
 
 theme:
   name: material
+  logo: assets/ginext-orbit.svg
   features:
-    # Two-pane layout: nav on the left, in-page TOC on the right.
-    # Sections start collapsed; only the active section expands.
+    - navigation.tabs
     - navigation.indexes
     - navigation.top
-    - navigation.tracking
-    - navigation.prune     # don't render off-screen Parts in the DOM
+    - navigation.prune
     - toc.follow
-    - content.code.copy
-    - search.suggest
     - search.highlight
+    - search.suggest
+    - content.code.copy
+  font: false
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -31,6 +41,13 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
 
+plugins:
+  - search
+  # Infers the API nav (Home > API > <Namespace> > <Class>) from the generated
+  # docs/api/** directory tree.
+  - literate-nav:
+      nav_file: SUMMARY.md
+
 markdown_extensions:
   - admonition
   - attr_list
@@ -40,166 +57,43 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.details
+  - pymdownx.superfences
   - pymdownx.highlight:
       anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.superfences
-  - pymdownx.tabbed:
-      alternate_style: true
-  - pymdownx.tasklist:
-      custom_checkbox: true
-  - pymdownx.keys
 
-plugins:
-  - search
-  # Future plugins to wire up:
-  # - mkdocstrings:        # auto-generate API reference from overlays
-  #     handlers:
-  #       python:
-  #         paths: [.]
-  # - gen-files:           # synthesize per-namespace pages from GIR
-  #     scripts:
-  #       - scripts/docs/gen_api_pages.py
-  # - literate-nav
-  # - section-index
-  # - macros               # for code snippets pulled from apps/*
+extra_css:
+  - assets/styles.css
 
 nav:
   - Home: index.md
-
-  - Part I — Foundations:
-      - foundations/index.md
-      - Getting started: foundations/getting-started.md
-      - Installation: foundations/installation.md
-      - Hello world: foundations/hello-world.md
-      - GObject for Python developers: foundations/gobject-for-python-devs.md
-      - Migration guides:
-          - Overview: foundations/migration-index.md
-          - From Qt / PySide: foundations/migration-from-qt.md
-          - From Web / React: foundations/migration-from-react.md
-          - From SwiftUI: foundations/migration-from-swiftui.md
-          - From PyGObject: foundations/migration-from-pygobject.md
-
-  - Part II — Building GTK apps:
-      - building/index.md
-      - GtkApplication: building/application.md
-      - Widgets and layout: building/widgets-and-layout.md
-      - Events and input: building/events-and-input.md
-      - Keyboard, accelerators, shortcuts: building/shortcuts.md
-      - Declarative UI (Builder, Templates, GResource): building/declarative-ui.md
-      - CSS styling: building/css.md
-      - Actions and menus: building/actions-and-menus.md
-      - Context menus: building/context-menus.md
-      - Text view: building/text-view.md
-      - Lists, columns, and grids: building/lists.md
-      - Dialogs: building/dialogs.md
-      - Drag and drop: building/drag-and-drop.md
-      - Clipboard: building/clipboard.md
-      - GIO and async: building/gio-and-async.md
-
-  - Part III — System integration:
-      - system/index.md
-      - DBus with GIO: system/dbus.md
-      - Portals (xdg-desktop-portal): system/portals.md
-      - System services overview: system/services-overview.md
-      - UPower (battery & power): system/upower.md
-      - NetworkManager: system/networkmanager.md
-      - logind (suspend, idle, lock): system/logind.md
-      - GeoClue (location): system/geoclue.md
-      - AccountsService: system/accounts-service.md
-      - libsecret (passwords): system/libsecret.md
-      - MPRIS (media): system/mpris.md
-      - Tracker / Localsearch: system/tracker.md
-      - GVfs (mounts and trash): system/gvfs.md
-      - GSettings: system/gsettings.md
-      - Notifications: system/notifications.md
-      - Exposing your own DBus service: system/dbus-server.md
-
-  - Part IV — Writing GNOME apps:
-      - gnome/index.md
-      - What makes an app a GNOME app: gnome/what-makes-a-gnome-app.md
-      - The GNOME platform: gnome/platform.md
-      - App ID and naming conventions: gnome/app-id.md
-      - GNOME Builder: gnome/builder.md
-      - Meson layout for GNOME apps: gnome/meson-layout.md
-      - Blueprint: gnome/blueprint.md
-      - Cambalache (visual UI editor): gnome/cambalache.md
-      - libadwaita:
-          - AdwApplication and windows: gnome/adw-application.md
-          - Navigation (NavigationView, Split): gnome/adw-navigation.md
-          - Adaptive UI and breakpoints: gnome/adw-adaptive.md
-          - Dialogs, toasts, banners: gnome/adw-dialogs.md
-          - Preferences and About windows: gnome/adw-preferences.md
-          - Style classes and AdwStyleManager: gnome/adw-styling.md
-      - App icons: gnome/app-icons.md
-      - Symbolic icons: gnome/symbolic-icons.md
-      - CSS for GNOME apps: gnome/css.md
-      - GSettings the GNOME way: gnome/gsettings.md
-      - Notifications done right: gnome/notifications.md
-      - Shell integration: gnome/shell-integration.md
-      - Search providers: gnome/search-providers.md
-      - Background apps and autostart: gnome/background.md
-      - GNOME Online Accounts: gnome/goa.md
-      - Tracker for content apps: gnome/tracker.md
-      - Color management and display: gnome/color-and-display.md
-      - Accessibility: gnome/accessibility.md
-      - Localization: gnome/localization.md
-      - AppStream metainfo: gnome/appstream.md
-      - User docs (Yelp / web): gnome/user-docs.md
-      - Publishing to Flathub: gnome/flathub.md
-      - GNOME Circle: gnome/circle.md
-
-  - Part V — Beyond GNOME:
-      - beyond-gnome/index.md
-      - Cross-platform overview: beyond-gnome/cross-platform.md
-      - Windows: beyond-gnome/windows.md
-      - macOS: beyond-gnome/macos.md
-      - KDE Plasma: beyond-gnome/kde.md
-      - elementary OS: beyond-gnome/elementary.md
-      - Sway / wlroots / tiling WMs: beyond-gnome/sway.md
-      - Phosh and mobile: beyond-gnome/phosh.md
-
-  - Part VI — Going deeper:
-      - deeper/index.md
-      - Cairo (custom drawing): deeper/cairo.md
-      - Gsk (render nodes): deeper/gsk.md
-      - Custom widgets: deeper/custom-widgets.md
-      - Pango (text layout): deeper/pango.md
-      - Performance and profiling: deeper/performance.md
-      - Debugging GTK apps: deeper/debugging.md
-
-  - Part VII — Extending goi:
-      - extending/index.md
-      - When to drop to native code: extending/when.md
-      - Writing a GObject library in C: extending/c-gobject-library.md
-      - Introspection annotations: extending/annotations.md
-      - Async functions in C: extending/c-async.md
-      - Pygir overlays: extending/overlays.md
-      - Rust extensions (gtk-rs): extending/rust.md
-      - FFI pitfalls and lifetimes: extending/pitfalls.md
-
-  - Part VIII — Shipping:
-      - shipping/index.md
-      - Internationalization (gettext): shipping/i18n.md
-      - Packaging foundations (.desktop, metainfo, icons): shipping/foundations.md
-      - Flatpak and Flathub: shipping/flatpak.md
-      - Snap: shipping/snap.md
-      - AppImage: shipping/appimage.md
-      - Distro packages (.deb, .rpm, Arch): shipping/distro.md
-      - Windows installers: shipping/windows.md
-      - macOS bundles and notarization: shipping/macos.md
-      - PyPI considerations: shipping/pypi.md
-      - CI/CD release flows: shipping/ci-cd.md
-
-  - Part IX — Reference:
-      - reference/index.md
-      - API reference (auto-generated): reference/api.md
-      - Pango deep reference: reference/pango.md
-      - HarfBuzz: reference/harfbuzz.md
-      - FreeType: reference/freetype.md
-      - Gdk internals: reference/gdk.md
-      - Pitfalls cheatsheet: reference/pitfalls.md
-      - Glossary: reference/glossary.md
+  - Docs:
+      - Introduction: introduction.md
+      - Getting Started:
+          - Overview: getting-started/index.md
+          - Installation: getting-started/installation.md
+          - Playground: getting-started/playground.md
+          - Gallery: getting-started/gallery.md
+      - Guides:
+          - Overview: guides/index.md
+          - Application Structure: guides/application-structure.md
+          - Constructors and Namespaces: guides/constructors-and-namespaces.md
+          - Properties: guides/properties.md
+          - Signals: guides/signals.md
+          - Subclassing: guides/subclassing.md
+          - Concurrency: guides/concurrency.md
+          - Async Errors and Event Loops: guides/async-errors-and-event-loops.md
+          - Gio: guides/gio.md
+          - Gtk: guides/gtk.md
+          - Gdk: guides/gdk.md
+          - Pango: guides/pango.md
+          - Type Checking: guides/type-checking.md
+          - Migration from PyGObject: guides/migration-from-pygobject.md
+      - Advanced Guide:
+          - Overview: advanced-guide/index.md
+          - Overlays: advanced-guide/overlays/index.md
+      - Performance: performance.md
+      - Why a New API?: why-a-new-api.md
+      - Upgrading: upgrading.md
+  - API: api/
+  - Gallery: gallery/index.md

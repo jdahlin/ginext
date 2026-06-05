@@ -1,6 +1,11 @@
 .agents
 .codex
 history
+
+# Generated mkdocs API reference (produced by `make api-docs` and in CI) + build.
+/docs/api/
+/site/
+
 apps
 .vscode
 .idea/

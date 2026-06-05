@@ -1,0 +1,93 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one Pages deployment at a time; let an in-progress run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  IMAGE: ghcr.io/jdahlin/ginext-ci
+
+jobs:
+  # Resolve (and build-if-missing) the CI image, which ships the GIR dev
+  # packages + uv the generator needs. Mirrors ci.yml's image job — tagged by a
+  # hash of ci/Dockerfile, so an unchanged Dockerfile just reuses the image.
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push image only if this Dockerfile hash isn't already published
+        run: |
+          if docker manifest inspect "${{ steps.tag.outputs.ref }}" >/dev/null 2>&1; then
+            echo "Image ${{ steps.tag.outputs.ref }} already exists — reusing."
+          else
+            echo "ci/Dockerfile changed — building ${{ steps.tag.outputs.ref }}"
+            docker build -t "${{ steps.tag.outputs.ref }}" -f ci/Dockerfile ci
+            docker push "${{ steps.tag.outputs.ref }}"
+          fi
+
+  # Generate the API reference from the system GIRs, then build the mkdocs site.
+  build:
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache/uv
+          key: uv-docs-${{ hashFiles('uv.lock', 'packages/ginext-stubgen/pyproject.toml') }}
+          restore-keys: |
+            uv-docs-
+            uv-
+      - name: Generate API reference (GLib, GObject, Gio, Gdk, Gtk, Pango)
+        run: make api-docs
+      - name: Build mkdocs site
+        run: |
+          uv run --no-project \
+            --with mkdocs-material \
+            --with mkdocs-literate-nav \
+            mkdocs build --strict --site-dir site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
