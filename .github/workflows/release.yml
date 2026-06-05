@@ -67,10 +67,14 @@ jobs:
           set -eux
           rm -rf dist && mkdir -p dist
           # The standard PEP 517 `build` frontend (full isolation, ignores the
-          # repo's uv-workspace no-build-isolation config). `--with virtualenv`
-          # makes build create its isolated env with virtualenv (bundles pip)
-          # instead of venv+ensurepip, which the CI image's Python lacks.
-          build() { uvx --with virtualenv --from build pyproject-build "$@"; }
+          # repo's uv-workspace no-build-isolation config).
+          #   --python 3.14: build against a uv-managed CPython 3.14, which ships
+          #     the dev headers (Python.h) the core's meson sdist needs and which
+          #     the CI image's bare python3 lacks; it also satisfies the packages'
+          #     requires-python >=3.14.
+          #   --with virtualenv: create the isolated build env with virtualenv
+          #     (bundles pip) instead of venv+ensurepip, which the image lacks.
+          build() { uvx --python 3.14 --with virtualenv --from build pyproject-build "$@"; }
           for pkg in ginext-gio ginext-gtk ginext-gst ginext-libsoup \
                      ginext-gi-compat; do
             build --outdir dist "packages/$pkg"
