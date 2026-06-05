@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+  "name": "ginext",
+  "version-string": "0.0.0",
+  "description": [
+    "Native build dependencies for ginext on Windows (x64 and arm64) via vcpkg.",
+    "Default feature set covers the core GObject-Introspection runtime needed to",
+    "build and test ginext itself; gtk/gstreamer are opt-in for the wider suites."
+  ],
+  "builtin-baseline": "059d760472984042e1b4db0d40efd935a1adcbc9",
+  "dependencies": [
+    {
+      "name": "gobject-introspection",
+      "features": ["cairo"]
+    },
+    {
+      "name": "cairo",
+      "default-features": false,
+      "features": ["gobject"]
+    },
+    "libffi",
+    {
+      "name": "pkgconf",
+      "host": true
+    }
+  ],
+  "features": {
+    "gtk": {
+      "description": "GTK4 stack with introspection (for the ginext-gtk suite).",
+      "dependencies": ["gtk"]
+    },
+    "gstreamer": {
+      "description": "GStreamer stack with introspection (for the ginext-gst suite).",
+      "dependencies": ["gstreamer"]
+    }
+  }
+}

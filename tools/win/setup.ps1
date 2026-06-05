@@ -1,28 +1,33 @@
-# One-time Windows ARM64 build-environment setup for ginext.
+# One-time Windows build-environment setup for ginext (x64 or arm64).
 #
 #   powershell -File tools\win\setup.ps1
+#   $env:GINEXT_TRIPLET='x64-windows'; powershell -File tools\win\setup.ps1
 # (pwsh / PowerShell 7 works too if installed.)
 #
 # Creates the build venv, installs the Python build/test tooling, and
 # editable-installs the ginext sub-packages so their `ginext.overlays` entry
-# points register (path alone is not enough). It does NOT build the native deps
-# (vcpkg) or the typelibs -- those are heavy and documented in the port notes:
-#   * vcpkg install gobject-introspection[core,cairo] cairo[gobject] pkgconf
-#       libffi:arm64-windows-static-md ; and (for GTK) gtk --allow-unsupported.
-#   * GTK-stack typelibs are generated from the vcpkg buildtrees (see
-#       C:\dev\gir-build.ps1) since the ports ship introspection disabled.
+# points register (path alone is not enough). It does NOT build the native deps;
+# install those with vcpkg manifest mode (see tools\win\BOOTSTRAP.md):
+#   * vcpkg install --triplet <triplet>            # uses repo-root vcpkg.json
+#   * (typelib generation via the introspection overlays is a tracked follow-up)
 [CmdletBinding()]
 param(
-    [string]$BasePython = "C:\Python314-arm64\python.exe"
+    [string]$BasePython = $(if ($env:GINEXT_BASE_PYTHON) { $env:GINEXT_BASE_PYTHON } else { "C:\Python314-arm64\python.exe" })
 )
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $repo
 
-if (-not (Test-Path $BasePython)) { throw "native CPython 3.14 not found: $BasePython" }
+if (-not $env:GINEXT_TRIPLET) {
+    $isArm = $env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64'
+    $env:GINEXT_TRIPLET = if ($isArm) { 'arm64-windows' } else { 'x64-windows' }
+}
+$arch = $env:GINEXT_TRIPLET -replace '-windows$',''
 
-$venv = "$repo\.venv-win-arm64"
+if (-not (Test-Path $BasePython)) { throw "native CPython 3.14 not found: $BasePython (set GINEXT_BASE_PYTHON)" }
+
+$venv = "$repo\.venv-win-$arch"
 $venvPy = "$venv\Scripts\python.exe"
 if (-not (Test-Path $venvPy)) {
     Write-Host "Creating build venv at $venv"
