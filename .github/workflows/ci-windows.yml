@@ -86,8 +86,13 @@ jobs:
           # GCC-style `-include Python.h -Wno-missing-field-initializers` Cflags
           # break clang-cl. Remove build-details.json (and any python*.pc) so
           # meson falls back to sysconfig (include dirs only) -- the clean path.
-          Get-ChildItem $dst -Recurse -Include 'build-details.json','python-3*.pc','python3*.pc' -EA SilentlyContinue |
-            ForEach-Object { Write-Host "removing $($_.FullName)"; Remove-Item $_.FullName -Force }
+          $found = $false
+          foreach ($pat in 'build-details.json','python-3.14.pc','python-3.14-embed.pc','python3.pc','python3-embed.pc') {
+            Get-ChildItem -Path $dst -Recurse -Filter $pat -EA SilentlyContinue | ForEach-Object {
+              $found = $true; Write-Host "removing $($_.FullName)"; Remove-Item $_.FullName -Force
+            }
+          }
+          if (-not $found) { Write-Host "WARNING: no build-details.json / python*.pc found under $dst" }
 
       - uses: astral-sh/setup-uv@v5
 
@@ -163,9 +168,11 @@ jobs:
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
           $log = "build\win-$arch\meson-logs\meson-log.txt"
           if (Test-Path $log) {
-            Write-Host "=== python / pkgconfig lines ==="
-            Select-String -Path $log -Pattern 'LIBPC|pkgconfig|Run-time dependency python|python-3|-include|Python.h' |
-              Select-Object -First 40 | ForEach-Object { $_.Line }
+            Write-Host "=== meson python-dependency resolution ==="
+            Select-String -Path $log -Pattern 'Skipping pkgconfig|Run-time dependency python|build-details|c_api|pkgconfig_path|Determining dependency .python|Called.*python-3|python-3\.14\.pc' |
+              ForEach-Object { $_.Line }
+            Write-Host "=== build python config ==="
+            & "$env:RUNNER_TEMP\py314\python.exe" -c "import sysconfig,os;print('build-details:',os.environ.get('__PYVENV_LAUNCHER__'));print('LIBPC=',sysconfig.get_config_var('LIBPC'));import glob;print('bd:',glob.glob(sysconfig.get_path('stdlib')+'/**/build-details.json',recursive=True))"
           } else { Write-Host "no $log" }
 
       # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
