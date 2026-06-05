@@ -34,13 +34,17 @@ $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvarsall.bat'
 if (-not (Test-Path $vcvars)) { throw "vcvarsall.bat not found: $vcvars (set GINEXT_VS)" }
 if (-not (Test-Path $vcpkg))  { throw "vcpkg root not found: $vcpkg (set VCPKG_ROOT)" }
 
-# Resolve the install tree. Manifest mode (vcpkg.json / run-vcpkg) installs to
-# <repo>\vcpkg_installed\<triplet>; classic mode to <vcpkg>\installed\<triplet>.
-# Prefer the manifest tree when present. Override with GINEXT_VCPKG_INSTALLED.
+# Resolve the install tree. Manifest mode installs to either VCPKG_INSTALLED_DIR
+# (what we pass run-vcpkg / vcpkg --x-install-root) or <repo>\vcpkg_installed;
+# classic mode to <vcpkg>\installed. Order: explicit override, VCPKG_INSTALLED_DIR,
+# repo manifest tree, classic.
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $manifestInstalled = Join-Path $repoRoot "vcpkg_installed\$($env:GINEXT_TRIPLET)"
+$envInstalled = if ($env:VCPKG_INSTALLED_DIR) { Join-Path $env:VCPKG_INSTALLED_DIR $env:GINEXT_TRIPLET } else { $null }
 if ($env:GINEXT_VCPKG_INSTALLED) {
   $installed = $env:GINEXT_VCPKG_INSTALLED
+} elseif ($envInstalled -and (Test-Path $envInstalled)) {
+  $installed = $envInstalled
 } elseif (Test-Path $manifestInstalled) {
   $installed = $manifestInstalled
 } else {

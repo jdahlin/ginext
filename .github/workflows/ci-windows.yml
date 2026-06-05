@@ -11,6 +11,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
 
 env:
   # Pin vcpkg (the tool + its registry) so builds are reproducible across runs
@@ -41,8 +42,13 @@ jobs:
       GINEXT_LLVM: C:\LLVM
       GINEXT_VS: C:\Program Files\Microsoft Visual Studio\2022\Enterprise
       VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
-      # Cache built ports in the GitHub Actions cache (read+write).
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
+      # Pin the manifest install tree to a known path so build-env.ps1 finds it
+      # (run-vcpkg otherwise installs to a per-run GUID dir).
+      VCPKG_INSTALLED_DIR: ${{ github.workspace }}/vcpkg_installed
+      # Binary cache: a durable GitHub Packages NuGet feed (check before build,
+      # upload after each package) plus x-gha as a secondary. Set in the nuget
+      # step once vcpkg is bootstrapped.
+      NUGET_FEED: https://nuget.pkg.github.com/jdahlin/index.json
     steps:
       - uses: actions/checkout@v4
 
@@ -84,17 +90,38 @@ jobs:
           "GINEXT_VS=$vs" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "VS: $vs"
 
-      # Provision a pinned vcpkg (tool cached via the GH cache) and run the
-      # manifest install for the repo-root vcpkg.json. Default feature set only
-      # (no gtk/gstreamer) to keep build time bounded; the x-gha binary cache
-      # makes subsequent runs fast. Sets VCPKG_ROOT for the later build steps.
-      - name: vcpkg (manifest install)
+      # Provision a pinned vcpkg (tool cached via the GH cache) WITHOUT installing
+      # yet, so we can configure the NuGet binary cache first. Sets VCPKG_ROOT.
+      - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
-        timeout-minutes: 180
         with:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
           vcpkgJsonGlob: "vcpkg.json"
-          runVcpkgInstall: true
+          runVcpkgInstall: false
+
+      # Point vcpkg at the GitHub Packages NuGet feed (readwrite): each package is
+      # looked up before building and uploaded right after it builds, so the feed
+      # self-seeds and timed-out runs still persist completed packages. x-gha kept
+      # as a secondary read/write source.
+      - name: Configure vcpkg binary caches
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $nuget = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
+          & $nuget sources add -Source "$env:NUGET_FEED" -Name github `
+            -UserName "${{ github.repository_owner }}" -Password $env:GH_TOKEN `
+            -StorePasswordInClearText -NonInteractive
+          & $nuget setapikey $env:GH_TOKEN -Source "$env:NUGET_FEED" -NonInteractive
+          "VCPKG_BINARY_SOURCES=clear;nuget,$env:NUGET_FEED,readwrite;x-gha,readwrite" `
+            | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: vcpkg install (manifest)
+        shell: pwsh
+        timeout-minutes: 180
+        run: |
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet $env:GINEXT_TRIPLET `
+            --x-install-root "$env:VCPKG_INSTALLED_DIR"
 
       - name: Setup build venv
         shell: pwsh
