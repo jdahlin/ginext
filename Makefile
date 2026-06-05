@@ -140,7 +140,7 @@ endif
 GCOVR      := gcovr
 GCOVR_ARGS := --root $(CURDIR) --object-directory $(BDIR) --filter $(abspath src/goi/_goi) --txt
 
-.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal gnome-music cambalache quodlibet coverage-report docviewer typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander stubs
+.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal gnome-music cambalache quodlibet coverage-report docviewer typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander stubs api-docs api-docs-all
 
 $(VENV)/.pygir-sync-stamp: pyproject.toml uv.lock \
     packages/ginext-gio/pyproject.toml \
@@ -276,6 +276,23 @@ MYPY_INSTALL_STAMP := $(VENV)/.mypy-installed
 $(MYPY_INSTALL_STAMP): pyproject.toml uv.lock | venv
 	@UV_PROJECT_ENVIRONMENT=$(abspath $(VENV)) $(UV) sync --python $(PYTHON) --no-install-project --group mypy --inexact
 	@touch $@
+
+# --- Generated mkdocs API reference (Markdown) -------------------------------
+# Python API-reference pages generated from the same GIR + overlay model as the
+# .pyi stubs (ginext_stubgen.docgen), written into the mkdocs site under
+# docs/api/ (gitignored; built on demand and in CI). Reads system GIR XML
+# directly — no built extension or typelibs required. Override as needed:
+#   make api-docs API_DOCS_NS="Gio:2.0 Gtk:4.0 Adw:1"
+API_DOCS_OUT ?= docs/api
+API_DOCS_NS  ?= GLib:2.0 GObject:2.0 Gio:2.0 Gdk:4.0 Gtk:4.0 Pango:1.0
+# Run in the pure-Python ginext-stubgen package so we don't build the extension
+# just to render docs. --directory changes cwd, so the out path is absolutised.
+_API_DOCS_RUN := $(UV) run --directory packages/ginext-stubgen python -m ginext_stubgen
+.PHONY: api-docs api-docs-all
+api-docs:
+	$(_API_DOCS_RUN) generate-docs $(API_DOCS_NS) --ext md --out $(abspath $(API_DOCS_OUT))
+api-docs-all:
+	$(_API_DOCS_RUN) generate-docs --all --ext md --out $(abspath $(API_DOCS_OUT))
 
 # Run the per-project mypy invocations concurrently (recursive make -j, so it's
 # parallel by default — no need to pass -j on the command line). Each invocation
