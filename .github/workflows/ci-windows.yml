@@ -18,8 +18,10 @@ env:
   # and runner-image updates. Matches the default-registry baseline in
   # vcpkg-configuration.json.
   VCPKG_COMMIT: "059d760472984042e1b4db0d40efd935a1adcbc9"
-  # Pin LLVM so clang-cl is identical across runs and architectures.
-  LLVM_VERSION: "20.1.8"
+  # Pin LLVM to the version validated locally. clang-cl < 21 doesn't accept the
+  # GCC-style `-include Python.h` flag meson emits (warns + treats Python.h as a
+  # missing input); 22.1.7's clang-cl accepts it.
+  LLVM_VERSION: "22.1.7"
 
 jobs:
   build:
