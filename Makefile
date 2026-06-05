@@ -269,6 +269,14 @@ $(STUB_INSTALL_STAMP): $(STUB_GEN_STAMP) $(VENV)/.pygir-sync-stamp
 
 stubs: $(STUB_INSTALL_STAMP)
 
+# mypy lives in the non-default `mypy` group, so the test/sanitizer jobs never
+# install it. Sync it into the venv only for typecheck; --inexact keeps the
+# editable packages and ginext-stubs (installed separately) in place.
+MYPY_INSTALL_STAMP := $(VENV)/.mypy-installed
+$(MYPY_INSTALL_STAMP): pyproject.toml uv.lock | venv
+	@UV_PROJECT_ENVIRONMENT=$(abspath $(VENV)) $(UV) sync --python $(PYTHON) --no-install-project --group mypy --inexact
+	@touch $@
+
 # Run the per-project mypy invocations concurrently (recursive make -j, so it's
 # parallel by default — no need to pass -j on the command line). Each invocation
 # is self-contained and green on its own; splitting just parallelizes wall-clock.
@@ -277,7 +285,7 @@ stubs: $(STUB_INSTALL_STAMP)
 # differently per package. ci/run-mypy.sh self-heals the cache: mypy 2.1 can
 # INTERNAL-ERROR on a stale cache (e.g. CI's restored .mypy_cache from another
 # commit), so it wipes the dir and retries once — incremental speed, no crash.
-typecheck: stubs
+typecheck: stubs $(MYPY_INSTALL_STAMP)
 	+$(MAKE) --no-print-directory -j _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander
 
 _typecheck-core:

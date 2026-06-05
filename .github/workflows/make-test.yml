@@ -26,9 +26,6 @@ jobs:
   make-test:
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
-    # free-threaded 3.15 beta is allowed to fail: mypy's transitive dep
-    # ast-serialize has no free-threaded 3.15 build yet (ecosystem, not ginext).
-    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +33,7 @@ jobs:
           - { id: linux-x86-314,   runner: ubuntu-latest,    python: cpython-3.14,                  label: "linux-x86 · 3.14" }
           - { id: linux-x86-314t,  runner: ubuntu-latest,    python: cpython-3.14t,                 label: "linux-x86 · 3.14t" }
           - { id: linux-x86-315,   runner: ubuntu-latest,    python: cpython-3.15.0b2,              label: "linux-x86 · 3.15b2" }
-          - { id: linux-x86-315t,  runner: ubuntu-latest,    python: cpython-3.15.0b2+freethreaded, label: "linux-x86 · 3.15b2t", experimental: true }
+          - { id: linux-x86-315t,  runner: ubuntu-latest,    python: cpython-3.15.0b2+freethreaded, label: "linux-x86 · 3.15b2t" }
           - { id: linux-arm-314t,  runner: ubuntu-24.04-arm, python: cpython-3.14t,                 label: "linux-arm64 · 3.14t" }
           - { id: macos-314t,      runner: macos-26,         python: cpython-3.14t,                 label: "macos-arm64 · 3.14t" }
     env:
