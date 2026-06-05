@@ -115,3 +115,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+          # PyPI rate-limits new-project creation ("429 too many new projects"),
+          # so the first release may land only some of the 7 projects; skip the
+          # ones already uploaded when the job is re-run to create the rest.
+          skip-existing: true
