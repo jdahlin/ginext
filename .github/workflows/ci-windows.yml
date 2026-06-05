@@ -81,15 +81,13 @@ jobs:
           "$dst\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Append
           "GINEXT_BASE_PYTHON=$dst\python.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
           & "$dst\python.exe" --version
-          # If this Python reports a LIBPC, meson does a pkg-config lookup and
-          # pulls python-3.x.pc, whose GCC-style `-include Python.h` Cflags break
-          # clang-cl. Remove any python*.pc so meson falls back to sysconfig.
-          $libpc = & "$dst\python.exe" -c "import sysconfig;print(sysconfig.get_config_var('LIBPC') or '')"
-          Write-Host "LIBPC=$libpc"
-          $dirs = @($libpc) + (Get-ChildItem $dst -Recurse -Directory -Filter pkgconfig -EA SilentlyContinue).FullName
-          foreach ($d in ($dirs | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique)) {
-            Get-ChildItem "$d\python*.pc" -EA SilentlyContinue | ForEach-Object { Write-Host "removing $_"; Remove-Item $_ -Force }
-          }
+          # Python 3.14 ships a PEP 739 build-details.json; meson 1.11 reads it,
+          # takes c_api.pkgconfig_path, and runs pkg-config python-3.14 whose
+          # GCC-style `-include Python.h -Wno-missing-field-initializers` Cflags
+          # break clang-cl. Remove build-details.json (and any python*.pc) so
+          # meson falls back to sysconfig (include dirs only) -- the clean path.
+          Get-ChildItem $dst -Recurse -Include 'build-details.json','python-3*.pc','python3*.pc' -EA SilentlyContinue |
+            ForEach-Object { Write-Host "removing $($_.FullName)"; Remove-Item $_.FullName -Force }
 
       - uses: astral-sh/setup-uv@v5
 
