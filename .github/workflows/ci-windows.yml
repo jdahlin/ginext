@@ -99,13 +99,14 @@ jobs:
       - name: Setup build venv
         shell: pwsh
         run: |
-          $py = (Get-Command python).Source
-          $env:GINEXT_BASE_PYTHON = $py
-          powershell -File tools\win\setup.ps1
+          $env:GINEXT_BASE_PYTHON = (Get-Command python).Source
+          & tools\win\setup.ps1
 
       - name: Build ginext
         shell: pwsh
-        run: powershell -File tools\win\build.ps1 -WithGiTests:$false
+        # Call directly (not `powershell -File`), so the [switch] binds the
+        # boolean $false instead of the literal string "$false".
+        run: '& tools\win\build.ps1 -WithGiTests:$false'
 
       # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
       # platform typelibs, so the core tests run without any out-of-band typelibs.
