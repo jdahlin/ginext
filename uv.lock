@@ -284,7 +284,6 @@ dev = [
     { name = "ginext-stubgen" },
     { name = "meson" },
     { name = "meson-python" },
-    { name = "mypy" },
     { name = "ninja" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -293,6 +292,9 @@ dev = [
     { name = "setuptools" },
     { name = "tox" },
     { name = "tox-uv" },
+]
+mypy = [
+    { name = "mypy" },
 ]
 typecheck = [
     { name = "ginext-stubs" },
@@ -325,7 +327,6 @@ dev = [
     { name = "ginext-stubgen", editable = "packages/ginext-stubgen" },
     { name = "meson", specifier = ">=1.0" },
     { name = "meson-python", specifier = ">=0.16" },
-    { name = "mypy", specifier = ">=1.15" },
     { name = "ninja", specifier = ">=1.10" },
     { name = "pre-commit", specifier = ">=4.6.0" },
     { name = "pytest", specifier = ">=8" },
@@ -335,6 +336,7 @@ dev = [
     { name = "tox", specifier = ">=4.53.1" },
     { name = "tox-uv", specifier = ">=1" },
 ]
+mypy = [{ name = "mypy", specifier = ">=1.15" }]
 typecheck = [{ name = "ginext-stubs", directory = "packages/ginext-stubs" }]
 
 [[package]]
