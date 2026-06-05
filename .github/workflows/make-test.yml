@@ -1,0 +1,91 @@
+name: make test (platforms)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: make-test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# `make test` across OS/arch + Python versions. Linux runs in our debian image
+# built from ci/Dockerfile (built per-arch on the runner, cached via gha — host
+# OS age is irrelevant since deps come from the image, and no registry is
+# involved). macOS runs natively via Homebrew. Full Python matrix only on
+# linux-x86; the other platforms run the default interpreter (3.14t).
+jobs:
+  make-test:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { id: linux-x86-314,   runner: ubuntu-latest,    python: cpython-3.14,                  label: "linux-x86 · 3.14" }
+          - { id: linux-x86-314t,  runner: ubuntu-latest,    python: cpython-3.14t,                 label: "linux-x86 · 3.14t" }
+          - { id: linux-x86-315,   runner: ubuntu-latest,    python: cpython-3.15.0b2,              label: "linux-x86 · 3.15b2" }
+          - { id: linux-x86-315t,  runner: ubuntu-latest,    python: cpython-3.15.0b2+freethreaded, label: "linux-x86 · 3.15b2t" }
+          - { id: linux-arm-314t,  runner: ubuntu-24.04-arm, python: cpython-3.14t,                 label: "linux-arm64 · 3.14t" }
+          - { id: macos-314t,      runner: macos-26,         python: cpython-3.14t,                 label: "macos-arm64 · 3.14t" }
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/uv
+          key: uv-mt-${{ matrix.id }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-mt-${{ matrix.id }}-
+            uv-mt-
+
+      # --- Linux: build our debian image (per-arch, gha-cached) and run in it ---
+      - if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@v3
+      - name: Build CI image
+        if: runner.os == 'Linux'
+        uses: docker/build-push-action@v6
+        with:
+          context: ci
+          file: ci/Dockerfile
+          load: true
+          tags: ginext-ci:local
+          cache-from: type=gha,scope=${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=${{ runner.arch }}
+      - name: make test (in container)
+        if: runner.os == 'Linux'
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src \
+            -e PYTEST_WORKERS="$(nproc)" -e UV_CACHE_DIR=/src/.cache/uv \
+            ginext-ci:local \
+            make test PYTHON=${{ matrix.python }} PYTEST_JUNIT_DIR="reports/junit/make-test"
+
+      # --- macOS: native Homebrew (system make is GNU 3.81, so use brew gmake) ---
+      - name: Install GNOME stack (Homebrew)
+        if: runner.os == 'macOS'
+        run: |
+          brew install \
+            gobject-introspection gtk4 gtk+3 libadwaita libgee \
+            gstreamer gst-plugins-base libsoup pango cairo gdk-pixbuf \
+            adwaita-icon-theme make meson ninja pkg-config
+      - if: runner.os == 'macOS'
+        uses: astral-sh/setup-uv@v6
+      - name: make test
+        if: runner.os == 'macOS'
+        run: |
+          gmake test PYTHON=${{ matrix.python }} \
+            PYTEST_WORKERS="$(sysctl -n hw.ncpu)" \
+            PYTEST_JUNIT_DIR="reports/junit/make-test"
+
+      - name: Upload JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.id }}
+          path: reports/junit/
+          if-no-files-found: ignore
