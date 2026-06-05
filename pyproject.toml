@@ -71,10 +71,17 @@ dev = [
     "tox>=4.53.1",
     "tox-uv>=1",
     "pre-commit>=4.6.0",
-    # PEP 561 stub package for the invoked GI namespaces (Gtk, Gio, ...). Installed
-    # so `from ginext import Gio` type-checks against real generated types instead
-    # of the dynamic Namespace fallback — including inside ginext's own tests.
-    # ginext's own library API stays inline-typed (src/ginext/*.pyi).
+]
+
+# PEP 561 stub package for the invoked GI namespaces (Gtk, Gio, ...) so that
+# `from ginext import Gio` type-checks against real generated types instead of
+# the dynamic Namespace fallback. Kept OUT of `dev` (and out of default-groups):
+# building its wheel runs `ginext-stubgen generate-all` (minutes), and only the
+# typecheck job needs it. The typecheck Makefile target installs it explicitly
+# (STUB_INSTALL_STAMP), so the test/sanitizer jobs' `uv sync` no longer pays the
+# stub-generation cost. ginext's own library API stays inline-typed
+# (src/ginext/*.pyi).
+typecheck = [
     "ginext-stubs",
 ]
 

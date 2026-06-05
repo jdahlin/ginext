@@ -282,7 +282,6 @@ dev = [
     { name = "ginext-gtk" },
     { name = "ginext-libsoup" },
     { name = "ginext-stubgen" },
-    { name = "ginext-stubs" },
     { name = "meson" },
     { name = "meson-python" },
     { name = "mypy" },
@@ -294,6 +293,9 @@ dev = [
     { name = "setuptools" },
     { name = "tox" },
     { name = "tox-uv" },
+]
+typecheck = [
+    { name = "ginext-stubs" },
 ]
 
 [package.metadata]
@@ -321,7 +323,6 @@ dev = [
     { name = "ginext-gtk", editable = "packages/ginext-gtk" },
     { name = "ginext-libsoup", editable = "packages/ginext-libsoup" },
     { name = "ginext-stubgen", editable = "packages/ginext-stubgen" },
-    { name = "ginext-stubs", directory = "packages/ginext-stubs" },
     { name = "meson", specifier = ">=1.0" },
     { name = "meson-python", specifier = ">=0.16" },
     { name = "mypy", specifier = ">=1.15" },
@@ -334,6 +335,7 @@ dev = [
     { name = "tox", specifier = ">=4.53.1" },
     { name = "tox-uv", specifier = ">=1" },
 ]
+typecheck = [{ name = "ginext-stubs", directory = "packages/ginext-stubs" }]
 
 [[package]]
 name = "ginext-gi-compat"
