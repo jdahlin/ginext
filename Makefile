@@ -252,7 +252,14 @@ STUB_OVERLAYS      := $(wildcard src/ginext/_overlays/*.py) \
                       $(wildcard src/ginext/_overlays/*.toml)
 STUB_TEST_GIRS     := $(wildcard $(GI_TESTS_BDIR)/*.gir)
 
-$(STUB_GEN_STAMP): $(STUBGEN_SRC) $(STUB_OVERLAYS) $(STUB_TEST_GIRS) | venv
+# Build only our in-tree test typelibs (Regress, RegressUnix, GIMarshallingTests,
+# GoiBench, Utility); Gst* and other system typelibs come from the image. Stub
+# generation discovers their GIRs under build/<variant>/packages/typelib/.
+.PHONY: typelibs
+typelibs: setup
+	@$(BUILD_ENV) $(MESON) compile -C $(BDIR) typelib-native-stubs
+
+$(STUB_GEN_STAMP): $(STUBGEN_SRC) $(STUB_OVERLAYS) | typelibs
 	$(UV_RUN) ginext-stubgen generate-all
 	@touch $@
 

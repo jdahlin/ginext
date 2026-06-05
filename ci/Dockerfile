@@ -28,6 +28,7 @@ RUN apt-get update && \
       libgtk-3-dev \
       libgtk-4-dev \
       libgstreamer1.0-dev \
+      libgstreamer-plugins-base1.0-dev \
       gstreamer1.0-plugins-base \
       gir1.2-gstreamer-1.0 \
       gir1.2-gst-plugins-base-1.0 \
