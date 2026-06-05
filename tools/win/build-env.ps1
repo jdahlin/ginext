@@ -46,7 +46,8 @@ if ($env:GINEXT_VCPKG_INSTALLED) {
 } else {
   $installed = Join-Path $vcpkg "installed\$($env:GINEXT_TRIPLET)"
 }
-$installedStatic = "$installed-static-md"
+# Export the resolved path so build.ps1 (and re-sources) reuse the exact tree.
+$env:GINEXT_VCPKG_INSTALLED = $installed
 
 # --- MSVC env for the target arch ----------------------------------------
 cmd /c "`"$vcvars`" $vcArch >nul 2>&1 && set" | ForEach-Object {
@@ -57,9 +58,10 @@ cmd /c "`"$vcvars`" $vcArch >nul 2>&1 && set" | ForEach-Object {
 # tools\glib holds glib-compile-schemas/-resources, gdbus, etc. (used by tests).
 $env:PATH = "$llvm\bin;$installed\tools\pkgconf;$installed\tools\glib;$installed\bin;" + $env:PATH
 
-# static-md first so dependency('libffi') resolves to the static lib (avoids the
-# dllimport-data static-initializer problem); dynamic install supplies the rest.
-$env:PKG_CONFIG_PATH = "$installedStatic\lib\pkgconfig;$installed\lib\pkgconfig"
+# The overlay triplet builds libffi as a static lib in this same tree (so
+# dependency('libffi') resolves to the static one, avoiding the dllimport-data
+# static-initializer problem); everything else is dynamic.
+$env:PKG_CONFIG_PATH = "$installed\lib\pkgconfig"
 
 # Typelibs: vcpkg's own girepository-1.0 dir, plus any out-of-band extras
 # (prepended) until the introspection overlays land. See tools\win\BOOTSTRAP.md.

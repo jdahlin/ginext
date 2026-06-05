@@ -28,8 +28,10 @@ Set-Location $repo
 #    Sets/normalizes $env:GINEXT_TRIPLET and resolves VCPKG_ROOT.
 . "$repo\tools\win\build-env.ps1"
 $triplet = $env:GINEXT_TRIPLET
-$vcpkg = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { 'C:\dev\vcpkg' }
-$installed = Join-Path $vcpkg "installed\$triplet"
+# build-env.ps1 resolved the install tree (manifest vcpkg_installed vs classic)
+# and exported it; reuse that exact path so the native file's pkg-config is right.
+$installed = $env:GINEXT_VCPKG_INSTALLED
+if (-not $installed) { throw "GINEXT_VCPKG_INSTALLED not set by build-env.ps1" }
 if (-not $BuildDir) { $BuildDir = "build\win-" + ($triplet -replace '-windows$','') }
 
 # 2. Build venv tooling (meson). Prefer the per-arch venv, fall back to .venv.

@@ -114,7 +114,21 @@ jobs:
       # follow-up, see tools/win/BOOTSTRAP.md.)
       - name: Run core suite
         shell: pwsh
+        # The gi test typelibs (GIMarshallingTests/Regress/Utility/GoiBench) are
+        # not generated on Windows yet: ginext's own gnome.generate_gir runs
+        # g-ir-scanner under the build venv (3.14) against vcpkg's cp312
+        # _giscanner -> ABI mismatch. Until a 3.14-matched scanner is wired
+        # (tracked follow-up, see tools/win/BOOTSTRAP.md), skip the files that
+        # require those typelibs and run the rest of the core suite.
         run: |
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
-          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py src/ginext/tests/ -q
+          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py src/ginext/tests/ -q `
+            --ignore=src/ginext/tests/closure/test_gclosure_argument.py `
+            --ignore=src/ginext/tests/gobject/test_object_lifecycle.py `
+            --ignore=src/ginext/tests/gobject/test_paramspec_introspection_backlog.py `
+            --ignore=src/ginext/tests/gobject/test_type_functions.py `
+            --ignore=src/ginext/tests/typelib/test_fundamental.py `
+            --ignore=src/ginext/tests/typelib/test_keyword_args.py `
+            --ignore=src/ginext/tests/typelib/test_object_inout.py `
+            --ignore=src/ginext/tests/integration/test_girepository_overlay.py
