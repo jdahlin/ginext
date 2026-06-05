@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+  "name": "glib-gir",
+  "version": "2.88.1",
+  "description": [
+    "GObject-Introspection typelibs for glib (GLib/GObject/Gio/GModule-2.0 plus",
+    "GIRepository-3.0), built from the matching glib sources with introspection",
+    "enabled. Works around vcpkg shipping glib with -Dintrospection=disabled.",
+    "This is a leaf port (nothing depends back on it), so depending on glib and",
+    "gobject-introspection here does not form the glib<->g-i cycle that blocks an",
+    "introspection feature on glib itself. It compiles glib a second time and",
+    "installs only the typelibs/girs, so it does not conflict with the glib port."
+  ],
+  "homepage": "https://developer.gnome.org/glib/",
+  "license": "LGPL-2.1-or-later",
+  "supports": "!(static & staticcrt) & !uwp & !xbox",
+  "dependencies": [
+    "glib",
+    {
+      "name": "gobject-introspection",
+      "host": true
+    },
+    {
+      "name": "vcpkg-tool-meson",
+      "host": true
+    }
+  ]
+}

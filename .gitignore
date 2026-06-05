@@ -51,3 +51,4 @@ src/gitlab-agent-bot/work/
 /apps/drawing-run/
 /apps/gnome-text-editor/
 /apps/showtime/
+vcpkg_installed/
