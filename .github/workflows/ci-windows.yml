@@ -71,6 +71,19 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
 
+      # setup-python ships a python-3.x.pc whose Cflags use GCC-style
+      # `-include Python.h -Wno-missing-field-initializers`; meson finds python
+      # via pkg-config and passes those straight to clang-cl, which rejects
+      # `-include` and then can't find Python.h. Remove the .pc so meson falls
+      # back to sysconfig (include dirs only), matching a clean local build.
+      - name: Neutralize setup-python pkg-config (bad clang-cl Cflags)
+        shell: pwsh
+        run: |
+          $pc = Join-Path $env:pythonLocation 'lib\pkgconfig'
+          if (Test-Path $pc) {
+            Get-ChildItem "$pc\*.pc" | ForEach-Object { Write-Host "removing $_"; Remove-Item $_ -Force }
+          } else { Write-Host "no $pc" }
+
       # Pinned LLVM (clang-cl + lld-link). The NSIS installer supports /S silent
       # install; woa64 asset is the native Windows-on-ARM build.
       - name: Install LLVM ${{ env.LLVM_VERSION }} (${{ matrix.llvm_asset }})
