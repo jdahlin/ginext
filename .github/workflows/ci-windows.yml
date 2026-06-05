@@ -34,10 +34,12 @@ jobs:
             runner: windows-latest
             triplet: x64-windows
             llvm_asset: win64
+            py_asset: amd64
           - name: arm64
             runner: windows-11-arm
             triplet: arm64-windows
             llvm_asset: woa64
+            py_asset: arm64
     runs-on: ${{ matrix.runner }}
     env:
       GINEXT_TRIPLET: ${{ matrix.triplet }}
@@ -63,26 +65,24 @@ jobs:
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-      # Native CPython 3.14 (the ginext build/runtime Python). setup-python
-      # provides arm64 builds on windows-11-arm.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-
-      - uses: astral-sh/setup-uv@v5
-
-      # setup-python ships a python-3.x.pc whose Cflags use GCC-style
-      # `-include Python.h -Wno-missing-field-initializers`; meson finds python
-      # via pkg-config and passes those straight to clang-cl, which rejects
-      # `-include` and then can't find Python.h. Remove the .pc so meson falls
-      # back to sysconfig (include dirs only), matching a clean local build.
-      - name: Neutralize setup-python pkg-config (bad clang-cl Cflags)
+      # Native CPython 3.14 from python.org (NOT actions/setup-python): the
+      # setup-python build makes meson emit a GCC-style `-include Python.h` for
+      # the extension, which clang-cl rejects. The python.org installer matches
+      # the locally validated toolchain and produces a clean build.
+      - name: Install CPython 3.14.5 (python.org)
         shell: pwsh
         run: |
-          $pc = Join-Path $env:pythonLocation 'lib\pkgconfig'
-          if (Test-Path $pc) {
-            Get-ChildItem "$pc\*.pc" | ForEach-Object { Write-Host "removing $_"; Remove-Item $_ -Force }
-          } else { Write-Host "no $pc" }
+          $url = "https://www.python.org/ftp/python/3.14.5/python-3.14.5-${{ matrix.py_asset }}.exe"
+          $dst = "$env:RUNNER_TEMP\py314"
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\py.exe"
+          Start-Process "$env:RUNNER_TEMP\py.exe" -Wait -ArgumentList `
+            '/quiet','InstallAllUsers=0','PrependPath=0','Include_pip=1','Include_dev=1',"TargetDir=$dst"
+          "$dst" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "$dst\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "GINEXT_BASE_PYTHON=$dst\python.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          & "$dst\python.exe" --version
+
+      - uses: astral-sh/setup-uv@v5
 
       # Pinned LLVM (clang-cl + lld-link). The NSIS installer supports /S silent
       # install; woa64 asset is the native Windows-on-ARM build.
@@ -140,9 +140,8 @@ jobs:
 
       - name: Setup build venv
         shell: pwsh
-        run: |
-          $env:GINEXT_BASE_PYTHON = (Get-Command python).Source
-          & tools\win\setup.ps1
+        # GINEXT_BASE_PYTHON is set by the python.org install step.
+        run: '& tools\win\setup.ps1'
 
       - name: Build ginext
         shell: pwsh
