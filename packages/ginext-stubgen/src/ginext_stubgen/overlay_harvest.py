@@ -59,7 +59,7 @@ def harvest_overlays(roots: list[Path]) -> dict[str, dict[str, Any]]:
             continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except OSError, SyntaxError:
+        except (OSError, SyntaxError):
             continue
         acc = per_ns.setdefault(ns, _NSOverlay())
         _harvest_module(tree, acc)
