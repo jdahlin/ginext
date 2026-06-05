@@ -30,10 +30,12 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from textwrap import dedent
-from collections.abc import Callable as _Callable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .overlay_harvest import harvest_overlays
+
+if TYPE_CHECKING:
+    from collections.abc import Callable as _Callable
 
 NS = {
     "gi": "http://www.gtk.org/introspection/core/1.0",
@@ -476,6 +478,7 @@ class Param:
     direction: str  # "in", "out", "inout"
     nullable: bool
     has_default: bool
+    doc: str | None = None
 
 
 @dataclass
@@ -490,6 +493,10 @@ class Callable:
     doc: str | None = None
     deprecated: bool = False
     deprecated_version: str | None = None
+    # GIR ``moved-to="Class.method"`` on a namespace-level function: it is a
+    # convenience duplicate of a type's static method. Used by the doc generator
+    # to group it under the class instead of listing it as a global function.
+    moved_to: str | None = None
 
 
 @dataclass
@@ -502,6 +509,7 @@ class Property:
     writable: bool = True
     deprecated: bool = False
     deprecated_version: str | None = None
+    doc: str | None = None
 
 
 @dataclass
@@ -528,6 +536,7 @@ class Klass:
 class EnumValue:
     name: str
     value: str
+    doc: str | None = None
 
 
 @dataclass
@@ -593,8 +602,19 @@ class Namespace:
 
 
 class Parser:
-    def __init__(self, gir_path: Path, overlay: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        gir_path: Path,
+        overlay: dict[str, Any] | None = None,
+        *,
+        doc_format: Literal["rst", "raw"] = "rst",
+    ):
         self.gir_path = gir_path
+        # ``rst`` (default) converts gtk-doc to PyCharm-friendly RST for the
+        # .pyi docstrings; ``raw`` keeps the original gtk-doc text so the doc
+        # generator (docgen.DocEmitter) can render its own Markdown with full
+        # knowledge of the page layout and cross-reference targets.
+        self.doc_format = doc_format
         self.root = ET.parse(gir_path).getroot()
         ns_el = self.root.find("gi:namespace", NS)
         if ns_el is None:
@@ -653,6 +673,8 @@ class Parser:
         doc_el = el.find("gi:doc", NS)
         if doc_el is None or not doc_el.text:
             return None
+        if self.doc_format == "raw":
+            return dedent(doc_el.text).strip() or None
         doc = _gtk_doc_to_plain(
             dedent(doc_el.text).strip(),
             c_identifiers=self._doc_identifiers,
@@ -660,6 +682,16 @@ class Parser:
             c_constants=self._doc_constants,
         )
         return doc or None
+
+    def doc_ref_maps(
+        self,
+    ) -> tuple[dict[str, DocRef], dict[str, str], dict[str, str]]:
+        """Public view of the doc cross-reference maps (C name → Python target).
+
+        Consumed by :class:`ginext_stubgen.docgen.DocEmitter` to resolve legacy
+        gtk-doc identifiers (``gtk_window_new``, ``#GtkWidget``, ``%G_FOO``).
+        """
+        return self._doc_identifiers, self._doc_types, self._doc_constants
 
     def _build_doc_ref_maps(
         self,
@@ -907,6 +939,7 @@ class Parser:
                 direction=direction,
                 nullable=nullable,
                 has_default=nullable and direction == "in",
+                doc=self._doc(p),
             )
             if direction == "in":
                 params.append(param)
@@ -962,6 +995,7 @@ class Parser:
             doc=self._doc(el),
             deprecated=dep,
             deprecated_version=dep_ver,
+            moved_to=el.get("moved-to"),
         )
 
     # ---- top-level walking ----
@@ -1048,7 +1082,7 @@ class Parser:
             # them addressable.
             if name[0].isdigit():
                 name = "_" + name
-            values.append(EnumValue(name=name, value=value))
+            values.append(EnumValue(name=name, value=value, doc=self._doc(m)))
         dep, dep_ver = self._deprecation(el)
         return Enum(
             name=el.get("name") or "_",
@@ -1205,6 +1239,7 @@ class Parser:
             writable=writable,
             deprecated=dep,
             deprecated_version=dep_ver,
+            doc=self._doc(el),
         )
 
     def _parse_callback(self, el: ET.Element) -> CallbackType:
@@ -1251,6 +1286,41 @@ class Parser:
 # ---------------------------------------------------------------------------
 
 Mode = Literal["native", "gi"]
+
+
+def render_signature(
+    fn: Callable,
+    *,
+    instance: str | None,
+    return_override: str | None = None,
+) -> str:
+    """Render a Callable as a Python ``(params) -> return`` signature string.
+
+    Out-parameters fold into the return as ``tuple[ret, out1, ...]`` (PyGObject
+    convention). Shared by the .pyi Emitter and the doc generator so an API page
+    shows the exact signature the stub declares.
+    """
+    parts: list[str] = []
+    if instance:
+        parts.append(instance)
+    for p in fn.params:
+        base = f"{p.name}: {p.type_expr}"
+        if p.has_default:
+            base += " = ..."
+        parts.append(base)
+    ret = return_override if return_override is not None else fn.return_expr
+    if fn.out_exprs:
+        # If the function "returns" None, PyGObject only returns the out
+        # params (as a tuple if multiple, bare if one). Modelling None
+        # explicitly leads to ``tuple[None, X]`` which user code never
+        # actually unpacks.
+        base_parts = [] if ret == "None" else [ret]
+        tuple_parts = base_parts + fn.out_exprs
+        if len(tuple_parts) == 1:
+            ret = tuple_parts[0]
+        else:
+            ret = f"tuple[{', '.join(tuple_parts)}]"
+    return f"({', '.join(parts)}) -> {ret}"
 
 
 class Emitter:
@@ -1880,7 +1950,9 @@ class Emitter:
             return self._emit_signals_native(klass, seen, take)
         return self._emit_signals_gi(klass, seen, take)
 
-    def _emit_signals_native(self, klass: Klass, seen: set[str], take: _Callable[[str], bool]) -> bool:
+    def _emit_signals_native(
+        self, klass: Klass, seen: set[str], take: _Callable[[str], bool]
+    ) -> bool:
         emitted = False
         for sig in klass.signals:
             py_name = _ident(sig.name)
@@ -1928,7 +2000,9 @@ class Emitter:
             emitted = True
         return emitted
 
-    def _emit_signals_gi(self, klass: Klass, seen: set[str], take: _Callable[[str], bool]) -> bool:
+    def _emit_signals_gi(
+        self, klass: Klass, seen: set[str], take: _Callable[[str], bool]
+    ) -> bool:
         emitted = False
         for cname in ("connect", "connect_after"):
             if cname in seen:
@@ -2062,27 +2136,7 @@ class Emitter:
     def _signature(
         self, fn: Callable, *, instance: str | None, return_override: str | None = None
     ) -> str:
-        parts: list[str] = []
-        if instance:
-            parts.append(instance)
-        for p in fn.params:
-            base = f"{p.name}: {p.type_expr}"
-            if p.has_default:
-                base += " = ..."
-            parts.append(base)
-        ret = return_override if return_override is not None else fn.return_expr
-        if fn.out_exprs:
-            # If the function "returns" None, PyGObject only returns the out
-            # params (as a tuple if multiple, bare if one). Modelling None
-            # explicitly leads to ``tuple[None, X]`` which user code never
-            # actually unpacks.
-            base_parts = [] if ret == "None" else [ret]
-            tuple_parts = base_parts + fn.out_exprs
-            if len(tuple_parts) == 1:
-                ret = tuple_parts[0]
-            else:
-                ret = f"tuple[{', '.join(tuple_parts)}]"
-        return f"({', '.join(parts)}) -> {ret}"
+        return render_signature(fn, instance=instance, return_override=return_override)
 
     def _gobject_init(self, klass: Klass) -> str:
         """Typed keyword-only __init__ for a GObject from its writable props.
@@ -2221,7 +2275,9 @@ class Emitter:
         if finish_name is None:
             return False
         finish = callable_map[finish_name]
-        await_return = self._callable_return_expr(finish, return_override=return_override)
+        await_return = self._callable_return_expr(
+            finish, return_override=return_override
+        )
         await_params = [
             *fn.params[:-1],
             Param("callback", "None", "in", True, True),
@@ -2524,17 +2580,25 @@ def load_overlay_toml(namespace: str, version: str) -> dict[str, Any]:
     return {}
 
 
-def generate(gir_path: Path, *, mode: Mode = "native") -> tuple[str, str]:
-    """Parse a single .gir file and return (namespace, .pyi text)."""
+def build_namespace(
+    gir_path: Path, *, doc_format: Literal["rst", "raw"] = "rst"
+) -> tuple[Namespace, Parser]:
+    """Parse a .gir into the overlay-applied Namespace model.
+
+    Shared by ``generate`` (.pyi) and the doc generator so both consume an
+    identical model — Python signatures, docs, and overlays cannot drift.
+    Returns ``(namespace, parser)``; the parser exposes the doc cross-reference
+    maps (``_doc_identifiers`` / ``_doc_types`` / ``_doc_constants``).
+    """
     overlay: dict[str, Any] = {}
-    parser = Parser(gir_path, overlay=overlay)
+    parser = Parser(gir_path, overlay=overlay, doc_format=doc_format)
     # Re-resolve the overlay TOML now that we know the namespace name +
     # version from the GIR header. Re-init the parser with the overlay so
     # parsing can react to it (e.g. skipping kind="internal" entries).
     ns_name_peek = parser.ns_name
     ns_version_peek = parser.ns_version
     overlay = load_overlay_toml(ns_name_peek, ns_version_peek)
-    parser = Parser(gir_path, overlay=overlay)
+    parser = Parser(gir_path, overlay=overlay, doc_format=doc_format)
     ns = parser.parse()
     _apply_toml_overlay(ns, overlay)
     # PyGObject historically merges a handful of small companion namespaces
@@ -2544,7 +2608,7 @@ def generate(gir_path: Path, *, mode: Mode = "native") -> tuple[str, str]:
     if ns.name == "GLib":
         unix_gir = find_gir("GLibUnix", "2.0")
         if unix_gir is not None:
-            unix_ns = Parser(unix_gir).parse()
+            unix_ns = Parser(unix_gir, doc_format=doc_format).parse()
 
             # GLibUnix types reference ``GLib.X`` because they live in a
             # separate namespace. After merging into GLib those become
@@ -2567,6 +2631,12 @@ def generate(gir_path: Path, *, mode: Mode = "native") -> tuple[str, str]:
                     p.type_expr = _unqualify(p.type_expr)
                 ns.callbacks.append(cb)
             ns.foreign_namespaces.update(unix_ns.foreign_namespaces - {"GLib"})
+    return ns, parser
+
+
+def generate(gir_path: Path, *, mode: Mode = "native") -> tuple[str, str]:
+    """Parse a single .gir file and return (namespace, .pyi text)."""
+    ns, _parser = build_namespace(gir_path)
     text = Emitter(ns, mode=mode).emit()
     return ns.name, text
 

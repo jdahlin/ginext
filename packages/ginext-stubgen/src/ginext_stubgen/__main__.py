@@ -28,7 +28,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import find_gir, generate
+from . import build_namespace, find_gir, generate
 from . import Mode
 
 
@@ -163,6 +163,36 @@ def cmd_generate_all(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_generate_docs(args: argparse.Namespace) -> int:
+    from .docgen import DocEmitter
+
+    out_dir: Path = args.out
+    if args.all:
+        specs = list(_DEFAULT_NAMESPACES)
+    else:
+        specs = [parse_spec(s) for s in args.specs]
+    if not specs:
+        print("error: pass NAMESPACE:VERSION specs or --all", file=sys.stderr)
+        return 1
+
+    entries = []
+    for name, version in specs:
+        gir = find_gir(name, version)
+        if gir is None:
+            print(f"warn: {name}-{version}.gir not found — skipping", file=sys.stderr)
+            continue
+        entries.append(build_namespace(gir, doc_format="raw"))
+
+    if not entries:
+        print("error: no namespaces resolved", file=sys.stderr)
+        return 1
+
+    written = DocEmitter(entries, ext=args.ext).write(out_dir)
+    namespaces = ", ".join(sorted(ns.name for ns, _ in entries))
+    print(f"wrote {len(written)} files for {namespaces} into {out_dir}")
+    return 0
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     rc = cmd_generate_all(args)
     if rc != 0:
@@ -193,6 +223,30 @@ def main(argv: list[str]) -> int:
     gall = sub.add_parser("generate-all", help="regenerate all default namespaces")
     gall.add_argument("--out", type=Path, default=None)
 
+    # --- generate-docs ---
+    gdocs = sub.add_parser(
+        "generate-docs",
+        help="generate Docusaurus MDX API reference pages",
+    )
+    gdocs.add_argument(
+        "specs", nargs="*", help="NAMESPACE:VERSION (e.g. Gtk:4.0); omit with --all"
+    )
+    gdocs.add_argument(
+        "--all", action="store_true", help="generate all default namespaces"
+    )
+    gdocs.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="output directory (the Docusaurus content/api dir)",
+    )
+    gdocs.add_argument(
+        "--ext",
+        choices=("mdx", "md"),
+        default="mdx",
+        help="page file extension: mdx for Docusaurus (default), md for mkdocs",
+    )
+
     # --- install ---
     inst = sub.add_parser(
         "install",
@@ -206,6 +260,8 @@ def main(argv: list[str]) -> int:
         return cmd_generate(args)
     if args.cmd == "generate-all":
         return cmd_generate_all(args)
+    if args.cmd == "generate-docs":
+        return cmd_generate_docs(args)
     if args.cmd == "install":
         return cmd_install(args)
     p.print_help()
