@@ -1,12 +1,32 @@
 [project]
 name = "ginext-gst"
-version = "0.0.1"
+version = "0.8.0"
 description = "GStreamer namespace overlay for ginext"
+readme = { content-type = "text/markdown", text = """
+# ginext-gst
+
+GStreamer namespace overlay for ginext
+
+Part of [ginext](https://github.com/jdahlin/ginext) — fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python.
+""" }
 requires-python = ">=3.14"
-dependencies = ["ginext>=0.0.1"]
+license = "LGPL-2.1-or-later"
+authors = [{ name = "Johan Dahlin", email = "jdahlin@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = ["gi>=0.8.0"]
 
 [project.entry-points."ginext.overlays"]
 Gst = "ginext_gst:_overlays.Gst"
+
+[project.urls]
+Homepage = "https://github.com/jdahlin/ginext"
+Repository = "https://github.com/jdahlin/ginext"
+Issues = "https://github.com/jdahlin/ginext/issues"
 
 [build-system]
 requires = ["hatchling"]

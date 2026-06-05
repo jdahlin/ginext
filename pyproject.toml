@@ -1,22 +1,56 @@
 [project]
-name = "ginext"
-version = "0.0.1"
+# Distribution name on PyPI is `gi` (owned); the importable package stays
+# `ginext` (`from ginext import Gtk`). Distribution name != import name.
+name = "gi"
+version = "0.8.0"
 description = "Fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python"
+readme = "README.md"
 requires-python = ">=3.14"
+license = "LGPL-2.1-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Johan Dahlin", email = "jdahlin@gmail.com" }]
+keywords = ["gobject", "introspection", "gtk", "glib", "gnome", "free-threading"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Programming Language :: C",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: POSIX :: Linux",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jdahlin/ginext"
+Repository = "https://github.com/jdahlin/ginext"
+Documentation = "https://jdahlin.github.io/ginext/"
+Issues = "https://github.com/jdahlin/ginext/issues"
 
 [project.optional-dependencies]
 gio = [
-    "ginext-gio>=0.0.1",
+    "ginext-gio>=0.8.0",
 ]
 gtk = [
-    "ginext-gtk>=0.0.1",
+    "ginext-gtk>=0.8.0",
 ]
 gst = [
-    "ginext-gst>=0.0.1",
+    "ginext-gst>=0.8.0",
 ]
 libsoup = [
-    "ginext-libsoup>=0.0.1",
+    "ginext-libsoup>=0.8.0",
+]
+compat = [
+    "ginext-gi-compat>=0.8.0",
+]
+stubs = [
+    "ginext-stubs>=0.8.0",
+]
+all = [
+    "ginext-gio>=0.8.0",
+    "ginext-gtk>=0.8.0",
+    "ginext-gst>=0.8.0",
+    "ginext-libsoup>=0.8.0",
 ]
 dev = [
     "pytest>=8",
@@ -96,7 +130,7 @@ default-groups = ["dev"]
 # Build the ginext editable wheel against the persistent venv (not an
 # ephemeral isolated build env) so its meson-python rebuild hook keeps working
 # when imported from any workspace member (e.g. `uv run pytest packages/...`).
-no-build-isolation-package = ["ginext"]
+no-build-isolation-package = ["gi"]
 
 [tool.uv.workspace]
 members = [
@@ -110,7 +144,7 @@ members = [
 ]
 
 [tool.uv.sources]
-ginext = { workspace = true }
+gi = { workspace = true }
 ginext-gio = { workspace = true }
 ginext-gtk = { workspace = true }
 ginext-gst = { workspace = true }

@@ -11,7 +11,7 @@ resolution-markers = [
 [manifest]
 members = [
     "commander",
-    "ginext",
+    "gi",
     "ginext-gi-compat",
     "ginext-gio",
     "ginext-gst",
@@ -176,7 +176,7 @@ name = "commander"
 version = "0.0.0"
 source = { editable = "examples/commander" }
 dependencies = [
-    { name = "ginext", extra = ["gtk"] },
+    { name = "gi", extra = ["gtk"] },
     { name = "pycairo" },
 ]
 
@@ -189,7 +189,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ginext", extras = ["gtk"], editable = "." },
+    { name = "gi", extras = ["gtk"], editable = "." },
     { name = "pycairo", specifier = ">=1.27" },
 ]
 
@@ -240,17 +240,26 @@ wheels = [
 ]
 
 [[package]]
-name = "ginext"
-version = "0.0.1"
+name = "gi"
+version = "0.8.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
+all = [
+    { name = "ginext-gio" },
+    { name = "ginext-gst" },
+    { name = "ginext-gtk" },
+    { name = "ginext-libsoup" },
+]
 apps = [
     { name = "numpy" },
     { name = "pycairo" },
 ]
 bench = [
     { name = "pygobject" },
+]
+compat = [
+    { name = "ginext-gi-compat" },
 ]
 dev = [
     { name = "pytest" },
@@ -272,6 +281,9 @@ gtk = [
 ]
 libsoup = [
     { name = "ginext-libsoup" },
+]
+stubs = [
+    { name = "ginext-stubs" },
 ]
 
 [package.dev-dependencies]
@@ -302,10 +314,16 @@ typecheck = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ginext-gi-compat", marker = "extra == 'compat'", editable = "packages/ginext-gi-compat" },
+    { name = "ginext-gio", marker = "extra == 'all'", editable = "packages/ginext-gio" },
     { name = "ginext-gio", marker = "extra == 'gio'", editable = "packages/ginext-gio" },
+    { name = "ginext-gst", marker = "extra == 'all'", editable = "packages/ginext-gst" },
     { name = "ginext-gst", marker = "extra == 'gst'", editable = "packages/ginext-gst" },
+    { name = "ginext-gtk", marker = "extra == 'all'", editable = "packages/ginext-gtk" },
     { name = "ginext-gtk", marker = "extra == 'gtk'", editable = "packages/ginext-gtk" },
+    { name = "ginext-libsoup", marker = "extra == 'all'", editable = "packages/ginext-libsoup" },
     { name = "ginext-libsoup", marker = "extra == 'libsoup'", editable = "packages/ginext-libsoup" },
+    { name = "ginext-stubs", marker = "extra == 'stubs'", directory = "packages/ginext-stubs" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "numpy", marker = "extra == 'apps'", specifier = ">=2" },
@@ -315,7 +333,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3" },
 ]
-provides-extras = ["gio", "gtk", "gst", "libsoup", "dev", "apps", "bench", "docs"]
+provides-extras = ["gio", "gtk", "gst", "libsoup", "compat", "stubs", "all", "dev", "apps", "bench", "docs"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -341,83 +359,83 @@ typecheck = [{ name = "ginext-stubs", directory = "packages/ginext-stubs" }]
 
 [[package]]
 name = "ginext-gi-compat"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-gi-compat" }
 dependencies = [
-    { name = "ginext" },
+    { name = "gi" },
     { name = "ginext-gio" },
     { name = "ginext-gtk" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "ginext", editable = "." },
+    { name = "gi", editable = "." },
     { name = "ginext-gio", editable = "packages/ginext-gio" },
     { name = "ginext-gtk", editable = "packages/ginext-gtk" },
 ]
 
 [[package]]
 name = "ginext-gio"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-gio" }
 dependencies = [
-    { name = "ginext" },
+    { name = "gi" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ginext", editable = "." }]
+requires-dist = [{ name = "gi", editable = "." }]
 
 [[package]]
 name = "ginext-gst"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-gst" }
 dependencies = [
-    { name = "ginext" },
+    { name = "gi" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ginext", editable = "." }]
+requires-dist = [{ name = "gi", editable = "." }]
 
 [[package]]
 name = "ginext-gtk"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-gtk" }
 dependencies = [
-    { name = "ginext" },
+    { name = "gi" },
     { name = "ginext-gio" },
     { name = "pycairo" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "ginext", editable = "." },
+    { name = "gi", editable = "." },
     { name = "ginext-gio", editable = "packages/ginext-gio" },
     { name = "pycairo" },
 ]
 
 [[package]]
 name = "ginext-libsoup"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-libsoup" }
 dependencies = [
-    { name = "ginext" },
+    { name = "gi" },
     { name = "ginext-gio" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "ginext", editable = "." },
+    { name = "gi", editable = "." },
     { name = "ginext-gio", editable = "packages/ginext-gio" },
 ]
 
 [[package]]
 name = "ginext-stubgen"
-version = "0.0.1"
+version = "0.8.0"
 source = { editable = "packages/ginext-stubgen" }
 
 [[package]]
 name = "ginext-stubs"
-version = "0.0.1"
+version = "0.8.0"
 source = { directory = "packages/ginext-stubs" }
 
 [[package]]

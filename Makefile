@@ -172,6 +172,13 @@ build: setup
 release:
 	@$(MAKE) build BDIR=build/release MESON_SETUP_ARGS='-Dbuild_gi_tests=true -Dbuildtype=release'
 
+# Stamp the workspace version (meson.build + every pyproject + inter-package
+# pins) for a release. `make bump VERSION=0.8.0`, then commit and tag v0.8.0;
+# the release workflow asserts the tag matches `bump_version.py --check`.
+bump:
+	@test -n "$(VERSION)" || { echo "usage: make bump VERSION=X.Y.Z"; exit 2; }
+	@$(PY) scripts/bump_version.py $(VERSION)
+
 docker-image:
 	docker build -t $(CI_IMAGE) -f $(CI_DOCKERFILE) .
 
