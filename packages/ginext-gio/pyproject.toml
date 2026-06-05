@@ -6,8 +6,8 @@ requires-python = ">=3.14"
 dependencies = ["ginext>=0.0.1"]
 
 [project.entry-points."ginext.overlays"]
-Gio     = "ginext_gio:_overlays/Gio.py"
-GioUnix = "ginext_gio:_overlays/GioUnix.py"
+Gio     = "ginext_gio:_overlays.Gio"
+GioUnix = "ginext_gio:_overlays.GioUnix"
 
 [build-system]
 requires = ["hatchling"]

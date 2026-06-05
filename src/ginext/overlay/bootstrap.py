@@ -52,7 +52,12 @@ def _overlay_entry_points() -> dict[str, tuple[str, str]]:
     if _OVERLAY_ENTRY_POINTS is None:
         _OVERLAY_ENTRY_POINTS = {}
         for ep in importlib.metadata.entry_points(group="ginext.overlays"):
+            # Values are spec-valid dotted object references (e.g.
+            # "ginext_gtk:_overlays.Gtk") so Python 3.15's importlib.metadata,
+            # which validates entry points eagerly, accepts them. Map the dotted
+            # tail back to the overlay file path.
             pkg, rel = ep.value.split(":", 1)
+            rel = rel.replace(".", "/") + ".py"
             _OVERLAY_ENTRY_POINTS[ep.name] = (pkg, rel)
     return _OVERLAY_ENTRY_POINTS
 
