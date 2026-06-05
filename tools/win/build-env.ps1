@@ -34,8 +34,19 @@ $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvarsall.bat'
 if (-not (Test-Path $vcvars)) { throw "vcvarsall.bat not found: $vcvars (set GINEXT_VS)" }
 if (-not (Test-Path $vcpkg))  { throw "vcpkg root not found: $vcpkg (set VCPKG_ROOT)" }
 
-$installed       = Join-Path $vcpkg "installed\$($env:GINEXT_TRIPLET)"
-$installedStatic = Join-Path $vcpkg "installed\$($env:GINEXT_TRIPLET)-static-md"
+# Resolve the install tree. Manifest mode (vcpkg.json / run-vcpkg) installs to
+# <repo>\vcpkg_installed\<triplet>; classic mode to <vcpkg>\installed\<triplet>.
+# Prefer the manifest tree when present. Override with GINEXT_VCPKG_INSTALLED.
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$manifestInstalled = Join-Path $repoRoot "vcpkg_installed\$($env:GINEXT_TRIPLET)"
+if ($env:GINEXT_VCPKG_INSTALLED) {
+  $installed = $env:GINEXT_VCPKG_INSTALLED
+} elseif (Test-Path $manifestInstalled) {
+  $installed = $manifestInstalled
+} else {
+  $installed = Join-Path $vcpkg "installed\$($env:GINEXT_TRIPLET)"
+}
+$installedStatic = "$installed-static-md"
 
 # --- MSVC env for the target arch ----------------------------------------
 cmd /c "`"$vcvars`" $vcArch >nul 2>&1 && set" | ForEach-Object {
