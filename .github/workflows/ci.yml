@@ -86,6 +86,39 @@ jobs:
         run: echo "PYTEST_WORKERS=$(nproc)" >> "$GITHUB_ENV"
       - name: make ${{ matrix.target }}
         run: make ${{ matrix.target }} PYTEST_JUNIT_DIR="reports/junit/${{ matrix.target }}"
+      # Render a pass/fail table on the run summary page from the JUnit XML.
+      - name: Test summary
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          LABEL: ${{ matrix.target }}
+        run: |
+          python3 - "$LABEL" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import sys, glob, xml.etree.ElementTree as ET
+          label = sys.argv[1]
+          t = f = e = s = 0
+          files = glob.glob("reports/junit/**/*.xml", recursive=True)
+          for p in files:
+              try:
+                  root = ET.parse(p).getroot()
+              except ET.ParseError:
+                  continue
+              for ts in root.iter("testsuite"):
+                  t += int(ts.get("tests") or 0)
+                  f += int(ts.get("failures") or 0)
+                  e += int(ts.get("errors") or 0)
+                  s += int(ts.get("skipped") or 0)
+          passed = t - f - e - s
+          mark = "✅" if (files and f == 0 and e == 0) else "❌"
+          if not files:
+              print(f"### {mark} {label}\n\n_no test report — failed before tests ran_\n")
+          else:
+              print(f"### {mark} {label}\n")
+              print("| passed | failed | errors | skipped | total |")
+              print("|---:|---:|---:|---:|---:|")
+              print(f"| **{passed}** | {f} | {e} | {s} | {t} |\n")
+          PY
       - name: Upload JUnit reports
         if: always()
         uses: actions/upload-artifact@v4
