@@ -110,6 +110,10 @@ class TestPlugin:
 class TestElementFactoryExtended:
     def test_get_element_type(self, Gst: Namespace) -> None:
         factory = Gst.ElementFactory.find("fakesrc")
+        # element_type is 0 until the plugin's library is loaded; load the
+        # factory so this doesn't depend on an earlier test having loaded
+        # coreelements first (flaky under xdist sharding — cf. test_is_loaded).
+        factory = factory.load()
         assert factory.get_element_type() != 0
 
     def test_has_interface(self, Gst: Namespace) -> None:
