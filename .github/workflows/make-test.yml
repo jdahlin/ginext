@@ -12,6 +12,11 @@ concurrency:
 permissions:
   contents: read
 
+# Run the JS-based actions (checkout/cache/upload-artifact) on Node 24; Node 20 is
+# deprecated and removed from runners in Sep 2026.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # `make test` across OS/arch + Python versions. Linux runs in our debian image
 # built from ci/Dockerfile (built per-arch on the runner, cached via gha — host
 # OS age is irrelevant since deps come from the image, and no registry is

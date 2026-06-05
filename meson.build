@@ -39,7 +39,17 @@ profiling_args = cc.get_supported_arguments([
 # RTLD_DEFAULT to every TU regardless of include order.
 ext_compile_args = cc.get_supported_arguments([
   '-Wno-unused-parameter',
-]) + ['-D_GNU_SOURCE'] + profiling_args
+  # clang (macOS) errors on `{ NULL }` sentinel initializers under -Werror; gcc
+  # tolerates them. The sentinels are idiomatic, so silence the warning.
+  '-Wno-missing-field-initializers',
+]) + [
+  '-D_GNU_SOURCE',
+  # Force Python.h first in every extension TU (PEP 7). Python 3.15's pyconfig.h
+  # redefines _POSIX_C_SOURCE / _XOPEN_SOURCE, which clashes under -Werror when a
+  # glib header (pulled in via a local header) is seen first. No PY_SSIZE_T_CLEAN
+  # in this codebase, so a forced -include is safe.
+  '-include', 'Python.h',
+] + profiling_args
 ext_link_args = []
 # Sanitize the extension only (not the introspection-scanned test typelibs):
 # g-ir-scanner links a temporary binary, and under the global b_sanitize that
