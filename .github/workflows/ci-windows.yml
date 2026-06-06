@@ -166,7 +166,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: meson-logs-${{ matrix.name }}
-          path: build/**/meson-logs/meson-log.txt
+          path: |
+            build/**/meson-logs/meson-log.txt
+            build/**/build.ninja
+            build/**/compile_commands.json
           if-no-files-found: warn
 
       # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
