@@ -60,14 +60,18 @@ pkg_config_libdir = '$pcLibdir'
 "@ | Set-Content -Encoding ascii $nativeFile
 
 # 4. Configure (first time) or reconfigure on request.
+# -Db_pch=false: on some environments meson auto-uses Python.h as a precompiled
+# header and emits the GCC-style `-include Python.h`, which clang-cl rejects.
+# ginext declares no PCH, so disabling it is safe and forces the include via the
+# normal `#include <Python.h>` in the sources.
 $giTests = if ($WithGiTests) { "true" } else { "false" }
 if (-not (Test-Path "$repo\$BuildDir\build.ninja")) {
     & $meson setup $BuildDir --native-file $nativeFile `
-        "-Dbuild_gi_tests=$giTests" -Dwerror=false
+        "-Dbuild_gi_tests=$giTests" -Dwerror=false -Db_pch=false
     if ($LASTEXITCODE -ne 0) { throw "meson setup failed ($LASTEXITCODE)" }
 } elseif ($Reconfigure) {
     & $meson setup --reconfigure $BuildDir --native-file $nativeFile `
-        "-Dbuild_gi_tests=$giTests" -Dwerror=false
+        "-Dbuild_gi_tests=$giTests" -Dwerror=false -Db_pch=false
     if ($LASTEXITCODE -ne 0) { throw "meson reconfigure failed ($LASTEXITCODE)" }
 }
 
