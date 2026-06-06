@@ -174,14 +174,16 @@ jobs:
             build/**/compile_commands.json
           if-no-files-found: warn
 
-      # Full core suite. The glib-gir overlay supplies GIRepository-3.0 + the
-      # Win32 platform typelibs, and the build step generated the gi test
-      # typelibs, so the whole src/ginext/tests tree runs. (gtk/gstreamer suites
-      # need their introspection overlays -- tracked follow-up, see BOOTSTRAP.md.)
-      - name: Run core suite
+      # Core suite (src/ginext/tests) + the ginext-gio package suite. The
+      # glib-gir overlay supplies GIRepository-3.0 + the Win32 platform typelibs,
+      # the build step generated the gi test typelibs, and run_tests sets
+      # GINEXT_OVERLAY_PATH so the sub-package overlays apply. (ginext-gtk/gst
+      # suites need their introspection typelibs -- tracked follow-up #3.)
+      - name: Run core + gio suites
         shell: pwsh
         run: |
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
-          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py src/ginext/tests/ -q `
+          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py `
+            src/ginext/tests/ packages/ginext-gio/tests/gio -q `
             --continue-on-collection-errors
