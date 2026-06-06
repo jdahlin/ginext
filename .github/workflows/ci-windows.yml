@@ -148,6 +148,7 @@ jobs:
         timeout-minutes: 180
         run: |
           & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet $env:GINEXT_TRIPLET `
+            --x-feature=gtk --x-feature=gstreamer `
             --x-install-root "$env:VCPKG_INSTALLED_DIR"
 
       - name: Setup build venv
@@ -174,16 +175,18 @@ jobs:
             build/**/compile_commands.json
           if-no-files-found: warn
 
-      # Core suite (src/ginext/tests) + the ginext-gio package suite. The
-      # glib-gir overlay supplies GIRepository-3.0 + the Win32 platform typelibs,
-      # the build step generated the gi test typelibs, and run_tests sets
-      # GINEXT_OVERLAY_PATH so the sub-package overlays apply. (ginext-gtk/gst
-      # suites need their introspection typelibs -- tracked follow-up #3.)
-      - name: Run core + gio suites
+      # Core suite + the package suites (gio/gtk/gst). The glib-gir overlay
+      # supplies GIRepository-3.0 + the Win32 platform typelibs, the build step
+      # generated the gi test typelibs, the gtk/gstreamer introspection overlays
+      # supply the Gtk/Gdk/Gsk/Gst typelibs, and run_tests sets
+      # GINEXT_OVERLAY_PATH so the sub-package overlays apply. gtk runs in fixed
+      # order (-p no:randomly) per the known cross-platform random-order crash.
+      - name: Run core + gio + gtk + gst suites
         shell: pwsh
         run: |
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
           & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py `
-            src/ginext/tests/ packages/ginext-gio/tests/gio -q `
-            --continue-on-collection-errors
+            src/ginext/tests/ packages/ginext-gio/tests/gio `
+            packages/ginext-gtk/tests/gtk4 packages/ginext-gst/tests/gst `
+            -q -p no:randomly --continue-on-collection-errors
