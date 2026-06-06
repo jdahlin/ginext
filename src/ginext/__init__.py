@@ -136,8 +136,10 @@ def __dir__() -> list[str]:
 # GIRepository is a small, fundamental namespace used internally by ginext
 # itself. Loading it eagerly puts it in sys.modules so that
 # ``from ginext.GIRepository import EnumInfo`` works without a custom
-# import hook.
-_load_namespace("GIRepository", defaults.resolve_version("GIRepository") or "3.0")
+# import hook. Pin 3.0 (the typelib of glib's bundled libgirepository-2.0 that
+# ginext links): version resolution is ambiguous on Windows, where the legacy
+# standalone gobject-introspection GIRepository-2.0 typelib coexists.
+_load_namespace("GIRepository", "3.0")
 
 
 __all__ = [
