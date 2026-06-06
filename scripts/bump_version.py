@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # The workspace packages whose >=X pins are rewritten together. `gi` is the core
 # distribution name (the importable package is still `ginext`).
 PINNED_NAMES = [
-    "gi",
+    "ginext-core",
     "ginext-gio",
     "ginext-gtk",
     "ginext-gst",

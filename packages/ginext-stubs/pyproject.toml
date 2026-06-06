@@ -1,6 +1,6 @@
 [project]
 name = "ginext-stubs"
-version = "0.8.0"
+version = "0.8.1"
 description = "PEP 561 type stubs for ginext's native namespaces (from ginext import Gtk, ...)"
 readme = { content-type = "text/markdown", text = """
 # ginext-stubs
