@@ -34,7 +34,6 @@ covered by the gi-compat property suite.
 """
 
 import itertools
-import sys
 from typing import Any, cast
 
 import pytest
@@ -289,12 +288,6 @@ def test_property_boxed_type_round_trip(GObject: Any, Property: Any) -> None:
     assert notifies == ["fired"]
 
 
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason="win32: Gio.ListStore lacks __getitem__ (GInterface overlay methods "
-    "not applied to implementors)",
-    strict=False,
-)
 def test_property_survives_liststore_round_trip(GObject: Any, Property: Any) -> None:
     from ginext import Gio
 

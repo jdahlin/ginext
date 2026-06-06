@@ -66,6 +66,23 @@ def main(argv: list[str]) -> int:
     ]
     for sub in path_dirs:
         sys.path.insert(0, sub)
+
+    # GINEXT_OVERLAY_PATH drives the env-path overlay loader so the sub-package
+    # overlays (Gio/Gtk/Gst/...) are applied. Mirrors
+    # conftest_shared.setup_package_paths; without it those overlays are not
+    # applied in this runner (e.g. Gio.ListStore would lack __len__).
+    overlay_dirs = [
+        str(d)
+        for src in sorted((ROOT / "packages").glob("*/src"), reverse=True)
+        for d in sorted(src.glob("*_*/_overlays"))
+        if d.is_dir()
+    ]
+    if overlay_dirs:
+        existing_overlay = os.environ.get("GINEXT_OVERLAY_PATH", "")
+        os.environ["GINEXT_OVERLAY_PATH"] = os.pathsep.join(
+            overlay_dirs + ([existing_overlay] if existing_overlay else [])
+        )
+
     # Exported so spawned pytest subprocesses (subprocess marker, xdist workers)
     # import ginext + the packages from the same locations.
     existing = os.environ.get("PYTHONPATH", "")
