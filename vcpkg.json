@@ -27,7 +27,12 @@
   "features": {
     "gtk": {
       "description": "GTK4 stack with introspection (for the ginext-gtk suite).",
-      "dependencies": ["gtk"]
+      "dependencies": [
+        {
+          "name": "gtk",
+          "features": ["introspection"]
+        }
+      ]
     },
     "gstreamer": {
       "description": "GStreamer stack with introspection (for the ginext-gst suite).",
