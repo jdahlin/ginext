@@ -21,13 +21,19 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BUILD = ROOT / "build" / "win-arm64"
+# Triplet-aware so the same runner works for arm64-windows and x64-windows.
+_TRIPLET = os.environ.get("GINEXT_TRIPLET", "arm64-windows")
+_ARCH = _TRIPLET.replace("-windows", "")
+BUILD = ROOT / "build" / f"win-{_ARCH}"
 TEST_TYPELIBS = BUILD / "packages" / "typelib"
 
-VCPKG_BIN = Path(
-    os.environ.get("GINEXT_VCPKG_BIN", r"C:\dev\vcpkg\installed\arm64-windows\bin")
+# vcpkg install tree: prefer the one build-env.ps1 resolved (manifest mode's
+# vcpkg_installed vs classic), exported as GINEXT_VCPKG_INSTALLED.
+_INSTALLED = os.environ.get("GINEXT_VCPKG_INSTALLED") or rf"C:\dev\vcpkg\installed\{_TRIPLET}"
+VCPKG_BIN = Path(os.environ.get("GINEXT_VCPKG_BIN", str(Path(_INSTALLED) / "bin")))
+CORE_TYPELIBS = Path(
+    os.environ.get("GINEXT_CORE_TYPELIBS", str(Path(_INSTALLED) / "lib" / "girepository-1.0"))
 )
-CORE_TYPELIBS = Path(os.environ.get("GINEXT_CORE_TYPELIBS", r"C:\dev\gitl"))
 
 
 def main(argv: list[str]) -> int:
