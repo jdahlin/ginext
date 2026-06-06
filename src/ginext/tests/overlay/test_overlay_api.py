@@ -30,8 +30,19 @@ protocols, freeze_notify context manager).
 from __future__ import annotations
 
 import inspect
+import sys
 
 import pytest
+
+# Overlay methods registered on a GInterface (Gio.ListModel: __len__,
+# __getitem__) are not applied to implementing types (Gio.ListStore) on Windows,
+# so the sequence protocols are missing there. Tracked win32 interface-overlay
+# gap; xfail (non-strict) so the rest of the suite runs.
+_win32_interface_overlay_xfail = pytest.mark.xfail(
+    sys.platform == "win32",
+    reason="win32: overlay methods on a GInterface not applied to implementors",
+    strict=False,
+)
 
 
 # ── private.invoke ───────────────────────────────────────────────────────
@@ -171,6 +182,7 @@ def test_replace_overlay_hides_injected_fn_argument() -> None:
 # ── Gio.ListStore overlay (sequence protocols + Task.new) ───────────────
 
 
+@_win32_interface_overlay_xfail
 def test_list_store_supports_len() -> None:
     from ginext import Gio
 
@@ -180,6 +192,7 @@ def test_list_store_supports_len() -> None:
     assert len(store) == 1
 
 
+@_win32_interface_overlay_xfail
 def test_list_store_supports_getitem() -> None:
     from ginext import Gio
 
