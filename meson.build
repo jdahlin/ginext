@@ -37,6 +37,15 @@ profiling_args = cc.get_supported_arguments([
 ])
 # _GNU_SOURCE on the command line so glibc exposes strdup / strndup /
 # RTLD_DEFAULT to every TU regardless of include order.
+# Force Python.h first in every extension TU (PEP 7). Python 3.15's pyconfig.h
+# redefines _POSIX_C_SOURCE / _XOPEN_SOURCE, which clashes under -Werror when a
+# glib header (pulled in via a local header) is seen first. No PY_SSIZE_T_CLEAN
+# in this codebase, so a forced include is safe. There is no portable meson
+# "force include" abstraction, and clang-cl (MSVC argument syntax) rejects the
+# GCC-style `-include` -- it treats `Python.h` as a missing input file. Pick the
+# right spelling off the compiler's argument syntax: `/FIPython.h` under MSVC,
+# `-include Python.h` under GCC/Clang. (Mirrors win32-compat.h in src/meson.build.)
+force_include_python = cc.get_argument_syntax() == 'msvc' ? ['/FIPython.h'] : ['-include', 'Python.h']
 ext_compile_args = cc.get_supported_arguments([
   '-Wno-unused-parameter',
   # clang (macOS) errors on `{ NULL }` sentinel initializers under -Werror; gcc
@@ -44,12 +53,7 @@ ext_compile_args = cc.get_supported_arguments([
   '-Wno-missing-field-initializers',
 ]) + [
   '-D_GNU_SOURCE',
-  # Force Python.h first in every extension TU (PEP 7). Python 3.15's pyconfig.h
-  # redefines _POSIX_C_SOURCE / _XOPEN_SOURCE, which clashes under -Werror when a
-  # glib header (pulled in via a local header) is seen first. No PY_SSIZE_T_CLEAN
-  # in this codebase, so a forced -include is safe.
-  '-include', 'Python.h',
-] + profiling_args
+] + force_include_python + profiling_args
 ext_link_args = []
 # Sanitize the extension only (not the introspection-scanned test typelibs):
 # g-ir-scanner links a temporary binary, and under the global b_sanitize that
