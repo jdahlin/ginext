@@ -81,29 +81,29 @@ def test_file_div_resolves_relative_path() -> None:
     assert child.peek_path() == os.path.join(os.sep, "tmp", "ginext-child")
 
 
-def test_new_for_path_and_query_info() -> None:
+def test_new_for_path_and_query_info(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
 
     assert isinstance(file, Gio.File)
 
     info = file.query_info("standard::name", Gio.FileQueryInfoFlags.NONE, None)
     assert isinstance(info, Gio.FileInfo)
-    assert info.get_name() == "tmp"
+    assert info.get_name() == tmp_path.name
 
 
-def test_query_info_accepts_keyword_arguments() -> None:
+def test_query_info_accepts_keyword_arguments(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     info = file.query_info(
         attributes="standard::name",
         flags=Gio.FileQueryInfoFlags.NONE,
         cancellable=None,
     )
 
-    assert info.get_name() == "tmp"
+    assert info.get_name() == tmp_path.name
 
 
 def test_query_info_keyword_shape_errors() -> None:
@@ -124,19 +124,19 @@ def test_query_info_keyword_shape_errors() -> None:
     )
 
 
-def test_query_info_defaults_flags_and_cancellable() -> None:
+def test_query_info_defaults_flags_and_cancellable(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     # flags defaults to NONE, cancellable is an omittable trailing nullable
     info = file.query_info("standard::name")  # type: ignore[call-arg]  # overlay provides default for flags
-    assert info.get_name() == "tmp"
+    assert info.get_name() == tmp_path.name
 
 
-def test_query_info_default_flags_matches_explicit() -> None:
+def test_query_info_default_flags_matches_explicit(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     implicit = file.query_info("standard::name")  # type: ignore[call-arg]  # overlay provides default for flags
     explicit = file.query_info("standard::name", Gio.FileQueryInfoFlags.NONE, None)
     assert implicit.get_name() == explicit.get_name()
