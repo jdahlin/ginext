@@ -1,0 +1,33 @@
+name: Commit policy
+
+# Pre-merge gate: reject any PR whose commits carry an AI attribution trailer.
+# The repo also has a local pre-commit commit-msg hook for this, but local hooks
+# don't run on squash-merge or in CI, so this is the enforced check.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  no-ai-coauthor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Forbid AI Co-Authored-By trailer
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git log --format='%B' "$BASE..$HEAD" \
+               | grep -inE '^[[:space:]]*Co-Authored-By:.*(claude|anthropic|gpt|copilot|openai)'; then
+            echo "::error::A commit in this PR has a forbidden AI Co-Authored-By trailer. Remove it (e.g. git rebase) before merging."
+            exit 1
+          fi
+          echo "OK: no AI Co-Authored-By trailers in this PR's commits."
