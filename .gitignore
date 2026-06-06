@@ -52,3 +52,6 @@ src/gitlab-agent-bot/work/
 /apps/gnome-text-editor/
 /apps/showtime/
 vcpkg_installed/
+
+# Windows build/scanner venvs
+.venv*/
