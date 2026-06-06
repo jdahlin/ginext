@@ -137,26 +137,26 @@ def test_load_bytes_async_missing_file_raises_file_not_found() -> None:
 # ── IsADirectoryError ─────────────────────────────────────────────────────────
 
 
-def test_load_bytes_on_directory_raises_is_a_directory() -> None:
+def test_load_bytes_on_directory_raises_is_a_directory(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     with pytest.raises(IsADirectoryError):
         file.load_bytes(None)
 
 
-def test_is_a_directory_is_also_catchable_as_glib_error() -> None:
+def test_is_a_directory_is_also_catchable_as_glib_error(tmp_path: Path) -> None:
     from ginext import Gio, GLib
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     with pytest.raises(GLib.Error):
         file.load_bytes(None)
 
 
-def test_is_a_directory_carries_gio_attributes() -> None:
+def test_is_a_directory_carries_gio_attributes(tmp_path: Path) -> None:
     from ginext import Gio
 
-    file = Gio.File.new_for_path("/tmp")
+    file = Gio.File.new_for_path(str(tmp_path))
     with pytest.raises(IsADirectoryError) as exc_info:
         file.load_bytes(None)
 
