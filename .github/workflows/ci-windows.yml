@@ -161,19 +161,13 @@ jobs:
         # boolean $false instead of the literal string "$false".
         run: '& tools\win\build.ps1 -WithGiTests:$false'
 
-      - name: Dump meson python-dependency log on failure
+      - name: Upload meson logs on failure
         if: failure()
-        shell: pwsh
-        run: |
-          $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
-          $log = "build\win-$arch\meson-logs\meson-log.txt"
-          if (Test-Path $log) {
-            Write-Host "=== meson python-dependency resolution ==="
-            Select-String -Path $log -Pattern 'Skipping pkgconfig|Run-time dependency python|build-details|c_api|pkgconfig_path|Determining dependency .python|Called.*python-3|python-3\.14\.pc' |
-              ForEach-Object { $_.Line }
-            Write-Host "=== build python config ==="
-            & "$env:RUNNER_TEMP\py314\python.exe" -c "import sysconfig,os;print('build-details:',os.environ.get('__PYVENV_LAUNCHER__'));print('LIBPC=',sysconfig.get_config_var('LIBPC'));import glob;print('bd:',glob.glob(sysconfig.get_path('stdlib')+'/**/build-details.json',recursive=True))"
-          } else { Write-Host "no $log" }
+        uses: actions/upload-artifact@v4
+        with:
+          name: meson-logs-${{ matrix.name }}
+          path: build/**/meson-logs/meson-log.txt
+          if-no-files-found: warn
 
       # Core suite: the glib-gir overlay supplies GIRepository-3.0 + the Win32
       # platform typelibs, so the core tests run without any out-of-band typelibs.
