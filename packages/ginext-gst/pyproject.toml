@@ -1,6 +1,6 @@
 [project]
 name = "ginext-gst"
-version = "0.8.0"
+version = "0.8.1"
 description = "GStreamer namespace overlay for ginext"
 readme = { content-type = "text/markdown", text = """
 # ginext-gst
@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["gi>=0.8.0"]
+dependencies = ["ginext-core>=0.8.1"]
 
 [project.entry-points."ginext.overlays"]
 Gst = "ginext_gst:_overlays.Gst"

@@ -1,6 +1,6 @@
 [project]
 name = "ginext-gi-compat"
-version = "0.8.0"
+version = "0.8.1"
 description = "PyGObject gi compatibility layer for ginext"
 readme = { content-type = "text/markdown", text = """
 # ginext-gi-compat
@@ -19,9 +19,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "gi>=0.8.0",
-    "ginext-gio>=0.8.0",
-    "ginext-gtk>=0.8.0",
+    "ginext-core>=0.8.1",
+    "ginext-gio>=0.8.1",
+    "ginext-gtk>=0.8.1",
 ]
 
 [project.urls]

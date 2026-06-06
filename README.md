@@ -17,15 +17,18 @@ app = Gtk.Application(application_id="org.example.Hello")
 ## Install
 
 ```sh
-pip install gi                # core (imports as `ginext`)
-pip install gi[gtk]           # + GTK/Gdk/Pango/Gsk overlay
-pip install gi[gio]           # + GIO overlay
-pip install gi[gst]           # + GStreamer overlay
-pip install gi[all]           # all overlays
+pip install gi          # core (imports as `ginext`)
+pip install gi[gtk]     # + GTK/Gdk/Pango/Gsk overlay
+pip install gi[gio]     # + GIO overlay
+pip install gi[gst]     # + GStreamer overlay
+pip install gi[all]     # all overlays
 ```
 
-The distribution is named `gi` on PyPI; the importable package is `ginext`
-(`from ginext import Gtk`).
+`gi` is a small meta-package (it pulls in `ginext-core` and, via extras, the
+overlays); the code imports as **`ginext`** (`from ginext import Gtk`). You can
+also install the real distributions directly — `pip install ginext-core`,
+`ginext-gtk`, etc. The `gi` distribution ships no `gi` module, so it does not
+conflict with PyGObject.
 
 The core links against GLib / GObject / girepository-2.0 (≥ 2.80). On Linux these
 come from your distribution; the overlay packages add Pythonic namespace overlays
@@ -36,7 +39,7 @@ GStreamer runtime are on the roadmap.
 
 | Package            | Contents                                   |
 | ------------------ | ------------------------------------------ |
-| `gi`               | Native core + GLib/GObject/GIRepository    |
+| `ginext-core`      | Native core + GLib/GObject/GIRepository    |
 | `ginext-gio`       | GIO / GioUnix overlay                       |
 | `ginext-gtk`       | GTK / Gdk / Pango / Gsk overlay            |
 | `ginext-gst`       | GStreamer overlay                          |

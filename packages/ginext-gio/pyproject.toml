@@ -1,6 +1,6 @@
 [project]
 name = "ginext-gio"
-version = "0.8.0"
+version = "0.8.1"
 description = "Gio namespace overlay for ginext"
 readme = { content-type = "text/markdown", text = """
 # ginext-gio
@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["gi>=0.8.0"]
+dependencies = ["ginext-core>=0.8.1"]
 
 [project.entry-points."ginext.overlays"]
 Gio     = "ginext_gio:_overlays.Gio"

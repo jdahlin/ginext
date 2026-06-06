@@ -1,8 +1,9 @@
 [project]
-# Distribution name on PyPI is `gi` (owned); the importable package stays
-# `ginext` (`from ginext import Gtk`). Distribution name != import name.
-name = "gi"
-version = "0.8.0"
+# Distribution name on PyPI is `ginext-core` (bare `ginext` is blocked by
+# PyPI's name-similarity filter); the importable package stays `ginext`
+# (`from ginext import Gtk`). Distribution name != import name is normal.
+name = "ginext-core"
+version = "0.8.1"
 description = "Fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -29,28 +30,28 @@ Issues = "https://github.com/jdahlin/ginext/issues"
 
 [project.optional-dependencies]
 gio = [
-    "ginext-gio>=0.8.0",
+    "ginext-gio>=0.8.1",
 ]
 gtk = [
-    "ginext-gtk>=0.8.0",
+    "ginext-gtk>=0.8.1",
 ]
 gst = [
-    "ginext-gst>=0.8.0",
+    "ginext-gst>=0.8.1",
 ]
 libsoup = [
-    "ginext-libsoup>=0.8.0",
+    "ginext-libsoup>=0.8.1",
 ]
 compat = [
-    "ginext-gi-compat>=0.8.0",
+    "ginext-gi-compat>=0.8.1",
 ]
 stubs = [
-    "ginext-stubs>=0.8.0",
+    "ginext-stubs>=0.8.1",
 ]
 all = [
-    "ginext-gio>=0.8.0",
-    "ginext-gtk>=0.8.0",
-    "ginext-gst>=0.8.0",
-    "ginext-libsoup>=0.8.0",
+    "ginext-gio>=0.8.1",
+    "ginext-gtk>=0.8.1",
+    "ginext-gst>=0.8.1",
+    "ginext-libsoup>=0.8.1",
 ]
 dev = [
     "pytest>=8",
@@ -130,10 +131,11 @@ default-groups = ["dev"]
 # Build the ginext editable wheel against the persistent venv (not an
 # ephemeral isolated build env) so its meson-python rebuild hook keeps working
 # when imported from any workspace member (e.g. `uv run pytest packages/...`).
-no-build-isolation-package = ["gi"]
+no-build-isolation-package = ["ginext-core"]
 
 [tool.uv.workspace]
 members = [
+    "packages/gi",
     "packages/ginext-gio",
     "packages/ginext-gtk",
     "packages/ginext-gst",
@@ -144,6 +146,7 @@ members = [
 ]
 
 [tool.uv.sources]
+ginext-core = { workspace = true }
 gi = { workspace = true }
 ginext-gio = { workspace = true }
 ginext-gtk = { workspace = true }

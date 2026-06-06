@@ -9,7 +9,7 @@ name: Release
 # opts in with `--pre`, so they double as a low-stakes pipeline rehearsal.
 #
 # Auth is PyPI Trusted Publishing (OIDC) — no API token secret. Each project
-# name (gi, ginext-gio, ginext-gtk, ginext-gst, ginext-libsoup,
+# name (gi, ginext-core, ginext-gio, ginext-gtk, ginext-gst, ginext-libsoup,
 # ginext-gi-compat, ginext-stubs) must have a configured trusted publisher on
 # PyPI bound to repo jdahlin/ginext, workflow release.yml, environment pypi.
 
@@ -79,7 +79,7 @@ jobs:
           #   --with virtualenv: create the isolated build env with virtualenv
           #     (bundles pip) instead of venv+ensurepip, which the image lacks.
           build() { uvx --python 3.14 --with virtualenv --from build pyproject-build "$@"; }
-          for pkg in ginext-gio ginext-gtk ginext-gst ginext-libsoup \
+          for pkg in gi ginext-gio ginext-gtk ginext-gst ginext-libsoup \
                      ginext-gi-compat; do
             build --outdir dist "packages/$pkg"
           done
