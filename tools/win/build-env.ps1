@@ -81,10 +81,42 @@ $env:GST_PLUGIN_PATH = "$installed\plugins\gstreamer"
 # runs only see the shared conftest helpers. Export the shared locations here so
 # direct `uv run pytest` and spawned subprocesses can resolve the same runtime.
 $testTypelibs = Join-Path $repoRoot "build\win-$arch\packages\typelib"
+$coreSrc = Join-Path $repoRoot "build\win-$arch\src"
+$packageSrcs = @(
+  (Join-Path $repoRoot "packages\ginext-gio\src"),
+  (Join-Path $repoRoot "packages\ginext-gtk\src"),
+  (Join-Path $repoRoot "packages\ginext-gst\src"),
+  (Join-Path $repoRoot "packages\ginext-libsoup\src"),
+  (Join-Path $repoRoot "packages\ginext-gi-compat\src")
+)
+$overlayDirs = foreach ($srcDir in $packageSrcs) {
+  if (-not (Test-Path $srcDir)) { continue }
+  Get-ChildItem -Path $srcDir -Directory -Filter *_* -EA SilentlyContinue | ForEach-Object {
+    $overlayDir = Join-Path $_.FullName "_overlays"
+    if (Test-Path $overlayDir) { $overlayDir }
+  }
+}
 $env:GINEXT_WIN_DLL_DIRS = "$installed\bin;$testTypelibs"
 $env:GINEXT_CORE_TYPELIBS = $gitl
 $env:GINEXT_GI_TESTS_BUILDDIR = $testTypelibs
 $env:PYGIR_GI_TESTS_BUILDDIR = $testTypelibs
 $env:GOI_BENCH_BUILDDIR = $testTypelibs
+$pythonPathParts = @()
+if (Test-Path $coreSrc) {
+  $pythonPathParts += $coreSrc
+}
+$pythonPathParts += $packageSrcs
+$pythonPathParts += $repoRoot
+if ($env:PYTHONPATH) {
+  $pythonPathParts += $env:PYTHONPATH -split ';'
+}
+$env:PYTHONPATH = ($pythonPathParts | Where-Object { $_ } | Select-Object -Unique) -join ';'
+if ($overlayDirs) {
+  $overlayPathParts = @($overlayDirs)
+  if ($env:GINEXT_OVERLAY_PATH) {
+    $overlayPathParts += $env:GINEXT_OVERLAY_PATH -split ';'
+  }
+  $env:GINEXT_OVERLAY_PATH = ($overlayPathParts | Where-Object { $_ } | Select-Object -Unique) -join ';'
+}
 
 Write-Host "ginext build-env: triplet=$($env:GINEXT_TRIPLET) arch=$vcArch vcpkg=$vcpkg"
