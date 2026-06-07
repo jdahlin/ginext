@@ -54,6 +54,17 @@ if ($env:GINEXT_VCPKG_INSTALLED) {
 # Export the resolved path so build.ps1 (and re-sources) reuse the exact tree.
 $env:GINEXT_VCPKG_INSTALLED = $installed
 
+# The Cairo typelib (shipped by gobject-introspection[cairo]) loads its shared
+# library by the unversioned name 'cairo-gobject.dll', but vcpkg installs it
+# versioned as 'cairo-gobject-2.dll'. Provide the unversioned alias so
+# g_module_open succeeds (e.g. the cairo-typed signal in the gi-compat test_cairo
+# suite). Idempotent.
+$cairoVersioned = Join-Path $installed 'bin\cairo-gobject-2.dll'
+$cairoAlias = Join-Path $installed 'bin\cairo-gobject.dll'
+if ((Test-Path $cairoVersioned) -and -not (Test-Path $cairoAlias)) {
+  Copy-Item $cairoVersioned $cairoAlias
+}
+
 # --- MSVC env for the target arch ----------------------------------------
 cmd /c "`"$vcvars`" $vcArch >nul 2>&1 && set" | ForEach-Object {
   if ($_ -match '^([^=]+)=(.*)$') { Set-Item -Path "Env:\$($matches[1])" -Value $matches[2] }

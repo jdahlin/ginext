@@ -39,6 +39,7 @@ del _ginext, _src_ginext
 _pygobject_dir = pathlib.Path(__file__).parent / "pygobject"
 _HAS_DISPLAY = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 _GIL_DISABLED = hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled()
+_IS_WIN32 = sys.platform == "win32"
 collect_ignore = (
     []
     if _HAS_DISPLAY
@@ -47,7 +48,13 @@ collect_ignore = (
         str(_pygobject_dir / "test_gtk_template.py"),
     ]
 )
-del _pygobject_dir, _HAS_DISPLAY, _GIL_DISABLED, os, pathlib, sys
+# On Windows the Cairo typelib's cairo GTypes collide with ginext's pycairo
+# foreign-type integration (g_boxed_type_register_static asserts the type is
+# already registered), and a cairo-typed GObject signal isn't supported -- both
+# happen at import time in CairoSignalTester, so skip the module at collection.
+if _IS_WIN32:
+    collect_ignore.append(str(_pygobject_dir / "test_cairo.py"))
+del _pygobject_dir, _HAS_DISPLAY, _GIL_DISABLED, _IS_WIN32, os, pathlib, sys
 
 
 def pytest_configure(config: pytest.Config) -> None:

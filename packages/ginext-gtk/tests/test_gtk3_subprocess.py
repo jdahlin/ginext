@@ -42,6 +42,10 @@ _GTK3_DIR = _TESTS_DIR / "gtk3"
 _REPO_ROOT = _TESTS_DIR.parents[2]
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Gtk 3 is not built on Windows (the vcpkg stack provides Gtk 4 only)",
+)
 def test_gtk3_suite_runs_under_gtk3_in_subprocess() -> None:
     # Inside the gtk3 subprocess itself this module is not collected (only the
     # gtk3/ dir is), but guard anyway so the suite can never recurse into itself.

@@ -317,14 +317,36 @@ _XFAIL_NOT_RUN_BY_NODE = {
 }
 
 
+# Windows-unported features (not ginext bugs: the capability is POSIX-only or
+# unavailable on Windows): the GLib-backed asyncio EventLoop and its default-
+# context / running-loop assertions, GDBus native calls (need a session bus),
+# the SIGALRM wakeup-fd override, and IOChannel win32 socket/fd handling.
+_WIN32_SKIP_NODES = {
+    "test_async.py::TestAsync::test_no_running_loop",
+    "test_async.py::TestAsync::test_wrong_default_context",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_async",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_sync",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_sync_errors",
+    "test_ossig.py::TestOverridesWakeupOnAlarm::test_basic",
+    "test_overrides_glib.py::test_io_add_watch_get_args_win32_socket",
+    "test_overrides_glib.py::test_iochannel_win32",
+}
+
+
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> None:
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
     is_debug_python = hasattr(sys, "gettotalrefcount")
+    is_win32 = sys.platform == "win32"
     for item in items:
         _, sep, relative_nodeid = item.nodeid.rpartition("/pygobject/")
         if not sep:
+            continue
+        if is_win32 and relative_nodeid in _WIN32_SKIP_NODES:
+            item.add_marker(
+                pytest.mark.skip(reason="win32: feature unported/unavailable")
+            )
             continue
         if relative_nodeid.startswith("test_cairo.py::TestPango::") and (
             not has_display or is_debug_python
