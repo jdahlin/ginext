@@ -173,4 +173,5 @@ jobs:
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
           $env:UV_PROJECT_ENVIRONMENT = "$pwd\.venv-win-$arch"
+          $env:UV_NO_SYNC = "1"
           uv run pytest
