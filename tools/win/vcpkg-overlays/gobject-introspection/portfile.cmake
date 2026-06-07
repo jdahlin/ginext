@@ -103,6 +103,16 @@ if(EXISTS "${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET}-rel/gir")
     endforeach()
 endif()
 
+# ginext links glib's bundled libgirepository-2.0, whose self-introspection
+# typelib is GIRepository-3.0 (supplied by the glib-gir overlay). The standalone
+# libgirepository-1.0's own self-introspection, GIRepository-2.0, is never used
+# and its presence makes namespace-version resolution for "GIRepository"
+# ambiguous (2.0 vs 3.0). Drop it so 3.0 is the single source of truth.
+file(REMOVE
+    "${CURRENT_PACKAGES_DIR}/lib/girepository-1.0/GIRepository-2.0.typelib"
+    "${CURRENT_PACKAGES_DIR}/share/gir-1.0/GIRepository-2.0.gir"
+)
+
 file(MAKE_DIRECTORY "${CURRENT_PACKAGES_DIR}/tools/${PORT}")
 foreach(script IN ITEMS g-ir-annotation-tool g-ir-scanner)
     file(RENAME "${CURRENT_PACKAGES_DIR}/bin/${script}" "${CURRENT_PACKAGES_DIR}/tools/${PORT}/${script}")
