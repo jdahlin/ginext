@@ -1,7 +1,7 @@
 project(
   'goi',
   'c',
-  version : '0.8.1',
+  version : '0.8.2',
   default_options : [
     'c_std=c11',
     'warning_level=2',
