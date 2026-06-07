@@ -50,20 +50,11 @@ jobs:
       # (run-vcpkg otherwise installs to a per-run GUID dir).
       VCPKG_INSTALLED_DIR: ${{ github.workspace }}/vcpkg_installed
       # Binary cache: a durable GitHub Packages NuGet feed (check before build,
-      # upload after each package) plus x-gha as a secondary. Set in the nuget
-      # step once vcpkg is bootstrapped.
+      # upload after each package). Set in the nuget step once vcpkg is
+      # bootstrapped.
       NUGET_FEED: https://nuget.pkg.github.com/jdahlin/index.json
     steps:
       - uses: actions/checkout@v6
-
-      # Expose the GitHub Actions cache backend to vcpkg's x-gha binary source
-      # (run-vcpkg caches the vcpkg tool itself; x-gha caches the built packages).
-      - name: Export GitHub Actions cache env for vcpkg
-        uses: actions/github-script@v9
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       # Native CPython 3.14 from python.org (NOT actions/setup-python): the
       # setup-python build makes meson emit a GCC-style `-include Python.h` for
@@ -126,10 +117,9 @@ jobs:
           vcpkgJsonGlob: "vcpkg.json"
           runVcpkgInstall: false
 
-      # Point vcpkg at the GitHub Packages NuGet feed (readwrite): each package is
-      # looked up before building and uploaded right after it builds, so the feed
-      # self-seeds and timed-out runs still persist completed packages. x-gha kept
-      # as a secondary read/write source.
+      # Point vcpkg at the GitHub Packages NuGet feed (readwrite): each package
+      # is looked up before building and uploaded right after it builds, so the
+      # feed self-seeds and timed-out runs still persist completed packages.
       - name: Configure vcpkg binary caches
         shell: pwsh
         env:
@@ -140,7 +130,7 @@ jobs:
             -UserName "${{ github.repository_owner }}" -Password $env:GH_TOKEN `
             -StorePasswordInClearText -NonInteractive
           & $nuget setapikey $env:GH_TOKEN -Source "$env:NUGET_FEED" -NonInteractive
-          "VCPKG_BINARY_SOURCES=clear;nuget,$env:NUGET_FEED,readwrite;x-gha,readwrite" `
+          "VCPKG_BINARY_SOURCES=clear;nuget,$env:NUGET_FEED,readwrite" `
             | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: vcpkg install (manifest)
@@ -175,18 +165,23 @@ jobs:
             build/**/compile_commands.json
           if-no-files-found: warn
 
-      # Core suite + the package suites (gio/gtk/gst). The glib-gir overlay
-      # supplies GIRepository-3.0 + the Win32 platform typelibs, the build step
-      # generated the gi test typelibs, the gtk/gstreamer introspection overlays
-      # supply the Gtk/Gdk/Gsk/Gst typelibs, and run_tests sets
-      # GINEXT_OVERLAY_PATH so the sub-package overlays apply. gtk runs in fixed
-      # order (-p no:randomly) per the known cross-platform random-order crash.
-      - name: Run core + gio + gtk + gst suites
+      # Run the repo's full Windows-available suite through uv/pytest: core,
+      # split packages, compat, stubgen, and the in-package gi compat mirror.
+      # gtk runs in fixed order (-p no:randomly) per the known cross-platform
+      # random-order crash.
+      - name: Run Windows pytest suite
         shell: pwsh
         run: |
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
-          & ".venv-win-$arch\Scripts\python.exe" tools\win\run_tests.py `
-            src/ginext/tests/ packages/ginext-gio/tests/gio `
-            packages/ginext-gtk/tests/gtk4 packages/ginext-gst/tests/gst `
+          $env:UV_PROJECT_ENVIRONMENT = "$pwd\.venv-win-$arch"
+          uv run pytest `
+            src/ginext/tests `
+            packages/ginext-gio/tests `
+            packages/ginext-gtk/tests `
+            packages/ginext-gst/tests `
+            packages/ginext-libsoup/tests `
+            packages/ginext-stubgen/tests `
+            packages/ginext-gi-compat/tests `
+            packages/ginext-gi-compat/src/gi/tests `
             -q -p no:randomly --continue-on-collection-errors
