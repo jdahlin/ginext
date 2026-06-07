@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from goi.repository import GLib, GObject
+from ginext import GLib, GObject
 
 
 DEFAULT_PREFS = {
@@ -31,12 +31,12 @@ DEFAULT_PREFS = {
 
 def _config_dir() -> Path:
     base = GLib.get_user_config_dir() or os.path.expanduser("~/.config")
-    directory = Path(base) / "goi-web-browser"
+    directory = Path(base) / "ginext-web-browser"
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
 
-def _load(path: Path) -> dict:
+def _load(path: Path) -> dict[str, bool]:
     try:
         data = json.loads(path.read_text())
     except (FileNotFoundError, json.JSONDecodeError, OSError):
@@ -46,7 +46,7 @@ def _load(path: Path) -> dict:
     return prefs
 
 
-def _save(path: Path, data: dict) -> None:
+def _save(path: Path, data: dict[str, bool]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         tmp.write_text(json.dumps(data, indent=2))
@@ -55,8 +55,7 @@ def _save(path: Path, data: dict) -> None:
         pass
 
 
-class BrowserState(GObject.Object):
-    __gtype_name__ = "WebBrowserState"
+class BrowserState(GObject.Object, type_name="WebBrowserState"):
 
     developer_extras = GObject.Property(type=bool, default=True)
     javascript = GObject.Property(type=bool, default=True)
@@ -75,9 +74,9 @@ class BrowserState(GObject.Object):
     persistent_credentials = GObject.Property(type=bool, default=True)
     third_party_cookies = GObject.Property(type=bool, default=False)
 
-    _KEYS = list(DEFAULT_PREFS)
+    _KEYS: list[str] = list(DEFAULT_PREFS)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._path = _config_dir() / "prefs.json"
         self._loading = True
@@ -86,9 +85,12 @@ class BrowserState(GObject.Object):
                 self.set_property(key, value)
         finally:
             self._loading = False
-        self.connect("notify", self._on_notify)
+        # The new API has no all-properties "notify" connect: wire one
+        # per-property notify so any change re-flushes prefs.json.
+        for key in self._KEYS:
+            self.notify(key).connect(self._on_notify)
 
-    def _on_notify(self, _self, pspec):
-        if self._loading or pspec.name not in self._KEYS:
+    def _on_notify(self, _self: GObject.Object, _pspec: GObject.ParamSpec) -> None:
+        if self._loading:
             return
         _save(self._path, {key: self.get_property(key) for key in self._KEYS})

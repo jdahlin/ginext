@@ -1,9 +1,8 @@
 """
-Mandelbrot tile renderer — target-spec example for goi.
+Mandelbrot tile renderer — example for ginext.
 
-This program is fictional: it imports `goi.*` namespaces that do not
-exist yet. It exists to pin down the API surface and the threading
-shape we want goi to support.
+It exists to pin down the API surface and the threading shape ginext
+supports.
 
 Why this app:
 
@@ -45,7 +44,7 @@ import threading
 import time
 from dataclasses import dataclass
 
-from goi import GLib, Gdk, Gio, Gtk
+from ginext import Gdk, Gio, GLib, GLibUnix, Gtk
 
 
 INITIAL_WIDTH = 1024
@@ -295,11 +294,15 @@ class Surface:
             self.buf[dst_off : dst_off + t.w * 4] = src[src_off : src_off + t.w * 4]
 
     def to_texture(self) -> Gdk.Texture:
+        # Wrap the buffer in a GLib.Bytes so the texture owns a reference to
+        # the pixel data; passing a bare `bytes` lets it be freed while GTK
+        # is still compositing the previous frame (segfault under repeated
+        # set_paintable).
         return Gdk.MemoryTexture.new(
             self.w,
             self.h,
             Gdk.MemoryFormat.R8G8B8A8,
-            bytes(self.buf),
+            GLib.Bytes.new(bytes(self.buf)),
             self.stride,
         )
 
@@ -313,7 +316,7 @@ class MandelbrotWindow(Gtk.ApplicationWindow):
     def __init__(self, application: Gtk.Application) -> None:
         super().__init__(
             application=application,
-            title="goi mandelbrot",
+            title="ginext mandelbrot",
             default_width=INITIAL_WIDTH,
             default_height=INITIAL_HEIGHT + 48,
         )
@@ -352,19 +355,19 @@ class MandelbrotWindow(Gtk.ApplicationWindow):
         # Watch the window's allocated size and re-render at native res
         # whenever it changes. notify::default-width fires both on user
         # resize and on initial layout.
-        self.connect("notify::default-width", self._on_window_size_changed)
-        self.connect("notify::default-height", self._on_window_size_changed)
+        self.notify("default-width").connect(self._on_window_size_changed)
+        self.notify("default-height").connect(self._on_window_size_changed)
 
         drag = Gtk.GestureDrag()
-        drag.connect("drag-update", self._on_drag_update)
-        drag.connect("drag-end", self._on_drag_end)
+        drag.drag_update.connect(self._on_drag_update)
+        drag.drag_end.connect(self._on_drag_end)
         self._drag_start_viewport: Viewport | None = None
         self.picture.add_controller(drag)
 
         scroll = Gtk.EventControllerScroll(
             flags=Gtk.EventControllerScrollFlags.VERTICAL
         )
-        scroll.connect("scroll", self._on_scroll)
+        scroll.scroll.connect(self._on_scroll)
         self.picture.add_controller(scroll)
 
     # -- input -------------------------------------------------------------
@@ -404,12 +407,13 @@ class MandelbrotWindow(Gtk.ApplicationWindow):
         self.pool.set_generation(vp.generation)
         self._enqueue_all_tiles()
 
-    def _on_window_size_changed(self, *_args) -> None:
+    def _on_window_size_changed(self, *_args: object) -> None:
         global WIDTH, HEIGHT
         # Get current allocated size of the picture (the window size minus
         # the header bar). Falls back to default if not yet realized.
-        new_w = self.get_default_width()
-        new_h = self.get_default_height() - 48
+        default_w, default_h = self.get_default_size()
+        new_w = default_w
+        new_h = default_h - 48
         if new_w < 16 or new_h < 16:
             return
         if new_w == WIDTH and new_h == HEIGHT:
@@ -479,11 +483,18 @@ def on_activate(app: Gtk.Application) -> None:
 
 def main(argv: list[str]) -> int:
     app = Gtk.Application(
-        application_id="dev.goi.mandelbrot",
+        application_id="dev.ginext.mandelbrot",
         flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
     )
-    app.connect("activate", on_activate)
-    signal.signal(signal.SIGINT, lambda *_: GLib.idle_add(app.quit))
+    app.activate.connect(on_activate)
+    try:
+        GLibUnix.signal_add(
+            GLib.PRIORITY_DEFAULT,
+            signal.SIGINT,
+            lambda *_a: bool(GLib.idle_add(app.quit)),
+        )
+    except AttributeError:
+        signal.signal(signal.SIGINT, lambda *_: GLib.idle_add(app.quit))
     return app.run(argv)
 
 

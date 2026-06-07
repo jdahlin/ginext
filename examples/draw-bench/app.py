@@ -16,7 +16,7 @@ Metrics shown in the header bar:
   invoke-ops/s  Python→C GI calls/s (fps × ops per frame)
 
 Flags:
-  --gi          use gi.repository (PyGObject) instead of goi for comparison
+  --gi          use gi.repository (PyGObject) instead of ginext for comparison
 """
 
 from __future__ import annotations
@@ -24,10 +24,15 @@ from __future__ import annotations
 import signal
 import sys
 import time
+from typing import TYPE_CHECKING
 
 # --gi flag: compare against the reference PyGObject binding.
 _USE_GI = "--gi" in sys.argv
-if _USE_GI:
+if TYPE_CHECKING:
+    # Type-check against the ginext stubs regardless of the runtime backend;
+    # the --gi path imports the same API surface from PyGObject.
+    from ginext import GLib, Gdk, Gio, Gtk
+elif _USE_GI:
     sys.argv.remove("--gi")
     import gi
 
@@ -35,7 +40,7 @@ if _USE_GI:
     gi.require_version("Gtk", "4.0")
     from gi.repository import GLib, Gdk, Gio, Gtk
 else:
-    from goi import GLib, Gdk, Gio, Gtk
+    from ginext import GLib, Gdk, Gio, Gtk
 
 BUF_W, BUF_H = 256, 256
 STRIDE = BUF_W * 4
@@ -62,7 +67,7 @@ class DrawBenchWindow(Gtk.ApplicationWindow):
         # whatever marshalling overhead we're actually trying to measure.
         # For --gi mode pre-wrap each one in GLib.Bytes too, so the C-side
         # work per frame is identical to the goi path.
-        self._buf_cache = [
+        self._buf_cache: list[bytes] | list[GLib.Bytes] = [
             bytes([h * 3 & 0xFF, h * 5 & 0xFF, (255 - h) & 0xFF, 0xFF])
             * (BUF_W * BUF_H)
             for h in range(256)
@@ -82,7 +87,7 @@ class DrawBenchWindow(Gtk.ApplicationWindow):
         ]
 
         gil = "nogil" if not sys._is_gil_enabled() else "GIL"
-        backend = "gi" if _USE_GI else "goi"
+        backend = "gi" if _USE_GI else "ginext"
         self._backend_label = (
             f"[{backend}/{gil} py{sys.version_info.major}.{sys.version_info.minor}]"
         )
@@ -99,24 +104,38 @@ class DrawBenchWindow(Gtk.ApplicationWindow):
         )
         self.set_child(self._picture)
 
-        self.connect("close-request", self._on_close_request)
+        # Signals: real PyGObject uses the legacy connect("name", handler) API;
+        # the ginext side uses the new attribute-based signal API.
+        if _USE_GI:
+            self.connect("close-request", self._on_close_request)
+        else:
+            self.close_request.connect(self._on_close_request)
 
         # Keep reference alive: add_controller is transfer-full so GTK consumes
         # the caller's ref; without this the controller is freed when __init__
         # returns and any key event crashes.
         self._key_ctrl = Gtk.EventControllerKey()
-        self._key_ctrl.connect("key-pressed", self._on_key_pressed)
+        if _USE_GI:
+            self._key_ctrl.connect("key-pressed", self._on_key_pressed)
+        else:
+            self._key_ctrl.key_pressed.connect(self._on_key_pressed)
         self.add_controller(self._key_ctrl)
         GLib.idle_add(self._tick)
         GLib.timeout_add(1000, self._report)
 
-    def _on_key_pressed(self, controller, keyval, keycode, state) -> bool:
+    def _on_key_pressed(
+        self,
+        controller: Gtk.EventControllerKey,
+        keyval: int,
+        keycode: int,
+        state: Gdk.ModifierType,
+    ) -> bool:
         if keyval == Gdk.KEY_Escape:
             self.close()
             return True
         return False
 
-    def _on_close_request(self, *_) -> bool:
+    def _on_close_request(self, *_: object) -> bool:
         self._alive = False
         self._app.quit()
         return False
@@ -162,7 +181,10 @@ def main(argv: list[str]) -> int:
         application_id="dev.goi.drawbench",
         flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
     )
-    app.connect("activate", on_activate)
+    if _USE_GI:
+        app.connect("activate", on_activate)
+    else:
+        app.activate.connect(on_activate)
     signal.signal(signal.SIGINT, lambda *_: GLib.idle_add(app.quit))
     return app.run(argv)
 

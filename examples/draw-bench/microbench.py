@@ -1,10 +1,10 @@
 """
 microbench — full-coverage call/method/property/signal bench across
-jit / ffi / gi backends.
+ginext / gi backends.
 
 Driven against the in-tree GoiBench typelib
 (`packages/typelib/`) whose method bodies are all stubs
-(return self / return field / no-op), so wall-clock per call ≈ goi or
+(return self / return field / no-op), so wall-clock per call ≈ ginext or
 PyGObject dispatch + marshal cost. Sections:
 
   free functions     0–6 int args, mixed lanes (free C functions)
@@ -20,14 +20,12 @@ PyGObject dispatch + marshal cost. Sections:
 
 Usage:
     python microbench.py                    # all backends, all sections
-    python microbench.py --backend=jit      # one backend (one process)
-    python microbench.py --backend=ffi
+    python microbench.py --backend=ginext   # one backend (one process)
     python microbench.py --backend=gi       # real PyGObject (system)
     python microbench.py --gi               # legacy alias for --backend=gi
 
-The default (no --backend) re-execs three subprocesses — one per
-backend — because goi+gi can't both be the canonical GoiBench at
-once and goi's call_mode is process-global.
+The default (no --backend) re-execs one subprocess per backend because
+ginext+gi can't both be the canonical GoiBench in the same process.
 
 Real PyGObject for `--backend=gi` must be importable from the
 interpreter (e.g. `apt install python3-gi` plus a venv that inherits
@@ -41,6 +39,7 @@ import pathlib
 import re
 import subprocess
 import sys
+from typing import TYPE_CHECKING
 
 from _bench_common import BACKENDS, setup_backend, header, bench, bench_inner
 
@@ -103,7 +102,7 @@ def _collate_and_print(
     print()
     print("=" * (name_w + 4 + col_w * len(BACKENDS) + 14))
     head = " " * (name_w + 2) + "".join(f"{b:>{col_w}}" for b in BACKENDS)
-    head += f"{'jit/ffi':>{col_w}}{'jit/gi':>{col_w + 2}}"
+    head += f"{'gi/ginext':>{col_w + 2}}"
     print(head)
     print("-" * len(head))
     last_section = None
@@ -116,9 +115,8 @@ def _collate_and_print(
         for b in BACKENDS:
             ns = cells.get(b)
             row += f"{(f'{ns:.1f} ns' if ns is not None else '—'):>{col_w}}"
-        jit, ffi, gi = cells.get("jit"), cells.get("ffi"), cells.get("gi")
-        row += f"{(f'{ffi / jit:.2f}x' if jit and ffi else '—'):>{col_w}}"
-        row += f"{(f'{gi / jit:.2f}x' if jit and gi else '—'):>{col_w + 2}}"
+        ginext_ns, gi = cells.get("ginext"), cells.get("gi")
+        row += f"{(f'{gi / ginext_ns:.2f}x' if ginext_ns and gi else '—'):>{col_w + 2}}"
         print(row)
 
 
@@ -143,6 +141,15 @@ if not any(
     sys.exit(0)
 
 GoiBench, _BACKEND = setup_backend()
+
+# Type-check against the ginext stubs regardless of the runtime backend; the
+# `--backend=gi` path imports the same API surface from PyGObject.
+if TYPE_CHECKING:
+    from ginext import Gio, GObject
+elif _BACKEND == "gi":
+    from gi.repository import Gio, GObject
+else:
+    from ginext import Gio, GObject
 
 
 def _section(title: str) -> None:
@@ -245,13 +252,18 @@ def main() -> None:
 
     _section("Python-defined GObject.Property")
     if _BACKEND == "gi":
-        from gi.repository import Gio, GObject
-    else:
-        from goi.repository import Gio, GObject
 
-    class BenchProp(GObject.Object):
-        __gtype_name__ = f"GoiBenchProp_{_BACKEND}"
-        value = GObject.Property(type=int, default=0)
+        class BenchProp(GObject.Object):
+            # gi path: PyGObject registers types via __gtype_name__, which the
+            # ginext stubs we type-check against deliberately forbid.
+            __gtype_name__ = f"GoiBenchProp_{_BACKEND}"  # type: ignore[misc]
+            value = GObject.Property(type=int, default=0)
+    else:
+
+        class BenchProp(  # type: ignore[no-redef]
+            GObject.Object, type_name=f"GoiBenchProp_{_BACKEND}"
+        ):
+            value = GObject.Property(type=int, default=0)
 
     prop_obj = BenchProp()
 
@@ -260,24 +272,46 @@ def main() -> None:
 
     bench("plain attr get", lambda: prop_obj.value)
     bench("plain attr set", set_value)
-    bench("props.value get", lambda: prop_obj.props.value)
+    # `.props` is a PyGObject-compat accessor; ginext exposes properties as
+    # plain attributes (benched above), so this row only runs for the gi
+    # comparison.
+    if _BACKEND == "gi":
+        bench("props.value get", lambda: prop_obj.props.value)
     bench("get_property('value') py", lambda: prop_obj.get_property("value"))
     bench("set_property('value', 42)", lambda: prop_obj.set_property("value", 42))
 
     _section("Gio.ListModel row property fetch")
-    row_gtype = getattr(BenchProp, "__goi_gtype__", getattr(BenchProp, "__gtype__"))
+    # gi wants a GType for item_type; ginext's GObject type lookup accepts the
+    # Python class directly.
+    row_gtype = (
+        BenchProp.__gtype__  # type: ignore[attr-defined]  # gi path: PyGObject exposes __gtype__
+        if _BACKEND == "gi"
+        else BenchProp
+    )
     store = Gio.ListStore.new(item_type=row_gtype)
     store.append(prop_obj)
     row = store.get_item(0)
+    assert row is not None
     bench("get_item(0)", lambda: store.get_item(0))
     bench("cached row attr get", lambda: row.value)
-    bench("get_item(0).value", lambda: store.get_item(0).value)
-    bench("get_item(0).props.value", lambda: store.get_item(0).props.value)
-    bench("get_item(0).get_property", lambda: store.get_item(0).get_property("value"))
+    # get_item is typed Optional; index 0 always exists here after append().
+    bench("get_item(0).value", lambda: store.get_item(0).value)  # type: ignore[union-attr]
+    if _BACKEND == "gi":
+        bench(
+            "get_item(0).props.value",
+            lambda: store.get_item(0).props.value,  # type: ignore[union-attr]
+        )
+    bench(
+        "get_item(0).get_property",
+        lambda: store.get_item(0).get_property("value"),  # type: ignore[union-attr]
+    )
 
     # -- signal emit (closure) ------------------------------------------
     _section("signal emit (GClosure)")
-    obj.connect("tick", lambda _o: None)
+    if _BACKEND == "gi":
+        obj.connect("tick", lambda _o: None)
+    else:
+        obj.tick.connect(lambda _o: None)
     bench("emit tick (Python listener)", obj.tick, n=1_000_000)
 
     bare = GoiBench.Object.new()

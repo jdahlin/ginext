@@ -34,6 +34,12 @@ RUN apt-get update && \
       gir1.2-gst-plugins-base-1.0 \
       gir1.2-soup-3.0 \
       libsoup-3.0-0 \
+      gir1.2-vte-3.91 \
+      libvte-2.91-gtk4-dev \
+      gir1.2-webkit-6.0 \
+      libwebkitgtk-6.0-dev \
+      gir1.2-gtksource-5 \
+      libgtksourceview-5-dev \
       meson \
       ninja-build \
       pkg-config \

@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from typing import Any
 
 
 _EXAMPLE_DIR = Path(__file__).resolve().parent
@@ -49,18 +50,18 @@ class ExtensionInfo:
         return self.name or self.path.name
 
 
-def _as_tuple(value) -> tuple[str, ...]:
+def _as_tuple(value: object) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value if isinstance(item, str))
 
 
-def _manifest_text(manifest: dict, key: str) -> str:
+def _manifest_text(manifest: dict[str, Any], key: str) -> str:
     value = manifest.get(key)
     return value if isinstance(value, str) else ""
 
 
-def _find_content_filters(path: Path, manifest: dict) -> tuple[Path, ...]:
+def _find_content_filters(path: Path, manifest: dict[str, Any]) -> tuple[Path, ...]:
     filters: list[Path] = []
     for rel in ("content-filters", "filters"):
         directory = path / rel
@@ -115,7 +116,7 @@ def read_extension(path: Path) -> ExtensionInfo | None:
 class ExtensionRegistry:
     """Discovers extension folders and owns compiled content filters."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.extension_dirs = (
             _EXAMPLE_DIR / "extensions",
             _data_home() / "extensions",
@@ -123,8 +124,8 @@ class ExtensionRegistry:
         self.filter_store_path = _cache_home() / "content-filters"
         self.filter_store_path.mkdir(parents=True, exist_ok=True)
         self.extensions: list[ExtensionInfo] = []
-        self._filters = []
-        self._content_managers = []
+        self._filters: list[Any] = []
+        self._content_managers: list[Any] = []
         self._filter_store = None
         self._WebKit = None
         self._Gio = None
@@ -143,7 +144,7 @@ class ExtensionRegistry:
         self.extensions = found
         return found
 
-    def start(self, WebKit, Gio) -> None:
+    def start(self, WebKit: Any, Gio: Any) -> None:
         self._WebKit = WebKit
         self._Gio = Gio
         self.discover()
@@ -157,7 +158,7 @@ class ExtensionRegistry:
             for source in info.content_filters:
                 self._save_filter(info, source)
 
-    def create_user_content_manager(self):
+    def create_user_content_manager(self) -> Any:
         WebKit = self._WebKit
         if WebKit is None or not hasattr(WebKit, "UserContentManager"):
             return None
@@ -200,7 +201,7 @@ class ExtensionRegistry:
                 file=sys.stderr,
             )
 
-    def _on_filter_saved(self, store, result):
+    def _on_filter_saved(self, store: Any, result: Any) -> None:
         try:
             content_filter = store.save_finish(result)
         except Exception as exc:  # noqa: BLE001

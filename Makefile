@@ -140,7 +140,7 @@ endif
 GCOVR      := gcovr
 GCOVR_ARGS := --root $(CURDIR) --object-directory $(BDIR) --filter $(abspath src/goi/_goi) --txt
 
-.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal gnome-music cambalache quodlibet coverage-report docviewer typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander stubs api-docs api-docs-all
+.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal gnome-music cambalache quodlibet coverage-report typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander _typecheck-ex-terminal _typecheck-ex-pyedit _typecheck-ex-web_browser _typecheck-ex-mandelbrot _typecheck-ex-webcam-effects _typecheck-ex-draw-bench _typecheck-ex-playground stubs api-docs api-docs-all
 
 $(VENV)/.pygir-sync-stamp: pyproject.toml uv.lock \
     packages/ginext-gio/pyproject.toml \
@@ -310,7 +310,8 @@ api-docs-all:
 # INTERNAL-ERROR on a stale cache (e.g. CI's restored .mypy_cache from another
 # commit), so it wipes the dir and retries once — incremental speed, no crash.
 typecheck: stubs $(MYPY_INSTALL_STAMP)
-	+$(MAKE) --no-print-directory -j _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander
+	+$(MAKE) --no-print-directory -j _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander \
+	  _typecheck-ex-terminal _typecheck-ex-pyedit _typecheck-ex-web_browser _typecheck-ex-mandelbrot _typecheck-ex-webcam-effects _typecheck-ex-draw-bench _typecheck-ex-playground
 
 _typecheck-core:
 	bash ci/run-mypy.sh .mypy_cache/core $(UV_RUN) mypy --strict src/ginext/ scripts/
@@ -324,15 +325,25 @@ _typecheck-stubgen:
 	bash ci/run-mypy.sh .mypy_cache/stubgen $(UV_RUN) mypy --strict packages/ginext-stubgen/
 _typecheck-commander:
 	bash ci/run-mypy.sh examples/commander/.mypy_cache $(UV_RUN) --directory examples/commander mypy --strict src/commander
+EXAMPLES_MYPY := $(UV_RUN) mypy --config-file ci/mypy-examples.toml
+_typecheck-ex-terminal:
+	bash ci/run-mypy.sh examples/terminal/.mypy_cache $(EXAMPLES_MYPY) examples/terminal
+_typecheck-ex-pyedit:
+	bash ci/run-mypy.sh examples/pyedit/.mypy_cache $(EXAMPLES_MYPY) examples/pyedit
+_typecheck-ex-web_browser:
+	bash ci/run-mypy.sh examples/web_browser/.mypy_cache $(EXAMPLES_MYPY) examples/web_browser
+_typecheck-ex-mandelbrot:
+	bash ci/run-mypy.sh examples/mandelbrot/.mypy_cache $(EXAMPLES_MYPY) examples/mandelbrot
+_typecheck-ex-webcam-effects:
+	bash ci/run-mypy.sh examples/webcam-effects/.mypy_cache $(EXAMPLES_MYPY) examples/webcam-effects
+_typecheck-ex-draw-bench:
+	bash ci/run-mypy.sh examples/draw-bench/.mypy_cache $(EXAMPLES_MYPY) examples/draw-bench
+_typecheck-ex-playground:
+	bash ci/run-mypy.sh examples/playground/.mypy_cache $(EXAMPLES_MYPY) examples/playground/dbus_dashboard.py examples/playground/numba_gst_spike.py examples/playground/playground/window.py
 
 run: build
 	$(_ENV) $(RUN_PY) examples/mandelbrot/app.py
 
-# Documentation viewer prototype — renders a Markdown file in a
-# GtkTextView and embeds runnable example snippets via Casilda.
-DOC ?= tools/docviewer/example.md
-docviewer: build
-	$(_ENV) $(RUN_PY) tools/docviewer/docviewer.py $(DOC)
 
 # Drawing (https://github.com/maoschanz/drawing) lives in apps/drawing-run.
 # Real-app integration target — exercises GtkApplication, ActionMap,
@@ -393,7 +404,7 @@ web-browser: build
 # opacity, cursor) are JSON-persisted under $XDG_CONFIG_HOME.
 terminal: build
 	PYTHONPATH=$(abspath $(BDIR)/src):$(CURDIR) \
-	  $(RUN_PY) -m apps.terminal $(ARGS)
+	  $(RUN_PY) -m examples.terminal $(ARGS)
 
 # gnome-music (https://gitlab.gnome.org/GNOME/gnome-music) lives in apps/gnome-music.
 # Real-app integration target — exercises GtkApplication, GStreamer, GTK4,

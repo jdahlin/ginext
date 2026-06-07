@@ -7,19 +7,15 @@ the buffer, an optional on-disk Gio.File, the language detected by
 GtkSource.LanguageManager, and a "modified" flag derived from the
 buffer.
 
-File I/O goes through Gio.File now that goi's interface dispatch
-binds the methods (see src/runtime/object-class.c::try_interface_dispatch
-and the matching install path in src/runtime/lazy.c). load_contents
-still returns a partial tuple — for now the multi-out marshalling
-is the gap, so reads fall through to Python `open()` when Gio doesn't
-hand back bytes.
+File I/O goes through Gio.File. load_contents returns a tuple; on
+failure it raises GLib.Error, so a returned tuple implies success.
 """
 
 from __future__ import annotations
 
 import sys
 
-from goi.repository import GLib, GObject, Gio, GtkSource
+from ginext import GLib, GObject, Gio, GtkSource
 
 
 _DRAFT_SEQ = 0
@@ -31,21 +27,20 @@ def _next_draft_title() -> str:
     return f"Draft {_DRAFT_SEQ}" if _DRAFT_SEQ > 1 else "Draft"
 
 
-class Document(GObject.Object):
-    __gtype_name__ = "PyeditDocument"
+class Document(GObject.Object, type_name="PyeditDocument"):
 
     title = GObject.Property(type=str, default="")
     subtitle = GObject.Property(type=str, default="")
     modified = GObject.Property(type=bool, default=False)
     has_file = GObject.Property(type=bool, default=False)
 
-    def __init__(self, file: Gio.File | None = None):
+    def __init__(self, file: Gio.File | None = None) -> None:
         super().__init__()
         self._lang_mgr = GtkSource.LanguageManager.get_default()
         self.buffer = GtkSource.Buffer.new(None)
         self.buffer.set_highlight_matching_brackets(True)
         self.buffer.set_highlight_syntax(True)
-        self.buffer.connect("modified-changed", self._on_modified_changed)
+        self.buffer.modified_changed.connect(self._on_modified_changed)
         self.file: Gio.File | None = None
         if file is None:
             self.title = _next_draft_title()
@@ -55,11 +50,11 @@ class Document(GObject.Object):
 
     # --- factory helpers ---------------------------------------------
     @classmethod
-    def from_path(cls, path: str) -> "Document":
+    def from_path(cls, path: str) -> Document:
         return cls(Gio.file_new_for_path(path))
 
     @classmethod
-    def from_uri(cls, uri: str) -> "Document":
+    def from_uri(cls, uri: str) -> Document:
         return cls(Gio.file_new_for_uri(uri))
 
     # --- file ops -----------------------------------------------------
@@ -102,7 +97,7 @@ class Document(GObject.Object):
         # (marshal/string.c accepts str/bytes/bytearray).
         try:
             target.replace_contents(
-                data,
+                data,  # type: ignore[arg-type]  # stub types data as list[int]; runtime marshal accepts bytes
                 None,  # etag
                 False,  # make_backup
                 Gio.FileCreateFlags.NONE,
@@ -156,5 +151,5 @@ class Document(GObject.Object):
         lang = self._lang_mgr.guess_language(name, None)
         self.buffer.set_language(lang)
 
-    def _on_modified_changed(self, _buf) -> None:
+    def _on_modified_changed(self, _buf: GtkSource.Buffer) -> None:
         self.modified = self.buffer.get_modified()

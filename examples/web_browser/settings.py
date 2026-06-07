@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from goi.repository import Adw, GObject, Gtk
+from ginext import Adw, GObject, Gtk
+
+if TYPE_CHECKING:
+    from examples.web_browser.state import BrowserState
 
 
 Adw.init()
@@ -14,27 +18,26 @@ _UI = (Path(__file__).resolve().parent / "resources" / "settings.ui").read_text(
 
 
 @Gtk.Template(string=_UI)
-class SettingsWindow(Gtk.Window):
-    __gtype_name__ = "WebBrowserSettings"
+class SettingsWindow(Gtk.Window, type_name="WebBrowserSettings"):
 
-    developer_extras_row = Gtk.Template.Child()
-    javascript_row = Gtk.Template.Child()
-    webgl_row = Gtk.Template.Child()
-    webrtc_row = Gtk.Template.Child()
-    media_stream_row = Gtk.Template.Child()
-    page_cache_row = Gtk.Template.Child()
-    dns_prefetching_row = Gtk.Template.Child()
-    smooth_scrolling_row = Gtk.Template.Child()
-    tabs_to_links_row = Gtk.Template.Child()
-    clipboard_access_row = Gtk.Template.Child()
-    popup_windows_row = Gtk.Template.Child()
-    print_backgrounds_row = Gtk.Template.Child()
-    media_autoplay_row = Gtk.Template.Child()
-    itp_row = Gtk.Template.Child()
-    persistent_credentials_row = Gtk.Template.Child()
-    third_party_cookies_row = Gtk.Template.Child()
+    developer_extras_row: Adw.SwitchRow
+    javascript_row: Adw.SwitchRow
+    webgl_row: Adw.SwitchRow
+    webrtc_row: Adw.SwitchRow
+    media_stream_row: Adw.SwitchRow
+    page_cache_row: Adw.SwitchRow
+    dns_prefetching_row: Adw.SwitchRow
+    smooth_scrolling_row: Adw.SwitchRow
+    tabs_to_links_row: Adw.SwitchRow
+    clipboard_access_row: Adw.SwitchRow
+    popup_windows_row: Adw.SwitchRow
+    print_backgrounds_row: Adw.SwitchRow
+    media_autoplay_row: Adw.SwitchRow
+    itp_row: Adw.SwitchRow
+    persistent_credentials_row: Adw.SwitchRow
+    third_party_cookies_row: Adw.SwitchRow
 
-    def __init__(self, state):
+    def __init__(self, state: BrowserState) -> None:
         super().__init__()
         self.state = state
         flags = GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL

@@ -1,0 +1,19 @@
+# Shared mypy config for the example apps (run from the repo root so the
+# `examples.<app>.*` package paths resolve uniformly regardless of whether an
+# app uses relative or absolute imports). One _typecheck-<app> target per app.
+[tool.mypy]
+python_version = "3.14"
+mypy_path = ["."]
+plugins = ["../src/ginext/mypy_plugin.py"]
+explicit_package_bases = true
+namespace_packages = true
+strict = true
+show_error_codes = true
+warn_unused_ignores = true
+
+# draw-bench deliberately imports REAL PyGObject (`import gi`) to benchmark
+# against it; numba/llvmlite (numba-cuda, gst spikes) ship no type info. These
+# are intentionally untyped third-party imports, not ginext API.
+[[tool.mypy.overrides]]
+module = ["gi.*", "numba.*", "numba", "llvmlite.*"]
+ignore_missing_imports = true

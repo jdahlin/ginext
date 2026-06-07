@@ -476,7 +476,7 @@ class PowerPage(Page):
         )
         self._profiles: list[str] = []
         self._suppress_combo = False
-        self.profile_combo.notify["selected"].connect(self._on_profile_selected)
+        self.profile_combo.notify("selected").connect(self._on_profile_selected)
         self.profile_group.add(self.profile_combo)
         self.r_degraded = action_row("Performance degraded", "no")
         self.profile_group.add(self.r_degraded)
@@ -947,9 +947,7 @@ class SystemdPage(Page):
             self.unit_store.append(_UnitObject(name, active, sub))
 
 
-class _UnitObject(GObject.Object):
-    __gtype_name__ = "DBusDashboardUnit"
-
+class _UnitObject(GObject.Object, type_name="DBusDashboardUnit"):
     # Stored as GObject properties (not plain attributes) so the values live on
     # the underlying GObject and survive the Python wrapper being recreated when
     # the ListStore hands an item back during list-view binding.
@@ -1130,7 +1128,7 @@ class MediaPage(Page):
 
     def build(self) -> Gtk.Widget:
         self.page = Adw.PreferencesPage()
-        self._groups: list[Gtk.Widget] = []
+        self._groups: list[Adw.PreferencesGroup] = []
         # player bus name -> (position row, track length in microseconds)
         self._pos_rows: dict[str, tuple[Adw.ActionRow, int]] = {}
         self.add_updater(self._rebuild)
@@ -1458,9 +1456,7 @@ class DesktopPage(Page):
 # --------------------------------------------------------------------------- #
 # Window
 # --------------------------------------------------------------------------- #
-class DashboardWindow(Adw.ApplicationWindow):
-    __gtype_name__ = "DBusDashboardWindow"
-
+class DashboardWindow(Adw.ApplicationWindow, type_name="DBusDashboardWindow"):
     def __init__(self, app: Adw.Application, system: Bus, session: Bus) -> None:
         super().__init__(application=app, title="GNOME D-Bus Dashboard")
         self.set_default_size(940, 760)
@@ -1563,9 +1559,7 @@ class DashboardWindow(Adw.ApplicationWindow):
 # --------------------------------------------------------------------------- #
 # Application
 # --------------------------------------------------------------------------- #
-class DashboardApp(Adw.Application):
-    __gtype_name__ = "DBusDashboardApp"
-
+class DashboardApp(Adw.Application, type_name="DBusDashboardApp"):
     def __init__(self, self_test: bool = False) -> None:
         super().__init__(application_id="org.ginext.DBusDashboard")
         self.self_test = self_test

@@ -13,10 +13,10 @@ import os
 import sys
 from pathlib import Path
 
-from goi.repository import GLib, GObject
+from ginext import GLib, GObject
 
 
-DEFAULT_PREFS = {
+DEFAULT_PREFS: dict[str, object] = {
     "font": "Monospace 11",
     "use-system-font": False,
     "palette": "Tango",
@@ -29,7 +29,7 @@ DEFAULT_PREFS = {
     "scroll-on-keystroke": True,
 }
 
-DEFAULT_STATE = {
+DEFAULT_STATE: dict[str, object] = {
     "window-width": 900,
     "window-height": 600,
     "window-maximized": False,
@@ -38,12 +38,12 @@ DEFAULT_STATE = {
 
 def _config_dir() -> Path:
     base = GLib.get_user_config_dir() or os.path.expanduser("~/.config")
-    d = Path(base) / "goi-terminal"
+    d = Path(base) / "ginext-terminal"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
-def _load(path: Path, defaults: dict) -> dict:
+def _load(path: Path, defaults: dict[str, object]) -> dict[str, object]:
     if not path.exists():
         return dict(defaults)
     try:
@@ -60,7 +60,7 @@ def _load(path: Path, defaults: dict) -> dict:
     return out
 
 
-def _save(path: Path, data: dict) -> None:
+def _save(path: Path, data: dict[str, object]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         with tmp.open("w") as f:
@@ -70,15 +70,13 @@ def _save(path: Path, data: dict) -> None:
         print(f"[terminal] state save to {path!r} failed: {e}", file=sys.stderr)
 
 
-class State(GObject.Object):
+class State(GObject.Object, type_name="TerminalState"):
     """Single source of truth for prefs + window state."""
 
-    __gtype_name__ = "TerminalState"
-
     # --- prefs --------------------------------------------------------
-    font = GObject.Property(type=str, default=DEFAULT_PREFS["font"])
+    font = GObject.Property(type=str, default="Monospace 11")
     use_system_font = GObject.Property(type=bool, default=False)
-    palette = GObject.Property(type=str, default=DEFAULT_PREFS["palette"])
+    palette = GObject.Property(type=str, default="Tango")
     scrollback_lines = GObject.Property(type=int, default=10000)
     opacity = GObject.Property(type=float, default=1.0)
     cursor_shape = GObject.Property(type=str, default="block")
@@ -92,10 +90,10 @@ class State(GObject.Object):
     window_height = GObject.Property(type=int, default=600)
     window_maximized = GObject.Property(type=bool, default=False)
 
-    _PREFS_KEYS = list(DEFAULT_PREFS.keys())
-    _STATE_KEYS = ["window-width", "window-height", "window-maximized"]
+    _PREFS_KEYS: list[str] = list(DEFAULT_PREFS.keys())
+    _STATE_KEYS: list[str] = ["window-width", "window-height", "window-maximized"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._dir = _config_dir()
         self._prefs_path = self._dir / "prefs.json"
@@ -105,7 +103,12 @@ class State(GObject.Object):
             self._load()
         finally:
             self._loading = False
-        self.connect("notify", self._on_notify)
+        # Per-property notify (the new API has no all-properties "notify"
+        # connect): flush prefs/state whenever the matching group changes.
+        for k in self._PREFS_KEYS:
+            self.notify(k).connect(self._on_pref_notify)
+        for k in self._STATE_KEYS:
+            self.notify(k).connect(self._on_state_notify)
 
     def _load(self) -> None:
         prefs = _load(self._prefs_path, DEFAULT_PREFS)
@@ -121,11 +124,10 @@ class State(GObject.Object):
     def _flush_state(self) -> None:
         _save(self._state_path, {k: self.get_property(k) for k in self._STATE_KEYS})
 
-    def _on_notify(self, _self, pspec):
-        if self._loading:
-            return
-        key = pspec.name
-        if key in self._PREFS_KEYS:
+    def _on_pref_notify(self, _self: GObject.Object, _pspec: GObject.ParamSpec) -> None:
+        if not self._loading:
             self._flush_prefs()
-        elif key in self._STATE_KEYS:
+
+    def _on_state_notify(self, _self: GObject.Object, _pspec: GObject.ParamSpec) -> None:
+        if not self._loading:
             self._flush_state()
