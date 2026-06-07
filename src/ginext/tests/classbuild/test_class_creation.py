@@ -100,8 +100,11 @@ def test_method_descriptor_does_not_rebuild_plan() -> None:
 
 def test_native_wrap_does_not_fall_back_to_compat_profile_for_gio_objects() -> None:
     gi_repository = pytest.importorskip("gi.repository")
-    # DesktopAppInfo is a Linux-only GioUnix API (absent on macOS).
-    if not hasattr(gi_repository.GioUnix, "DesktopAppInfo"):
+    # DesktopAppInfo is a Linux-only GioUnix API: the GioUnix namespace itself is
+    # absent on Windows (accessing it raises AttributeError) and present-but-
+    # without-DesktopAppInfo on macOS.
+    gio_unix = getattr(gi_repository, "GioUnix", None)
+    if gio_unix is None or not hasattr(gio_unix, "DesktopAppInfo"):
         pytest.skip("GioUnix.DesktopAppInfo not available on this platform")
 
     from ginext import Gio, GObject

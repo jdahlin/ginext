@@ -16,6 +16,16 @@ def main() -> None:
     kwargs = json.loads(sys.argv[4])
 
     sys.path.insert(0, str(package_root))
+
+    # On Windows the _gobject extension's DLL dependencies (glib/gobject/gio/...)
+    # are found via os.add_dll_directory, not PATH. The parent test process
+    # exports the directories in GINEXT_WIN_DLL_DIRS; re-register them here before
+    # importing ginext so the probe subprocess can load the extension.
+    if sys.platform == "win32":
+        for _dir in os.environ.get("GINEXT_WIN_DLL_DIRS", "").split(os.pathsep):
+            if _dir and os.path.isdir(_dir):
+                os.add_dll_directory(_dir)
+
     module = importlib.import_module(module_name)
     probe = getattr(module, probe_name)
     sys.stdout.write(json.dumps(probe(**kwargs)))
