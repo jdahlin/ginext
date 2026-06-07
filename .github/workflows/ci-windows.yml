@@ -94,7 +94,7 @@ jobs:
           }
           if (-not $found) { Write-Host "WARNING: no build-details.json / python*.pc found under $dst" }
 
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v8.2.0
 
       # Pinned LLVM (clang-cl + lld-link). The NSIS installer supports /S silent
       # install; woa64 asset is the native Windows-on-ARM build.
