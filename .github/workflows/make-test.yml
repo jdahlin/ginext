@@ -74,7 +74,7 @@ jobs:
             gstreamer gst-plugins-base libsoup pango cairo gdk-pixbuf \
             adwaita-icon-theme make meson ninja pkg-config
       - if: runner.os == 'macOS'
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.2.0
       - name: make test
         if: runner.os == 'macOS'
         run: |
