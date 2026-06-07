@@ -1,21 +1,29 @@
 name: Release
 
-# Push a version tag to release. The tag must match the canonical version in the
-# repo (meson.build, see scripts/bump_version.py): `make bump VERSION=0.8.0`,
-# commit, then `git tag v0.8.0 && git push --tags`.
+# Manual release. Run from the Actions tab ("Release" -> Run workflow) on main
+# and enter the version (e.g. 0.8.3). The flow is build-then-tag: the version is
+# stamped with scripts/bump_version.py (the single source of truth for every
+# package number + inter-package pin), everything is built and published to
+# PyPI, and ONLY after that succeeds is the bump committed to main, a GitHub
+# Release created with all the artifacts, and the vX.Y.Z tag created. So a tag
+# never points at a release that failed to build or publish.
 #
-# All tags publish to PyPI. Pre-release tags (v0.8.0rc1, v0.8.0a1, v0.8.0b2)
-# upload as PyPI pre-releases — `pip install gi` ignores them unless the user
-# opts in with `--pre`, so they double as a low-stakes pipeline rehearsal.
+# PyPI auth is Trusted Publishing (OIDC) — no API token secret. Each project
+# (gi, ginext-core, ginext-gio, ginext-gtk, ginext-gst, ginext-libsoup,
+# ginext-gi-compat, ginext-stubs) must have a trusted publisher configured for
+# repo jdahlin/ginext, workflow release.yml, environment pypi.
 #
-# Auth is PyPI Trusted Publishing (OIDC) — no API token secret. Each project
-# name (gi, ginext-core, ginext-gio, ginext-gtk, ginext-gst, ginext-libsoup,
-# ginext-gi-compat, ginext-stubs) must have a configured trusted publisher on
-# PyPI bound to repo jdahlin/ginext, workflow release.yml, environment pypi.
+# Note: the finalize job pushes the bump commit to main. main's branch
+# protection must allow the github-actions bot to push (add it to the bypass
+# list), otherwise that step fails.
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 0.8.3 (no leading v)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,24 +33,27 @@ env:
   IMAGE: ghcr.io/jdahlin/ginext-ci
 
 jobs:
-  # Assert the tag matches the repo's canonical version and resolve the CI image
-  # tag (same content-hash scheme as ci.yml) used to build the core sdist.
+  # Validate the version string and resolve the CI image tag (same content-hash
+  # scheme as ci.yml) used to build the core sdist.
   guard:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.check.outputs.version }}
+      version: ${{ inputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
       image: ${{ steps.img.outputs.ref }}
     steps:
       - uses: actions/checkout@v6
-      - id: check
+      - id: v
         run: |
-          tag="${GITHUB_REF_NAME#v}"
-          repo="$(python3 scripts/bump_version.py --check)"
-          if [ "$tag" != "$repo" ]; then
-            echo "::error::tag v$tag does not match repo version $repo (run scripts/bump_version.py)"
-            exit 1
+          v="${{ inputs.version }}"
+          if ! printf '%s' "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([._-]?(a|b|rc|dev|post)[0-9]+)?$'; then
+            echo "::error::invalid version '$v' (expected e.g. 0.8.3 or 0.8.3rc1)"; exit 1
           fi
-          echo "version=$tag" >> "$GITHUB_OUTPUT"
+          if printf '%s' "$v" | grep -qiE '(a|b|rc|dev)[0-9]*$'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
       - id: img
         run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
@@ -60,6 +71,8 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v6
+      - name: Stamp version
+        run: python3 scripts/bump_version.py "${{ needs.guard.outputs.version }}"
       - name: Build distributions
         run: |
           set -eux
@@ -104,16 +117,51 @@ jobs:
         with:
           name: dist
           path: dist
-      # Bootstrap vs steady state, no edit needed: if the PYPI_API_TOKEN secret
-      # is set the action uses token auth (creates the projects on first upload,
-      # which sidesteps the pending-publisher form); once the projects exist and
-      # have trusted publishers configured, delete the secret and the empty
-      # password makes the action fall back to OIDC (id-token: write above).
+      # Trusted Publishing (OIDC): no token. `password` resolves to empty when
+      # the PYPI_API_TOKEN secret is unset, which makes the action use OIDC.
+      # skip-existing makes re-runs idempotent (already-uploaded files are kept).
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          # PyPI rate-limits new-project creation ("429 too many new projects"),
-          # so the first release may land only some of the 7 projects; skip the
-          # ones already uploaded when the job is re-run to create the rest.
           skip-existing: true
+
+  # Only after a successful build + publish: commit the bump to main, create the
+  # GitHub Release with every dist attached, and create the vX.Y.Z tag (gh makes
+  # the tag at the pushed commit). This is what makes the tag "build-then-tag".
+  finalize:
+    needs: [guard, build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Commit version bump
+        run: |
+          set -eux
+          python3 scripts/bump_version.py "${{ needs.guard.outputs.version }}"
+          # No-op if the version is already on the branch (e.g. it was bumped via
+          # a PR beforehand) — then we just tag/release the current HEAD.
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "Release ${{ needs.guard.outputs.version }}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Create GitHub Release with artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          V: ${{ needs.guard.outputs.version }}
+        run: |
+          gh release create "v${V}" dist/* \
+            --target "$RELEASE_SHA" \
+            --title "v${V}" \
+            --generate-notes \
+            ${{ needs.guard.outputs.prerelease == 'true' && '--prerelease' || '' }}
