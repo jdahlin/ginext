@@ -102,15 +102,14 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
     )
 
     def _install_actions(self) -> None:
-        # Adw.ApplicationWindow is a GActionMap; add_action registers under the
-        # "win." scope (same pattern as the app actions, which work). A separate
-        # SimpleActionGroup + insert_action_group did not route the accelerators.
+        group = Gio.SimpleActionGroup()
         for name, handler, accels in self._WIN_ACTIONS:
             action = Gio.SimpleAction.new(name, None)
             action.activate.connect(getattr(self, handler))
-            self.add_action(action)
+            group.add_action(action)
             if accels:
                 self.app.set_accels_for_action(f"win.{name}", list(accels))
+        self.insert_action_group("win", group)
 
     # ------------------------------------------------------------------
     # Tab lifecycle

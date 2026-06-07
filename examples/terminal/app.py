@@ -116,9 +116,8 @@ class App(Gtk.Application, type_name="TerminalApp"):
         return False
 
     def _on_about(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
-        # Adw.AboutDialog (not the deprecated AboutWindow) — presented as a
-        # dialog over the active window.
-        about = Adw.AboutDialog(
+        about = Adw.AboutWindow(
+            transient_for=self.get_active_window(),
             application_name="Terminal",
             application_icon="utilities-terminal-symbolic",
             developer_name="ginext",
@@ -127,7 +126,7 @@ class App(Gtk.Application, type_name="TerminalApp"):
             website="https://github.com/jdahlin/ginext",
             license_type=Gtk.License.MIT_X11,
         )
-        about.present(self.get_active_window())
+        about.present()
 
     def _on_quit(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         for w in list(self.get_windows()):
