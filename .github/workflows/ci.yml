@@ -15,12 +15,9 @@ concurrency:
 permissions:
   contents: read
   packages: read
-
-# Run the JS-based actions (checkout/cache/upload-artifact/login) on Node 24; Node 20
 # is deprecated and removed from runners in Sep 2026.
 env:
   IMAGE: ghcr.io/jdahlin/ginext-ci
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   # Build the CI image from ci/Dockerfile and push it to GHCR — but ONLY when the
@@ -37,10 +34,10 @@ jobs:
     outputs:
       ref: ${{ steps.tag.outputs.ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: tag
         run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -72,8 +69,8 @@ jobs:
     env:
       UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
         with:
           path: .cache/uv
           # Per-job key so the parallel jobs don't race to save the same cache
@@ -124,7 +121,7 @@ jobs:
           PY
       - name: Upload JUnit reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: junit-${{ matrix.target }}
           path: reports/junit/
@@ -142,8 +139,8 @@ jobs:
     env:
       UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
         with:
           path: .cache/uv
           key: uv-typecheck-${{ hashFiles('uv.lock') }}
@@ -152,7 +149,7 @@ jobs:
             uv-
       # mypy incremental cache (validated by content hash; run-mypy.sh wipes a
       # poisoned cache and retries, so cross-commit reuse is safe).
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             .mypy_cache
@@ -161,7 +158,7 @@ jobs:
           restore-keys: mypy-
       # Generated .pyi stubs + content stamp; a valid stamp lets `make stubs`
       # skip GIR-parsing regeneration.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             packages/ginext-stubs/ginext-stubs
@@ -179,7 +176,7 @@ jobs:
     permissions:
       checks: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: junit-*
           path: junit

@@ -54,12 +54,12 @@ jobs:
       # step once vcpkg is bootstrapped.
       NUGET_FEED: https://nuget.pkg.github.com/jdahlin/index.json
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Expose the GitHub Actions cache backend to vcpkg's x-gha binary source
       # (run-vcpkg caches the vcpkg tool itself; x-gha caches the built packages).
       - name: Export GitHub Actions cache env for vcpkg
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
@@ -94,7 +94,7 @@ jobs:
           }
           if (-not $found) { Write-Host "WARNING: no build-details.json / python*.pc found under $dst" }
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v8
 
       # Pinned LLVM (clang-cl + lld-link). The NSIS installer supports /S silent
       # install; woa64 asset is the native Windows-on-ARM build.
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload meson logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: meson-logs-${{ matrix.name }}
           path: |
