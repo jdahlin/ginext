@@ -201,6 +201,7 @@ def setup_gi_test_env(root: pathlib.Path, build_path: str | None = None) -> None
     # Make the in-repo test typelibs available for bare pytest invocations,
     # where the Makefile's GI_TYPELIB_PATH/LD_LIBRARY_PATH export is not
     # present.
+    register_win_dll_dirs()
     candidates: list[pathlib.Path] = []
     for envvar in ("PYGIR_GI_TESTS_BUILDDIR", "GINEXT_GI_TESTS_BUILDDIR"):
         explicit = os.environ.get(envvar)
