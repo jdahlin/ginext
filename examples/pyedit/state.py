@@ -14,11 +14,12 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import cast
 
-from goi.repository import GLib, GObject
+from ginext import GLib, GObject
 
 
-DEFAULT_PREFS = {
+DEFAULT_PREFS: dict[str, object] = {
     "font": "Monospace 11",
     "use-system-font": True,
     "tab-width": 4,
@@ -35,7 +36,7 @@ DEFAULT_PREFS = {
     "restore-session": True,
 }
 
-DEFAULT_STATE = {
+DEFAULT_STATE: dict[str, object] = {
     "window-width": 900,
     "window-height": 700,
     "window-maximized": False,
@@ -51,7 +52,7 @@ def _config_dir() -> Path:
     return d
 
 
-def _load(path: Path, defaults: dict) -> dict:
+def _load(path: Path, defaults: dict[str, object]) -> dict[str, object]:
     import sys
 
     if not path.exists():
@@ -71,7 +72,7 @@ def _load(path: Path, defaults: dict) -> dict:
     return out
 
 
-def _save(path: Path, data: dict) -> None:
+def _save(path: Path, data: dict[str, object]) -> None:
     import sys
 
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -83,14 +84,12 @@ def _save(path: Path, data: dict) -> None:
         print(f"[pyedit] state save to {path!r} failed: {e}", file=sys.stderr)
 
 
-class State(GObject.Object):
+class State(GObject.Object, type_name="PyeditState"):
     """Single source of truth for prefs + window state.
 
     Properties are declared via `GObject.Property` so the UI can bind
     against them with `bind_property` and listen with `notify::`. The
     backing store is JSON; writes flush on each set."""
-
-    __gtype_name__ = "PyeditState"
 
     # --- prefs --------------------------------------------------------
     font = GObject.Property(type=str, default=DEFAULT_PREFS["font"])
@@ -113,16 +112,16 @@ class State(GObject.Object):
     window_height = GObject.Property(type=int, default=700)
     window_maximized = GObject.Property(type=bool, default=False)
 
-    _PREFS_KEYS = list(DEFAULT_PREFS.keys())
-    _STATE_KEYS = ["window-width", "window-height", "window-maximized"]
+    _PREFS_KEYS: list[str] = list(DEFAULT_PREFS.keys())
+    _STATE_KEYS: list[str] = ["window-width", "window-height", "window-maximized"]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._dir = _config_dir()
         self._prefs_path = self._dir / "prefs.json"
         self._state_path = self._dir / "state.json"
         self._recent_files: list[str] = []
-        self._recent_limit = DEFAULT_STATE["recent-limit"]
+        self._recent_limit = cast(int, DEFAULT_STATE["recent-limit"])
         self._loading = True
         try:
             self._load()
@@ -130,7 +129,10 @@ class State(GObject.Object):
             self._loading = False
         # Persist on every property mutation. notify fires post-set,
         # so by the time we're here `get_property` reads the new value.
-        self.connect("notify", self._on_notify)
+        # The new API has no all-properties "notify" connect — wire each
+        # property's notify individually.
+        for k in self._PREFS_KEYS + self._STATE_KEYS:
+            self.notify(k).connect(self._on_notify)
 
     # --- key/property name translation --------------------------------
     @staticmethod
@@ -161,10 +163,10 @@ class State(GObject.Object):
         out["recent-files"] = list(self._recent_files)
         _save(self._state_path, out)
 
-    def _on_notify(self, _self, pspec):
+    def _on_notify(self, _self: GObject.Object, pspec: GObject.ParamSpec) -> None:
         if self._loading:
             return
-        key = pspec.name
+        key = pspec.get_name()
         if key in self._PREFS_KEYS:
             self._flush_prefs()
         elif key in self._STATE_KEYS:
@@ -184,13 +186,13 @@ class State(GObject.Object):
         self._recent_files.insert(0, uri)
         del self._recent_files[self._recent_limit :]
         self._flush_state()
-        self.emit("recent-files-changed")
+        self.recent_files_changed.emit()
 
     def clear_recents(self) -> None:
         self._recent_files.clear()
         self._flush_state()
-        self.emit("recent-files-changed")
+        self.recent_files_changed.emit()
 
-    # Class-attribute form (goi's GObject.Signal is a descriptor, not a
-    # decorator factory). Emit via `self.emit("recent-files-changed")`.
-    recent_files_changed = GObject.Signal()
+    # Class-attribute form (GObject.Signal is a descriptor). Emit via the
+    # bound signal: `self.recent_files_changed.emit()`.
+    recent_files_changed: GObject.Signal["State", [], None] = GObject.Signal()

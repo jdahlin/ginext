@@ -15,12 +15,19 @@ Action groups:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
-from goi.repository import Adw, Gio, GLib, GObject, Gtk
+from ginext import Adw, Gio, GLib, GObject, Gtk
 
 from examples.pyedit.document import Document
 from examples.pyedit.page import Page
 from examples.pyedit.search_bar import SearchBar  # noqa: F401  (registered for .ui)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from examples.pyedit.app import App
+    from examples.pyedit.state import State
 
 
 _UI_DIR = Path(__file__).resolve().parent / "resources"
@@ -30,26 +37,25 @@ _SHORTCUTS_UI = str(_UI_DIR / "shortcuts.ui")
 
 
 @Gtk.Template(string=_WINDOW_UI)
-class Window(Adw.ApplicationWindow):
-    __gtype_name__ = "PyeditWindow"
+class Window(Adw.ApplicationWindow, type_name="PyeditWindow"):
 
-    toast_overlay = Gtk.Template.Child()
-    header_bar = Gtk.Template.Child()
-    window_title = Gtk.Template.Child()
-    primary_menu_button = Gtk.Template.Child()
-    save_button = Gtk.Template.Child()
-    search_button = Gtk.Template.Child()
-    new_tab_button = Gtk.Template.Child()
-    open_button = Gtk.Template.Child()
-    tab_view = Gtk.Template.Child()
-    tab_bar = Gtk.Template.Child()
-    content_stack = Gtk.Template.Child()
-    empty_state = Gtk.Template.Child()
-    search_bar_slot = Gtk.Template.Child()
-    status_position = Gtk.Template.Child()
-    status_lang = Gtk.Template.Child()
+    toast_overlay: Adw.ToastOverlay
+    header_bar: Adw.HeaderBar
+    window_title: Adw.WindowTitle
+    primary_menu_button: Gtk.MenuButton
+    save_button: Gtk.Button
+    search_button: Gtk.ToggleButton
+    new_tab_button: Gtk.Button
+    open_button: Gtk.Button
+    tab_view: Adw.TabView
+    tab_bar: Adw.TabBar
+    content_stack: Gtk.Stack
+    empty_state: Adw.StatusPage
+    search_bar_slot: Gtk.Box
+    status_position: Gtk.Label
+    status_lang: Gtk.Label
 
-    def __init__(self, application, state):
+    def __init__(self, application: App, state: State) -> None:
         super().__init__(application=application)
         self.app = application
         self.state = state
@@ -62,34 +68,38 @@ class Window(Adw.ApplicationWindow):
             self.maximize()
 
         # Track resize/maximize so future launches restore.
-        self.connect("notify::default-width", self._on_size_changed)
-        self.connect("notify::default-height", self._on_size_changed)
-        self.connect("notify::maximized", self._on_maximized_changed)
+        self.notify("default-width").connect(self._on_size_changed)
+        self.notify("default-height").connect(self._on_size_changed)
+        self.notify("maximized").connect(self._on_maximized_changed)
 
         # Menus: load primary + tab GMenu from menus.ui.
         builder = Gtk.Builder.new_from_file(_MENUS_UI)
-        self.primary_menu_button.set_menu_model(builder.get_object("primary_menu"))
-        self._tab_menu = builder.get_object("tab_menu")
+        self.primary_menu_button.set_menu_model(
+            cast("Gio.MenuModel", builder.get_object("primary_menu"))
+        )
+        self._tab_menu = cast("Gio.MenuModel", builder.get_object("tab_menu"))
         self.tab_view.set_menu_model(self._tab_menu)
         # Recent Files: section inside the primary menu's Open Recent
         # submenu. Rebuilt every time `state.recent_files_changed` fires.
-        self._recent_section = builder.get_object("recent_files_section")
-        self.state.connect("recent-files-changed", self._rebuild_recent_menu)
+        self._recent_section = cast(
+            "Gio.Menu", builder.get_object("recent_files_section")
+        )
+        self.state.recent_files_changed.connect(self._rebuild_recent_menu)
 
         # Help overlay (Gtk.ShortcutsWindow) — built lazily via a
         # Gtk.Builder when the user triggers the win.show-help-overlay
         # action.
-        self._help_overlay = None
+        self._help_overlay: Gtk.ShortcutsWindow | None = None
 
         # Tab view signals.
-        self.tab_view.connect("notify::selected-page", self._on_selected_page_changed)
-        self.tab_view.connect("close-page", self._on_close_page)
-        self.tab_view.connect("create-window", self._on_create_window)
+        self.tab_view.notify("selected-page").connect(self._on_selected_page_changed)
+        self.tab_view.close_page.connect(self._on_close_page)
+        self.tab_view.create_window.connect(self._on_create_window)
 
-        # Build the search bar in Python (nested @Gtk.Template inside the
-        # window's template doesn't auto-wire its own children yet in
-        # goi, so we instantiate the SearchBar widget directly and
-        # graft it into the slot the .ui reserved for it).
+        # Build the search bar in Python (a nested @Gtk.Template inside the
+        # window's template isn't auto-wired, so we instantiate the
+        # SearchBar widget directly and graft it into the slot the .ui
+        # reserved for it).
         self._search_bar = SearchBar()
         self.search_bar_slot.append(self._search_bar)
 
@@ -109,7 +119,7 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # Action set
     # ------------------------------------------------------------------
-    _WIN_ACTIONS = (
+    _WIN_ACTIONS: tuple[tuple[str, str, list[str] | None], ...] = (
         # (action-name, handler, accel)
         ("new-tab", "_on_new_tab", ["<Primary>n"]),
         ("open", "_on_open", ["<Primary>o"]),
@@ -140,11 +150,11 @@ class Window(Adw.ApplicationWindow):
         ("prev-tab", "_on_prev_tab", ["<Primary><Shift>Tab", "<Primary>Page_Up"]),
     )
 
-    def _install_actions(self):
+    def _install_actions(self) -> None:
         group = Gio.SimpleActionGroup()
         for name, handler, accels in self._WIN_ACTIONS:
             action = Gio.SimpleAction.new(name, None)
-            action.connect("activate", getattr(self, handler))
+            action.activate.connect(getattr(self, handler))
             group.add_action(action)
             if accels:
                 self.app.set_accels_for_action(f"win.{name}", list(accels))
@@ -152,10 +162,10 @@ class Window(Adw.ApplicationWindow):
         # URI string so one action serves every menu entry; `clear-
         # recents` is plain.
         open_recent = Gio.SimpleAction.new("open-recent", GLib.VariantType.new("s"))
-        open_recent.connect("activate", self._on_open_recent)
+        open_recent.activate.connect(self._on_open_recent)
         group.add_action(open_recent)
         clear_recents = Gio.SimpleAction.new("clear-recents", None)
-        clear_recents.connect("activate", self._on_clear_recents)
+        clear_recents.activate.connect(self._on_clear_recents)
         group.add_action(clear_recents)
         self.insert_action_group("win", group)
         # Seed the submenu with whatever was persisted across launches.
@@ -167,10 +177,10 @@ class Window(Adw.ApplicationWindow):
     @property
     def current_page(self) -> Page | None:
         page = self.tab_view.get_selected_page()
-        return page.get_child() if page is not None else None
+        return cast("Page", page.get_child()) if page is not None else None
 
     def add_document(self, document: Document, *, focus: bool = True) -> Page:
-        page_widget = Page(document, self.state)
+        page_widget: Page = Page(document, self.state)
         tab_page = self.tab_view.append(page_widget)
         self._bind_tab_page(tab_page, document)
         if focus:
@@ -182,30 +192,31 @@ class Window(Adw.ApplicationWindow):
     def _bind_tab_page(self, tab_page: Adw.TabPage, document: Document) -> None:
         tab_page.set_title(document.display_name)
         tab_page.set_tooltip(document.uri or document.title)
-        document.connect(
-            "notify::title", lambda *_a: tab_page.set_title(document.display_name)
+        document.notify("title").connect(
+            lambda *_a: tab_page.set_title(document.display_name),
+            owner=tab_page,
         )
-        document.connect(
-            "notify::modified",
+        document.notify("modified").connect(
             lambda *_a: tab_page.set_indicator_icon(
                 Gio.ThemedIcon.new("document-modified-symbolic")
                 if document.modified
                 else None
             ),
+            owner=tab_page,
         )
 
-    def _on_selected_page_changed(self, *_a):
+    def _on_selected_page_changed(self, *_a: object) -> None:
         page = self.current_page
         self._search_bar.attach_page(page)
         self._refresh_title()
         self._refresh_status()
         if page is not None:
-            page.document.buffer.connect(
-                "notify::cursor-position", self._refresh_status
+            page.document.buffer.notify("cursor-position").connect(
+                self._refresh_status
             )
 
-    def _on_close_page(self, view, tab_page):
-        page_widget = tab_page.get_child()
+    def _on_close_page(self, view: Adw.TabView, tab_page: Adw.TabPage) -> bool:
+        page_widget = cast("Page", tab_page.get_child())
         doc = page_widget.document
         if doc.modified:
             self._confirm_close(tab_page, doc, page_widget)
@@ -214,7 +225,9 @@ class Window(Adw.ApplicationWindow):
         GLib.idle_add(self._refresh_empty_state)
         return False
 
-    def _confirm_close(self, tab_page, doc: Document, page_widget):
+    def _confirm_close(
+        self, tab_page: Adw.TabPage, doc: Document, page_widget: Page
+    ) -> None:
         dialog = Adw.MessageDialog.new(
             self,
             f"Save changes to “{doc.display_name}”?",
@@ -228,7 +241,7 @@ class Window(Adw.ApplicationWindow):
         dialog.set_default_response("save")
         dialog.set_close_response("cancel")
 
-        def respond(_d, response):
+        def respond(_d: Adw.MessageDialog, response: str) -> None:
             if response == "save":
                 self._save_document(
                     doc,
@@ -240,21 +253,21 @@ class Window(Adw.ApplicationWindow):
                 self.tab_view.close_page_finish(tab_page, False)
             GLib.idle_add(self._refresh_empty_state)
 
-        dialog.connect("response", respond)
+        dialog.response.connect(respond)
         dialog.present()
 
-    def _on_create_window(self, _view):
+    def _on_create_window(self, _view: Adw.TabView) -> Adw.TabView:
         new = self.app.spawn_window(present=True)
         return new.tab_view
 
-    def _refresh_empty_state(self, *_a):
+    def _refresh_empty_state(self, *_a: object) -> None:
         n = self.tab_view.get_n_pages()
         self.content_stack.set_visible_child_name("tabs" if n else "empty")
         self.tab_bar.set_visible(bool(n))
         self.save_button.set_sensitive(bool(n))
         self.search_button.set_sensitive(bool(n))
 
-    def _refresh_title(self):
+    def _refresh_title(self) -> None:
         page = self.current_page
         if page is None:
             self.window_title.set_title("pyedit")
@@ -267,7 +280,7 @@ class Window(Adw.ApplicationWindow):
         self.window_title.set_subtitle(doc.subtitle)
         self.set_title(f"{doc.display_name} — pyedit")
 
-    def _refresh_status(self, *_a):
+    def _refresh_status(self, *_a: object) -> None:
         page = self.current_page
         if page is None:
             self.status_position.set_text("")
@@ -281,10 +294,10 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # File actions
     # ------------------------------------------------------------------
-    def _on_new_tab(self, *_a):
+    def _on_new_tab(self, *_a: object) -> None:
         self.add_document(Document())
 
-    def _on_open(self, *_a):
+    def _on_open(self, *_a: object) -> None:
         chooser = Gtk.FileChooserNative.new(
             "Open File",
             self,
@@ -293,12 +306,14 @@ class Window(Adw.ApplicationWindow):
             "_Cancel",
         )
         chooser.set_modal(True)
-        chooser.connect("response", self._on_open_response)
+        chooser.response.connect(self._on_open_response)
         chooser.show()
         # Keep a reference so the native dialog isn't GC'd mid-flight.
-        self._pending_chooser = chooser
+        self._pending_chooser: Gtk.FileChooserNative | None = chooser
 
-    def _on_open_response(self, chooser, response):
+    def _on_open_response(
+        self, chooser: Gtk.FileChooserNative, response: int
+    ) -> None:
         try:
             if response == Gtk.ResponseType.ACCEPT:
                 gfile = chooser.get_file()
@@ -314,7 +329,7 @@ class Window(Adw.ApplicationWindow):
         uri = gfile.get_uri() or ""
         for i in range(self.tab_view.get_n_pages()):
             tp = self.tab_view.get_nth_page(i)
-            page = tp.get_child()
+            page = cast("Page", tp.get_child())
             if page.document.uri and page.document.uri == uri:
                 self.tab_view.set_selected_page(tp)
                 return page
@@ -328,27 +343,31 @@ class Window(Adw.ApplicationWindow):
         handling. Routes through open_file(Gio.File)."""
         return self.open_file(Gio.file_new_for_path(path_str))
 
-    def _on_save(self, *_a):
+    def _on_save(self, *_a: object) -> None:
         page = self.current_page
         if page is None:
             return
         self._save_document(page.document)
 
-    def _on_save_as(self, *_a):
+    def _on_save_as(self, *_a: object) -> None:
         page = self.current_page
         if page is None:
             return
         self._save_document(page.document, force_dialog=True)
 
-    def _on_save_all(self, *_a):
+    def _on_save_all(self, *_a: object) -> None:
         for i in range(self.tab_view.get_n_pages()):
-            page = self.tab_view.get_nth_page(i).get_child()
+            page = cast("Page", self.tab_view.get_nth_page(i).get_child())
             if page.document.modified:
                 self._save_document(page.document)
 
     def _save_document(
-        self, doc: Document, *, force_dialog: bool = False, on_done=None
-    ):
+        self,
+        doc: Document,
+        *,
+        force_dialog: bool = False,
+        on_done: Callable[[bool], None] | None = None,
+    ) -> None:
         if doc.file is None or force_dialog:
             chooser = Gtk.FileChooserNative.new(
                 "Save As",
@@ -360,7 +379,7 @@ class Window(Adw.ApplicationWindow):
             chooser.set_modal(True)
             chooser.set_current_name(doc.display_name)
 
-            def respond(ch, response):
+            def respond(ch: Gtk.FileChooserNative, response: int) -> None:
                 try:
                     if response != Gtk.ResponseType.ACCEPT:
                         if on_done is not None:
@@ -382,7 +401,7 @@ class Window(Adw.ApplicationWindow):
                 finally:
                     ch.destroy()
 
-            chooser.connect("response", respond)
+            chooser.response.connect(respond)
             chooser.show()
             self._pending_chooser = chooser
         else:
@@ -392,21 +411,21 @@ class Window(Adw.ApplicationWindow):
                 on_done(ok)
             self._refresh_title()
 
-    def _toast(self, text: str):
+    def _toast(self, text: str) -> None:
         self.toast_overlay.add_toast(Adw.Toast.new(text))
 
-    def _on_close_tab(self, *_a):
+    def _on_close_tab(self, *_a: object) -> None:
         page = self.tab_view.get_selected_page()
         if page is not None:
             self.tab_view.close_page(page)
 
-    def _on_close_window(self, *_a):
+    def _on_close_window(self, *_a: object) -> None:
         self.close()
 
     # ------------------------------------------------------------------
     # Recent files
     # ------------------------------------------------------------------
-    def _rebuild_recent_menu(self, *_a):
+    def _rebuild_recent_menu(self, *_a: object) -> None:
         section = self._recent_section
         # Gio.Menu has remove_all(); fall back to popping items if the
         # binding is missing on older GIO.
@@ -431,7 +450,9 @@ class Window(Adw.ApplicationWindow):
             )
             section.append_item(item)
 
-    def _on_open_recent(self, _action, param):
+    def _on_open_recent(
+        self, _action: Gio.SimpleAction, param: GLib.Variant | None
+    ) -> None:
         uri = param.get_string() if param is not None else ""
         if not uri:
             return
@@ -444,7 +465,7 @@ class Window(Adw.ApplicationWindow):
             return
         self.open_file(gfile)
 
-    def _on_clear_recents(self, *_a):
+    def _on_clear_recents(self, *_a: object) -> None:
         self.state.clear_recents()
         self._toast("Recent files cleared")
 
@@ -459,40 +480,40 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # Edit actions — delegate to the current view
     # ------------------------------------------------------------------
-    def _on_undo(self, *_a):
+    def _on_undo(self, *_a: object) -> None:
         page = self.current_page
-        if page is not None and page.document.buffer.can_undo():
+        if page is not None and page.document.buffer.can_undo():  # type: ignore[operator]  # stub models can_undo as bool prop; GtkSource.Buffer exposes it as a method
             page.document.buffer.undo()
 
-    def _on_redo(self, *_a):
+    def _on_redo(self, *_a: object) -> None:
         page = self.current_page
-        if page is not None and page.document.buffer.can_redo():
+        if page is not None and page.document.buffer.can_redo():  # type: ignore[operator]  # stub models can_redo as bool prop; GtkSource.Buffer exposes it as a method
             page.document.buffer.redo()
 
-    def _on_cut(self, *_a):
+    def _on_cut(self, *_a: object) -> None:
         page = self.current_page
         if page is not None:
-            page.view.emit("cut-clipboard")
+            page.view.cut_clipboard.emit()
 
-    def _on_copy(self, *_a):
+    def _on_copy(self, *_a: object) -> None:
         page = self.current_page
         if page is not None:
-            page.view.emit("copy-clipboard")
+            page.view.copy_clipboard.emit()
 
-    def _on_paste(self, *_a):
+    def _on_paste(self, *_a: object) -> None:
         page = self.current_page
         if page is not None:
-            page.view.emit("paste-clipboard")
+            page.view.paste_clipboard.emit()
 
-    def _on_select_all(self, *_a):
+    def _on_select_all(self, *_a: object) -> None:
         page = self.current_page
         if page is not None:
-            page.view.emit("select-all", True)
+            page.view.select_all.emit(True)
 
     # ------------------------------------------------------------------
     # Search actions
     # ------------------------------------------------------------------
-    def _on_find(self, *_a):
+    def _on_find(self, *_a: object) -> None:
         page = self.current_page
         if page is None:
             return
@@ -504,18 +525,18 @@ class Window(Adw.ApplicationWindow):
             seed = buf.get_text(start, end, True)
         self._search_bar.focus_find(seed or None)
 
-    def _on_replace(self, *_a):
+    def _on_replace(self, *_a: object) -> None:
         if self.current_page is None:
             return
         self._search_bar.focus_replace()
 
-    def _on_find_next(self, *_a):
+    def _on_find_next(self, *_a: object) -> None:
         self._search_bar._on_next()
 
-    def _on_find_previous(self, *_a):
+    def _on_find_previous(self, *_a: object) -> None:
         self._search_bar._on_previous()
 
-    def _on_goto_line(self, *_a):
+    def _on_goto_line(self, *_a: object) -> None:
         page = self.current_page
         if page is None:
             return
@@ -531,32 +552,32 @@ class Window(Adw.ApplicationWindow):
         dialog.set_default_response("ok")
         dialog.set_close_response("cancel")
 
-        def respond(_d, response):
+        def respond(_d: Adw.MessageDialog, response: str) -> None:
             if response == "ok":
                 page.goto_line(int(entry.get_value()))
 
-        dialog.connect("response", respond)
+        dialog.response.connect(respond)
         dialog.present()
 
     # ------------------------------------------------------------------
     # View toggles
     # ------------------------------------------------------------------
-    def _on_toggle_line_numbers(self, *_a):
+    def _on_toggle_line_numbers(self, *_a: object) -> None:
         self.state.show_line_numbers = not self.state.show_line_numbers
 
-    def _on_toggle_highlight_line(self, *_a):
+    def _on_toggle_highlight_line(self, *_a: object) -> None:
         self.state.highlight_current_line = not self.state.highlight_current_line
 
-    def _on_toggle_right_margin(self, *_a):
+    def _on_toggle_right_margin(self, *_a: object) -> None:
         self.state.show_right_margin = not self.state.show_right_margin
 
-    def _on_toggle_wrap(self, *_a):
+    def _on_toggle_wrap(self, *_a: object) -> None:
         self.state.wrap_text = not self.state.wrap_text
 
-    def _on_toggle_map(self, *_a):
+    def _on_toggle_map(self, *_a: object) -> None:
         self.state.show_map = not self.state.show_map
 
-    def _on_toggle_fullscreen(self, *_a):
+    def _on_toggle_fullscreen(self, *_a: object) -> None:
         if self.is_fullscreen():
             self.unfullscreen()
         else:
@@ -565,31 +586,36 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # Tab nav
     # ------------------------------------------------------------------
-    def _on_next_tab(self, *_a):
+    def _on_next_tab(self, *_a: object) -> None:
         self.tab_view.select_next_page()
 
-    def _on_prev_tab(self, *_a):
+    def _on_prev_tab(self, *_a: object) -> None:
         self.tab_view.select_previous_page()
 
     # ------------------------------------------------------------------
     # Help overlay
     # ------------------------------------------------------------------
-    def _on_show_help_overlay(self, *_a):
+    def _on_show_help_overlay(self, *_a: object) -> None:
         if self._help_overlay is None:
             builder = Gtk.Builder.new_from_file(_SHORTCUTS_UI)
-            self._help_overlay = builder.get_object("help_overlay")
+            self._help_overlay = cast(
+                "Gtk.ShortcutsWindow", builder.get_object("help_overlay")
+            )
             self._help_overlay.set_transient_for(self)
         self._help_overlay.present()
 
     # ------------------------------------------------------------------
     # Persistence sinks
     # ------------------------------------------------------------------
-    def _on_size_changed(self, *_a):
-        w, h = self.get_default_size()
-        # Filter out the transient ()-1, -1) GTK emits before realize.
-        if w > 0 and h > 0:
+    def _on_size_changed(self, *_a: object) -> None:
+        size = self.get_default_size()
+        # ginext returns a SimpleNamespace; PyGObject would return a tuple.
+        w = getattr(size, "width", None)
+        h = getattr(size, "height", None)
+        # Filter out the transient (-1, -1) GTK emits before realize.
+        if w and h and w > 0 and h > 0:
             self.state.window_width = w
             self.state.window_height = h
 
-    def _on_maximized_changed(self, *_a):
+    def _on_maximized_changed(self, *_a: object) -> None:
         self.state.window_maximized = self.is_maximized()

@@ -8,31 +8,32 @@ Document and live-binds editor preferences onto the view.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from goi.repository import GObject, Gtk, GtkSource, Pango
+from ginext import GObject, Gtk, GtkSource, Pango
+
+if TYPE_CHECKING:
+    from examples.pyedit.document import Document
+    from examples.pyedit.state import State
 
 
 # Force-build the GtkSource classes referenced by the .ui so GtkBuilder
-# can resolve them. Accessing the attribute is what triggers goi's
-# lazy class build + the GType registration that GtkBuilder needs.
+# can resolve them. Accessing the attribute triggers the lazy class
+# build + the GType registration that GtkBuilder needs.
 _ = (GtkSource.View, GtkSource.Map, GtkSource.Buffer)
 
 
-# Load the template XML as a string instead of via filename=, since
-# goi doesn't yet bind Gio.File.new_for_path (interface static
-# constructor); the string path is purely libxml + GtkBuilder.
 _UI = (Path(__file__).resolve().parent / "resources" / "page.ui").read_text()
 
 
 @Gtk.Template(string=_UI)
-class Page(Gtk.Box):
-    __gtype_name__ = "PyeditPage"
+class Page(Gtk.Box, type_name="PyeditPage"):
 
-    view = Gtk.Template.Child()
-    map = Gtk.Template.Child()
-    scroller = Gtk.Template.Child()
+    view: GtkSource.View
+    map: GtkSource.Map  # type: ignore[assignment]  # template child shadows Gtk.Widget's inherited "map" signal
+    scroller: Gtk.ScrolledWindow
 
-    def __init__(self, document, state):
+    def __init__(self, document: Document, state: State) -> None:
         super().__init__()
         self.document = document
         self.state = state
@@ -58,19 +59,19 @@ class Page(Gtk.Box):
         state.bind_property("auto-indent", self.view, "auto-indent", flags)
         state.bind_property("show-map", self.map, "visible", flags)
 
-        state.connect("notify::wrap-text", self._refresh_wrap)
-        state.connect("notify::font", self._refresh_font)
-        state.connect("notify::use-system-font", self._refresh_font)
-        state.connect("notify::style-scheme", self._refresh_style_scheme)
+        state.notify("wrap-text").connect(self._refresh_wrap)
+        state.notify("font").connect(self._refresh_font)
+        state.notify("use-system-font").connect(self._refresh_font)
+        state.notify("style-scheme").connect(self._refresh_style_scheme)
         self._refresh_wrap()
         self._refresh_font()
         self._refresh_style_scheme()
 
-    def _refresh_wrap(self, *_a):
+    def _refresh_wrap(self, *_a: object) -> None:
         mode = Gtk.WrapMode.WORD_CHAR if self.state.wrap_text else Gtk.WrapMode.NONE
         self.view.set_wrap_mode(mode)
 
-    def _refresh_font(self, *_a):
+    def _refresh_font(self, *_a: object) -> None:
         provider = getattr(self, "_font_provider", None)
         if provider is None:
             provider = Gtk.CssProvider()
@@ -89,7 +90,7 @@ class Page(Gtk.Box):
         else:
             provider.load_from_data(css, len(css))
 
-    def _refresh_style_scheme(self, *_a):
+    def _refresh_style_scheme(self, *_a: object) -> None:
         sid = self.state.style_scheme or "Adwaita"
         mgr = GtkSource.StyleSchemeManager.get_default()
         scheme = (
@@ -100,7 +101,7 @@ class Page(Gtk.Box):
         if scheme is not None:
             self.document.buffer.set_style_scheme(scheme)
 
-    def grab_editor_focus(self):
+    def grab_editor_focus(self) -> None:
         self.view.grab_focus()
 
     def cursor_position(self) -> tuple[int, int]:

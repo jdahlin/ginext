@@ -8,11 +8,17 @@ every open terminal.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
-from goi.repository import Adw, Gio, GLib, Gtk, Pango, Vte
+from ginext import Adw, Gio, GLib, GObject, Gtk, Pango, Vte
 
 from . import palettes
+
+if TYPE_CHECKING:
+    from .app import App
+    from .state import State
 
 
 _UI_DIR = Path(__file__).resolve().parent / "resources"
@@ -20,7 +26,7 @@ _WINDOW_UI = (_UI_DIR / "window.ui").read_text()
 _MENUS_UI = str(_UI_DIR / "menus.ui")
 
 
-_CURSOR_SHAPES = {
+_CURSOR_SHAPES: dict[str, Vte.CursorShape] = {
     "block": Vte.CursorShape.BLOCK,
     "ibeam": Vte.CursorShape.IBEAM,
     "underline": Vte.CursorShape.UNDERLINE,
@@ -32,18 +38,17 @@ def _user_shell() -> str:
 
 
 @Gtk.Template(string=_WINDOW_UI)
-class Window(Adw.ApplicationWindow):
-    __gtype_name__ = "TerminalWindow"
+class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
 
-    toast_overlay = Gtk.Template.Child()
-    header_bar = Gtk.Template.Child()
-    title_label = Gtk.Template.Child()
-    new_tab_button = Gtk.Template.Child()
-    primary_menu_button = Gtk.Template.Child()
-    tab_view = Gtk.Template.Child()
-    tab_bar = Gtk.Template.Child()
+    toast_overlay: Adw.ToastOverlay
+    header_bar: Adw.HeaderBar
+    title_label: Gtk.Label
+    new_tab_button: Gtk.Button
+    primary_menu_button: Gtk.MenuButton
+    tab_view: Adw.TabView
+    tab_bar: Adw.TabBar
 
-    def __init__(self, application, state):
+    def __init__(self, application: App, state: State) -> None:
         super().__init__(application=application)
         self.app = application
         self.state = state
@@ -53,10 +58,12 @@ class Window(Adw.ApplicationWindow):
             self.maximize()
 
         builder = Gtk.Builder.new_from_file(_MENUS_UI)
-        self.primary_menu_button.set_menu_model(builder.get_object("primary_menu"))
+        self.primary_menu_button.set_menu_model(
+            cast("Gio.MenuModel", builder.get_object("primary_menu"))
+        )
 
-        self.tab_view.connect("notify::selected-page", self._on_selected_page_changed)
-        self.tab_view.connect("close-page", self._on_close_page)
+        self.tab_view.notify("selected-page").connect(self._on_selected_page_changed)
+        self.tab_view.close_page.connect(self._on_close_page)
 
         self._install_actions()
 
@@ -73,14 +80,14 @@ class Window(Adw.ApplicationWindow):
             "scroll-on-output",
             "scroll-on-keystroke",
         ):
-            state.connect(f"notify::{key}", self._on_prefs_changed)
+            state.notify(key).connect(self._on_prefs_changed)
 
-        self.connect("close-request", self._on_close_request)
-        self.connect("notify::default-width", self._on_geometry_changed)
-        self.connect("notify::default-height", self._on_geometry_changed)
-        self.connect("notify::maximized", self._on_geometry_changed)
+        self.close_request.connect(self._on_close_request)
+        self.notify("default-width").connect(self._on_geometry_changed)
+        self.notify("default-height").connect(self._on_geometry_changed)
+        self.notify("maximized").connect(self._on_geometry_changed)
 
-    _WIN_ACTIONS = (
+    _WIN_ACTIONS: tuple[tuple[str, str, list[str] | None], ...] = (
         ("new-tab", "_on_new_tab", ["<Primary><Shift>t"]),
         ("close-tab", "_on_close_tab", ["<Primary><Shift>w"]),
         ("copy", "_on_copy", ["<Primary><Shift>c"]),
@@ -94,11 +101,11 @@ class Window(Adw.ApplicationWindow):
         ("reset", "_on_reset", None),
     )
 
-    def _install_actions(self):
+    def _install_actions(self) -> None:
         group = Gio.SimpleActionGroup()
         for name, handler, accels in self._WIN_ACTIONS:
             action = Gio.SimpleAction.new(name, None)
-            action.connect("activate", getattr(self, handler))
+            action.activate.connect(getattr(self, handler))
             group.add_action(action)
             if accels:
                 self.app.set_accels_for_action(f"win.{name}", list(accels))
@@ -110,21 +117,22 @@ class Window(Adw.ApplicationWindow):
     @property
     def current_terminal(self) -> Vte.Terminal | None:
         page = self.tab_view.get_selected_page()
-        return page.get_child() if page is not None else None
+        if page is None:
+            return None
+        return cast("Vte.Terminal", page.get_child())
 
-    def _iter_terminals(self):
-        n = self.tab_view.get_n_pages()
-        for i in range(n):
+    def _iter_terminals(self) -> Iterator[Vte.Terminal]:
+        for i in range(self.tab_view.get_n_pages()):
             page = self.tab_view.get_nth_page(i)
             if page is not None:
-                yield page.get_child()
+                yield cast("Vte.Terminal", page.get_child())
 
     def new_tab(self) -> Vte.Terminal:
         term = Vte.Terminal()
         self._apply_prefs(term)
-        term.connect("child-exited", self._on_child_exited)
-        term.connect("window-title-changed", self._on_term_title_changed)
-        term.connect("bell", self._on_bell)
+        term.child_exited.connect(self._on_child_exited)
+        term.window_title_changed.connect(self._on_term_title_changed)
+        term.bell.connect(self._on_bell)
 
         tab_page = self.tab_view.append(term)
         tab_page.set_title("Terminal")
@@ -145,7 +153,7 @@ class Window(Adw.ApplicationWindow):
         term.grab_focus()
         return term
 
-    def _on_close_page(self, view, tab_page):
+    def _on_close_page(self, view: Adw.TabView, tab_page: Adw.TabPage) -> bool:
         # Vte cleans up its own PTY when the widget is unparented by
         # AdwTabView; don't poke set_pty(None) here — calling it after
         # the child has already exited has crashed inside libvte.
@@ -156,13 +164,15 @@ class Window(Adw.ApplicationWindow):
         # close_page_finish on a page we've already finished closing.
         return True
 
-    def _on_selected_page_changed(self, *_a):
+    def _on_selected_page_changed(
+        self, _view: Adw.TabView, _pspec: GObject.ParamSpec
+    ) -> None:
         page = self.tab_view.get_selected_page()
         title = page.get_title() if page is not None else "Terminal"
         self.set_title(f"{title} — Terminal")
         self.title_label.set_label(title or "Terminal")
 
-    def _on_term_title_changed(self, term):
+    def _on_term_title_changed(self, term: Vte.Terminal) -> None:
         title = term.get_window_title() or "Terminal"
         page = self.tab_view.get_page(term)
         if page is not None:
@@ -171,12 +181,12 @@ class Window(Adw.ApplicationWindow):
             self.set_title(f"{title} — Terminal")
             self.title_label.set_label(title)
 
-    def _on_child_exited(self, term, _status):
+    def _on_child_exited(self, term: Vte.Terminal, _status: int) -> None:
         page = self.tab_view.get_page(term)
         if page is not None:
             self.tab_view.close_page(page)
 
-    def _on_bell(self, _term):
+    def _on_bell(self, _term: Vte.Terminal) -> None:
         # The audible bell is handled by Vte itself when enabled. We still
         # surface a toast so a muted terminal still has a visual cue.
         self._toast("Bell")
@@ -184,7 +194,7 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # Preferences sync
     # ------------------------------------------------------------------
-    def _on_prefs_changed(self, *_a):
+    def _on_prefs_changed(self, _state: State, _pspec: GObject.ParamSpec) -> None:
         for term in self._iter_terminals():
             self._apply_prefs(term)
 
@@ -220,12 +230,14 @@ class Window(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     # Window geometry persistence
     # ------------------------------------------------------------------
-    def _on_geometry_changed(self, *_a):
+    def _on_geometry_changed(
+        self, _obj: GObject.Object, _pspec: GObject.ParamSpec
+    ) -> None:
         if self.is_maximized():
             self.state.window_maximized = True
             return
         self.state.window_maximized = False
-        # goi returns a SimpleNamespace; PyGObject would return a tuple.
+        # ginext returns a SimpleNamespace; PyGObject would return a tuple.
         size = self.get_default_size()
         w = getattr(size, "width", None)
         h = getattr(size, "height", None)
@@ -234,63 +246,75 @@ class Window(Adw.ApplicationWindow):
         if h and h > 0:
             self.state.window_height = h
 
-    def _on_close_request(self, *_a):
+    def _on_close_request(self, _window: Gtk.Window) -> bool:
         return False
 
     # ------------------------------------------------------------------
     # UI helpers
     # ------------------------------------------------------------------
-    def _toast(self, text: str):
+    def _toast(self, text: str) -> None:
         self.toast_overlay.add_toast(Adw.Toast.new(text))
 
     # ------------------------------------------------------------------
     # Action handlers
     # ------------------------------------------------------------------
-    def _on_new_tab(self, *_a):
+    def _on_new_tab(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         self.new_tab()
 
-    def _on_close_tab(self, *_a):
+    def _on_close_tab(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         page = self.tab_view.get_selected_page()
         if page is not None:
             self.tab_view.close_page(page)
 
-    def _on_copy(self, *_a):
+    def _on_copy(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         term = self.current_terminal
         if term is not None:
             term.copy_clipboard_format(Vte.Format.TEXT)
 
-    def _on_paste(self, *_a):
+    def _on_paste(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         term = self.current_terminal
         if term is not None:
             term.paste_clipboard()
 
-    def _on_select_all(self, *_a):
+    def _on_select_all(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         term = self.current_terminal
         if term is not None:
             term.select_all()
 
-    def _on_zoom_in(self, *_a):
+    def _on_zoom_in(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         term = self.current_terminal
         if term is not None:
             term.set_font_scale(min(term.get_font_scale() * 1.1, 4.0))
 
-    def _on_zoom_out(self, *_a):
+    def _on_zoom_out(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         term = self.current_terminal
         if term is not None:
             term.set_font_scale(max(term.get_font_scale() / 1.1, 0.25))
 
-    def _on_zoom_reset(self, *_a):
+    def _on_zoom_reset(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         term = self.current_terminal
         if term is not None:
             term.set_font_scale(1.0)
 
-    def _on_next_tab(self, *_a):
+    def _on_next_tab(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         self.tab_view.select_next_page()
 
-    def _on_prev_tab(self, *_a):
+    def _on_prev_tab(
+        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
+    ) -> None:
         self.tab_view.select_previous_page()
 
-    def _on_reset(self, *_a):
+    def _on_reset(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
         term = self.current_terminal
         if term is not None:
             term.reset(True, True)

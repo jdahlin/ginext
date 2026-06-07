@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 from ginext import Adw, Gtk
 
-from playground.catalog import BUILTIN_TEMPLATES, TemplateInfo
+from .catalog import BUILTIN_TEMPLATES, TemplateInfo
 
 
 _UI_DIR = Path(__file__).resolve().parent / "ui"
@@ -11,18 +13,12 @@ _TEMPLATE_ROW_UI = (_UI_DIR / "template-row.ui").read_text()
 
 
 @Gtk.Template(string=_TEMPLATE_ROW_UI)
-class TemplateRow(Gtk.ListBoxRow):
-    __gtype_name__ = "PygirPlaygroundTemplateRow"
-
+class TemplateRow(Gtk.ListBoxRow, type_name="PygirPlaygroundTemplateRow"):
     title_label: Gtk.Label
     summary_label: Gtk.Label
     tech_label: Gtk.Label
 
-    title_label = Gtk.Template.Child()
-    summary_label = Gtk.Template.Child()
-    tech_label = Gtk.Template.Child()
-
-    def __init__(self, template: TemplateInfo):
+    def __init__(self, template: TemplateInfo) -> None:
         super().__init__()
         self.template = template
         self.title_label.set_label(template.title)
@@ -31,9 +27,7 @@ class TemplateRow(Gtk.ListBoxRow):
 
 
 @Gtk.Template(string=_WINDOW_UI)
-class PlaygroundWindow(Adw.ApplicationWindow):
-    __gtype_name__ = "PygirPlaygroundWindow"
-
+class PlaygroundWindow(Adw.ApplicationWindow, type_name="PygirPlaygroundWindow"):
     gallery_list: Gtk.ListBox
     search_entry: Gtk.SearchEntry
     title_label: Gtk.Label
@@ -45,14 +39,14 @@ class PlaygroundWindow(Adw.ApplicationWindow):
     reload_button: Gtk.Button
     restore_button: Gtk.Button
 
-    def __init__(self, application):
+    def __init__(self, application: Adw.Application) -> None:
         super().__init__(application=application)
         self._templates = BUILTIN_TEMPLATES
         self._selected_template = BUILTIN_TEMPLATES[0]
         self._populate_gallery()
         self._select_template(self._selected_template)
 
-    def _populate_gallery(self, query=""):
+    def _populate_gallery(self, query: str = "") -> None:
         needle = query.casefold().strip()
         child = self.gallery_list.get_first_child()
         while child is not None:
@@ -68,26 +62,26 @@ class PlaygroundWindow(Adw.ApplicationWindow):
                 continue
             self.gallery_list.append(TemplateRow(template))
 
-    def _on_search_changed(self, entry):
+    def on_search_changed(self, entry: Gtk.SearchEntry) -> None:
         self._populate_gallery(entry.get_text())
 
-    def _on_row_activated(self, _list_box, row):
+    def on_row_activated(self, _list_box: Gtk.ListBox, row: TemplateRow) -> None:
         self._select_template(row.template)
 
-    def _on_run_clicked(self, _button):
+    def on_run_clicked(self, _button: Gtk.Button) -> None:
         self.preview_subtitle.set_label(
             f"{self._selected_template.title} launch flow will be wired here."
         )
 
-    def _on_reload_clicked(self, _button):
+    def on_reload_clicked(self, _button: Gtk.Button) -> None:
         self.preview_subtitle.set_label(
             f"{self._selected_template.title} live-reload handoff will be wired here."
         )
 
-    def _on_restore_clicked(self, _button):
+    def on_restore_clicked(self, _button: Gtk.Button) -> None:
         self._select_template(self._selected_template)
 
-    def _select_template(self, template: TemplateInfo):
+    def _select_template(self, template: TemplateInfo) -> None:
         self._selected_template = template
         self.title_label.set_label(template.title)
         self.summary_label.set_label(template.summary)
@@ -98,7 +92,7 @@ class PlaygroundWindow(Adw.ApplicationWindow):
         )
         self._set_technology_labels(template)
 
-    def _set_technology_labels(self, template: TemplateInfo):
+    def _set_technology_labels(self, template: TemplateInfo) -> None:
         child = self.tech_box.get_first_child()
         while child is not None:
             next_child = child.get_next_sibling()

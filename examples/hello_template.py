@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Templated GTK3 hello-world for smoke-testing goi's @Gtk.Template.
+"""Templated GTK3 hello-world for smoke-testing ginext's @Gtk.Template.
 
 Drives the same path Drawing's main window uses: a .ui template loaded
-via gresource, decorating a Gtk.Window subclass with `__gtype_name__`
-matching the template's `<template class=...>`, and Child() descriptors
-for named widgets. Clicking the button quits the loop.
+via gresource, decorating a Gtk.Window subclass with a `type_name`
+matching the template's `<template class=...>`, and typed annotations for
+named widgets. Clicking the button quits the loop.
 
 Run via:
 
@@ -23,29 +23,28 @@ import pathlib
 # init_check to have run.
 os.environ.setdefault("GOI_GTK_AUTO_INIT", "1")
 
-import goi
+from ginext import defaults
 
-goi.require_version("Gtk", "3.0")
-from goi import Gio, Gtk
+defaults.require("Gtk", "3.0")
+from ginext import Gio, Gtk
 
-# Load + register the gresource bundle so `/goi/example/window.ui`
+# Load + register the gresource bundle so `/pygir/example/window.ui`
 # is reachable.
 _HERE = pathlib.Path(__file__).resolve().parent
 _GRESOURCE = _HERE / "templated" / "templated.gresource"
-Gio.Resource.load(str(_GRESOURCE))._register()
+Gio.resources_register(Gio.Resource.load(str(_GRESOURCE)))
 
 
-@Gtk.Template(resource_path="/goi/example/window.ui")
-class GoiTemplatedWindow(Gtk.Window):
-    __gtype_name__ = "GoiTemplatedWindow"
+@Gtk.Template(resource_path="/pygir/example/window.ui")
+class GoiTemplatedWindow(Gtk.Window, type_name="GoiTemplatedWindow"):
 
-    greeting = Gtk.Template.Child()
-    quit_btn = Gtk.Template.Child()
+    greeting: Gtk.Label
+    quit_btn: Gtk.Button
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.connect("destroy", Gtk.main_quit)
-        self.quit_btn.connect("clicked", lambda *_a: Gtk.main_quit())
+        self.destroy.connect(lambda *_a: Gtk.main_quit())
+        self.quit_btn.clicked.connect(lambda *_a: Gtk.main_quit())
 
 
 def main() -> int:

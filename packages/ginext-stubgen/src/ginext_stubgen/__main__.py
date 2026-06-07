@@ -69,6 +69,12 @@ _DEFAULT_NAMESPACES: list[tuple[str, str]] = [
     ("GModule", "2.0"),
     ("HarfBuzz", "0.0"),
     ("freetype2", "2.0"),
+    # GTK-ecosystem namespaces used by the example apps (terminal, pyedit,
+    # web_browser). Generated only when their .gir is installed; skipped
+    # otherwise (so a minimal checkout still works).
+    ("Vte", "3.91"),
+    ("GtkSource", "5"),
+    ("WebKit", "6.0"),
     # Test-only namespaces built from packages/typelib. Generated only when the
     # build directory exists; silently skipped otherwise.
     ("GIMarshallingTests", "1.0"),

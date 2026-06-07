@@ -1,4 +1,4 @@
-"""terminal — a tabbed terminal showcase for goi.
+"""terminal — a tabbed terminal showcase for ginext.
 
 Demonstrates: Adw.Application, AdwApplicationWindow, AdwTabView, AdwHeaderBar,
 AdwToastOverlay, AdwPreferencesWindow, Vte.Terminal, Gtk.Template, Gio.SimpleAction.

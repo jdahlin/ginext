@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live NumPy media effects for goi.
+"""Live NumPy media effects for ginext.
 
 This is a deliberately small demo app:
 
@@ -30,14 +30,16 @@ except ModuleNotFoundError as exc:
         "This demo needs NumPy. Install it with: uv sync --extra apps"
     ) from exc
 
-import goi
+from collections.abc import Callable
+from typing import cast
 
-goi.require_version("Gdk", "4.0")
-goi.require_version("Gio", "2.0")
-goi.require_version("Gst", "1.0")
-goi.require_version("Gtk", "4.0")
+from ginext import defaults
 
-from goi.repository import Gdk, Gio, GLib, Gst, Gtk  # noqa: E402
+# Gst ships several typelib versions; pin the 1.0 one before the import.
+# Gdk/Gio/Gtk all default to their canonical versions (Gtk 4.0).
+defaults.require("Gst", "1.0")
+
+from ginext import Gdk, Gio, GLib, GObject, Gst, Gtk  # noqa: E402
 
 
 HISTORY_FRAMES = 36
@@ -66,13 +68,13 @@ class ProcessedFrame:
 def gst_buffer_to_numpy(buffer: Gst.Buffer, width: int, height: int) -> Frame:
     """Return an RGBA NumPy view for a Gst.Buffer.
 
-    The current goi Gst.Buffer.map overlay exposes a bytes copy. Using
+    The current ginext Gst.Buffer.map overlay exposes a bytes copy. Using
     extract_dup() directly keeps the demo from accumulating mapped buffers,
-    and this helper is the single place to replace once goi has a true mapped
-    memoryview API.
+    and this helper is the single place to replace once ginext has a true
+    mapped memoryview API.
     """
     expected_size = width * height * 4
-    data = buffer.extract_dup(0, min(buffer.get_size(), expected_size))
+    data = bytes(buffer.extract_dup(0, min(buffer.get_size(), expected_size)))
     if len(data) < expected_size:
         raise ValueError(f"short video buffer: {len(data)} < {expected_size}")
     pixels = np.frombuffer(data, dtype=np.uint8, count=expected_size)
@@ -154,7 +156,7 @@ class Effects:
             self.trail = current
         decay = 0.72 + intensity * 0.25
         self.trail = np.maximum(current, self.trail * decay)
-        out = np.clip(self.trail, 0, 255).astype(np.uint8)
+        out: np.ndarray = np.clip(self.trail, 0, 255).astype(np.uint8)
         out[..., 3] = 255
         return out
 
@@ -194,8 +196,11 @@ class Effects:
         return out
 
 
+Presenter = Callable[["ProcessedFrame | None", "str | None"], None]
+
+
 class ProcessingWorker:
-    def __init__(self, pipeline: "MediaPipeline", presenter) -> None:
+    def __init__(self, pipeline: MediaPipeline, presenter: Presenter) -> None:
         self.pipeline = pipeline
         self.presenter = presenter
         self.effects = Effects()
@@ -296,6 +301,9 @@ class ProcessingWorker:
 
 
 class MediaPipeline:
+    pipeline: Gst.Pipeline
+    sink: Gst.Element
+
     def __init__(
         self,
         use_test_source: bool,
@@ -323,7 +331,7 @@ class MediaPipeline:
         return caps
 
     def _make_element(self, factory: str) -> Gst.Element:
-        element = Gst.ElementFactory.make(factory)
+        element: Gst.Element | None = Gst.ElementFactory.make(factory)
         if element is None:
             raise RuntimeError(f"could not create GStreamer element: {factory}")
         return element
@@ -346,10 +354,11 @@ class MediaPipeline:
             "queue max-size-buffers=1 leaky=downstream ! "
             "appsink name=sink emit-signals=true sync=false max-buffers=1 drop=true"
         )
-        self.pipeline = Gst.parse_launch(self.description)
-        self.sink = self.pipeline.get_by_name("sink")
-        if self.sink is None:
+        self.pipeline = cast(Gst.Pipeline, Gst.parse_launch(self.description))
+        sink = self.pipeline.get_by_name("sink")
+        if sink is None:
             raise RuntimeError("appsink was not created")
+        self.sink = sink
 
     def _build_uri_pipeline(
         self,
@@ -395,7 +404,7 @@ class MediaPipeline:
                 return
             pad.link(sink_pad)
 
-        source.connect("pad-added", on_pad_added)
+        source.pad_added.connect(on_pad_added)
 
     def start(self) -> None:
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -403,7 +412,9 @@ class MediaPipeline:
     def stop(self) -> None:
         self.pipeline.set_state(Gst.State.NULL)
 
-    def connect_new_sample(self, callback) -> int:
+    def connect_new_sample(
+        self, callback: Callable[[Gst.Element], Gst.FlowReturn]
+    ) -> int:
         return self.sink.connect("new-sample", callback)
 
     def disconnect(self, handler_id: int) -> None:
@@ -425,6 +436,9 @@ class MediaPipeline:
 
 
 class NativePipeline:
+    pipeline: Gst.Pipeline
+    sink: Gst.Element
+
     def __init__(
         self,
         use_test_source: bool,
@@ -453,7 +467,7 @@ class NativePipeline:
         return "video/x-raw," + ",".join(fields)
 
     def _make_element(self, factory: str) -> Gst.Element:
-        element = Gst.ElementFactory.make(factory)
+        element: Gst.Element | None = Gst.ElementFactory.make(factory)
         if element is None:
             raise RuntimeError(f"could not create GStreamer element: {factory}")
         return element
@@ -478,10 +492,11 @@ class NativePipeline:
             f"{source} ! videoconvert{caps_part} ! "
             "gtk4paintablesink name=sink sync=false"
         )
-        self.pipeline = Gst.parse_launch(self.description)
-        self.sink = self.pipeline.get_by_name("sink")
-        if self.sink is None:
+        self.pipeline = cast(Gst.Pipeline, Gst.parse_launch(self.description))
+        sink = self.pipeline.get_by_name("sink")
+        if sink is None:
             raise RuntimeError("gtk4paintablesink was not created")
+        self.sink = sink
 
     def _build_uri_pipeline(
         self,
@@ -525,7 +540,7 @@ class NativePipeline:
                 return
             pad.link(sink_pad)
 
-        source.connect("pad-added", on_pad_added)
+        source.pad_added.connect(on_pad_added)
 
     def start(self) -> None:
         self.pipeline.set_state(Gst.State.PLAYING)
@@ -533,8 +548,8 @@ class NativePipeline:
     def stop(self) -> None:
         self.pipeline.set_state(Gst.State.NULL)
 
-    def get_paintable(self):
-        return self.sink.get_property("paintable")
+    def get_paintable(self) -> Gdk.Paintable:
+        return cast(Gdk.Paintable, self.sink.get_property("paintable"))
 
 
 class WebcamEffectsWindow(Gtk.ApplicationWindow):
@@ -575,6 +590,7 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
         self.latest_copy_ms = 0.0
         self.latest_effect_ms = 0.0
         self.latest_pack_ms = 0.0
+        self.open_dialog: Gtk.FileDialog | None = None
 
         self._build_ui()
         self.worker = ProcessingWorker(self.pipeline, self._submit_processed)
@@ -614,7 +630,7 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
         root.append(controls)
 
         open_button = Gtk.Button(label="Open")
-        open_button.connect("clicked", self._on_open_clicked)
+        open_button.clicked.connect(self._on_open_clicked)
         controls.append(open_button)
         self.open_button = open_button
 
@@ -622,7 +638,7 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
         for name in self.effect_names:
             self.effect_combo.append_text(name)
         self.effect_combo.set_active(0)
-        self.effect_combo.connect("changed", self._on_effect_changed)
+        self.effect_combo.changed.connect(self._on_effect_changed)
         controls.append(self.effect_combo)
 
         self.intensity = Gtk.Scale.new_with_range(
@@ -633,18 +649,18 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
         )
         self.intensity.set_value(0.65)
         self.intensity.set_hexpand(True)
-        self.intensity.connect("value-changed", self._on_intensity_changed)
+        self.intensity.value_changed.connect(self._on_intensity_changed)
         controls.append(self.intensity)
 
         pause = Gtk.Button(label="Pause")
-        pause.connect("clicked", self._on_pause_clicked)
+        pause.clicked.connect(self._on_pause_clicked)
         controls.append(pause)
         self.pause_button = pause
 
-    def _on_effect_changed(self, *_args) -> None:
+    def _on_effect_changed(self, *_args: object) -> None:
         self._sync_worker_effect()
 
-    def _on_intensity_changed(self, *_args) -> None:
+    def _on_intensity_changed(self, *_args: object) -> None:
         self._sync_worker_effect()
 
     def _sync_worker_effect(self) -> None:
@@ -653,12 +669,17 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
             self.intensity.get_value(),
         )
 
-    def _on_open_clicked(self, *_args) -> None:
+    def _on_open_clicked(self, *_args: object) -> None:
         dialog = Gtk.FileDialog()
         dialog.open(self, None, self._on_open_dialog_done)
         self.open_dialog = dialog
 
-    def _on_open_dialog_done(self, dialog: Gtk.FileDialog, result) -> None:
+    def _on_open_dialog_done(
+        self, source: GObject.Object | None, result: Gio.AsyncResult
+    ) -> None:
+        dialog = self.open_dialog
+        if dialog is None:
+            return
         try:
             file_ = dialog.open_finish(result)
         except Exception:
@@ -702,12 +723,12 @@ class WebcamEffectsWindow(Gtk.ApplicationWindow):
         self.status_label.set_label("starting media")
         self.pipeline.start()
 
-    def _on_pause_clicked(self, *_args) -> None:
+    def _on_pause_clicked(self, *_args: object) -> None:
         self.paused = not self.paused
         self.worker.set_paused(self.paused)
         self.pause_button.set_label("Resume" if self.paused else "Pause")
 
-    def _on_new_sample(self, *_args) -> Gst.FlowReturn:
+    def _on_new_sample(self, *_args: object) -> Gst.FlowReturn:
         self.worker.notify_sample()
         return Gst.FlowReturn.OK
 
@@ -781,6 +802,7 @@ class NativeWindow(Gtk.ApplicationWindow):
         self.pipeline = pipeline
         self.requested_width = width
         self.requested_height = height
+        self.open_dialog: Gtk.FileDialog | None = None
         self._build_ui()
         self._start_pipeline()
 
@@ -812,19 +834,24 @@ class NativeWindow(Gtk.ApplicationWindow):
         root.append(controls)
 
         open_button = Gtk.Button(label="Open")
-        open_button.connect("clicked", self._on_open_clicked)
+        open_button.clicked.connect(self._on_open_clicked)
         controls.append(open_button)
 
     def _start_pipeline(self) -> None:
         self.picture.set_paintable(self.pipeline.get_paintable())
         self.pipeline.start()
 
-    def _on_open_clicked(self, *_args) -> None:
+    def _on_open_clicked(self, *_args: object) -> None:
         dialog = Gtk.FileDialog()
         dialog.open(self, None, self._on_open_dialog_done)
         self.open_dialog = dialog
 
-    def _on_open_dialog_done(self, dialog: Gtk.FileDialog, result) -> None:
+    def _on_open_dialog_done(
+        self, source: GObject.Object | None, result: Gio.AsyncResult
+    ) -> None:
+        dialog = self.open_dialog
+        if dialog is None:
+            return
         try:
             file_ = dialog.open_finish(result)
         except Exception:
@@ -853,7 +880,12 @@ class NativeWindow(Gtk.ApplicationWindow):
         self._start_pipeline()
 
 
-def on_activate(app: Gtk.Application, args: argparse.Namespace) -> None:
+class WebcamApplication(Gtk.Application):
+    window: Gtk.Window | None = None
+
+
+def on_activate(app: WebcamApplication, args: argparse.Namespace) -> None:
+    pipeline: MediaPipeline | NativePipeline
     try:
         if args.native:
             pipeline = NativePipeline(
@@ -883,7 +915,7 @@ def on_activate(app: Gtk.Application, args: argparse.Namespace) -> None:
         win.present()
         return
 
-    if args.native:
+    if isinstance(pipeline, NativePipeline):
         win = NativeWindow(
             application=app,
             pipeline=pipeline,
@@ -899,12 +931,12 @@ def on_activate(app: Gtk.Application, args: argparse.Namespace) -> None:
             fullscreen=args.fullscreen,
         )
 
-    def on_close_request(*_args) -> bool:
+    def on_close_request(*_args: object) -> bool:
         win.close()
         app.quit()
         return False
 
-    win.connect("close-request", on_close_request)
+    win.close_request.connect(on_close_request)
     app.window = win
     win.present()
     if args.fullscreen:
@@ -944,11 +976,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
-    app = Gtk.Application(
-        application_id="dev.goi.WebcamEffects",
+    app = WebcamApplication(
+        application_id="dev.ginext.WebcamEffects",
         flags=Gio.ApplicationFlags.DEFAULT_FLAGS,
     )
-    app.connect("activate", lambda app: on_activate(app, args))
+    app.activate.connect(lambda app: on_activate(app, args))
     app.hold()
     signal.signal(
         signal.SIGINT,

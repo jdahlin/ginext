@@ -7,8 +7,12 @@ prefs serialize automatically (State.notify → JSON flush)."""
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from goi.repository import Adw, GObject, Gtk, GtkSource, Pango
+from ginext import Adw, GObject, Gtk, GtkSource, Pango
+
+if TYPE_CHECKING:
+    from examples.pyedit.state import State
 
 
 # Force-build Adw widget classes referenced by the .ui template so the
@@ -29,29 +33,25 @@ _UI = (Path(__file__).resolve().parent / "resources" / "preferences.ui").read_te
 
 
 @Gtk.Template(string=_UI)
-class Preferences(Gtk.Window):
-    # The .ui declares the template as AdwPreferencesWindow; we use
-    # Gtk.Window as the Python parent because goi resolves the
-    # parent class from the template at decoration time.
-    __gtype_name__ = "PyeditPreferences"
+class Preferences(Adw.PreferencesWindow, type_name="PyeditPreferences"):
 
-    use_system_font_row = Gtk.Template.Child()
-    font_button = Gtk.Template.Child()
-    line_numbers_row = Gtk.Template.Child()
-    highlight_line_row = Gtk.Template.Child()
-    right_margin_row = Gtk.Template.Child()
-    right_margin_position_row = Gtk.Template.Child()
-    show_map_row = Gtk.Template.Child()
-    tab_width_row = Gtk.Template.Child()
-    insert_spaces_row = Gtk.Template.Child()
-    auto_indent_row = Gtk.Template.Child()
-    wrap_text_row = Gtk.Template.Child()
-    scheme_row = Gtk.Template.Child()
-    scheme_model = Gtk.Template.Child()
-    restore_session_row = Gtk.Template.Child()
-    font_row = Gtk.Template.Child()
+    use_system_font_row: Adw.SwitchRow
+    font_button: Gtk.FontDialogButton
+    line_numbers_row: Adw.SwitchRow
+    highlight_line_row: Adw.SwitchRow
+    right_margin_row: Adw.SwitchRow
+    right_margin_position_row: Adw.SpinRow
+    show_map_row: Adw.SwitchRow
+    tab_width_row: Adw.SpinRow
+    insert_spaces_row: Adw.SwitchRow
+    auto_indent_row: Adw.SwitchRow
+    wrap_text_row: Adw.SwitchRow
+    scheme_row: Adw.ComboRow
+    scheme_model: Gtk.StringList
+    restore_session_row: Adw.SwitchRow
+    font_row: Adw.ActionRow
 
-    def __init__(self, state):
+    def __init__(self, state: State) -> None:
         super().__init__()
         self.state = state
 
@@ -80,8 +80,8 @@ class Preferences(Gtk.Window):
         # Font: GtkFontDialogButton holds a Pango.FontDescription. Sync
         # in both directions through string round-trips.
         self._sync_font_to_button()
-        self.font_button.connect("notify::font-desc", self._on_font_chosen)
-        state.connect("notify::font", self._sync_font_to_button)
+        self.font_button.notify("font-desc").connect(self._on_font_chosen)
+        state.notify("font").connect(self._sync_font_to_button)
 
         # When "use-system-font" is on, the font row is insensitive —
         # the system font wins regardless. Bind via SYNC_CREATE so
@@ -96,24 +96,26 @@ class Preferences(Gtk.Window):
         # Style scheme: populate combo from GtkSourceStyleSchemeManager
         # and bind selection ↔ state.style_scheme by id.
         self._populate_schemes()
-        self.scheme_row.connect("notify::selected", self._on_scheme_selected)
-        state.connect("notify::style-scheme", self._sync_scheme_selection)
+        self.scheme_row.notify("selected").connect(self._on_scheme_selected)
+        state.notify("style-scheme").connect(self._sync_scheme_selection)
         self._sync_scheme_selection()
 
     # --- font sync ----------------------------------------------------
-    def _sync_font_to_button(self, *_a):
+    def _sync_font_to_button(self, *_a: object) -> None:
         # Pango.FontDescription.from_string parses leniently — bogus
         # input yields a default FontDescription rather than raising.
         desc = Pango.FontDescription.from_string(self.state.font)
         self.font_button.set_font_desc(desc)
 
-    def _on_font_chosen(self, button, _pspec):
+    def _on_font_chosen(
+        self, button: Gtk.FontDialogButton, _pspec: GObject.ParamSpec
+    ) -> None:
         desc = button.get_font_desc()
         if desc is not None:
             self.state.font = desc.to_string()
 
     # --- scheme sync --------------------------------------------------
-    def _populate_schemes(self):
+    def _populate_schemes(self) -> None:
         mgr = GtkSource.StyleSchemeManager.get_default()
         ids = list(mgr.get_scheme_ids() or [])
         self._scheme_ids = sorted(ids)
@@ -125,7 +127,7 @@ class Preferences(Gtk.Window):
         for sid in self._scheme_ids:
             self.scheme_model.append(sid)
 
-    def _sync_scheme_selection(self, *_a):
+    def _sync_scheme_selection(self, *_a: object) -> None:
         current = self.state.style_scheme
         try:
             idx = self._scheme_ids.index(current)
@@ -134,7 +136,9 @@ class Preferences(Gtk.Window):
         if self.scheme_row.get_selected() != idx:
             self.scheme_row.set_selected(idx)
 
-    def _on_scheme_selected(self, row, _pspec):
+    def _on_scheme_selected(
+        self, row: Adw.ComboRow, _pspec: GObject.ParamSpec
+    ) -> None:
         idx = row.get_selected()
         if 0 <= idx < len(self._scheme_ids):
             self.state.style_scheme = self._scheme_ids[idx]

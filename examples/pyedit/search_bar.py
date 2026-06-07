@@ -8,61 +8,62 @@ toggles persist as they page through documents.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-from goi.repository import GLib, Gtk, GtkSource
+from ginext import Gio, GLib, Gtk, GtkSource
+
+if TYPE_CHECKING:
+    from examples.pyedit.page import Page
 
 
 _UI = (Path(__file__).resolve().parent / "resources" / "search-bar.ui").read_text()
 
 
 @Gtk.Template(string=_UI)
-class SearchBar(Gtk.Box):
-    __gtype_name__ = "PyeditSearchBar"
+class SearchBar(Gtk.Box, type_name="PyeditSearchBar"):
 
-    search_bar = Gtk.Template.Child()
-    search_entry = Gtk.Template.Child()
-    prev_button = Gtk.Template.Child()
-    next_button = Gtk.Template.Child()
-    case_button = Gtk.Template.Child()
-    regex_button = Gtk.Template.Child()
-    word_button = Gtk.Template.Child()
-    replace_toggle = Gtk.Template.Child()
-    replace_row = Gtk.Template.Child()
-    replace_entry = Gtk.Template.Child()
-    replace_button = Gtk.Template.Child()
-    replace_all_button = Gtk.Template.Child()
-    close_button = Gtk.Template.Child()
+    search_bar: Gtk.SearchBar
+    search_entry: Gtk.SearchEntry
+    prev_button: Gtk.Button
+    next_button: Gtk.Button
+    case_button: Gtk.ToggleButton
+    regex_button: Gtk.ToggleButton
+    word_button: Gtk.ToggleButton
+    replace_toggle: Gtk.ToggleButton
+    replace_row: Gtk.Box
+    replace_entry: Gtk.Entry
+    replace_button: Gtk.Button
+    replace_all_button: Gtk.Button
+    close_button: Gtk.Button
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.settings = GtkSource.SearchSettings()
         self.settings.set_wrap_around(True)
         self.search_bar.connect_entry(self.search_entry)
-        self._current_page = None
+        self._current_page: Page | None = None
         self._context: GtkSource.SearchContext | None = None
 
-        # Signal wiring (kept out of the .ui to skirt goi's still-evolving
-        # BuilderScope handler-lookup path; the layout stays declarative).
-        self.search_entry.connect("search-changed", self._on_search_changed)
-        self.search_entry.connect("next-match", self._on_next)
-        self.search_entry.connect("previous-match", self._on_previous)
-        self.search_entry.connect("activate", self._on_next)
-        self.search_entry.connect("stop-search", self._on_stop)
-        self.prev_button.connect("clicked", self._on_previous)
-        self.next_button.connect("clicked", self._on_next)
-        self.case_button.connect("toggled", self._on_case_toggled)
-        self.regex_button.connect("toggled", self._on_regex_toggled)
-        self.word_button.connect("toggled", self._on_word_toggled)
-        self.replace_toggle.connect("toggled", self._on_replace_toggled)
-        self.close_button.connect("clicked", self._on_stop)
-        self.replace_button.connect("clicked", self._on_replace_one)
-        self.replace_all_button.connect("clicked", self._on_replace_all)
+        # Signal wiring (kept out of the .ui; the layout stays declarative).
+        self.search_entry.search_changed.connect(self._on_search_changed)
+        self.search_entry.next_match.connect(self._on_next)
+        self.search_entry.previous_match.connect(self._on_previous)
+        self.search_entry.activate.connect(self._on_next)
+        self.search_entry.stop_search.connect(self._on_stop)
+        self.prev_button.clicked.connect(self._on_previous)
+        self.next_button.clicked.connect(self._on_next)
+        self.case_button.toggled.connect(self._on_case_toggled)
+        self.regex_button.toggled.connect(self._on_regex_toggled)
+        self.word_button.toggled.connect(self._on_word_toggled)
+        self.replace_toggle.toggled.connect(self._on_replace_toggled)
+        self.close_button.clicked.connect(self._on_stop)
+        self.replace_button.clicked.connect(self._on_replace_one)
+        self.replace_all_button.clicked.connect(self._on_replace_all)
 
     # --- page wiring --------------------------------------------------
-    def attach_page(self, page) -> None:
+    def attach_page(self, page: Page | None) -> None:
         self._current_page = page
         if page is None:
             self._context = None
@@ -94,54 +95,52 @@ class SearchBar(Gtk.Box):
     def focus_replace(self) -> None:
         self.set_revealed(True, replace_visible=True)
 
-    # --- template-bound handlers -------------------------------------
-    # Each handler is registered as a template callback so the .ui
-    # `<signal handler="…"/>` lookup resolves it through goi's
-    # BuilderScope.
-    def _on_search_changed(self, entry, *_a):
+    # --- signal handlers ---------------------------------------------
+    def _on_search_changed(self, entry: Gtk.SearchEntry, *_a: object) -> None:
         self.settings.set_search_text(entry.get_text())
 
-    def _on_stop(self, *_a):
+    def _on_stop(self, *_a: object) -> None:
         self.set_revealed(False)
         if self._current_page is not None:
             self._current_page.grab_editor_focus()
 
-    def _on_case_toggled(self, button, *_a):
+    def _on_case_toggled(self, button: Gtk.ToggleButton, *_a: object) -> None:
         self.settings.set_case_sensitive(button.get_active())
 
-    def _on_regex_toggled(self, button, *_a):
+    def _on_regex_toggled(self, button: Gtk.ToggleButton, *_a: object) -> None:
         self.settings.set_regex_enabled(button.get_active())
 
-    def _on_word_toggled(self, button, *_a):
+    def _on_word_toggled(self, button: Gtk.ToggleButton, *_a: object) -> None:
         self.settings.set_at_word_boundaries(button.get_active())
 
-    def _on_replace_toggled(self, button, *_a):
+    def _on_replace_toggled(self, button: Gtk.ToggleButton, *_a: object) -> None:
         self.replace_row.set_visible(button.get_active())
         if button.get_active():
             self.replace_entry.grab_focus()
 
-    def _on_next(self, *_a):
+    def _on_next(self, *_a: object) -> None:
         if self._context is None or self._current_page is None:
             return
         buf = self._current_page.document.buffer
         # get_selection_bounds returns (has_selection, start, end).
         ok, _start, end = buf.get_selection_bounds()
         start = end if ok else buf.get_iter_at_mark(buf.get_insert())
-        self._context.forward_async(start, None, self._on_forward_done)
+        self._context.forward_async(start, None, self._on_forward_done)  # type: ignore[arg-type]  # stub uses generic GAsyncReadyCallback (source: Object|None); runtime source is the SearchContext
 
-    def _on_previous(self, *_a):
+    def _on_previous(self, *_a: object) -> None:
         if self._context is None or self._current_page is None:
             return
         buf = self._current_page.document.buffer
         ok, start, _end = buf.get_selection_bounds()
         if not ok:
             start = buf.get_iter_at_mark(buf.get_insert())
-        self._context.backward_async(start, None, self._on_backward_done)
+        self._context.backward_async(start, None, self._on_backward_done)  # type: ignore[arg-type]  # stub uses generic GAsyncReadyCallback (source: Object|None); runtime source is the SearchContext
 
-    def _on_forward_done(self, ctx, result, *_):
-        # The async finish returns a tuple — goi may produce either
-        # `(ok, start, end)` (no wrap-around flag) or
-        # `(ok, start, end, wrapped)`. Accept both.
+    def _on_forward_done(
+        self, ctx: GtkSource.SearchContext, result: Gio.AsyncResult, *_: object
+    ) -> None:
+        # The async finish returns a tuple — either `(ok, start, end)` (no
+        # wrap-around flag) or `(ok, start, end, wrapped)`. Accept both.
         try:
             res = ctx.forward_finish(result)
         except GLib.Error as e:
@@ -152,7 +151,9 @@ class SearchBar(Gtk.Box):
             return
         self._apply_match(res)
 
-    def _on_backward_done(self, ctx, result, *_):
+    def _on_backward_done(
+        self, ctx: GtkSource.SearchContext, result: Gio.AsyncResult, *_: object
+    ) -> None:
         try:
             res = ctx.backward_finish(result)
         except GLib.Error as e:
@@ -163,7 +164,7 @@ class SearchBar(Gtk.Box):
             return
         self._apply_match(res)
 
-    def _apply_match(self, res):
+    def _apply_match(self, res: object) -> None:
         # GtkSource.SearchContext.{forward,backward}_finish returns
         # `(ok, match_start, match_end, has_wrapped)`.
         #
@@ -198,7 +199,7 @@ class SearchBar(Gtk.Box):
         buf.select_range(match_start, match_end)
         self._current_page.view.scroll_to_iter(match_start, 0.1, True, 0.0, 0.5)
 
-    def _on_replace_one(self, *_a):
+    def _on_replace_one(self, *_a: object) -> None:
         if self._context is None or self._current_page is None:
             return
         buf = self._current_page.document.buffer
@@ -216,7 +217,7 @@ class SearchBar(Gtk.Box):
             )
         self._on_next()
 
-    def _on_replace_all(self, *_a):
+    def _on_replace_all(self, *_a: object) -> None:
         if self._context is None:
             return
         new = self.replace_entry.get_text()

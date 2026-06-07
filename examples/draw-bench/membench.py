@@ -2,15 +2,15 @@
 membench — RSS memory footprint and import latency after namespace import.
 
 Measures how much physical memory (RSS) and wall time importing a namespace
-costs, comparing goi (lazy) vs real PyGObject (eager).
+costs, comparing ginext (lazy) vs real PyGObject (eager).
 
 Usage:
     python membench.py                              # all backends, all namespaces
     python membench.py --namespace=Gtk              # one namespace, all backends
-    python membench.py --backend=goi              # all namespaces, one backend
+    python membench.py --backend=ginext           # all namespaces, one backend
 
 Internal subprocess mode (not for direct use):
-    python membench.py --backend=goi --namespace=Gtk:4.0
+    python membench.py --backend=ginext --namespace=Gtk:4.0
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import sys
 
 _HERE = pathlib.Path(__file__).resolve().parent.parent.parent
 
-BACKENDS = ("goi", "gi")
+BACKENDS = ("ginext", "gi")
 
 NAMESPACES = [
     ("GLib", "2.0"),
@@ -55,7 +55,7 @@ def _rss_kb() -> int:
 def _suppress_editable_rebuild() -> None:
     """Prevent meson-python's editable finder from triggering a rebuild.
     Instead wire up the build's src/ directory on sys.path directly so
-    `import goi` and `import _goi` resolve without the finder."""
+    `import ginext` and its `_gobject` extension resolve without the finder."""
     import glob as _glob
 
     for finder in sys.meta_path:
@@ -69,9 +69,11 @@ def _suppress_editable_rebuild() -> None:
             os.environ["MESONPY_EDITABLE_SKIP"] = (
                 f"{existing}{os.pathsep}{build_path}" if existing else str(build_path)
             )
-        # Also add the src/ dir containing the built extension + goi package.
+        # Also add the src/ dir containing the built extension + ginext package.
         src_dir = os.path.join(build_path, "src")
-        if os.path.isdir(src_dir) and _glob.glob(os.path.join(src_dir, "_goi*.so")):
+        if os.path.isdir(src_dir) and _glob.glob(
+            os.path.join(src_dir, "_gobject*.so")
+        ):
             if src_dir not in sys.path:
                 sys.path.insert(0, src_dir)
         break
@@ -86,13 +88,12 @@ def _subprocess_measure(backend: str, ns_name: str, ns_version: str) -> None:
     t0 = time.perf_counter()
 
     try:
-        if backend == "goi":
+        if backend == "ginext":
             _suppress_editable_rebuild()
-            sys.path.insert(0, str(_HERE / "src" / "gi_compat"))
             # If editable suppress didn't find the .so, fall back to manual search.
             import glob as _glob
 
-            if not any(_glob.glob(os.path.join(p, "_goi*.so")) for p in sys.path):
+            if not any(_glob.glob(os.path.join(p, "_gobject*.so")) for p in sys.path):
                 builds = sorted(
                     (_HERE / "build").iterdir(),
                     key=lambda p: p.stat().st_mtime,
@@ -100,23 +101,23 @@ def _subprocess_measure(backend: str, ns_name: str, ns_version: str) -> None:
                 )
                 for b in builds:
                     ext_dir = b / "src"
-                    if any(ext_dir.glob("_goi*.so")):
+                    if any(ext_dir.glob("_gobject*.so")):
                         sys.path.insert(0, str(ext_dir))
                         break
-            import gi
+            import ginext
+            from ginext import defaults
 
-            gi.require_version(ns_name, ns_version)
-            mod = __import__("gi.repository", fromlist=[ns_name])
-            getattr(mod, ns_name)
+            defaults.require(ns_name, ns_version)
+            getattr(ginext, ns_name)
         else:
-            # Real PyGObject — strip goi paths from sys.path
+            # Real PyGObject — strip ginext paths from sys.path
             import glob as _glob
 
             sys.path = [
                 p
                 for p in sys.path
-                if not _glob.glob(os.path.join(p, "_goi*.so"))
-                and not _glob.glob(os.path.join(p, "goi*.so"))
+                if not _glob.glob(os.path.join(p, "_gobject*.so"))
+                and not os.path.isdir(os.path.join(p, "ginext"))
             ]
             import gi
 
@@ -168,7 +169,7 @@ def _mib(kb: int) -> str:
 
 def main() -> None:
     namespaces = NAMESPACES
-    backends = BACKENDS
+    backends: tuple[str, ...] | list[str] = BACKENDS
 
     # Parse optional filters
     args = sys.argv[1:]

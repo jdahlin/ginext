@@ -7,7 +7,7 @@ build the RGBA list at apply time.
 
 from __future__ import annotations
 
-from goi.repository import Gdk
+from ginext import Gdk
 
 
 _TANGO = [

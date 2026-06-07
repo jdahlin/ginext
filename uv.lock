@@ -242,7 +242,7 @@ wheels = [
 
 [[package]]
 name = "gi"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/gi" }
 dependencies = [
     { name = "ginext-core" },
@@ -306,7 +306,7 @@ provides-extras = ["gio", "gtk", "gst", "libsoup", "compat", "stubs", "all"]
 
 [[package]]
 name = "ginext-core"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -424,7 +424,7 @@ typecheck = [{ name = "ginext-stubs", directory = "packages/ginext-stubs" }]
 
 [[package]]
 name = "ginext-gi-compat"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-gi-compat" }
 dependencies = [
     { name = "ginext-core" },
@@ -441,7 +441,7 @@ requires-dist = [
 
 [[package]]
 name = "ginext-gio"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-gio" }
 dependencies = [
     { name = "ginext-core" },
@@ -452,7 +452,7 @@ requires-dist = [{ name = "ginext-core", editable = "." }]
 
 [[package]]
 name = "ginext-gst"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-gst" }
 dependencies = [
     { name = "ginext-core" },
@@ -463,7 +463,7 @@ requires-dist = [{ name = "ginext-core", editable = "." }]
 
 [[package]]
 name = "ginext-gtk"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-gtk" }
 dependencies = [
     { name = "ginext-core" },
@@ -480,7 +480,7 @@ requires-dist = [
 
 [[package]]
 name = "ginext-libsoup"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-libsoup" }
 dependencies = [
     { name = "ginext-core" },
@@ -495,12 +495,12 @@ requires-dist = [
 
 [[package]]
 name = "ginext-stubgen"
-version = "0.8.1"
+version = "0.8.2"
 source = { editable = "packages/ginext-stubgen" }
 
 [[package]]
 name = "ginext-stubs"
-version = "0.8.1"
+version = "0.8.2"
 source = { directory = "packages/ginext-stubs" }
 
 [[package]]

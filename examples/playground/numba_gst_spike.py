@@ -50,27 +50,34 @@ Gotchas found:
 from __future__ import annotations
 
 import array
+from collections.abc import Callable
+from typing import Any, cast
 
-import ginext
+from ginext import defaults
+
+defaults.require("Gst", "1.0")
+defaults.require("GstBase", "1.0")
+
+from ginext import Gst, GstBase
 
 try:
     import numpy as np
 
     HAVE_NUMPY = True
 except ImportError:  # not installed in this checkout's .venv
-    np = None
+    np = None  # type: ignore[assignment]  # runtime fallback sentinel; guarded by HAVE_NUMPY
     HAVE_NUMPY = False
 
 try:
     from numba import njit as _njit
 
-    def jit(f):
-        return _njit(cache=True)(f)
+    def jit(f: Callable[..., Any]) -> Callable[..., Any]:
+        return cast("Callable[..., Any]", _njit(cache=True)(f))
 
     JIT_BACKEND = "numba"
 except ImportError:
 
-    def jit(f):
+    def jit(f: Callable[..., Any]) -> Callable[..., Any]:
         return f
 
     JIT_BACKEND = "numpy" if HAVE_NUMPY else "pure-python fallback"
@@ -82,20 +89,17 @@ except ImportError:
 # With numba installed this @jit becomes LLVM machine code; the boundary
 # (flat numeric buffer in, mutated in place) is identical either way.
 @jit
-def apply_gain(samples, gain):
+def apply_gain(samples: Any, gain: float) -> Any:
     for i in range(len(samples)):
         v = int(samples[i] * gain)
         samples[i] = -32768 if v < -32768 else 32767 if v > 32767 else v
     return samples
 
 
-Gst = ginext.Gst
-GstBase = ginext.GstBase
 Gst.init(None)
 
 
-class GainTransform(GstBase.BaseTransform):
-    __gtype_name__ = "GinextSpikeGain"
+class GainTransform(GstBase.BaseTransform, type_name="GinextSpikeGain"):
 
     gain = 2.0
     calls = 0  # class-level counters so main() can read them after EOS
@@ -104,7 +108,7 @@ class GainTransform(GstBase.BaseTransform):
 
     # The ONE function. Called once per buffer on the streaming thread.
     # Returns a GstFlowReturn -- that is how it "signals it is done".
-    def do_transform_ip(self, buf):
+    def do_transform_ip(self, buf: Gst.Buffer) -> Gst.FlowReturn:
         cls = type(self)
         cls.calls += 1
         # Try a writable map; on this checkout audiotestsrc buffers are NOT
@@ -124,6 +128,7 @@ class GainTransform(GstBase.BaseTransform):
             # and -- only if the buffer is writable -- write it back. A writable
             # zero-copy map *view* would eliminate both copies; that plus a
             # writable upstream buffer is what true in-place vroom needs.
+            arr: Any
             if HAVE_NUMPY:
                 arr = np.frombuffer(info.data, dtype=np.int16).copy()
             else:
@@ -171,6 +176,7 @@ def main() -> None:
     )
     pipe.set_state(Gst.State.PLAYING)
     bus = pipe.get_bus()
+    assert bus is not None
     # 15s cap: generous enough to cover JIT compile if warmup were skipped,
     # but bounded so a stalled pipeline can't hang the spike indefinitely.
     msg = bus.timed_pop_filtered(
