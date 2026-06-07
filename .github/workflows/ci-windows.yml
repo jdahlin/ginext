@@ -167,12 +167,10 @@ jobs:
 
       # Run the repo's Windows pytest suite through the repo's configured pytest
       # discovery so new packages added to testpaths are picked up automatically.
-      # gtk runs in fixed order (-p no:randomly) per the known cross-platform
-      # random-order crash.
       - name: Run Windows pytest suite
         shell: pwsh
         run: |
           . tools\win\build-env.ps1
           $arch = $env:GINEXT_TRIPLET -replace '-windows$',''
           $env:UV_PROJECT_ENVIRONMENT = "$pwd\.venv-win-$arch"
-          uv run pytest -q -p no:randomly --continue-on-collection-errors
+          uv run pytest
