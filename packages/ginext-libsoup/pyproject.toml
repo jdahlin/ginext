@@ -1,6 +1,6 @@
 [project]
 name = "ginext-libsoup"
-version = "0.8.1"
+version = "0.8.2"
 description = "Soup namespace overlay for ginext"
 readme = { content-type = "text/markdown", text = """
 # ginext-libsoup
@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["ginext-core>=0.8.1", "ginext-gio>=0.8.1"]
+dependencies = ["ginext-core>=0.8.2", "ginext-gio>=0.8.2"]
 
 [project.entry-points."ginext.overlays"]
 Soup = "ginext_libsoup:_overlays.Soup"

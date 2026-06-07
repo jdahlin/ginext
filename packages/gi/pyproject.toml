@@ -7,7 +7,7 @@
 #   pip install gi[all]     ->  every overlay
 # It ships no importable `gi` module, so it does not collide with PyGObject.
 name = "gi"
-version = "0.8.1"
+version = "0.8.2"
 description = "Meta-package for ginext — GObject-introspection bindings for free-threaded Python (imports as `ginext`)"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -19,21 +19,21 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["ginext-core>=0.8.1"]
+dependencies = ["ginext-core>=0.8.2"]
 
 [project.optional-dependencies]
-gio     = ["ginext-core>=0.8.1", "ginext-gio>=0.8.1"]
-gtk     = ["ginext-core>=0.8.1", "ginext-gtk>=0.8.1"]
-gst     = ["ginext-core>=0.8.1", "ginext-gst>=0.8.1"]
-libsoup = ["ginext-core>=0.8.1", "ginext-libsoup>=0.8.1"]
-compat  = ["ginext-core>=0.8.1", "ginext-gi-compat>=0.8.1"]
-stubs   = ["ginext-core>=0.8.1", "ginext-stubs>=0.8.1"]
+gio     = ["ginext-core>=0.8.2", "ginext-gio>=0.8.2"]
+gtk     = ["ginext-core>=0.8.2", "ginext-gtk>=0.8.2"]
+gst     = ["ginext-core>=0.8.2", "ginext-gst>=0.8.2"]
+libsoup = ["ginext-core>=0.8.2", "ginext-libsoup>=0.8.2"]
+compat  = ["ginext-core>=0.8.2", "ginext-gi-compat>=0.8.2"]
+stubs   = ["ginext-core>=0.8.2", "ginext-stubs>=0.8.2"]
 all = [
-    "ginext-core>=0.8.1",
-    "ginext-gio>=0.8.1",
-    "ginext-gtk>=0.8.1",
-    "ginext-gst>=0.8.1",
-    "ginext-libsoup>=0.8.1",
+    "ginext-core>=0.8.2",
+    "ginext-gio>=0.8.2",
+    "ginext-gtk>=0.8.2",
+    "ginext-gst>=0.8.2",
+    "ginext-libsoup>=0.8.2",
 ]
 
 [project.urls]

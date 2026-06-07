@@ -3,7 +3,7 @@
 # PyPI's name-similarity filter); the importable package stays `ginext`
 # (`from ginext import Gtk`). Distribution name != import name is normal.
 name = "ginext-core"
-version = "0.8.1"
+version = "0.8.2"
 description = "Fast, lazy, JIT-compiled GObject-introspection bindings for free-threaded Python"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -30,28 +30,28 @@ Issues = "https://github.com/jdahlin/ginext/issues"
 
 [project.optional-dependencies]
 gio = [
-    "ginext-gio>=0.8.1",
+    "ginext-gio>=0.8.2",
 ]
 gtk = [
-    "ginext-gtk>=0.8.1",
+    "ginext-gtk>=0.8.2",
 ]
 gst = [
-    "ginext-gst>=0.8.1",
+    "ginext-gst>=0.8.2",
 ]
 libsoup = [
-    "ginext-libsoup>=0.8.1",
+    "ginext-libsoup>=0.8.2",
 ]
 compat = [
-    "ginext-gi-compat>=0.8.1",
+    "ginext-gi-compat>=0.8.2",
 ]
 stubs = [
-    "ginext-stubs>=0.8.1",
+    "ginext-stubs>=0.8.2",
 ]
 all = [
-    "ginext-gio>=0.8.1",
-    "ginext-gtk>=0.8.1",
-    "ginext-gst>=0.8.1",
-    "ginext-libsoup>=0.8.1",
+    "ginext-gio>=0.8.2",
+    "ginext-gtk>=0.8.2",
+    "ginext-gst>=0.8.2",
+    "ginext-libsoup>=0.8.2",
 ]
 dev = [
     "pytest>=8",

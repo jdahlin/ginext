@@ -1,6 +1,6 @@
 [project]
 name = "ginext-stubgen"
-version = "0.8.1"
+version = "0.8.2"
 description = "GIR-XML → PEP 561 .pyi stub generator for ginext"
 requires-python = ">=3.14"
 
