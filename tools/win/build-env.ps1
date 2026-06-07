@@ -23,6 +23,7 @@ switch ($env:GINEXT_TRIPLET) {
   'x64-windows'   { $vcArch = 'amd64' }
   default { throw "unsupported GINEXT_TRIPLET '$($env:GINEXT_TRIPLET)' (use arm64-windows or x64-windows)" }
 }
+$arch = $env:GINEXT_TRIPLET -replace '-windows$',''
 
 # --- locate toolchain roots ----------------------------------------------
 $vcpkg = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { 'C:\dev\vcpkg' }
@@ -74,5 +75,16 @@ $env:GI_TYPELIB_PATH = if ($env:GINEXT_TYPELIB_EXTRA) { "$($env:GINEXT_TYPELIB_E
 
 # GStreamer plugins (fakesink/coreelements/etc.) live under plugins\gstreamer.
 $env:GST_PLUGIN_PATH = "$installed\plugins\gstreamer"
+
+# Pytest on Windows needs the vcpkg DLL dir registered explicitly (PATH alone is
+# not enough for extension-module dependencies), and some subprocess/package-root
+# runs only see the shared conftest helpers. Export the shared locations here so
+# direct `uv run pytest` and spawned subprocesses can resolve the same runtime.
+$testTypelibs = Join-Path $repoRoot "build\win-$arch\packages\typelib"
+$env:GINEXT_WIN_DLL_DIRS = "$installed\bin;$testTypelibs"
+$env:GINEXT_CORE_TYPELIBS = $gitl
+$env:GINEXT_GI_TESTS_BUILDDIR = $testTypelibs
+$env:PYGIR_GI_TESTS_BUILDDIR = $testTypelibs
+$env:GOI_BENCH_BUILDDIR = $testTypelibs
 
 Write-Host "ginext build-env: triplet=$($env:GINEXT_TRIPLET) arch=$vcArch vcpkg=$vcpkg"
