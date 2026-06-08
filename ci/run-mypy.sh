@@ -16,17 +16,26 @@ set -uo pipefail
 
 cache_dir=$1
 shift
+cmd=("$@")
 
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 
-"$@" --cache-dir="$cache_dir" 2>&1 | tee "$log"
-status=${PIPESTATUS[0]}
+run_with_cache() {
+    "${cmd[@]}" --cache-dir="$cache_dir" 2>&1 | tee "$log"
+    return ${PIPESTATUS[0]}
+}
 
-if [[ $status -ne 0 ]] && grep -q "INTERNAL ERROR" "$log"; then
-    echo "ci/run-mypy.sh: mypy crashed on its incremental cache — wiping ${cache_dir} and retrying once" >&2
+run_with_cache
+status=$?
+
+if [[ $status -ne 0 ]] && {
+    grep -q "INTERNAL ERROR" "$log" ||
+    grep -q 'Cannot find implementation or library stub for module named "ginext"' "$log"
+}; then
+    echo "ci/run-mypy.sh: mypy cache at ${cache_dir} looks stale — wiping and retrying once" >&2
     rm -rf -- "$cache_dir"
-    "$@" --cache-dir="$cache_dir"
+    run_with_cache
     status=$?
 fi
 
