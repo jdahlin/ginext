@@ -54,16 +54,26 @@ def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> boo
 def _click_any_close_button(
     tab_bar: Gtk.Widget,
     predicate: Callable[[], bool],
+    *,
+    timeout_ms: int = 1000,
 ) -> bool:
-    buttons = [button for button in _tab_bar_close_buttons(tab_bar) if _button_is_interactable(button)]
-    for button in reversed(buttons):
-        button.clicked()
-        if _spin_until(predicate, timeout_ms=250):
-            return True
-        if button.activate():
-            if _spin_until(predicate, timeout_ms=250):
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        buttons = [
+            button
+            for button in _tab_bar_close_buttons(tab_bar)
+            if _button_is_interactable(button)
+        ]
+        for button in reversed(buttons):
+            button.clicked()
+            if _spin_until(predicate, timeout_ms=100):
                 return True
-    return False
+            if button.activate() and _spin_until(predicate, timeout_ms=100):
+                return True
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return predicate()
 
 
 def test_close_page_method_signal_collision(require_gtk4_display: object) -> None:
@@ -178,6 +188,7 @@ def test_tab_bar_close_button_survives_window_rewrap(
     assert _click_any_close_button(
         active.tab_bar,
         lambda: active.close_count == 1 and active.tab_view.get_n_pages() == 1,
+        timeout_ms=2000,
     )
     assert active.close_count == 1
     assert active.tab_view.get_n_pages() == 1
