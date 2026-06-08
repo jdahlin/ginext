@@ -40,6 +40,14 @@ def _button_is_interactable(button: Gtk.Button) -> bool:
     return button.get_visible() and button.get_sensitive() and button.get_mapped()
 
 
+def _interactable_close_buttons(tab_bar: Gtk.Widget) -> list[Gtk.Button]:
+    return [
+        button
+        for button in _tab_bar_close_buttons(tab_bar)
+        if _button_is_interactable(button)
+    ]
+
+
 def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
     context = GLib.MainContext.default()
     deadline = time.monotonic() + (timeout_ms / 1000)
@@ -58,12 +66,17 @@ def _click_any_close_button(
     timeout_ms: int = 1000,
 ) -> bool:
     deadline = time.monotonic() + (timeout_ms / 1000)
+    stable_buttons: list[Gtk.Button] | None = None
     while time.monotonic() < deadline:
-        buttons = [
-            button
-            for button in _tab_bar_close_buttons(tab_bar)
-            if _button_is_interactable(button)
-        ]
+        buttons = _interactable_close_buttons(tab_bar)
+        if stable_buttons is None:
+            stable_buttons = buttons
+            time.sleep(0.01)
+            continue
+        if len(buttons) != len(stable_buttons):
+            stable_buttons = buttons
+            time.sleep(0.01)
+            continue
         for button in reversed(buttons):
             button.clicked()
             if _spin_until(predicate, timeout_ms=100):
@@ -167,10 +180,8 @@ def test_tab_bar_close_button_survives_window_rewrap(
     window.present()
 
     assert _spin_until(
-        lambda: any(
-            _button_is_interactable(button)
-            for button in _tab_bar_close_buttons(window.tab_bar)
-        )
+        lambda: len(_interactable_close_buttons(window.tab_bar))
+        == window.tab_view.get_n_pages()
     )
 
     del window
@@ -180,10 +191,8 @@ def test_tab_bar_close_button_survives_window_rewrap(
 
     assert active is not None
     assert _spin_until(
-        lambda: any(
-            _button_is_interactable(button)
-            for button in _tab_bar_close_buttons(active.tab_bar)
-        )
+        lambda: len(_interactable_close_buttons(active.tab_bar))
+        == active.tab_view.get_n_pages()
     )
     assert _click_any_close_button(
         active.tab_bar,
