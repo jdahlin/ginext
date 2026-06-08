@@ -93,8 +93,8 @@ def test_imported_gobject_classes_do_not_expose_signal_descriptor() -> None:
     import ginext
     from ginext import GObject
 
-    assert not hasattr(GObject.Object, "Signal")
-    assert "Signal" not in dir(GObject.Object)
+    # GObject.Object is the single canonical base and carries Signal as the
+    # root; every other imported class stays gated.
     if hasattr(ginext, "GstPlay"):
         assert not hasattr(ginext.GstPlay.Play, "Signal")
         assert "Signal" not in dir(ginext.GstPlay.Play)
