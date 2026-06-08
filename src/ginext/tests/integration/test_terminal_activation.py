@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import time
 import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol, cast
@@ -44,6 +45,17 @@ class _TerminalAppLike(Protocol):
     def activate(self) -> None: ...
     def quit(self) -> None: ...
     def run(self, argv: list[str]) -> int: ...
+
+
+def _spin_main_context(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
+    context = GLib.MainContext.default()
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        context.iteration(False)
+        time.sleep(0.01)
+    return predicate()
 
 
 def _require_gtk4_display(wayland: object) -> None:
@@ -90,6 +102,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
 
     app = cast(_TerminalAppLike, app_cls())
     observed: dict[str, int] = {}
+    close_clicked = False
 
     def drive_activations() -> bool:
         window = app.get_active_window()
@@ -108,19 +121,26 @@ def test_terminal_runtime_activation_opens_real_tabs(
         return False
 
     def click_tab_bar_close_button() -> bool:
+        nonlocal close_clicked
         window = app.get_active_window()
         if window is None:
             return True
         buttons = _tab_bar_close_buttons(window)
         if len(buttons) < 3:
             return True
-        buttons[-1].clicked()
-        observed["after_close_tab_pages"] = window.tab_view.get_n_pages()
+        if not close_clicked:
+            buttons[-1].clicked()
+            close_clicked = True
+        if window.tab_view.get_n_pages() != 2:
+            return True
+        observed["after_close_tab_pages"] = 2
         return False
 
     def record_and_quit() -> bool:
         window = app.get_active_window()
         if window is not None:
+            if window.tab_view.get_n_pages() != 2:
+                return True
             observed["final_pages"] = window.tab_view.get_n_pages()
         app.quit()
         return False
@@ -129,6 +149,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
     GLib.timeout_add(500, record_and_quit)
 
     assert app.run(["terminal-test"]) == 0
+    assert _spin_main_context(lambda: observed.get("final_pages") == 2)
     assert observed == {
         "initial_pages": 1,
         "after_shortcut_pages": 2,
