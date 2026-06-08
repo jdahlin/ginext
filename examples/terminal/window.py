@@ -17,8 +17,8 @@ from ginext import Adw, Gio, GLib, GObject, Gtk, Pango, Vte
 from . import palettes
 
 if TYPE_CHECKING:
-    from .app import App
-    from .state import State
+    from .app import TerminalApp
+    from .state import TerminalState
 
 
 _UI_DIR = Path(__file__).resolve().parent / "resources"
@@ -38,7 +38,7 @@ def _user_shell() -> str:
 
 
 @Gtk.Template(string=_WINDOW_UI)
-class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
+class Window(Adw.ApplicationWindow, type_name="GinextTerminalWindow"):
 
     toast_overlay: Adw.ToastOverlay
     header_bar: Adw.HeaderBar
@@ -48,7 +48,7 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
     tab_view: Adw.TabView
     tab_bar: Adw.TabBar
 
-    def __init__(self, application: App, state: State) -> None:
+    def __init__(self, application: TerminalApp, state: TerminalState) -> None:
         super().__init__(application=application)
         self.app = application
         self.state = state
@@ -247,7 +247,7 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
     # ------------------------------------------------------------------
     # Preferences sync
     # ------------------------------------------------------------------
-    def _on_prefs_changed(self, _state: State, _pspec: GObject.ParamSpec) -> None:
+    def _on_prefs_changed(self, _state: TerminalState, _pspec: GObject.ParamSpec) -> None:
         for term in self._iter_terminals():
             self._apply_prefs(term)
 
@@ -283,9 +283,7 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
     # ------------------------------------------------------------------
     # Window geometry persistence
     # ------------------------------------------------------------------
-    def _on_geometry_changed(
-        self, _obj: GObject.Object, _pspec: GObject.ParamSpec
-    ) -> None:
+    def _on_geometry_changed(self) -> None:
         if self.is_maximized():
             self.state.window_maximized = True
             return

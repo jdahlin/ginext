@@ -9,17 +9,15 @@ App-level actions:
 
 from __future__ import annotations
 
-import signal
-import sys
 from typing import TYPE_CHECKING
 
-from ginext import Adw, Gio, GLib, GLibUnix, Gtk, defaults
+from ginext import Adw, Gio, Gtk, defaults
 
 # Two Vte typelibs (2.91 / 3.91) are usually installed; pin the GTK 4 one
 # before any module imports the namespace.
 defaults.require("Vte", "3.91")
 
-from .state import State
+from .state import TerminalState
 from .window import Window
 
 if TYPE_CHECKING:
@@ -29,48 +27,24 @@ if TYPE_CHECKING:
 _APP_ID = "org.ginext.Terminal"
 
 
-class App(Gtk.Application, type_name="TerminalApp"):
+class TerminalApp(Adw.Application):
 
     def __init__(self) -> None:
         super().__init__(
             application_id=_APP_ID,
             flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
-        self.state = State()
-        self._sigint_handle = 0
+        self.state = TerminalState()
         self._prefs_window: Preferences | None = None
         self._windows: list[Window] = []
 
-    def do_startup(self) -> None:
-        Gtk.Application.do_startup(self)
-        Adw.init()
-        self._install_actions()
-        self._install_sigint_handler()
-
-    def _install_sigint_handler(self) -> None:
-        try:
-            self._sigint_handle = GLibUnix.signal_add(
-                GLib.PRIORITY_DEFAULT,
-                signal.SIGINT,
-                self._on_sigint,
-            )
-        except AttributeError:
-            signal.signal(signal.SIGINT, lambda *_: self.quit())
-
-    def _on_sigint(self, *_args: object) -> bool:
-        print("\n[terminal] caught SIGINT, quitting", file=sys.stderr)
-        self.quit()
-        return False
-
     def do_activate(self) -> None:
-        existing = self.get_active_window()
-        if existing is None:
-            win = self.spawn_window(present=True)
-            win.new_tab()
+        if active_window := self.get_active_window():
+            active_window.present()
+            if isinstance(active_window, Window):
+                active_window.new_tab()
         else:
-            assert isinstance(existing, Window)
-            existing.new_tab()
-            existing.present()
+            self.spawn_window(present=True)
 
     def do_command_line(self, _cmdline: Gio.ApplicationCommandLine) -> int:
         self.activate()
@@ -79,9 +53,10 @@ class App(Gtk.Application, type_name="TerminalApp"):
     def spawn_window(self, *, present: bool) -> Window:
         win = Window(application=self, state=self.state)
         self._windows.append(win)
-        win.close_request.connect(self._on_window_closed, owner=self)
+        win.close_request.connect(self._on_window_closed)
         if present:
             win.present()
+        win.new_tab()
         return win
 
     def _on_window_closed(self, window: Window) -> bool:
@@ -89,43 +64,26 @@ class App(Gtk.Application, type_name="TerminalApp"):
             self._windows.remove(window)
         return False
 
-    _APP_ACTIONS: tuple[tuple[str, str, list[str] | None], ...] = (
-        ("new-window", "_on_new_window", ["<Primary>n"]),
-        ("preferences", "_on_preferences", ["<Primary>comma"]),
-        ("about", "_on_about", None),
-        ("quit", "_on_quit", ["<Primary>q"]),
-    )
+    @Gtk.action("new-window", ["<Primary>n"])
+    def _on_new_window(self) -> None:
+        self.spawn_window(present=True)
 
-    def _install_actions(self) -> None:
-        for name, handler, accels in self._APP_ACTIONS:
-            action = Gio.SimpleAction.new(name, None)
-            action.activate.connect(getattr(self, handler))
-            self.add_action(action)
-            if accels:
-                self.set_accels_for_action(f"app.{name}", list(accels))
+    @Gtk.action("preferences", ["<Primary>comma"])
+    def _on_preferences(self) -> None:
+        if not (prefs_window := self._prefs_window):
+            from .preferences import Preferences
+            prefs_window = Preferences(self.state)
+            prefs_window.set_transient_for(self.get_active_window())
+            prefs_window.close_request.connect(self._on_prefs_closed)
+            self._prefs_window = prefs_window
+        prefs_window.present()
 
-    def _on_new_window(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
-        win = self.spawn_window(present=True)
-        win.new_tab()
-
-    def _on_preferences(
-        self, _action: Gio.SimpleAction, _param: GLib.Variant | None
-    ) -> None:
-        from .preferences import Preferences
-
-        if self._prefs_window is not None:
-            self._prefs_window.present()
-            return
-        self._prefs_window = Preferences(self.state)
-        self._prefs_window.set_transient_for(self.get_active_window())
-        self._prefs_window.close_request.connect(self._on_prefs_closed)
-        self._prefs_window.present()
-
-    def _on_prefs_closed(self, _window: Adw.PreferencesWindow) -> bool:
+    def _on_prefs_closed(self, _prefs_window: Preferences) -> bool:
         self._prefs_window = None
         return False
 
-    def _on_about(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
+    @Gtk.action("about")
+    def _on_about(self) -> None:
         about = Adw.AboutWindow(
             transient_for=self.get_active_window(),
             application_name="Terminal",
@@ -138,6 +96,10 @@ class App(Gtk.Application, type_name="TerminalApp"):
         )
         about.present()
 
-    def _on_quit(self, _action: Gio.SimpleAction, _param: GLib.Variant | None) -> None:
+    @Gtk.action("quit")
+    def _on_quit(self) -> None:
         for w in list(self.get_windows()):
             w.close()
+
+
+App = TerminalApp

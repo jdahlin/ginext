@@ -75,6 +75,19 @@ def _install_pygobject_signal_metadata(cls: type) -> None:
         raise TypeError("__gsignals__ must be a dict")
 
 
+def _install_extension_metadata(cls: type) -> None:
+    gtk_actions: list[object] = []
+    for attr in cls.__dict__.values():
+        spec = getattr(attr, "gimeta_action", None)
+        if spec is not None:
+            gtk_actions.append(spec)
+    if gtk_actions:
+        gimeta = cast("Any", getattr(cls, "gimeta"))
+        bucket = gimeta.extensions.setdefault("Gtk", {})
+        if isinstance(bucket, dict):
+            bucket["actions"] = gtk_actions
+
+
 def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> None:
     from .gobjectclass import GObject
 
@@ -185,6 +198,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
 
     if not already_built:
         _surface_inherited_properties(cls, annotations)
+        _install_extension_metadata(cls)
 
 
 def _surface_inherited_properties(

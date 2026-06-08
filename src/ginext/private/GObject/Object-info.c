@@ -579,6 +579,15 @@ GObjectBase_owns_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
+GObjectBase_pointer_value (PyObject *self, PyObject *Py_UNUSED (ignored))
+{
+  GObject *object = bound_gobject_from_self (self, "pointer_value");
+  if (object == NULL)
+    return NULL;
+  return PyLong_FromVoidPtr (object);
+}
+
+static PyObject *
 GObjectBase_release_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "release_ref");
@@ -780,6 +789,7 @@ static PyMethodDef GObjectBase_methods[] = {
     NULL },
   { "is_bound", GObjectBase_is_bound, METH_NOARGS, NULL },
   { "owns_ref", GObjectBase_owns_ref, METH_NOARGS, NULL },
+  { "pointer_value", GObjectBase_pointer_value, METH_NOARGS, NULL },
   { "release_ref", GObjectBase_release_ref, METH_NOARGS, NULL },
   { "preserve_wrapper_state", GObjectBase_preserve_wrapper_state, METH_NOARGS, NULL },
   { "ref_sink", GObjectBase_ref_sink, METH_NOARGS, NULL },

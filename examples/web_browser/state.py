@@ -16,7 +16,6 @@ DEFAULT_PREFS = {
     "webrtc": True,
     "media-stream": True,
     "page-cache": True,
-    "dns-prefetching": True,
     "smooth-scrolling": True,
     "tabs-to-links": True,
     "clipboard-access": True,
@@ -63,7 +62,6 @@ class BrowserState(GObject.Object, type_name="WebBrowserState"):
     webrtc = GObject.Property(type=bool, default=True)
     media_stream = GObject.Property(type=bool, default=True)
     page_cache = GObject.Property(type=bool, default=True)
-    dns_prefetching = GObject.Property(type=bool, default=True)
     smooth_scrolling = GObject.Property(type=bool, default=True)
     tabs_to_links = GObject.Property(type=bool, default=True)
     clipboard_access = GObject.Property(type=bool, default=True)

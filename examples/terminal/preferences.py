@@ -15,7 +15,7 @@ from ginext import Adw, GObject, Gtk, Pango
 from . import palettes
 
 if TYPE_CHECKING:
-    from .state import State
+    from .state import TerminalState
 
 
 Adw.init()
@@ -39,7 +39,7 @@ _CURSOR_SHAPES = ["block", "ibeam", "underline"]
 
 
 @Gtk.Template(string=_UI)
-class Preferences(Adw.PreferencesWindow, type_name="TerminalPreferences"):
+class Preferences(Adw.PreferencesWindow, type_name="GinextTerminalPreferences"):
 
     use_system_font_row: Adw.SwitchRow
     font_row: Adw.ActionRow
@@ -56,7 +56,7 @@ class Preferences(Adw.PreferencesWindow, type_name="TerminalPreferences"):
     scroll_on_output_row: Adw.SwitchRow
     scroll_on_keystroke_row: Adw.SwitchRow
 
-    def __init__(self, state: State) -> None:
+    def __init__(self, state: TerminalState) -> None:
         super().__init__()
         self.state = state
 

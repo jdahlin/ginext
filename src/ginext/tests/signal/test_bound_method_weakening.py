@@ -43,7 +43,7 @@ import itertools
 import types
 import warnings
 import weakref
-from typing import Any
+from typing import Any, cast
 
 
 import ginext
@@ -144,6 +144,37 @@ def test_handler_noops_after_host_finalization() -> None:
     # layer. Even if that didn't happen, the wrapper's weakref check
     # would prevent the assertion in on_cancel from firing.
     source.cancel()
+
+
+def test_handler_fires_after_owner_wrapper_rewrap() -> None:
+    """If the C owner is still alive after the Python wrapper is
+    collected, a weak bound-method handler must dispatch through the
+    rewrapped owner instead of silently no-oping."""
+    from ginext import Gio
+
+    class Holder(GObject, type_name=_name("H")):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def on_cancel(self, src: Any) -> None:
+            self.calls += 1
+
+    source = Gio.Cancellable()
+    store = cast("Any", Gio.ListStore.new(Holder))
+    holder = Holder()
+    holder_ref = weakref.ref(holder)
+    store.append(cast("GObject", holder))
+    source.cancelled.connect(holder.on_cancel, owner=holder)
+
+    del holder
+    gc.collect()
+
+    assert holder_ref() is None
+    source.cancel()
+
+    rewrapped = cast("Holder", store.get_item(0))
+    assert rewrapped.calls == 1
 
 
 # ── Negative cases: when weakening must NOT apply ───────────────────────

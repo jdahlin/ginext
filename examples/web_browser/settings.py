@@ -26,7 +26,6 @@ class SettingsWindow(Gtk.Window, type_name="WebBrowserSettings"):
     webrtc_row: Adw.SwitchRow
     media_stream_row: Adw.SwitchRow
     page_cache_row: Adw.SwitchRow
-    dns_prefetching_row: Adw.SwitchRow
     smooth_scrolling_row: Adw.SwitchRow
     tabs_to_links_row: Adw.SwitchRow
     clipboard_access_row: Adw.SwitchRow
@@ -48,7 +47,6 @@ class SettingsWindow(Gtk.Window, type_name="WebBrowserSettings"):
             ("webrtc", self.webrtc_row),
             ("media-stream", self.media_stream_row),
             ("page-cache", self.page_cache_row),
-            ("dns-prefetching", self.dns_prefetching_row),
             ("smooth-scrolling", self.smooth_scrolling_row),
             ("tabs-to-links", self.tabs_to_links_row),
             ("clipboard-access", self.clipboard_access_row),
