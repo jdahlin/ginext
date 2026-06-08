@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import gc
 from typing import Any
 
 
@@ -66,3 +67,32 @@ def test_application_vfunc_chain_up_dispatches_through_gtk_application(
 
     assert app.run(["app"]) == 0
     assert app.events == ["startup", "activate", "shutdown"]
+
+
+def test_active_window_preserves_python_subclass_state(
+    require_gtk4_display: Any,
+) -> None:
+    from ginext import Gio
+
+    Gtk = require_gtk4_display
+
+    class Window(Gtk.ApplicationWindow):  # type: ignore[misc, name-defined]
+        def __init__(self, application: Any) -> None:
+            super().__init__(application=application)
+            self.marker = "original-python-wrapper"
+
+    app = Gtk.Application(
+        application_id=None,
+        flags=Gio.ApplicationFlags.NON_UNIQUE,
+    )
+    app.register(None)
+
+    window = Window(app)
+    window.present()
+    del window
+    gc.collect()
+
+    active = app.get_active_window()
+
+    assert active is not None
+    assert active.marker == "original-python-wrapper"

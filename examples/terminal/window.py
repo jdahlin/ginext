@@ -64,6 +64,9 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
 
         self.tab_view.notify("selected-page").connect(self._on_selected_page_changed)
         self.tab_view.close_page.connect(self._on_close_page)
+        self._tab_close_buttons: list[Gtk.Button] = []
+        self._tab_close_button_pages: dict[Gtk.Button, Adw.TabPage] = {}
+        self._terminal_pages: dict[Vte.Terminal, Adw.TabPage] = {}
 
         self._install_actions()
 
@@ -135,8 +138,10 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
         term.bell.connect(self._on_bell)
 
         tab_page = self.tab_view.append(term)
+        self._terminal_pages[term] = tab_page
         tab_page.set_title("Terminal")
         self.tab_view.set_selected_page(tab_page)
+        GLib.idle_add(self._sync_tab_close_buttons)
 
         shell = _user_shell()
         term.spawn_async(
@@ -157,12 +162,60 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
         # Vte cleans up its own PTY when the widget is unparented by
         # AdwTabView; don't poke set_pty(None) here — calling it after
         # the child has already exited has crashed inside libvte.
+        child = tab_page.get_child()
+        if isinstance(child, Vte.Terminal):
+            self._terminal_pages.pop(child, None)
         view.close_page_finish(tab_page, True)
+        GLib.idle_add(self._sync_tab_close_buttons)
         if self.tab_view.get_n_pages() == 0:
             GLib.idle_add(self.close)
         # Return GDK_EVENT_STOP so the default handler doesn't also call
         # close_page_finish on a page we've already finished closing.
         return True
+
+    def _sync_tab_close_buttons(self) -> bool:
+        buttons = self._tab_bar_close_buttons()
+        self._tab_close_button_pages = {}
+        n_pages = self.tab_view.get_n_pages()
+        for index, button in enumerate(buttons):
+            if index >= n_pages:
+                break
+            page = self.tab_view.get_nth_page(index)
+            if page is not None:
+                self._tab_close_button_pages[button] = page
+        for button in buttons:
+            if button not in self._tab_close_buttons:
+                button.clicked.connect(self._on_tab_bar_close_button_clicked, owner=self)
+        self._tab_close_buttons = buttons
+        return False
+
+    def _tab_bar_close_buttons(self) -> list[Gtk.Button]:
+        buttons: list[Gtk.Button] = []
+
+        def walk(widget: Gtk.Widget) -> None:
+            if isinstance(widget, Gtk.Button):
+                icon_name = widget.get_icon_name()
+                if icon_name == "window-close-symbolic":
+                    buttons.append(widget)
+            child = widget.get_first_child()
+            while child is not None:
+                walk(child)
+                child = child.get_next_sibling()
+
+        walk(self.tab_bar)
+        return buttons
+
+    def _on_tab_bar_close_button_clicked(self, button: Gtk.Button) -> None:
+        page = self._tab_close_button_pages.get(button)
+        if page is None or not self._page_is_open(page):
+            return
+        self.tab_view.close_page(page)
+
+    def _page_is_open(self, page: Adw.TabPage) -> bool:
+        for index in range(self.tab_view.get_n_pages()):
+            if self.tab_view.get_nth_page(index) is page:
+                return True
+        return False
 
     def _on_selected_page_changed(
         self, _view: Adw.TabView, _pspec: GObject.ParamSpec
@@ -174,7 +227,7 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
 
     def _on_term_title_changed(self, term: Vte.Terminal) -> None:
         title = term.get_window_title() or "Terminal"
-        page = self.tab_view.get_page(term)
+        page = self._terminal_pages.get(term)
         if page is not None:
             page.set_title(title)
         if term is self.current_terminal:
@@ -182,7 +235,7 @@ class Window(Adw.ApplicationWindow, type_name="TerminalWindow"):
             self.title_label.set_label(title)
 
     def _on_child_exited(self, term: Vte.Terminal, _status: int) -> None:
-        page = self.tab_view.get_page(term)
+        page = self._terminal_pages.get(term)
         if page is not None:
             self.tab_view.close_page(page)
 

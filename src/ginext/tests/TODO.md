@@ -34,12 +34,6 @@ real failing or erroring tests in the default Makefile-shaped environment.
 | --- | --- | --- | --- |
 | `test_foreign_backlog.py` | `S=2 X=0` | `cairo`, `foreign-types`, `optional-dep` | Cairo foreign type interop for Regress APIs; skipped in both pytest phases because `pycairo` is not installed in the default environment. |
 
-### `classbuild/`
-
-| Module | Status | Tags | Exercises / blocker |
-| --- | --- | --- | --- |
-| `test_managed_dict_store_attr.py` | `S=0 X=1` | `classbuild`, `managed-dict`, `rewrap` | Python subclass instance dictionaries across wrapper re-creation; qdata/dict restoration across rewrap is pending. |
-
 ### `constructor/`
 
 | Module | Status | Tags | Exercises / blocker |
