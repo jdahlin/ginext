@@ -4,26 +4,60 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 import uuid
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Protocol, cast
+
+from ginext import Gdk, GLib, Gtk
+
+if TYPE_CHECKING:
+    from _pytest.monkeypatch import MonkeyPatch
 
 
-def _require_gtk4_display(wayland: object) -> object:
-    from ginext import Gdk, Gtk
+class _WidgetLike(Protocol):
+    def get_first_child(self) -> Gtk.Widget | None: ...
+    def get_next_sibling(self) -> Gtk.Widget | None: ...
 
+
+class _TerminalLike(_WidgetLike, Protocol):
+    pass
+
+
+class _TabViewLike(Protocol):
+    def get_n_pages(self) -> int: ...
+
+
+class _TabBarLike(_WidgetLike, Protocol):
+    pass
+
+
+class _TerminalWindowLike(Protocol):
+    current_terminal: _TerminalLike | None
+    tab_view: _TabViewLike
+    tab_bar: _TabBarLike
+
+
+class _TerminalAppLike(Protocol):
+    def get_active_window(self) -> _TerminalWindowLike | None: ...
+    def activate(self) -> None: ...
+    def quit(self) -> None: ...
+    def run(self, argv: list[str]) -> int: ...
+
+
+def _require_gtk4_display(wayland: object) -> None:
     ok = Gtk.init_check()
     if isinstance(ok, tuple):
         ok = ok[0]
     assert ok
     assert Gdk.Display.get_default() is not None
-    return Gtk
 
 
-def _tab_bar_close_buttons(Gtk: Any, window: Any) -> list[Any]:
-    buttons: list[Any] = []
+def _tab_bar_close_buttons(window: _TerminalWindowLike) -> list[Gtk.Button]:
+    buttons: list[Gtk.Button] = []
 
-    def walk(widget: Any) -> None:
+    def walk(widget: _WidgetLike) -> None:
         if isinstance(widget, Gtk.Button) and widget.get_icon_name() == "window-close-symbolic":
             buttons.append(widget)
         child = widget.get_first_child()
@@ -36,18 +70,17 @@ def _tab_bar_close_buttons(Gtk: Any, window: Any) -> list[Any]:
 
 
 def test_terminal_runtime_activation_opens_real_tabs(
-    monkeypatch: Any,
+    monkeypatch: "MonkeyPatch",
     tmp_path: object,
     wayland: object,
 ) -> None:
-    Gtk = _require_gtk4_display(wayland)
-    from ginext import GLib
+    _require_gtk4_display(wayland)
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("SHELL", "/bin/sh")
 
-    from examples.terminal import app as terminal_app
-    from examples.terminal.app import App
+    terminal_app = importlib.import_module("examples.terminal.app")
+    app_cls = getattr(terminal_app, "App")
 
     monkeypatch.setattr(
         terminal_app,
@@ -55,7 +88,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
         f"org.ginext.TerminalRuntimeTest{os.getpid()}.t{uuid.uuid4().hex}",
     )
 
-    app = App()
+    app = cast(_TerminalAppLike, app_cls())
     observed: dict[str, int] = {}
 
     def drive_activations() -> bool:
@@ -67,7 +100,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
             return True
 
         observed["initial_pages"] = window.tab_view.get_n_pages()
-        Gtk.NamedAction.new("win.new-tab").activate(0, terminal, None)
+        Gtk.NamedAction.new("win.new-tab").activate(0, cast("Gtk.Widget", terminal), None)
         observed["after_shortcut_pages"] = window.tab_view.get_n_pages()
         app.activate()
         observed["after_app_activation_pages"] = window.tab_view.get_n_pages()
@@ -78,7 +111,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
         window = app.get_active_window()
         if window is None:
             return True
-        buttons = _tab_bar_close_buttons(Gtk, window)
+        buttons = _tab_bar_close_buttons(window)
         if len(buttons) < 3:
             return True
         buttons[-1].clicked()
