@@ -53,6 +53,11 @@ if TYPE_CHECKING:
         SignalInfo,
         VFuncInfo,
     )
+
+    @runtime_checkable
+    class _InterfaceInfoWithPrerequisites(Protocol):
+        def get_n_prerequisites(self) -> int: ...
+        def get_prerequisite(self, index: int) -> ObjectInfo | InterfaceInfo: ...
 from .fundamental import Fundamental
 from .gobject.gobjectclass import (
     GInterface,
@@ -62,7 +67,7 @@ from .gobject.gobjectclass import (
     wrap_existing_pointer_for_class,
 )
 from .gobject.resolve import own_gimeta
-from .method import callable_name, make_method
+from .method import attach_owner_metadata, callable_name, make_method
 from .overlay import (
     async_result_names_for,
     class_bases_overlay_for,
@@ -118,7 +123,12 @@ class ClassBuilder:
         return cast("Namespace", ns)
 
     def _bases_for_data(
-        self, data: dict[str, Any], name: str, *, is_interface: bool
+        self,
+        data: dict[str, Any],
+        name: str,
+        *,
+        is_interface: bool,
+        info: "ObjectInfo | InterfaceInfo",
     ) -> tuple[type, tuple[type, ...]]:
         parent_info = data["parent"]
         parent_cls: type
@@ -138,6 +148,14 @@ class ClassBuilder:
             if interface_cls in parent_mro or interface_cls in interface_bases:
                 continue
             interface_bases.append(interface_cls)
+        if is_interface:
+            interface_info = cast("_InterfaceInfoWithPrerequisites", info)
+            for index in range(interface_info.get_n_prerequisites()):
+                prerequisite_info = interface_info.get_prerequisite(index)
+                interface_cls = self.class_for_info(prerequisite_info)
+                if interface_cls in parent_mro or interface_cls in interface_bases:
+                    continue
+                interface_bases.append(interface_cls)
 
         extra_bases = list(
             class_bases_overlay_for(
@@ -149,6 +167,7 @@ class ClassBuilder:
             if interface_cls not in seen:
                 extra_bases.append(interface_cls)
                 seen.add(interface_cls)
+        extra_bases = _prune_redundant_bases(extra_bases)
 
         return parent_cls, (*extra_bases, parent_cls)
 
@@ -180,7 +199,7 @@ class ClassBuilder:
             return cached
 
         parent_cls, bases = self._bases_for_data(
-            data, name, is_interface=isinstance(info, InterfaceInfo)
+            data, name, is_interface=isinstance(info, InterfaceInfo), info=info
         )
 
         gimeta = private.GIMeta.from_type_name(data["type_name"], info)
@@ -367,6 +386,18 @@ def _cached_python_defined_class_for_gtype(gtype: int) -> type[Any] | None:
     return None
 
 
+def _prune_redundant_bases(bases: list[type]) -> list[type]:
+    pruned: list[type] = []
+    for index, base in enumerate(bases):
+        if any(
+            other is not base and issubclass(other, base)
+            for other in bases[index + 1 :]
+        ):
+            continue
+        pruned.append(base)
+    return pruned
+
+
 def reset_for_test() -> None:
     pass
 
@@ -502,8 +533,10 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
             owner, gimeta, name, method, method_info, has_self
         )
         if async_wrapped is not None:
+            attach_owner_metadata(async_wrapped, owner)
             setattr(owner, name, async_wrapped)
             return async_wrapped, has_self
+        attach_owner_metadata(method, owner)
         setattr(owner, name, method if has_self else staticmethod(method))
         return method, has_self
     # For user-defined GObject subclasses that inherit only from the Python root
@@ -544,6 +577,7 @@ def _install_gobject_typelib_method(name: str) -> tuple[object, bool] | None:
         )
     except NotImplementedError:
         return None
+    attach_owner_metadata(method, GObject)
     setattr(GObject, name, method if has_self else staticmethod(method))
     return method, has_self
 

@@ -1,8 +1,8 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from ginext import Adw, Gdk, Gio, GLib, Gtk
+from ginext import Adw, Gdk, Gio, GLib, GObject, Gtk
 
 from commander.components.location import display_file, expand_home
 from commander.components.operations import (
@@ -94,11 +94,17 @@ class CommanderWindow(Adw.ApplicationWindow, type_name="GoiCommanderWindow"):
         self.right_quick_view = self._build_quick_view_slot()
         self.left_stack = self._build_panel_stack(self.left, self.left_quick_view)
         self.right_stack = self._build_panel_stack(self.right, self.right_quick_view)
-        self.left.selection.notify("selected").connect(
-            lambda selection, pspec: self._on_selection_changed(selection, pspec, self.left)
+        cast("GObject.Object", self.left.selection).connect(
+            "notify::selected",
+            lambda selection, pspec: self._on_selection_changed(
+                selection, pspec, self.left
+            ),
         )
-        self.right.selection.notify("selected").connect(
-            lambda selection, pspec: self._on_selection_changed(selection, pspec, self.right)
+        cast("GObject.Object", self.right.selection).connect(
+            "notify::selected",
+            lambda selection, pspec: self._on_selection_changed(
+                selection, pspec, self.right
+            ),
         )
 
         self.panels_slot.append(self._build_panels())

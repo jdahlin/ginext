@@ -174,6 +174,8 @@ def _maybe_optional(annotation: Any, nullable: bool) -> tuple[Any, Any]:
     """Return (annotation, default): nullable args become `T | None = None`."""
     if not nullable:
         return annotation, inspect.Parameter.empty
+    if annotation is None:
+        return None, None
     return annotation | None, None
 
 
@@ -251,7 +253,11 @@ def build_signature(info: Any, *, has_self: bool, context: Any) -> inspect.Signa
     else:
         return_annotation = tuple[tuple(results)]  # type: ignore[misc]
 
-    return inspect.Signature(parameters, return_annotation=return_annotation)
+    return inspect.Signature(
+        parameters,
+        return_annotation=return_annotation,
+        __validate_parameters__=False,
+    )
 
 
 def callable_signature(gimeta: Any) -> inspect.Signature:

@@ -40,5 +40,5 @@ also built here:
 - `WarnLib` is intentionally not built here.
 - Meson build outputs land under `build/.../packages/typelib/`.
 - Native `.pyi` stubs for these namespaces are generated during the Meson build
-  and installed under the same `ginext-stubs` top-level directory as the other
+  and installed under the same `ginext` top-level directory as the other
   shipped native stubs.

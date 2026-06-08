@@ -37,3 +37,28 @@ def test_get_objects_returns_object_list_without_display() -> None:
     assert len(objects) == 1
     assert isinstance(objects[0], Gtk.Adjustment)
     assert isinstance(objects[0], GObject.Object)
+
+
+def test_builder_collection_dunders_without_display() -> None:
+    from ginext import Gtk
+
+    builder = Gtk.Builder.new_from_string(
+        """
+        <interface>
+          <object class="GtkAdjustment" id="adjustment-a">
+            <property name="upper">10</property>
+          </object>
+          <object class="GtkAdjustment" id="adjustment-b">
+            <property name="upper">20</property>
+          </object>
+        </interface>
+        """,
+        -1,
+    )
+
+    objects = builder.get_objects()
+
+    assert len(builder) == 2
+    assert list(builder) == objects
+    assert objects[0] in builder
+    assert object() not in builder

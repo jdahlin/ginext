@@ -140,7 +140,7 @@ endif
 GCOVR      := gcovr
 GCOVR_ARGS := --root $(CURDIR) --object-directory $(BDIR) --filter $(abspath src/goi/_goi) --txt
 
-.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal gnome-music cambalache quodlibet coverage-report typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander _typecheck-ex-terminal _typecheck-ex-pyedit _typecheck-ex-web_browser _typecheck-ex-mandelbrot _typecheck-ex-webcam-effects _typecheck-ex-draw-bench _typecheck-ex-playground stubs api-docs api-docs-all
+.PHONY: venv setup build release docker-image docker-image-push test test-not-gtk3 test-gtk3 test-gtk4 _test-not-gtk3 _test-gtk3 test-ginext-gio test-ginext-gtk test-ginext-gi-compat test-ginext-gst test-sanitize test-asan test-ubsan test-coverage tox tox-release run profile valgrind clean showtime drawing pyedit text-editor web-browser terminal commander gnome-music cambalache quodlibet coverage-report typecheck _typecheck-core _typecheck-gio _typecheck-gtk _typecheck-gst _typecheck-stubgen _typecheck-commander _typecheck-ex-terminal _typecheck-ex-pyedit _typecheck-ex-web_browser _typecheck-ex-mandelbrot _typecheck-ex-webcam-effects _typecheck-ex-draw-bench _typecheck-ex-playground stubs api-docs api-docs-all
 
 $(VENV)/.pygir-sync-stamp: pyproject.toml uv.lock \
     packages/ginext-gio/pyproject.toml \
@@ -254,7 +254,8 @@ STUB_PKG_ROOT      := packages/ginext-stubs
 STUB_GEN_STAMP     := $(STUB_PKG_ROOT)/.stub-generated.stamp
 STUB_INSTALL_STAMP := $(VENV)/.ginext-stubs-installed
 STUBGEN_SRC        := $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.py) \
-                      $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.toml)
+                      $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.toml) \
+                      scripts/sync_namespace_stubs.py
 STUB_OVERLAYS      := $(wildcard src/ginext/_overlays/*.py) \
                       $(wildcard src/ginext/_overlays/*.toml)
 STUB_TEST_GIRS     := $(wildcard $(GI_TESTS_BDIR)/*.gir)
@@ -268,6 +269,7 @@ typelibs: setup
 
 $(STUB_GEN_STAMP): $(STUBGEN_SRC) $(STUB_OVERLAYS) | typelibs
 	$(UV_RUN) ginext-stubgen generate-all
+	$(PY) scripts/sync_namespace_stubs.py
 	@touch $@
 
 $(STUB_INSTALL_STAMP): $(STUB_GEN_STAMP) $(VENV)/.pygir-sync-stamp
@@ -280,7 +282,7 @@ stubs: $(STUB_INSTALL_STAMP)
 # install it. Sync it into the venv only for typecheck; --inexact keeps the
 # editable packages and ginext-stubs (installed separately) in place.
 MYPY_INSTALL_STAMP := $(VENV)/.mypy-installed
-$(MYPY_INSTALL_STAMP): pyproject.toml uv.lock | venv
+$(MYPY_INSTALL_STAMP): pyproject.toml uv.lock $(VENV)/.pygir-sync-stamp
 	@UV_PROJECT_ENVIRONMENT=$(abspath $(VENV)) $(UV) sync --python $(PYTHON) --no-install-project --group mypy --inexact
 	@touch $@
 
@@ -405,6 +407,10 @@ web-browser: build
 terminal: build
 	PYTHONPATH=$(abspath $(BDIR)/src):$(CURDIR) \
 	  $(RUN_PY) -m examples.terminal $(ARGS)
+
+commander: build
+	PYTHONPATH=$(abspath $(BDIR)/src):$(abspath examples/commander/src):$(CURDIR) \
+	  $(RUN_PY) -m commander $(ARGS)
 
 # gnome-music (https://gitlab.gnome.org/GNOME/gnome-music) lives in apps/gnome-music.
 # Real-app integration target — exercises GtkApplication, GStreamer, GTK4,

@@ -232,6 +232,14 @@ def _normalize_index(index: int, length: int) -> int:
     return index
 
 
+def _normalize_position(index: int, length: int) -> int:
+    if index < 0:
+        index += length
+    if index < 0 or index >= length:
+        raise IndexError("index out of range")
+    return index
+
+
 @overlay.method("ListModel")
 def __len__(self: Any) -> int:
     return _n_items(self)
@@ -260,12 +268,34 @@ def __iter__(self: Any) -> Iterator[Any]:
         yield _item_at(self, index)
 
 
+@overlay.method("ListModel", name="__class_getitem__", as_classmethod=True)
+def list_model_class_getitem(cls: type[Any], _item: object) -> type[Any]:
+    return cls
+
+
 @overlay.method("ListStore")
 def __contains__(self: Any, item: Any) -> bool:
     if not isinstance(item, private.GObjectBase) or not item.is_bound():
         raise TypeError("list store membership test requires a GObject")
     found, _position = self.find(item)
     return bool(found)
+
+
+@overlay.method("ActionGroup", name="__len__")
+def action_group_len(self: Any) -> int:
+    return len(self.list_actions())
+
+
+@overlay.method("ActionGroup", name="__iter__")
+def action_group_iter(self: Any) -> Iterator[str]:
+    yield from self.list_actions()
+
+
+@overlay.method("ActionGroup", name="__contains__")
+def action_group_contains(self: Any, action_name: object) -> bool:
+    if not isinstance(action_name, str):
+        return False
+    return bool(self.has_action(action_name))
 
 
 @overlay.method("ListStore")
@@ -674,6 +704,36 @@ def set_attribute(
     else:
         value = GLib.Variant(format_string, args[0] if len(args) == 1 else tuple(args))
         self.set_attribute_value(attribute, value)
+
+
+def _menu_item_at(model: Any, index: int) -> Any:
+    return Gio.MenuItem.new_from_model(model, index)
+
+
+@overlay.method("MenuModel", name="__len__")
+def menu_model_len(self: Any) -> int:
+    return int(self.get_n_items())
+
+
+@overlay.method("MenuModel", name="__getitem__")
+def menu_model_getitem(self: Any, key: object) -> Any:
+    length = len(self)
+    match key:
+        case slice():
+            return [_menu_item_at(self, i) for i in range(*key.indices(length))]
+        case int():
+            return _menu_item_at(self, _normalize_position(key, length))
+        case _:
+            raise TypeError(
+                "menu model indices must be integers or slices, not "
+                f"{type(key).__name__}"
+            )
+
+
+@overlay.method("MenuModel", name="__iter__")
+def menu_model_iter(self: Any) -> Iterator[Any]:
+    for index in range(len(self)):
+        yield _menu_item_at(self, index)
 
 
 # ── D-Bus ─────────────────────────────────────────────────────────────────────

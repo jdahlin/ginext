@@ -44,7 +44,7 @@ def test_emit_with_args_rejects_wrong_arity() -> None:
 
     c = Gio.Cancellable()
     with pytest.raises(TypeError, match="expects 0 argument"):
-        c.cancelled.emit("unexpected")  # type: ignore[call-arg]  # extra arg tests that runtime raises TypeError
+        c.cancelled.emit("unexpected")
 
 
 def test_emit_with_args_for_zero_arg_signal_still_works_with_no_args() -> None:

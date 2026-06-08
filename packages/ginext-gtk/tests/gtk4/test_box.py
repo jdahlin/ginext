@@ -51,3 +51,18 @@ def test_box_append_real_widget_child(require_gtk4_display: Any) -> None:
     box.append(child)
 
     assert box.get_first_child() is child
+
+
+def test_box_collection_dunders(require_gtk4_display: object) -> None:
+    _ = require_gtk4_display
+    from ginext import Gtk
+
+    box = Gtk.Box()
+    first = Gtk.Label(label="first")
+    second = Gtk.Label(label="second")
+
+    box.append(first)
+    box.append(second)
+
+    assert len(box) == 2
+    assert list(box) == [first, second]

@@ -250,6 +250,14 @@ def do_create_closure(self, builder: Any, func_name: str, flags: int, obj: Any) 
 '''
 reserves = ["do_create_closure"]
 
+[ns."Gtk".classes."SectionModel"]
+item_type = "_T"
+extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
+
+[ns."Gtk".classes."SelectionModel"]
+item_type = "_T"
+extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
+
 [ns."Gtk".classes."PropertyExpression"]
 body = '''
 @overload

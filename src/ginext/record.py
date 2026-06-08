@@ -68,6 +68,7 @@ def _record_construction_warning_category(cls: type) -> type[Warning]:
 
 class RecordMeta(type):
     gimeta: types.SimpleNamespace
+    __prepare__ = type.__prepare__
 
     def __getattr__(cls, name: str) -> object:
         found = install_method_for_record_class(cast("type[RecordBase]", cls), name)

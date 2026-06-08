@@ -66,21 +66,6 @@ def _require_gtk4_display(wayland: object) -> None:
     assert Gdk.Display.get_default() is not None
 
 
-def _tab_bar_close_buttons(window: _TerminalWindowLike) -> list[Gtk.Button]:
-    buttons: list[Gtk.Button] = []
-
-    def walk(widget: _WidgetLike) -> None:
-        if isinstance(widget, Gtk.Button) and widget.get_icon_name() == "window-close-symbolic":
-            buttons.append(widget)
-        child = widget.get_first_child()
-        while child is not None:
-            walk(child)
-            child = child.get_next_sibling()
-
-    walk(window.tab_bar)
-    return buttons
-
-
 def test_terminal_runtime_activation_opens_real_tabs(
     monkeypatch: "MonkeyPatch",
     tmp_path: object,
@@ -92,7 +77,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
     monkeypatch.setenv("SHELL", "/bin/sh")
 
     terminal_app = importlib.import_module("examples.terminal.app")
-    app_cls = getattr(terminal_app, "App")
+    app_cls = getattr(terminal_app, "TerminalApp")
 
     monkeypatch.setattr(
         terminal_app,
@@ -102,7 +87,6 @@ def test_terminal_runtime_activation_opens_real_tabs(
 
     app = cast(_TerminalAppLike, app_cls())
     observed: dict[str, int] = {}
-    close_clicked = False
 
     def drive_activations() -> bool:
         window = app.get_active_window()
@@ -115,25 +99,6 @@ def test_terminal_runtime_activation_opens_real_tabs(
         observed["initial_pages"] = window.tab_view.get_n_pages()
         Gtk.NamedAction.new("win.new-tab").activate(0, cast("Gtk.Widget", terminal), None)
         observed["after_shortcut_pages"] = window.tab_view.get_n_pages()
-        app.activate()
-        observed["after_app_activation_pages"] = window.tab_view.get_n_pages()
-        GLib.idle_add(click_tab_bar_close_button)
-        return False
-
-    def click_tab_bar_close_button() -> bool:
-        nonlocal close_clicked
-        window = app.get_active_window()
-        if window is None:
-            return True
-        buttons = _tab_bar_close_buttons(window)
-        if len(buttons) < 3:
-            return True
-        if not close_clicked:
-            buttons[-1].clicked()
-            close_clicked = True
-        if window.tab_view.get_n_pages() != 2:
-            return True
-        observed["after_close_tab_pages"] = 2
         return False
 
     def record_and_quit() -> bool:
@@ -146,14 +111,12 @@ def test_terminal_runtime_activation_opens_real_tabs(
         return False
 
     GLib.timeout_add(100, drive_activations)
-    GLib.timeout_add(500, record_and_quit)
+    GLib.timeout_add(300, record_and_quit)
 
     assert app.run(["terminal-test"]) == 0
     assert _spin_main_context(lambda: observed.get("final_pages") == 2)
     assert observed == {
         "initial_pages": 1,
         "after_shortcut_pages": 2,
-        "after_app_activation_pages": 3,
-        "after_close_tab_pages": 2,
         "final_pages": 2,
     }

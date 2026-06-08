@@ -840,8 +840,12 @@ class SystemdPage(Page):
         factory = Gtk.SignalListItemFactory.new()
         factory.setup.connect(self._row_setup)
         factory.bind.connect(self._row_bind)
+        selection_model = cast(
+            "Gtk.SelectionModel[GObject.Object]",
+            Gtk.NoSelection.new(self.filter_model),
+        )
         self.list_view = Gtk.ListView(
-            model=Gtk.NoSelection(model=self.filter_model), factory=factory
+            model=selection_model, factory=factory
         )
         self.list_view.add_css_class("boxed-list")
         scroller = Gtk.ScrolledWindow(vexpand=True)

@@ -22,15 +22,15 @@
 from __future__ import annotations
 
 import keyword
+import inspect
 import sys
 import types
+from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from . import private
 
 if TYPE_CHECKING:
-    import inspect
-    from collections.abc import Callable
     from .abi import NamespaceContext
     from .namespace import Namespace
     from ginext.GIRepository import CallableInfo, FunctionInfo
@@ -68,12 +68,12 @@ class Function:
         self.info = info
         self.__name__ = name
         self.__qualname__ = self.gimeta.qualified_name
+        self.__module__ = context.module_name()
+        self.__doc__ = None
 
     @property
     def __signature__(self) -> "inspect.Signature":
-        from . import signature
-
-        return signature.callable_signature(self.gimeta)
+        return _callable_signature(self.gimeta)
 
     def __call__(self, *args: object, **kwargs: object) -> object:
         descriptor = self.gimeta.descriptor
@@ -142,7 +142,14 @@ class _GICallable:
     directly-stored instance-method form binds here.
     """
 
-    __slots__ = ("_impl", "gimeta", "__name__", "__qualname__", "__dict__")
+    __slots__ = (
+        "_impl",
+        "gimeta",
+        "__name__",
+        "__qualname__",
+        "__objclass__",
+        "__dict__",
+    )
 
     def __init__(
         self, impl: Callable[..., object], gimeta: types.SimpleNamespace
@@ -151,6 +158,13 @@ class _GICallable:
         self.gimeta = gimeta
         self.__name__ = gimeta.name
         self.__qualname__ = gimeta.qualified_name
+        self.__module__ = _callable_module_name(gimeta)
+        self.__doc__ = None
+        self.__defaults__ = _callable_defaults(gimeta)
+        self.__kwdefaults__ = _callable_kwdefaults(gimeta)
+        self.__annotations__ = _callable_annotations(gimeta)
+        self.__annotate__ = _callable_annotate(gimeta)
+        self.__type_params__ = ()
 
     def __call__(self, *args: object, **kwargs: object) -> object:
         return self._impl(*args, **kwargs)
@@ -162,9 +176,7 @@ class _GICallable:
 
     @property
     def __signature__(self) -> "inspect.Signature":
-        from . import signature
-
-        return signature.callable_signature(self.gimeta)
+        return _callable_signature(self.gimeta)
 
     def __repr__(self) -> str:
         return f"<ginext method {self.__qualname__}>"
@@ -180,7 +192,86 @@ def _attach_callable_metadata(
     descriptor.gimeta = gimeta
     descriptor.__name__ = name
     descriptor.__qualname__ = qualified_name
+    setattr(descriptor, "__module__", _callable_module_name(gimeta))
+    setattr(descriptor, "__doc__", None)
+    setattr(descriptor, "__defaults__", _callable_defaults(gimeta))
+    setattr(descriptor, "__kwdefaults__", _callable_kwdefaults(gimeta))
+    setattr(descriptor, "__annotations__", _callable_annotations(gimeta))
+    setattr(descriptor, "__annotate__", _callable_annotate(gimeta))
+    setattr(descriptor, "__type_params__", ())
     return descriptor
+
+
+def attach_owner_metadata(method: object, owner: type[object]) -> object:
+    try:
+        setattr(method, "__objclass__", owner)
+    except (AttributeError, TypeError):
+        pass
+    return method
+
+
+def _callable_signature(gimeta: types.SimpleNamespace) -> "inspect.Signature":
+    from . import signature
+
+    return signature.callable_signature(gimeta)
+
+
+def _callable_module_name(gimeta: types.SimpleNamespace) -> str:
+    return cast("str", gimeta.namespace.module_name())
+
+
+def _callable_annotations(gimeta: types.SimpleNamespace) -> dict[str, object]:
+    signature = _callable_signature(gimeta)
+    annotations: dict[str, object] = {}
+    for parameter in signature.parameters.values():
+        if parameter.annotation is not inspect.Signature.empty:
+            annotations[parameter.name] = cast("object", parameter.annotation)
+    if signature.return_annotation is not inspect.Signature.empty:
+        annotations["return"] = cast("object", signature.return_annotation)
+    return annotations
+
+
+def _callable_defaults(gimeta: types.SimpleNamespace) -> tuple[object, ...] | None:
+    signature = _callable_signature(gimeta)
+    defaults: list[object] = []
+    collecting = False
+    for parameter in signature.parameters.values():
+        if parameter.kind not in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        ):
+            continue
+        if parameter.default is inspect.Signature.empty:
+            if collecting:
+                defaults.clear()
+                collecting = False
+            continue
+        collecting = True
+        defaults.append(cast("object", parameter.default))
+    return tuple(defaults) if defaults else None
+
+
+def _callable_kwdefaults(gimeta: types.SimpleNamespace) -> dict[str, object] | None:
+    signature = _callable_signature(gimeta)
+    defaults = {
+        parameter.name: cast("object", parameter.default)
+        for parameter in signature.parameters.values()
+        if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        and parameter.default is not inspect.Signature.empty
+    }
+    return defaults or None
+
+
+def _callable_annotate(
+    gimeta: types.SimpleNamespace,
+) -> Callable[[], dict[str, object]]:
+    def annotate() -> dict[str, object]:
+        return _callable_annotations(gimeta)
+
+    annotate.__name__ = "__annotate__"
+    annotate.__qualname__ = f"{gimeta.qualified_name}.__annotate__"
+    annotate.__module__ = _callable_module_name(gimeta)
+    return annotate
 
 
 def make_method(

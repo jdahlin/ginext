@@ -47,6 +47,7 @@ class GObjectMeta(type):
     """
 
     gimeta: private.GIMeta
+    __prepare__ = type.__prepare__
 
     @staticmethod
     def _is_root_gobject_class(cls: type) -> bool:

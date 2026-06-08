@@ -28,6 +28,8 @@ from . import private
 
 
 class FundamentalMeta(type):
+    __prepare__ = type.__prepare__
+
     def __getattr__(cls, name: str) -> object:
         found = sys.modules["ginext.classbuild"].install_method_for_class(cls, name)
         if found is not None:

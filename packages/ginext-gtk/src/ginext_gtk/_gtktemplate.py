@@ -52,6 +52,7 @@ _POST_CONSTRUCT_HOOKS_KEY = "post_construct_hooks"
 _INITIALIZED_ATTR = "_gtk_template_initialized"
 _builder_scope_cls: type[object] | None = None
 _active_template_instance = threading.local()
+_CONNECT_SWAPPED = 2
 
 
 @dataclass(slots=True, frozen=True)
@@ -441,9 +442,9 @@ class TemplateRuntime:
     ) -> object:
         from ginext import Gtk
 
-        swapped = int(flags & Gtk.BuilderClosureFlags.SWAPPED)
+        swapped = int(flags & _CONNECT_SWAPPED)
         if swapped:
-            raise RuntimeError(f"{GObject.ConnectFlags.SWAPPED!r} not supported")
+            raise RuntimeError("GObject.ConnectFlags.SWAPPED not supported")
 
         closure = self._signal_handler(
             instance=current_object,
@@ -483,7 +484,7 @@ class TemplateRuntime:
                 instance, signal.connect_object_id, default_to_instance=False
             )
             if signal.swapped:
-                raise RuntimeError(f"{GObject.ConnectFlags.SWAPPED!r} not supported")
+                raise RuntimeError("GObject.ConnectFlags.SWAPPED not supported")
             callback = self._signal_handler(
                 instance=instance,
                 handler_name=signal.handler_name,

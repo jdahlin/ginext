@@ -39,6 +39,8 @@ class registration (src/classes/gobject-signal.c), so this test passes.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 
@@ -71,7 +73,7 @@ def test_gobject_signal_descriptor_still_works() -> None:
     from ginext import GObject
 
     class Pinger(GObject.Object, type_name="GoiTestPinger_SignalDescriptor"):
-        ping = GObject.Signal()
+        ping: ClassVar[object] = GObject.Signal()
 
     p = Pinger()
     fired = []

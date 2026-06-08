@@ -1521,7 +1521,7 @@ class Emitter:
         # body the field name shadows the builtin, making e.g.
         # ``def f(self, x: bytes)`` resolve ``bytes`` to the field not the type.
         self.lines.append(
-            '# mypy: disable-error-code="override,type-arg,misc,valid-type"'
+            '# mypy: disable-error-code="assignment,explicit-any,misc,name-defined,no-redef,override,type-arg,untyped-decorator,valid-type"'
         )
         self.lines.append("from __future__ import annotations")
         self.lines.append("")
@@ -1584,6 +1584,13 @@ class Emitter:
         # so a handler is typed Callable[[Owner, *signal-args], ret].
         # Public TypeVars — no leading underscore so users can write e.g.
         # ``Callable[[GObject.Object, GObject.ParamSpec], None]`` in callbacks.
+        if self.ns.name != "GObject":
+            self.lines.append(
+                "from ginext.GObject import SignalConnection, Signal, SignalMethod, DetailedSignal"
+            )
+            self.lines.append("")
+            return
+
         self.lines.append("_SigO = TypeVar('_SigO')")
         self.lines.append("_SigP = _ParamSpec('_SigP')")
         self.lines.append("_SigR = TypeVar('_SigR')")

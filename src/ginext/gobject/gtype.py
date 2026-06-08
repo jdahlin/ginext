@@ -36,6 +36,7 @@ _compat_gtype_cache: dict[tuple[int, str], type["GType"]] = {}
 class GTypeMeta(type):
     gimeta: private.GIMeta
     gtype_name: str
+    __prepare__ = type.__prepare__
 
     def __instancecheck__(cls, instance: object) -> bool:
         if isinstance(instance, type):

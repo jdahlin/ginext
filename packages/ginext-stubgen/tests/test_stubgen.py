@@ -120,18 +120,22 @@ def test_output_parses(native: str) -> None:
 
 
 def test_header_has_override_directive(native: str) -> None:
-    assert '# mypy: disable-error-code="override,type-arg,misc,valid-type"' in native
+    assert (
+        '# mypy: disable-error-code='
+        '"assignment,explicit-any,misc,name-defined,no-redef,override,type-arg,untyped-decorator,valid-type"'
+        in native
+    )
 
 
 def test_checked_in_gobject_stub_exposes_notify_as_detailed_signal() -> None:
     stub_path = (
         Path(__file__).resolve().parents[2]
         / "ginext-stubs"
-        / "ginext-stubs"
+        / "ginext"
         / "GObject.pyi"
     )
     if not stub_path.exists():
-        pytest.skip("generated ginext-stubs/GObject.pyi absent (run `make stubs`)")
+        pytest.skip("generated ginext/GObject.pyi absent (run `make stubs`)")
     text = stub_path.read_text(encoding="utf-8")
 
     assert "    notify: DetailedSignal[Self, [ParamSpec], None]" in text
@@ -155,10 +159,12 @@ class TestNativeSignals:
         # activate-link is not an action signal: connect/emit only
         assert "    activate_link: Signal[Self, [str], bool]" in native
 
-    def test_signal_helpers_emitted(self, native: str) -> None:
-        assert "class Signal(Generic[_SigO, _SigP, _SigR]):" in native
-        assert "class SignalMethod(Signal[_SigO, _SigP, _SigR]):" in native
-        assert "ParamSpec as _ParamSpec" in native  # aliased to avoid GObject clash
+    def test_signal_helpers_imported_from_gobject(self, native: str) -> None:
+        assert (
+            "from ginext.GObject import SignalConnection, Signal, SignalMethod, "
+            "DetailedSignal" in native
+        )
+        assert "class Signal(Generic[_SigO, _SigP, _SigR]):" not in native
 
     def test_no_string_connect_overloads_in_native(self, native: str) -> None:
         assert "def connect(self, signal: Literal[" not in native
@@ -330,6 +336,20 @@ class TestItemTypeGioNamespace:
         # within Gio's own stub, ListModel is referenced bare
         assert "ListModel[_T]" in klass.parents
         assert "Gio.ListModel[_T]" not in klass.parents
+
+
+class TestItemTypeGtkInterface:
+    def test_interface_base_parameterized_in_gtk_namespace(self) -> None:
+        klass = Klass(
+            kind="interface",
+            name="SelectionModel",
+            parents=["Gio.ListModel"],
+            methods=[],
+        )
+        Emitter(Namespace(name="Gtk", version="4.0"), mode="native")._apply_item_type(
+            klass, "_T"
+        )
+        assert "Gio.ListModel[_T]" in klass.parents
 
 
 class TestModes:

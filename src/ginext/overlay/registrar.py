@@ -332,10 +332,7 @@ class OverlayRegistrar:
     def _find_typelib_member(self, name: str) -> tuple[str, CallableInfo]:
         # The registrar resolves callable (function/method) members for overlays,
         # so the BaseInfo half is a CallableInfo.
-        return cast(
-            "tuple[str, CallableInfo]",
-            private.namespace_find(self._ns_name, self._namespace._version, name),
-        )
+        return private.namespace_find(self._ns_name, self._namespace._version, name)
 
     def _set_module(self, name: str, entry: ModuleEntry) -> None:
         key = (self._ns_name, name)

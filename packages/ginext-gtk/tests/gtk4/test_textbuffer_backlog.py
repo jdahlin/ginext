@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import sys
+import types
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
@@ -54,11 +55,11 @@ needs_display = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="module")
-def Gtk() -> Generator[Namespace, None, None]:
+def Gtk() -> Generator[types.ModuleType, None, None]:
     import ginext
 
     ginext.features.set_enabled(ginext.features.OLD_SIGNAL_API, True)
-    Gtk: Namespace = ginext.Gtk
+    Gtk = ginext.Gtk
     if Gtk.get_major_version() != 4:
         pytest.skip("requires Gtk-4.0")
     yield Gtk
@@ -66,7 +67,7 @@ def Gtk() -> Generator[Namespace, None, None]:
 
 
 @pytest.fixture
-def buf(Gtk: Namespace) -> object:
+def buf(Gtk: types.ModuleType) -> object:
     return Gtk.TextBuffer()
 
 

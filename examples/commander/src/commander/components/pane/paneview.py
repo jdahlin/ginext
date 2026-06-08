@@ -813,10 +813,11 @@ class CommanderPane(Gtk.Box, type_name="GoiCommanderPane"):
     def _restore_pending_selection(self) -> None:
         name = self._pending_selection_name
         if name:
-            for index in range(self.sort_model.get_n_items()):
-                row = self.sort_model.get_item(index)
+            model = cast("Gio.ListModel[PaneRow]", self.sort_model)
+            for index in range(len(model)):
+                row = model[index]
                 if row is not None and row.name == name:
-                    self.selection.select_item(index, True)
+                    self.selection.set_selected(index)
                     self._pending_selection_name = None
                     self._pending_focus_index = index
                     break
@@ -931,9 +932,12 @@ class CommanderPane(Gtk.Box, type_name="GoiCommanderPane"):
         return self.current_dir.child(name) if name else None
 
     def _on_view_activate(self, _view: Gtk.ColumnView, position: int) -> None:
-        row = self.sort_model.get_item(position)
-        if row is not None:
-            self._activate_row(row)
+        model = cast("Gio.ListModel[PaneRow]", self.sort_model)
+        for index in range(len(model)):
+            row = model[index]
+            if index == position:
+                self._activate_row(row)
+                break
 
     def _activate_row(self, row: PaneRow) -> None:
         if row.is_parent:

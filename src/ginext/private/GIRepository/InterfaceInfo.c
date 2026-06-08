@@ -15,18 +15,37 @@
  */
 
 #include "GIRepository/Info.h"
+#include "GIRepository/BaseInfo.h"
 
 #define INTERFACE_INFO_GETTERS(X)                                                                  \
   X (UINT, interface_info, get_n_methods, GIInterfaceInfo)                                         \
   X (UINT, interface_info, get_n_properties, GIInterfaceInfo)                                      \
   X (UINT, interface_info, get_n_signals, GIInterfaceInfo)                                         \
-  X (UINT, interface_info, get_n_vfuncs, GIInterfaceInfo)
+  X (UINT, interface_info, get_n_vfuncs, GIInterfaceInfo)                                          \
+  X (UINT, interface_info, get_n_prerequisites, GIInterfaceInfo)
 
 INTERFACE_INFO_GETTERS (INFO_EMIT_FN)
 
+static PyObject *
+interfacefn_get_prerequisite (PyObject *self, PyObject *arg)
+{
+  long n = PyLong_AsLong (arg);
+  if (n == -1 && PyErr_Occurred ())
+    return NULL;
+  return gi_info_to_py_owned (
+      gi_interface_info_get_prerequisite ((GIInterfaceInfo *)PYGI_INFO (self), (unsigned int)n));
+}
+
 static PyMethodDef interface_info_methods[]
     = { INTERFACE_INFO_GETTERS (
-            INFO_EMIT_DEF){ "object_info", ginext_object_info_method, METH_NOARGS, NULL },
+            INFO_EMIT_DEF){
+          "get_prerequisite", interfacefn_get_prerequisite, METH_O,
+          "($self, n, /) -> BaseInfo\n--\n\n" },
+        { "get_n_prerequisites",
+          infofn_interface_info_get_n_prerequisites,
+          METH_NOARGS,
+          "($self, /) -> int\n--\n\n" },
+        { "object_info", ginext_object_info_method, METH_NOARGS, NULL },
         { 0 } };
 
 INFO_TYPE (PyGIInterfaceInfo_Type,
