@@ -91,7 +91,6 @@ def test_gobject_namespace_exposes_signal_descriptor() -> None:
 
 def test_imported_gobject_classes_do_not_expose_signal_descriptor() -> None:
     import ginext
-    from ginext import GObject
 
     # GObject.Object is the single canonical base and carries Signal as the
     # root; every other imported class stays gated.
