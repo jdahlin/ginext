@@ -124,6 +124,7 @@ typecheck = [
 # free-threaded 3.15 build. `make typecheck` syncs this group.
 mypy = [
     "mypy>=1.15",
+    "numpy>=2",
 ]
 
 [tool.uv]
