@@ -51,11 +51,10 @@ def _new_gobject() -> Any:
 
 
 def is_goi_wrapper(obj: object) -> bool:
-    # The leaf class's __module__ is the bare GI namespace (e.g. "GObject");
-    # the ginext base (ginext.gobject.GObject) shows up in the MRO.
-    return obj is not None and any(
-        cls.__module__.startswith("ginext") for cls in type(obj).__mro__
-    )
+    # Every ginext GObject wrapper is an instance of the single GObject base.
+    from ginext import private
+
+    return obj is not None and isinstance(obj, private.GObjectBase)
 
 
 def is_goi_weakref(obj: object) -> bool:

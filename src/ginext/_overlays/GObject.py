@@ -142,10 +142,12 @@ class _NotifyCompatProxy:
         self._source = source
 
     def __call__(self, detail: str | "_PropertyDetail") -> object:
-        method = GObject.Object.gimeta.signal_method_backings.get("notify")
-        if method is None:
-            raise TypeError(f"{type(self._source).__name__}.notify is not callable")
-        return method(self._source, detail)
+        # Emit notify via the low-level introspection invoke rather than the
+        # class's signal_method_backings: GObject.Object is the single base
+        # shared across profiles, so its gimeta state must not gate this.
+        from .. import private
+
+        return private.invoke("GObject", "Object.notify", self._source, str(detail))
 
     def __getattr__(self, name: str) -> object:
         return getattr(_notify_bound_signal(self._source), name)
@@ -173,7 +175,10 @@ def freeze_notify(fn: Any, self: Any) -> _FreezeNotifyContext:
 def notify(self: _gobject_root.GObject) -> _NotifySignalSelector | _NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
-    if type(self).gimeta.profile.pygobject_compat:
+    # GObject.Object is one class across both ABI profiles, so per-class profile
+    # can't disambiguate notify for a direct GObject.Object() instance; drive the
+    # compat-vs-native choice off the process-global feature flag instead.
+    if features.is_enabled(features.PYGOBJECT_COMPAT):
         return _NotifyCompatProxy(self)
     return _NotifySignalSelector(self)
 
@@ -325,7 +330,10 @@ def _root_notify(
 ) -> _NotifySignalSelector | _NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
-    if type(self).gimeta.profile.pygobject_compat:
+    # GObject.Object is one class across both ABI profiles, so per-class profile
+    # can't disambiguate notify for a direct GObject.Object() instance; drive the
+    # compat-vs-native choice off the process-global feature flag instead.
+    if features.is_enabled(features.PYGOBJECT_COMPAT):
         return _NotifyCompatProxy(self)
     return _NotifySignalSelector(self)
 
