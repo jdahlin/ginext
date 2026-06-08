@@ -2763,6 +2763,18 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
       ns_name = PyUnicode_AsUTF8 (name_holder);
       if (ns_name == NULL)
         return NULL;
+      /* Match the str namespace path: a Namespace instance may exist
+       * before the shared GIRepository has loaded its typelib. Force
+       * the normal ginext attribute access once so version lookup
+       * below is stable on first use. */
+      PyObject *ginext_mod = PyImport_ImportModule ("ginext");
+      if (ginext_mod == NULL)
+        return NULL;
+      PyObject *namespace = PyObject_GetAttr (ginext_mod, name_holder);
+      Py_DECREF (ginext_mod);
+      if (namespace == NULL)
+        return NULL;
+      Py_DECREF (namespace);
     }
 
   const char *version = gi_repository_get_version (ginext_shared_repository (), ns_name);
