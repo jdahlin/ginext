@@ -29,12 +29,29 @@ protocols, freeze_notify context manager).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import inspect
+import subprocess
+import sys
+import time
 
 import pytest
 
 
 # ── private.invoke ───────────────────────────────────────────────────────
+
+
+def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
+    from ginext import GLib
+
+    ctx = GLib.MainContext.default()
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        ctx.iteration(False)
+        time.sleep(0.01)
+    return bool(predicate())
 
 
 def test_invoke_with_string_namespace() -> None:
@@ -50,12 +67,7 @@ def test_invoke_with_string_namespace() -> None:
 
     handle = private.invoke("GLib", "idle_add", 200, _cb)
     assert isinstance(handle, int)
-    ctx = GLib.MainContext.default()
-    for _ in range(5):
-        ctx.iteration(False)
-        if fired:
-            break
-    assert len(fired) == 1
+    assert _spin_until(lambda: len(fired) == 1)
 
 
 def test_invoke_with_namespace_instance() -> None:
@@ -69,12 +81,29 @@ def test_invoke_with_namespace_instance() -> None:
         return False
 
     private.invoke(GLib, "idle_add", 200, _cb)
-    ctx = GLib.MainContext.default()
-    for _ in range(5):
-        ctx.iteration(False)
-        if fired:
-            break
-    assert fired == [1]
+    assert _spin_until(lambda: fired == [1])
+
+
+def test_invoke_with_namespace_instance_as_first_use_in_fresh_process() -> None:
+    code = """
+import time
+from ginext import GLib, private
+fired = []
+def _cb():
+    fired.append(1)
+    return False
+private.invoke(GLib, "idle_add", 200, _cb)
+ctx = GLib.MainContext.default()
+deadline = time.monotonic() + 1.0
+while time.monotonic() < deadline:
+    ctx.iteration(False)
+    if fired:
+        break
+    time.sleep(0.01)
+raise SystemExit(0 if fired == [1] else 1)
+"""
+    completed = subprocess.run([sys.executable, "-c", code], check=False)
+    assert completed.returncode == 0
 
 
 def test_invoke_rejects_missing_args() -> None:
