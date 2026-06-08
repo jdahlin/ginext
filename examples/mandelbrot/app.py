@@ -294,15 +294,11 @@ class Surface:
             self.buf[dst_off : dst_off + t.w * 4] = src[src_off : src_off + t.w * 4]
 
     def to_texture(self) -> Gdk.Texture:
-        # Wrap the buffer in a GLib.Bytes so the texture owns a reference to
-        # the pixel data; passing a bare `bytes` lets it be freed while GTK
-        # is still compositing the previous frame (segfault under repeated
-        # set_paintable).
         return Gdk.MemoryTexture.new(
             self.w,
             self.h,
             Gdk.MemoryFormat.R8G8B8A8,
-            GLib.Bytes.new(bytes(self.buf)),
+            bytes(self.buf),
             self.stride,
         )
 

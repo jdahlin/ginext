@@ -830,7 +830,7 @@ class Parser:
             child = type_el.find("gi:type", NS)
             inner = self._resolve_type(child) if child is not None else "Any"
             return f"list[{inner}]"
-        if name in ("GLib.ByteArray", "GLib.Bytes"):
+        if name == "GLib.ByteArray":
             return "bytes"
         # cairo.Context is generic in pycairo (Context[_SomeSurface]); use the
         # base Surface as the type argument for GIR-derived references.
@@ -1304,7 +1304,7 @@ def render_signature(
     if instance:
         parts.append(instance)
     for p in fn.params:
-        base = f"{p.name}: {p.type_expr}"
+        base = f"{p.name}: {_widen_glib_bytes_input(p.type_expr)}"
         if p.has_default:
             base += " = ..."
         parts.append(base)
@@ -1321,6 +1321,20 @@ def render_signature(
         else:
             ret = f"tuple[{', '.join(tuple_parts)}]"
     return f"({', '.join(parts)}) -> {ret}"
+
+
+def _widen_glib_bytes_input(type_expr: str) -> str:
+    if type_expr.endswith(" | None"):
+        base = type_expr[: -len(" | None")]
+        widened = _widen_glib_bytes_input(base)
+        if widened == base:
+            return type_expr
+        return f"{widened} | None"
+    if type_expr == "Bytes":
+        return "bytes | Bytes"
+    if type_expr == "GLib.Bytes":
+        return "bytes | GLib.Bytes"
+    return type_expr
 
 
 class Emitter:
@@ -2158,7 +2172,7 @@ class Emitter:
             if not prop.writable or prop.py_name in emitted:
                 continue
             emitted.add(prop.py_name)
-            params.append(f"{prop.py_name}: {prop.type_expr} = ...")
+            params.append(f"{prop.py_name}: {_widen_glib_bytes_input(prop.type_expr)} = ...")
         if not params:
             return "    def __init__(self, **kwargs: Any) -> None: ..."
         return (

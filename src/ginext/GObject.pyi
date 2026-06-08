@@ -30,6 +30,7 @@ from typing import (
     Generic,
     Literal,
     ParamSpec as _ParamSpec,
+    Self,
     TypeVar,
     overload,
 )
@@ -151,7 +152,7 @@ class Object(_CompatGObject.Object):  # type: ignore[misc]
     gimeta: ClassVar[_GIMeta]
     def __init_subclass__(cls, *, type_name: str = ..., **kwargs: object) -> None: ...
     __gtype_name__: Final[str]
-    notify: "_DetailedSignal[Object, [Any], None]"  # type: ignore[assignment]
+    notify: "DetailedSignal[Self, [ParamSpec], None]"  # type: ignore[assignment]
     def freeze_notify(self) -> "_FreezeNotifyContext": ...  # type: ignore[override]
     def handler_block(  # type: ignore[override]
         self, handler_id: int | SignalConnection

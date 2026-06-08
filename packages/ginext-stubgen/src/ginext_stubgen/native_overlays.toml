@@ -231,8 +231,9 @@ from ginext_gtk._gtktemplate import Child as Child, Template as Template
 [ns."Gtk".classes."Widget"]
 # Gtk.Widget class-side template API (used by _gtktemplate.py).
 body = '''
+notify: DetailedSignal[Self, [GObject.ParamSpec], None]
 @classmethod
-def set_template(cls, template_bytes: "GLib.Bytes") -> None: ...
+def set_template(cls, template_bytes: "bytes | GLib.Bytes") -> None: ...
 @classmethod
 def set_template_from_resource(cls, resource_path: str) -> None: ...
 @classmethod
@@ -240,7 +241,7 @@ def bind_template_child_full(cls, name: str, internal_child: bool, struct_offset
 @classmethod
 def set_connect_func(cls, connect_func: Any, connect_data: Any = ...) -> None: ...
 '''
-reserves = ["set_template", "set_template_from_resource", "bind_template_child_full", "set_connect_func"]
+reserves = ["notify", "set_template", "set_template_from_resource", "bind_template_child_full", "set_connect_func"]
 
 [ns."Gtk".classes."BuilderScope"]
 # do_create_closure is a vfunc; return object (Closure or None) to avoid
@@ -257,6 +258,10 @@ extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
 [ns."Gtk".classes."SelectionModel"]
 item_type = "_T"
 extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
+body = '''
+notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+'''
+reserves = ["notify"]
 
 [ns."Gtk".classes."PropertyExpression"]
 body = '''
@@ -294,10 +299,22 @@ item_type = "_T"
 item_type = "_T"
 [ns."Gtk".classes."SingleSelection"]
 item_type = "_T"
+body = '''
+notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+'''
+reserves = ["notify"]
 [ns."Gtk".classes."MultiSelection"]
 item_type = "_T"
+body = '''
+notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+'''
+reserves = ["notify"]
 [ns."Gtk".classes."NoSelection"]
 item_type = "_T"
+body = '''
+notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+'''
+reserves = ["notify"]
 
 # Concrete-item containers: the element type is fixed.
 [ns."Gtk".classes."StringList"]
