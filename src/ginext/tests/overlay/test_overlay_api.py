@@ -29,14 +29,29 @@ protocols, freeze_notify context manager).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import inspect
 import subprocess
 import sys
+import time
 
 import pytest
 
 
 # ── private.invoke ───────────────────────────────────────────────────────
+
+
+def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
+    from ginext import GLib
+
+    ctx = GLib.MainContext.default()
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        ctx.iteration(False)
+        time.sleep(0.01)
+    return bool(predicate())
 
 
 def test_invoke_with_string_namespace() -> None:
@@ -121,11 +136,7 @@ def test_idle_add_default_priority_fires() -> None:
         return False
 
     GLib.idle_add(_cb)
-    ctx = GLib.MainContext.default()
-    for _ in range(5):
-        if not ctx.iteration(False):
-            break
-    assert fired == ["ok"]
+    assert _spin_until(lambda: fired == ["ok"])
 
 
 def test_idle_add_with_explicit_priority_fires() -> None:
@@ -138,11 +149,7 @@ def test_idle_add_with_explicit_priority_fires() -> None:
         return False
 
     GLib.idle_add(_cb, priority=150)
-    ctx = GLib.MainContext.default()
-    for _ in range(5):
-        if not ctx.iteration(False):
-            break
-    assert fired == ["explicit"]
+    assert _spin_until(lambda: fired == ["explicit"])
 
 
 def test_replace_overlay_hides_injected_fn_argument() -> None:
