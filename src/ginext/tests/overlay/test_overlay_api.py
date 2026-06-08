@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import inspect
+import os
 import subprocess
 import sys
 from types import FunctionType
@@ -55,13 +56,31 @@ def test_invoke_with_namespace_instance() -> None:
     assert private.invoke(GLib, "get_user_name") == GLib.get_user_name()
 
 
+def _subprocess_preamble() -> str:
+    return """
+import os
+import sys
+
+if sys.platform == "win32":
+    for _dll_dir in os.environ.get("GINEXT_WIN_DLL_DIRS", "").split(os.pathsep):
+        if _dll_dir and os.path.isdir(_dll_dir):
+            os.add_dll_directory(_dll_dir)
+"""
+
+
 def test_invoke_with_namespace_instance_as_first_use_in_fresh_process() -> None:
-    code = """
+    code = _subprocess_preamble() + """
 from ginext import GLib, private
 raise SystemExit(0 if private.invoke(GLib, "get_user_name") == GLib.get_user_name() else 1)
 """
-    completed = subprocess.run([sys.executable, "-c", code], check=False)
-    assert completed.returncode == 0
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        check=False,
+        env=os.environ.copy(),
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
 
 
 def test_invoke_rejects_missing_args() -> None:
