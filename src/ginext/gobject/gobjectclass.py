@@ -668,8 +668,8 @@ else:
 
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
-# Marks the single canonical GObject base; GObjectMeta gates `Signal` to it.
-GObject._gobject_is_root = True
+# _gobject_is_root (the marker GObjectMeta uses to gate `Signal` to the root) is
+# transplanted onto GObject from _GObjectBody above.
 # __init_subclass__ only fires for subclasses, so the root must be wired up
 # explicitly. GLib's type lookup works without an explicit g_type_init() in
 # modern GLib — the type system auto-initializes on first use.
