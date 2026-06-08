@@ -143,6 +143,20 @@ def test_checked_in_gobject_stub_exposes_notify_as_detailed_signal() -> None:
     assert "    def __getitem__(self, detail: str) ->" not in text
 
 
+def test_checked_in_stubs_widen_glib_bytes_inputs_to_accept_bytes() -> None:
+    stub_dir = Path(__file__).resolve().parents[2] / "ginext-stubs" / "ginext"
+    glib_path = stub_dir / "GLib.pyi"
+    gtk_path = stub_dir / "Gtk.pyi"
+    if not (glib_path.exists() and gtk_path.exists()):
+        pytest.skip("generated native stubs absent (run `make stubs`)")
+
+    glib = glib_path.read_text(encoding="utf-8")
+    gtk = gtk_path.read_text(encoding="utf-8")
+
+    assert "def compute_checksum_for_bytes(checksum_type: ChecksumType | int, data: bytes | Bytes) -> str | None:" in glib
+    assert '    def set_template(cls, template_bytes: "bytes | GLib.Bytes") -> None: ...' in gtk
+
+
 class TestNativeSignals:
     """Native mode: signals are typed descriptor attributes, not string
     connect overloads. A method-backed signal is callable (_SignalMethod);
