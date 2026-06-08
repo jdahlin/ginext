@@ -62,6 +62,16 @@ class GIEnum(enum.IntEnum):
         super().__init_subclass__(**kwargs)
         _ENUM_PICKLE_REGISTRY[id(cls)] = cls
 
+    @property
+    def value_name(self) -> str:
+        names = cast("dict[int, str]", getattr(type(self), "_value_names", {}))
+        return names.get(int(self), str(self.name))
+
+    @property
+    def value_nick(self) -> str:
+        nicks = cast("dict[int, str]", getattr(type(self), "_value_nicks", {}))
+        return nicks.get(int(self), str(self.name).lower().replace("_", "-"))
+
 
 class GIFlags(enum.IntFlag):
     __info__: ClassVar[FlagsInfo]
@@ -77,6 +87,34 @@ class GIFlags(enum.IntFlag):
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         _ENUM_PICKLE_REGISTRY[id(cls)] = cls
+
+    @property
+    def value_names(self) -> list[str]:
+        names: dict[int, str] = getattr(type(self), "_value_names", {})
+        return [
+            names.get(int(member), member.name or "")
+            for member in type(self)
+            if member in self
+        ]
+
+    @property
+    def value_nicks(self) -> list[str]:
+        nicks: dict[int, str] = getattr(type(self), "_value_nicks", {})
+        return [
+            nicks.get(int(member), (member.name or "").lower().replace("_", "-"))
+            for member in type(self)
+            if member in self
+        ]
+
+    @property
+    def first_value_name(self) -> str:
+        names = self.value_names
+        return names[0] if names else "0"
+
+    @property
+    def first_value_nick(self) -> str:
+        nicks = self.value_nicks
+        return nicks[0] if nicks else "0"
 
 
 class EnumBuilder:

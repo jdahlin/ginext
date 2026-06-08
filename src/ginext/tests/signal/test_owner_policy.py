@@ -132,7 +132,7 @@ def test_multi_owner_lambda_raises_typeerror() -> None:
         a = Gio.Cancellable()
         b = Gio.Cancellable()
         with pytest.raises(TypeError, match="closure captures 2 GObject"):
-            a.cancelled.connect(lambda src: (a, b))  # type: ignore[arg-type]  # tests that multiple-GObject-capture raises
+            a.cancelled.connect(lambda src: (a, b))
 
     make_ambiguous()
 
@@ -146,7 +146,7 @@ def test_multi_owner_resolved_by_explicit_owner_kwarg() -> None:
         a = Gio.Cancellable()
         b = Gio.Cancellable()
         # Multi-owner closure, but owner= overrides — no raise.
-        conn = a.cancelled.connect(lambda src: (a, b), owner=a)  # type: ignore[arg-type]  # tests warning on wrong-return-type handler
+        conn = a.cancelled.connect(lambda src: (a, b), owner=a)
         assert conn.owner is a
         conn.disconnect()
 
@@ -160,7 +160,7 @@ def test_multi_owner_resolved_by_static_owner() -> None:
     def run() -> None:
         a = Gio.Cancellable()
         b = Gio.Cancellable()
-        conn = a.cancelled.connect(lambda src: (a, b), owner=ginext.static_owner)  # type: ignore[arg-type]  # tests with static_owner kwarg
+        conn = a.cancelled.connect(lambda src: (a, b), owner=ginext.static_owner)
         assert conn.owner is None
         conn.disconnect()
 
@@ -189,7 +189,7 @@ def test_single_owner_closure_does_not_raise_picks_via_self() -> None:
         a = Gio.Cancellable()
         with warnings.catch_warnings(record=True) as captured:
             warnings.simplefilter("always")
-            conn = a.cancelled.connect(lambda src: a)  # type: ignore[arg-type]  # tests warning: returns Cancellable not None
+            conn = a.cancelled.connect(lambda src: a)
         # Single-capture still warns (not bound, no static_owner)
         unowned = [
             w
@@ -213,7 +213,7 @@ def test_bound_method_on_gobject_infers_owner() -> None:
     # bound method __self__ is c itself
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
-        conn = c.cancelled.connect(c.reset)  # type: ignore[arg-type]  # bound method arity differs; runtime adapter handles it
+        conn = c.cancelled.connect(c.reset)
     assert captured == []
     assert conn.owner is c
     conn.disconnect()

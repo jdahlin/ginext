@@ -156,7 +156,7 @@ ginext-libsoup = { workspace = true }
 ginext-gi-compat = { workspace = true }
 ginext-stubgen = { workspace = true }
 commander = { workspace = true }
-# Non-editable path install so the stub-only `ginext-stubs/` dir lands in
+# Non-editable path install so the stub-only `ginext/*.pyi` package lands in
 # site-packages where mypy's PEP 561 stub discovery finds it.
 ginext-stubs = { path = "packages/ginext-stubs" }
 
@@ -200,6 +200,10 @@ exclude = [
     # compat (gi.repository / pygobject layer): excluded from strict checking
     # for now — tracked separately.
     "^packages/ginext-gi-compat/",
+    # Generated namespace stubs are synced into src/ginext/ so mypy can resolve
+    # `from ginext import Gio`, but they are still generated artifacts and
+    # should not be checked as handwritten core sources here.
+    "^src/ginext/(Adw|GIMarshallingTests|GLib|GModule|Gdk|GdkPixbuf|Gio|GioUnix|GoiBench|Graphene|Gsk|Gst|GstApp|GstAudio|GstBase|GstVideo|Gtk|GtkSource|HarfBuzz|Pango|PangoCairo|Regress|RegressUnix|Vte|WebKit|freetype2)\\.pyi$",
     # conftest modules collide across packages (same module name) and are test
     # fixtures, not shipped surface.
     "/conftest\\.py$",

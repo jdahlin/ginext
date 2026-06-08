@@ -51,17 +51,65 @@ ParamFlags = _CompatGObject.ParamFlags
 
 class _Signal(Generic[_SigO, _SigP, _SigR]):
     def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
+    @overload
     def connect(
         self,
-        handler: Callable[Concatenate[_SigO, _SigP], _SigR],
+        handler: Callable[[], object],
         *,
         after: bool = ...,
         once: bool = ...,
         owner: Any = ...,
     ) -> SignalConnection: ...
+    @overload
+    def connect(
+        self,
+        handler: Callable[[Any], object],
+        *,
+        after: bool = ...,
+        once: bool = ...,
+        owner: Any = ...,
+    ) -> SignalConnection: ...
+    @overload
+    def connect(
+        self,
+        handler: Callable[[Any, Any], object],
+        *,
+        after: bool = ...,
+        once: bool = ...,
+        owner: Any = ...,
+    ) -> SignalConnection: ...
+    @overload
+    def connect(
+        self,
+        handler: Callable[[Any, Any, Any], object],
+        *,
+        after: bool = ...,
+        once: bool = ...,
+        owner: Any = ...,
+    ) -> SignalConnection: ...
+    def connect(
+        self,
+        handler: Callable[..., object],
+        *,
+        after: bool = ...,
+        once: bool = ...,
+        owner: Any = ...,
+    ) -> SignalConnection: ...
+    @overload
+    def connect_after(self, handler: Callable[[], object]) -> SignalConnection: ...
+    @overload
+    def connect_after(self, handler: Callable[[Any], object]) -> SignalConnection: ...
+    @overload
+    def connect_after(
+        self, handler: Callable[[Any, Any], object]
+    ) -> SignalConnection: ...
+    @overload
+    def connect_after(
+        self, handler: Callable[[Any, Any, Any], object]
+    ) -> SignalConnection: ...
     def connect_after(
         self,
-        handler: Callable[Concatenate[_SigO, _SigP], _SigR],
+        handler: Callable[..., object],
     ) -> SignalConnection: ...
     def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
     def disconnect(self, connection: SignalConnection) -> None: ...
@@ -70,6 +118,10 @@ class _DetailedSignal(_Signal[_SigO, _SigP, _SigR]):
     def __call__(self, detail: str | Any) -> "_Signal[_SigO, _SigP, _SigR]": ...
     @overload
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+Signal = _Signal
+SignalMethod = _Signal
+DetailedSignal = _DetailedSignal
 
 class _HandlerBlockContext:
     def __init__(self, obj: Object, handler_id: int) -> None: ...

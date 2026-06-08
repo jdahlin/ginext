@@ -27,6 +27,8 @@ All user API should be reached through a namespace object.
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 
@@ -83,7 +85,7 @@ def test_gobject_namespace_exposes_signal_descriptor() -> None:
 
     # GObject.Signal is the SignalDescriptor re-exported as Signal.
     # The stub uses different class names (TOML Signal vs inline SignalDescriptor).
-    assert GObject.Signal is SignalDescriptor
+    assert cast("object", GObject.Signal) is cast("object", SignalDescriptor)
     assert "Signal" in dir(GObject)
 
 

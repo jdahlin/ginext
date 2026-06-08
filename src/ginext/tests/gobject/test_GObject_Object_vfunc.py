@@ -318,10 +318,10 @@ def test_ambiguous_gst_vfunc_short_name_is_rejected() -> None:
     with pytest.raises(TypeError, match="do_query"):
 
         class AmbiguousTransform(  # type: ignore[call-arg]
-            GstBase.BaseTransform,  # type: ignore[misc, name-defined]
+            GstBase.BaseTransform,
             type_name=_unique_name("AmbiguousTransform"),
         ):
-            def do_query(self, direction: object, query: object) -> bool:
+            def do_query(self, *args: object) -> bool:
                 return False
 
 
@@ -334,7 +334,7 @@ def test_explicit_gst_base_qualified_vfunc_name_is_accepted() -> None:
     GstBase = ginext.GstBase
 
     class ExplicitTransform(  # type: ignore[call-arg]
-        GstBase.BaseTransform,  # type: ignore[misc, name-defined]
+        GstBase.BaseTransform,
         type_name=_unique_name("ExplicitTransform"),
     ):
         def do_base_transform_query(self, direction: object, query: object) -> bool:

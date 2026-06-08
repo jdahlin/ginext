@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import cast
+
 import ginext
 from ginext import Gst
 
@@ -32,11 +35,11 @@ def test_collectpads_callback_setters_accept_python_callables() -> None:
     """Verifies the Python callback registration surface is exposed."""
     helper = GstBase.CollectPads()
     helper.set_function(lambda *args: True)
-    helper.set_buffer_function(lambda *args: None)
+    helper.set_buffer_function(lambda *args: Gst.FlowReturn.OK)
     helper.set_compare_function(lambda *args: 0)
     helper.set_event_function(lambda *args: True)
     helper.set_query_function(lambda *args: True)
-    helper.set_clip_function(lambda *args: None)
+    helper.set_clip_function(lambda *args: Gst.FlowReturn.OK)
     helper.set_flush_function(lambda *args: None)
 
 
@@ -51,7 +54,8 @@ def test_collectpads_supports_collectdata_lifecycle_when_given_explicit_size() -
     helper = GstBase.CollectPads()
     pad = Gst.Pad.new("sink0", Gst.PadDirection.SINK)
 
-    data = helper.add_pad(pad, 256, None, True)
+    data = helper.add_pad(pad, 256, lambda _data: None, True)
+    assert data is not None
     helper.start()
     helper.stop()
 
@@ -67,7 +71,8 @@ def test_collectpads_exposes_waiting_and_flushing_controls() -> None:
     """Checks the helper-wide flow-control toggles used by muxer-style code."""
     helper = GstBase.CollectPads()
     pad = Gst.Pad.new("sink0", Gst.PadDirection.SINK)
-    data = helper.add_pad(pad, 256, None, True)
+    data = helper.add_pad(pad, 256, lambda _data: None, True)
+    assert data is not None
 
     helper.set_waiting(data, True)
     helper.set_waiting(data, False)
@@ -80,23 +85,26 @@ def test_collectpads_exposes_waiting_and_flushing_controls() -> None:
 def test_collectpads_pad_data_methods_require_collect_data_arguments() -> None:
     """Checks the current Python call shape for per-pad helper methods."""
     helper = GstBase.CollectPads()
+    peek = cast("Callable[[], object]", helper.peek)
+    pop = cast("Callable[[], object]", helper.pop)
+    flush = cast("Callable[[], object]", helper.flush)
 
     try:
-        helper.peek()
+        peek()
     except TypeError as exc:
         assert "peek() takes exactly 2 arguments" in str(exc)
     else:
         raise AssertionError("peek() unexpectedly accepted no collect-data argument")
 
     try:
-        helper.pop()
+        pop()
     except TypeError as exc:
         assert "pop() takes exactly 2 arguments" in str(exc)
     else:
         raise AssertionError("pop() unexpectedly accepted no collect-data argument")
 
     try:
-        helper.flush()
+        flush()
     except TypeError as exc:
         assert "flush() takes exactly 3 arguments" in str(exc)
     else:

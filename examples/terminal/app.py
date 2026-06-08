@@ -100,6 +100,3 @@ class TerminalApp(Adw.Application):
     def _on_quit(self) -> None:
         for w in list(self.get_windows()):
             w.close()
-
-
-App = TerminalApp

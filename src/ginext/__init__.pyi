@@ -21,6 +21,34 @@
 
 from typing import Any
 
+from . import Adw as Adw
+from . import GIMarshallingTests as GIMarshallingTests
+from . import GLib as GLib
+from . import GModule as GModule
+from . import GObject as GObject
+from . import Gdk as Gdk
+from . import GdkPixbuf as GdkPixbuf
+from . import GIRepository as GIRepository
+from . import Gio as Gio
+from . import GioUnix as GioUnix
+from . import GoiBench as GoiBench
+from . import Graphene as Graphene
+from . import Gsk as Gsk
+from . import Gst as Gst
+from . import GstApp as GstApp
+from . import GstAudio as GstAudio
+from . import GstBase as GstBase
+from . import GstVideo as GstVideo
+from . import Gtk as Gtk
+from . import GtkSource as GtkSource
+from . import HarfBuzz as HarfBuzz
+from . import Pango as Pango
+from . import PangoCairo as PangoCairo
+from . import Regress as Regress
+from . import RegressUnix as RegressUnix
+from . import Vte as Vte
+from . import WebKit as WebKit
+from . import freetype2 as freetype2
 from . import abi as abi
 from . import defaults as defaults
 from .namespace import Namespace as Namespace
@@ -34,14 +62,6 @@ from .signal.scoped import static_owner as static_owner
 class PyGIWarning(Warning): ...
 class PyGIDeprecationWarning(DeprecationWarning): ...
 
-# GI namespaces (GLib, Gtk, Gio, ...) are intentionally NOT declared here: they
-# resolve to the installed `ginext-stubs` PEP 561 package so `from ginext import
-# Gio` type-checks against real generated types. ginext's own library API stays
-# inline-typed (this file, plus src/ginext/*.pyi like GIRepository.pyi).
-
 def _load_namespace(name: str, version: str, *, profile: Any = ...) -> Namespace: ...
 
-# GI namespaces are accessed via `from ginext import Ns` (PEP 561 resolution)
-# for production code.  For dynamic attribute access (`import ginext;
-# ginext.Ns`) used in some tests, fall back to Any.
 def __getattr__(name: str) -> Any: ...

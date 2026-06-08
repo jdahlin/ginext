@@ -176,5 +176,5 @@ typelib_stubs = custom_target(
   ],
   build_by_default : true,
   install : true,
-  install_dir : py.get_install_dir() / 'ginext-stubs',
+  install_dir : py.get_install_dir() / 'ginext',
 )

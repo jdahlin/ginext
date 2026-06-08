@@ -999,6 +999,14 @@ method_descriptor_clear_fields (PyGIMethodDescriptor *descriptor)
   Py_CLEAR (descriptor->gimeta);
   Py_CLEAR (descriptor->name);
   Py_CLEAR (descriptor->qualname);
+  Py_CLEAR (descriptor->module);
+  Py_CLEAR (descriptor->doc);
+  Py_CLEAR (descriptor->defaults);
+  Py_CLEAR (descriptor->kwdefaults);
+  Py_CLEAR (descriptor->annotations);
+  Py_CLEAR (descriptor->annotate);
+  Py_CLEAR (descriptor->type_params);
+  Py_CLEAR (descriptor->objclass);
   Py_CLEAR (descriptor->namespace);
   Py_CLEAR (descriptor->arg_names);
 }
@@ -2030,6 +2038,14 @@ static PyMemberDef method_descriptor_members[] = {
   { "gimeta", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, gimeta), 0, NULL },
   { "__name__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, name), 0, NULL },
   { "__qualname__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, qualname), 0, NULL },
+  { "__module__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, module), 0, NULL },
+  { "__doc__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, doc), 0, NULL },
+  { "__defaults__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, defaults), 0, NULL },
+  { "__kwdefaults__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, kwdefaults), 0, NULL },
+  { "__annotations__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, annotations), 0, NULL },
+  { "__annotate__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, annotate), 0, NULL },
+  { "__type_params__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, type_params), 0, NULL },
+  { "__objclass__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, objclass), 0, NULL },
   { NULL, 0, 0, 0, NULL },
 };
 

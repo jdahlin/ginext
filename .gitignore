@@ -22,7 +22,10 @@ dist/
 wheelhouse/
 stubs/
 # Generated stub files — run `make stubs` or `uv run python -m ginext_stubgen install`
-packages/ginext-stubs/ginext-stubs/*.pyi
+packages/ginext-stubs/ginext/*.pyi
+src/ginext/*.pyi
+!src/ginext/__init__.pyi
+!src/ginext/GObject.pyi
 packages/ginext-stubs/.stub-generated.stamp
 # mypy incremental cache (per-package dirs; see ci/run-mypy.sh)
 .mypy_cache/

@@ -48,6 +48,20 @@ def test_close_page_method_signal_collision(require_gtk4_display: object) -> Non
     assert view.get_n_pages() == 0
 
 
+def test_tab_view_collection_dunders(require_gtk4_display: object) -> None:
+    _ = require_gtk4_display
+
+    view = Adw.TabView()
+    first = view.append(Gtk.Label(label="One"))
+    second = view.append(Gtk.Label(label="Two"))
+
+    assert len(view) == 2
+    assert list(view) == [first, second]
+    assert view[0] is first
+    assert view[-1] is second
+    assert view[:] == [first, second]
+
+
 def test_bound_method_signal_handler_survives_window_rewrap(
     require_gtk4_display: object,
 ) -> None:

@@ -76,6 +76,28 @@ def test_menu_append_submenu_exposes_linked_menu_model() -> None:
     assert child_val.unpack() == "Child"
 
 
+def test_menu_model_collection_dunders() -> None:
+    from ginext import Gio
+
+    menu = Gio.Menu()
+    menu.append("Open", "app.open")
+    menu.append("Save", "app.save")
+
+    first = menu[0]
+    second = menu[-1]
+    items = list(menu)
+
+    assert len(menu) == 2
+    first_label = first.get_attribute_value("label", None)
+    second_label = second.get_attribute_value("label", None)
+
+    assert first_label is not None
+    assert second_label is not None
+    assert "Open" in str(first_label)
+    assert "Save" in str(second_label)
+    assert len(menu[:]) == 2
+
+
 def test_menu_item_set_attribute_with_no_value_clears_attribute() -> None:
     from ginext import Gio
 

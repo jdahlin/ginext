@@ -32,6 +32,14 @@ typedef struct
   PyObject *gimeta;
   PyObject *name;
   PyObject *qualname;
+  PyObject *module;
+  PyObject *doc;
+  PyObject *defaults;
+  PyObject *kwdefaults;
+  PyObject *annotations;
+  PyObject *annotate;
+  PyObject *type_params;
+  PyObject *objclass;
   /* Python Namespace object that created this descriptor. Used by return
    * marshalling to resolve enum/flags wrapper classes for the same ABI
    * profile as the callable owner. Owned. */

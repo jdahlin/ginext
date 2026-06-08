@@ -58,7 +58,7 @@ Those correspond to:
   the active environment
 
 By default, native stubs are written into
-`packages/ginext-stubs/ginext-stubs/`.
+`packages/ginext-stubs/ginext/`.
 
 ## Regenerating stubs in this repository
 

@@ -66,6 +66,11 @@ def test_add_action_entries_registers_stateless_action_and_callback() -> None:
     action.activate(None)
 
     assert seen == [("demo", None)]
+    assert len(group) == 1
+    assert list(group) == ["demo"]
+    assert "demo" in group
+    assert "missing" not in group
+    assert 1 not in group
 
 
 def test_add_action_entries_registers_stateful_action_and_change_state() -> None:
