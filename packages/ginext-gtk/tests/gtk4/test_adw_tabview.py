@@ -36,6 +36,10 @@ def _tab_bar_close_buttons(tab_bar: Gtk.Widget) -> list[Gtk.Button]:
     return buttons
 
 
+def _button_is_interactable(button: Gtk.Button) -> bool:
+    return button.get_visible() and button.get_sensitive() and button.get_mapped()
+
+
 def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
     context = GLib.MainContext.default()
     deadline = time.monotonic() + (timeout_ms / 1000)
@@ -51,7 +55,8 @@ def _click_any_close_button(
     tab_bar: Gtk.Widget,
     predicate: Callable[[], bool],
 ) -> bool:
-    for button in _tab_bar_close_buttons(tab_bar):
+    buttons = [button for button in _tab_bar_close_buttons(tab_bar) if _button_is_interactable(button)]
+    for button in reversed(buttons):
         button.clicked()
         if _spin_until(predicate, timeout_ms=250):
             return True
@@ -151,7 +156,12 @@ def test_tab_bar_close_button_survives_window_rewrap(
     window = Window(app)
     window.present()
 
-    assert _spin_until(lambda: bool(_tab_bar_close_buttons(window.tab_bar)))
+    assert _spin_until(
+        lambda: any(
+            _button_is_interactable(button)
+            for button in _tab_bar_close_buttons(window.tab_bar)
+        )
+    )
 
     del window
     gc.collect()
@@ -159,7 +169,12 @@ def test_tab_bar_close_button_survives_window_rewrap(
     active = app.get_active_window()
 
     assert active is not None
-    assert _tab_bar_close_buttons(active.tab_bar)
+    assert _spin_until(
+        lambda: any(
+            _button_is_interactable(button)
+            for button in _tab_bar_close_buttons(active.tab_bar)
+        )
+    )
     assert _click_any_close_button(
         active.tab_bar,
         lambda: active.close_count == 1 and active.tab_view.get_n_pages() == 1,

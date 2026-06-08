@@ -313,27 +313,39 @@ def _task_new(
 
 
 def _settings_schema_for(schema_id: str) -> Any:
-    source = Gio.SettingsSchemaSource.get_default()
-    if source is not None:
-        schema = source.lookup(schema_id, True)
-        if schema is not None:
-            return schema
-
-    schema_dir = os.environ.get("GSETTINGS_SCHEMA_DIR")
-    if not schema_dir:
-        return None
-
-    parent = Gio.SettingsSchemaSource.get_default()
-    for directory in schema_dir.split(os.pathsep):
-        if not directory:
-            continue
-        source = Gio.SettingsSchemaSource.new_from_directory(directory, parent, False)
-        if source is None:
-            continue
+    for source in _settings_schema_sources():
         schema = source.lookup(schema_id, True)
         if schema is not None:
             return schema
     return None
+
+
+def _settings_schema_sources() -> list[Any]:
+    sources: list[Any] = []
+    default_source = Gio.SettingsSchemaSource.get_default()
+    if default_source is not None:
+        sources.append(default_source)
+    schema_dir = os.environ.get("GSETTINGS_SCHEMA_DIR")
+    if not schema_dir:
+        return sources
+
+    for directory in schema_dir.split(os.pathsep):
+        if not directory:
+            continue
+        source = Gio.SettingsSchemaSource.new_from_directory(
+            directory, default_source, False
+        )
+        if source is not None:
+            sources.append(source)
+    return sources
+
+
+def _settings_list_schemas(*, relocatable: bool) -> list[str]:
+    names: set[str] = set()
+    for source in _settings_schema_sources():
+        non_relocatable, relocatable_names = source.list_schemas(True)
+        names.update(relocatable_names if relocatable else non_relocatable)
+    return sorted(names)
 
 
 @overlay.method("Settings", staticmethod=True)
@@ -358,6 +370,16 @@ def new_with_backend(fn: Any, schema_id: str, backend: Any) -> Any:
     if schema is None:
         raise RuntimeError(f"Settings schema {schema_id!r} is not installed")
     return Gio.Settings.new_full(schema, backend, None)
+
+
+@overlay.method("Settings", staticmethod=True)
+def list_schemas(fn: Any) -> list[str]:
+    return _settings_list_schemas(relocatable=False)
+
+
+@overlay.method("Settings", staticmethod=True)
+def list_relocatable_schemas(fn: Any) -> list[str]:
+    return _settings_list_schemas(relocatable=True)
 
 
 @overlay.method("FileEnumerator")  # type: ignore[no-redef]
