@@ -10,26 +10,20 @@ import gc
 import sys
 from types import ModuleType
 from collections.abc import Callable
-from typing import TYPE_CHECKING, cast
-
-if TYPE_CHECKING:
-    from ginext import Gio as GinextGio
-    from ginext import GLib as GinextGLib
-    from ginext import Gtk as GinextGtk
 
 
 def load_binding(name: str) -> tuple[ModuleType, ModuleType, ModuleType]:
     if name == "ginext":
-        from ginext import Gio as GioMod, GLib as GLibMod, Gtk as GtkMod
+        import ginext
 
-        return GtkMod, GioMod, GLibMod
+        return ginext.Gtk, ginext.Gio, ginext.GLib
     if name == "gi":
         import gi
 
         gi.require_version("Gtk", "4.0")
-        from gi.repository import Gio as GioMod, GLib as GLibMod, Gtk as GtkMod
+        from gi import repository
 
-        return GtkMod, GioMod, GLibMod
+        return repository.Gtk, repository.Gio, repository.GLib
     raise ValueError(name)
 
 

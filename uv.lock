@@ -372,6 +372,7 @@ dev = [
 ]
 mypy = [
     { name = "mypy" },
+    { name = "numpy" },
 ]
 typecheck = [
     { name = "ginext-stubs" },
@@ -419,7 +420,10 @@ dev = [
     { name = "tox", specifier = ">=4.53.1" },
     { name = "tox-uv", specifier = ">=1" },
 ]
-mypy = [{ name = "mypy", specifier = ">=1.15" }]
+mypy = [
+    { name = "mypy", specifier = ">=1.15" },
+    { name = "numpy", specifier = ">=2" },
+]
 typecheck = [{ name = "ginext-stubs", directory = "packages/ginext-stubs" }]
 
 [[package]]

@@ -59,14 +59,9 @@ defaults.require("Gst", "1.0")
 defaults.require("GstBase", "1.0")
 
 from ginext import Gst, GstBase
+import numpy as np
 
-try:
-    import numpy as np
-
-    HAVE_NUMPY = True
-except ImportError:  # not installed in this checkout's .venv
-    np = None  # type: ignore[assignment]  # runtime fallback sentinel; guarded by HAVE_NUMPY
-    HAVE_NUMPY = False
+HAVE_NUMPY = True
 
 try:
     from numba import njit as _njit
