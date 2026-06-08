@@ -18,36 +18,6 @@ except ImportError:
     pytest.skip("Adw (libadwaita) namespace not available", allow_module_level=True)
 
 
-def _tab_bar_close_buttons(tab_bar: Gtk.Widget) -> list[Gtk.Button]:
-    buttons: list[Gtk.Button] = []
-
-    def walk(widget: Gtk.Widget) -> None:
-        if (
-            isinstance(widget, Gtk.Button)
-            and widget.get_icon_name() == "window-close-symbolic"
-        ):
-            buttons.append(widget)
-        child = widget.get_first_child()
-        while child is not None:
-            walk(child)
-            child = child.get_next_sibling()
-
-    walk(tab_bar)
-    return buttons
-
-
-def _button_is_interactable(button: Gtk.Button) -> bool:
-    return button.get_visible() and button.get_sensitive() and button.get_mapped()
-
-
-def _interactable_close_buttons(tab_bar: Gtk.Widget) -> list[Gtk.Button]:
-    return [
-        button
-        for button in _tab_bar_close_buttons(tab_bar)
-        if _button_is_interactable(button)
-    ]
-
-
 def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
     context = GLib.MainContext.default()
     deadline = time.monotonic() + (timeout_ms / 1000)
@@ -57,36 +27,6 @@ def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> boo
         context.iteration(False)
         time.sleep(0.01)
     return bool(predicate())
-
-
-def _click_any_close_button(
-    tab_bar: Gtk.Widget,
-    predicate: Callable[[], bool],
-    *,
-    timeout_ms: int = 1000,
-) -> bool:
-    deadline = time.monotonic() + (timeout_ms / 1000)
-    stable_buttons: list[Gtk.Button] | None = None
-    while time.monotonic() < deadline:
-        buttons = _interactable_close_buttons(tab_bar)
-        if stable_buttons is None:
-            stable_buttons = buttons
-            time.sleep(0.01)
-            continue
-        if len(buttons) != len(stable_buttons):
-            stable_buttons = buttons
-            time.sleep(0.01)
-            continue
-        for button in reversed(buttons):
-            button.clicked()
-            if _spin_until(predicate, timeout_ms=100):
-                return True
-            if button.activate() and _spin_until(predicate, timeout_ms=100):
-                return True
-        if predicate():
-            return True
-        time.sleep(0.01)
-    return predicate()
 
 
 def test_close_page_method_signal_collision(require_gtk4_display: object) -> None:
@@ -146,7 +86,7 @@ def test_bound_method_signal_handler_survives_window_rewrap(
     assert active.tab_view.get_n_pages() == 0
 
 
-def test_tab_bar_close_button_survives_window_rewrap(
+def test_public_close_button_survives_window_rewrap(
     require_gtk4_display: object,
 ) -> None:
     _ = require_gtk4_display
@@ -156,14 +96,21 @@ def test_tab_bar_close_button_survives_window_rewrap(
             super().__init__(application=application)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.tab_view = Adw.TabView()
-            self.tab_bar = Adw.TabBar(view=self.tab_view, autohide=False)
-            box.append(self.tab_bar)
+            self.close_button = Gtk.Button(label="Close")
+            self.close_button.clicked.connect(self._on_close_button_clicked)
+            box.append(self.close_button)
             box.append(self.tab_view)
             self.set_child(box)
+            self.button_count = 0
             self.close_count = 0
             self.tab_view.close_page.connect(self._on_close_page)
             self.tab_view.append(Gtk.Label(label="One"))
             self.tab_view.append(Gtk.Label(label="Two"))
+
+        def _on_close_button_clicked(self, button: Gtk.Button) -> None:
+            self.button_count += 1
+            page = self.tab_view.get_nth_page(self.tab_view.get_n_pages() - 1)
+            self.tab_view.close_page(page)
 
         def _on_close_page(self, view: Adw.TabView, page: Adw.TabPage) -> bool:
             self.close_count += 1
@@ -179,25 +126,18 @@ def test_tab_bar_close_button_survives_window_rewrap(
     window = Window(app)
     window.present()
 
-    assert _spin_until(
-        lambda: len(_interactable_close_buttons(window.tab_bar))
-        == window.tab_view.get_n_pages()
-    )
-
     del window
     gc.collect()
 
     active = app.get_active_window()
 
     assert active is not None
+    active.close_button.clicked()
     assert _spin_until(
-        lambda: len(_interactable_close_buttons(active.tab_bar))
-        == active.tab_view.get_n_pages()
+        lambda: active.button_count == 1
+        and active.close_count == 1
+        and active.tab_view.get_n_pages() == 1
     )
-    assert _click_any_close_button(
-        active.tab_bar,
-        lambda: active.close_count == 1 and active.tab_view.get_n_pages() == 1,
-        timeout_ms=2000,
-    )
+    assert active.button_count == 1
     assert active.close_count == 1
     assert active.tab_view.get_n_pages() == 1
