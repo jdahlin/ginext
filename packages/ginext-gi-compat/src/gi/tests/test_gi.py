@@ -3270,7 +3270,9 @@ class TestInterfaces(unittest.TestCase):
         self.assertEqual(instance.val, 42)
 
     def test_subclass_override(self):
-        class TestInterfaceImplD(TestInterfaces.TestInterfaceImpl):
+        base_impl = self.create_test_interface_impl()
+
+        class TestInterfaceImplD(base_impl):
             val2 = None
 
             def do_test_int8_in(self, int8):
