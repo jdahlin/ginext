@@ -24,6 +24,17 @@ from contextlib import contextmanager
 
 os.environ.setdefault("GINEXT_GTK_AUTO_INIT", "0")
 
+
+def _arm_sigalrm():
+    # Fire the timer once, then return SOURCE_REMOVE. Passing signal.setitimer
+    # directly to idle_add leaks the idle source forever: setitimer returns the
+    # previous timer (a non-empty tuple), which GLib reads as "keep the source",
+    # so it stays perpetually ready and makes a later `while ctx.pending()`
+    # drain loop spin (visible only in a single shared process, e.g. -n 0).
+    signal.setitimer(signal.ITIMER_REAL, 0.001)
+    return False
+
+
 try:
     from gi.repository import Gtk
 
@@ -78,7 +89,7 @@ class TestOverridesWakeupOnAlarm(unittest.TestCase):
     def test_glib_mainloop(self):
         loop = GLib.MainLoop()
         signal.signal(signal.SIGALRM, lambda *args: loop.quit())
-        GLib.idle_add(signal.setitimer, signal.ITIMER_REAL, 0.001)
+        GLib.idle_add(_arm_sigalrm)
 
         with self._run_with_timeout(2000, loop.quit):
             loop.run()
@@ -87,7 +98,7 @@ class TestOverridesWakeupOnAlarm(unittest.TestCase):
     def test_gio_application(self):
         app = Gio.Application()
         signal.signal(signal.SIGALRM, lambda *args: app.quit())
-        GLib.idle_add(signal.setitimer, signal.ITIMER_REAL, 0.001)
+        GLib.idle_add(_arm_sigalrm)
 
         with self._run_with_timeout(2000, app.quit):
             app.hold()
@@ -99,7 +110,7 @@ class TestOverridesWakeupOnAlarm(unittest.TestCase):
     @unittest.skipIf(Gtk is None or Gtk_version == "4.0", "not in gtk4")
     def test_gtk_main(self):
         signal.signal(signal.SIGALRM, lambda *args: Gtk.main_quit())
-        GLib.idle_add(signal.setitimer, signal.ITIMER_REAL, 0.001)
+        GLib.idle_add(_arm_sigalrm)
 
         with self._run_with_timeout(2000, Gtk.main_quit):
             Gtk.main()
@@ -111,7 +122,7 @@ class TestOverridesWakeupOnAlarm(unittest.TestCase):
         w = Gtk.Window()
         d = Gtk.Dialog(transient_for=w)
         signal.signal(signal.SIGALRM, lambda *args: d.destroy())
-        GLib.idle_add(signal.setitimer, signal.ITIMER_REAL, 0.001)
+        GLib.idle_add(_arm_sigalrm)
 
         with self._run_with_timeout(2000, d.destroy):
             d.run()
