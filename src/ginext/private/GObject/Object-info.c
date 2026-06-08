@@ -110,6 +110,12 @@ pygi_python_construction_active (void)
 void
 pygi_gobject_wrapper_forget_pointer (PyObject *wrapper);
 
+static void
+store_wrapper_state_if_object_survives (PyObject *wrapper);
+
+static void
+restore_wrapper_state (GObject *object, PyObject *wrapper);
+
 static int
 pygi_gobject_base_check (PyObject *wrapper)
 {
@@ -584,6 +590,13 @@ GObjectBase_release_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
+GObjectBase_preserve_wrapper_state (PyObject *self, PyObject *Py_UNUSED (ignored))
+{
+  store_wrapper_state_if_object_survives (self);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
 GObjectBase_ref_sink (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "ref_sink");
@@ -768,6 +781,7 @@ static PyMethodDef GObjectBase_methods[] = {
   { "is_bound", GObjectBase_is_bound, METH_NOARGS, NULL },
   { "owns_ref", GObjectBase_owns_ref, METH_NOARGS, NULL },
   { "release_ref", GObjectBase_release_ref, METH_NOARGS, NULL },
+  { "preserve_wrapper_state", GObjectBase_preserve_wrapper_state, METH_NOARGS, NULL },
   { "ref_sink", GObjectBase_ref_sink, METH_NOARGS, NULL },
   { "make_floating", GObjectBase_make_floating, METH_NOARGS, NULL },
   { "ref_count", GObjectBase_ref_count, METH_NOARGS, NULL },
@@ -938,6 +952,18 @@ wrapper_owns_ref_quark (void)
   return (GQuark)quark_value;
 }
 
+static GQuark
+wrapper_state_quark (void)
+{
+  static gsize quark_value = 0;
+  if (g_once_init_enter (&quark_value))
+    {
+      GQuark quark = g_quark_from_static_string ("ginext-python-wrapper-state");
+      g_once_init_leave (&quark_value, (gsize)quark);
+    }
+  return (GQuark)quark_value;
+}
+
 static gpointer
 wrapper_owns_ref_qdata_value (gboolean owns_ref)
 {
@@ -951,7 +977,7 @@ wrapper_owns_ref_from_qdata (gpointer value)
 }
 
 static void
-wrapper_weakref_destroy (gpointer data)
+wrapper_pyobject_destroy (gpointer data)
 {
   PyGILState_STATE state = PyGILState_Ensure ();
   Py_DECREF ((PyObject *)data);
@@ -983,6 +1009,60 @@ wrapper_pointer_weak_notify (gpointer data, GObject *where_the_object_was)
   PyGILState_Release (state);
 }
 
+static void
+store_wrapper_state_if_object_survives (PyObject *wrapper)
+{
+  if (!pygi_gobject_base_check (wrapper))
+    return;
+
+  GObject *object = ((PyGIGObjectBase *)wrapper)->ptr;
+  if (object == NULL || !G_IS_OBJECT (object) || object->ref_count == 0)
+    return;
+
+  PyObject **dict_ptr = _PyObject_GetDictPtr (wrapper);
+  PyObject *dict = dict_ptr != NULL ? *dict_ptr : NULL;
+  if (dict == NULL)
+    return;
+  if (!PyDict_Check (dict) || PyDict_Size (dict) == 0)
+    return;
+
+  PyObject *state = PyDict_Copy (dict);
+  if (state == NULL)
+    {
+      PyErr_WriteUnraisable (wrapper);
+      return;
+    }
+
+  g_object_set_qdata_full (object, wrapper_state_quark (), state, wrapper_pyobject_destroy);
+}
+
+static void
+restore_wrapper_state (GObject *object, PyObject *wrapper)
+{
+  PyObject *state = g_object_steal_qdata (object, wrapper_state_quark ());
+  if (state == NULL)
+    return;
+
+  if (!PyDict_Check (state))
+    {
+      Py_DECREF (state);
+      return;
+    }
+
+  PyObject *dict = PyObject_GenericGetDict (wrapper, NULL);
+  if (dict == NULL)
+    {
+      PyErr_WriteUnraisable (wrapper);
+      Py_DECREF (state);
+      return;
+    }
+
+  if (PyDict_Update (dict, state) < 0)
+    PyErr_WriteUnraisable (wrapper);
+  Py_DECREF (dict);
+  Py_DECREF (state);
+}
+
 PyObject *
 pygi_gobject_wrapper_ref (GObject *object)
 {
@@ -1002,6 +1082,7 @@ pygi_gobject_wrapper_ref (GObject *object)
       g_object_set_qdata (object, wrapper_quark (), NULL);
       return NULL;
     }
+  restore_wrapper_state (object, wrapper);
   return wrapper;
 }
 
@@ -1034,12 +1115,13 @@ pygi_gobject_wrapper_store (GObject *object, PyObject *wrapper)
 
   Py_INCREF (weakref);
   g_object_weak_ref (object, wrapper_pointer_weak_notify, weakref);
-  g_object_set_qdata_full (object, wrapper_quark (), weakref, wrapper_weakref_destroy);
+  g_object_set_qdata_full (object, wrapper_quark (), weakref, wrapper_pyobject_destroy);
   pygi_gobject_wrapper_bind_pointer (wrapper, object);
   if (wrapper_local_bound_set (wrapper, TRUE) < 0)
     PyErr_Clear ();
   if (wrapper_local_owns_ref_set (wrapper, TRUE) < 0)
     PyErr_Clear ();
+  restore_wrapper_state (object, wrapper);
   return 0;
 }
 
@@ -1125,7 +1207,7 @@ pygi_gobject_wrapper_pin (GObject *object, PyObject *wrapper)
     }
 
   Py_INCREF (wrapper);
-  g_object_set_qdata_full (object, wrapper_pin_quark (), wrapper, wrapper_weakref_destroy);
+  g_object_set_qdata_full (object, wrapper_pin_quark (), wrapper, wrapper_pyobject_destroy);
   return 0;
 }
 

@@ -342,6 +342,7 @@ class GObject(private.GObjectBase, metaclass=GObjectMeta):
         owns_ref = self.owns_ref()
         if not owns_ref:
             return
+        self.preserve_wrapper_state()
         if features.is_enabled(
             features.PYGOBJECT_COMPAT
         ) and _is_python_defined_gobject_subclass(type(self)):

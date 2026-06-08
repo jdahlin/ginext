@@ -39,6 +39,7 @@ class App(Gtk.Application, type_name="TerminalApp"):
         self.state = State()
         self._sigint_handle = 0
         self._prefs_window: Preferences | None = None
+        self._windows: list[Window] = []
 
     def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
@@ -67,6 +68,8 @@ class App(Gtk.Application, type_name="TerminalApp"):
             win = self.spawn_window(present=True)
             win.new_tab()
         else:
+            assert isinstance(existing, Window)
+            existing.new_tab()
             existing.present()
 
     def do_command_line(self, _cmdline: Gio.ApplicationCommandLine) -> int:
@@ -75,9 +78,16 @@ class App(Gtk.Application, type_name="TerminalApp"):
 
     def spawn_window(self, *, present: bool) -> Window:
         win = Window(application=self, state=self.state)
+        self._windows.append(win)
+        win.close_request.connect(self._on_window_closed, owner=self)
         if present:
             win.present()
         return win
+
+    def _on_window_closed(self, window: Window) -> bool:
+        if window in self._windows:
+            self._windows.remove(window)
+        return False
 
     _APP_ACTIONS: tuple[tuple[str, str, list[str] | None], ...] = (
         ("new-window", "_on_new_window", ["<Primary>n"]),

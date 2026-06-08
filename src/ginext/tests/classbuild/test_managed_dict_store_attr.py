@@ -26,8 +26,6 @@ from __future__ import annotations
 import gc
 from typing import Any
 
-import pytest
-
 
 def test_property_getter_can_store_attr_on_self(GObject: Any) -> None:
     from ginext import Gio
@@ -50,9 +48,6 @@ def test_property_getter_can_store_attr_on_self(GObject: Any) -> None:
     assert artist.model is model
 
 
-@pytest.mark.xfail(
-    reason="Python subclass qdata/dict restore across rewrap pending", strict=False
-)
 def test_subclass_dict_round_trips_across_wrap_cycle(GObject: Any) -> None:
     from ginext import Gio
 
