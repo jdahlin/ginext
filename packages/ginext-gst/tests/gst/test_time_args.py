@@ -9,6 +9,10 @@ import pytest
 from ginext import Gst
 
 
+def _runtime_time_args(value: object) -> object:
+    return getattr(Gst, "TIME_ARGS")(value)
+
+
 class TestTIME_ARGS:
     def test_clock_time_none(self) -> None:
         assert Gst.TIME_ARGS(Gst.CLOCK_TIME_NONE) == "CLOCK_TIME_NONE"
@@ -27,8 +31,8 @@ class TestTIME_ARGS:
 
     def test_typeerror_none(self) -> None:
         with pytest.raises(TypeError):
-            Gst.TIME_ARGS(None)
+            _runtime_time_args(None)
 
     def test_typeerror_str(self) -> None:
         with pytest.raises(TypeError):
-            Gst.TIME_ARGS("string")
+            _runtime_time_args("string")

@@ -104,7 +104,7 @@ def test_invalid_application_id_type_raises() -> None:
     from ginext import Gio
 
     with pytest.raises(TypeError):
-        Gio.Application(application_id=123)  # type: ignore[arg-type]  # testing runtime rejection
+        Gio.Application(application_id=123)
 
 
 def test_unknown_property_raises() -> None:
@@ -128,7 +128,7 @@ def test_dashed_kwarg_also_accepted_for_compatibility() -> None:
     from ginext import Gio
 
     try:
-        app = Gio.Application(**{"inactivity-timeout": 42})  # type: ignore[arg-type]  # testing dashed kwargs at runtime
+        app = Gio.Application(**{"inactivity-timeout": 42})
     except TypeError:
         pytest.skip("dashed kwargs not accepted (policy choice)")
     else:

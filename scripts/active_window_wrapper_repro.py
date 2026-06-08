@@ -9,25 +9,33 @@ import argparse
 import gc
 import sys
 from types import ModuleType
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from ginext import Gio as GinextGio
+    from ginext import GLib as GinextGLib
+    from ginext import Gtk as GinextGtk
 
 
 def load_binding(name: str) -> tuple[ModuleType, ModuleType, ModuleType]:
     if name == "ginext":
-        from ginext import Gio, GLib, Gtk
+        from ginext import Gio as GioMod, GLib as GLibMod, Gtk as GtkMod
 
-        return Gtk, Gio, GLib
+        return GtkMod, GioMod, GLibMod
     if name == "gi":
         import gi
 
         gi.require_version("Gtk", "4.0")
-        from gi.repository import Gio, GLib, Gtk
+        from gi.repository import Gio as GioMod, GLib as GLibMod, Gtk as GtkMod
 
-        return Gtk, Gio, GLib
+        return GtkMod, GioMod, GLibMod
     raise ValueError(name)
 
 
-def connect_timeout(GLib: ModuleType, milliseconds: int, callback: Any) -> None:
+def connect_timeout(
+    GLib: ModuleType, milliseconds: int, callback: Callable[[], bool]
+) -> None:
     GLib.timeout_add(milliseconds, callback)
 
 
@@ -47,14 +55,14 @@ def main(argv: list[str]) -> int:
     flags = Gio.ApplicationFlags.NON_UNIQUE
 
     class ProbeWindow(Gtk.ApplicationWindow):  # type: ignore[misc, name-defined]
-        def __init__(self, application: Any) -> None:
+        def __init__(self, application: object) -> None:
             super().__init__(application=application)
             self.marker = "original-python-wrapper"
 
     class ProbeApp(Gtk.Application):  # type: ignore[misc, name-defined]
         def __init__(self) -> None:
             super().__init__(application_id=None, flags=flags)
-            self.observed: dict[str, Any] = {}
+            self.observed: dict[str, object] = {}
 
         def do_activate(self) -> None:
             window = ProbeWindow(self)
@@ -75,7 +83,7 @@ def main(argv: list[str]) -> int:
             return False
 
     app = ProbeApp()
-    status = app.run(["active-window-wrapper-repro"])
+    status = int(app.run(["active-window-wrapper-repro"]))
     if status != 0:
         return status
 
