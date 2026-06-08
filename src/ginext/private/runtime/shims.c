@@ -348,48 +348,6 @@ py_gvalue_get_value (PyObject *m, PyObject *args)
 }
 
 PyObject *
-py_gvalue_array_get_nth_type (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *wrapper;
-  Py_ssize_t index;
-  if (!PyArg_ParseTuple (args, "On", &wrapper, &index))
-    return NULL;
-
-  GValue *value = NULL;
-  if (!pygi_gvalue_wrapper_get (wrapper, &value))
-    {
-      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
-      return NULL;
-    }
-  GType value_array_type = g_type_from_name ("GValueArray");
-  if (value_array_type == G_TYPE_INVALID || G_VALUE_TYPE (value) != value_array_type)
-    {
-      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
-      return NULL;
-    }
-
-  GValueArray *array = g_value_get_boxed (value);
-  if (array == NULL)
-    {
-      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
-      return NULL;
-    }
-  if (index < 0 || (guint)index >= array->n_values)
-    {
-      PyObject *index_obj = PyLong_FromSsize_t (index);
-      if (index_obj == NULL)
-        return NULL;
-      PyErr_SetObject (PyExc_IndexError, index_obj);
-      Py_DECREF (index_obj);
-      return NULL;
-    }
-
-  GValue *item = &array->values[index];
-  return PyLong_FromUnsignedLongLong ((unsigned long long)G_VALUE_TYPE (item));
-}
-
-PyObject *
 py_gvalue_set_value (PyObject *m, PyObject *args)
 {
   (void)m;
@@ -535,18 +493,6 @@ py_gvalue_new_for_gtype (PyObject *m, PyObject *args)
 }
 
 PyObject *
-py_gvalue_get_value_from_pointer (PyObject *m, PyObject *args)
-{
-  (void)m;
-  void *value_ptr = NULL;
-  if (!PyArg_ParseTuple (args, "O&", PyLong_AsVoidPtr, &value_ptr))
-    return NULL;
-  if (value_ptr == NULL)
-    Py_RETURN_NONE;
-  return pygi_gvalue_value_to_py ((GValue *)value_ptr);
-}
-
-PyObject *
 py_gvalue_wrap_pointer (PyObject *m, PyObject *args)
 {
   (void)m;
@@ -559,124 +505,46 @@ py_gvalue_wrap_pointer (PyObject *m, PyObject *args)
   return pygi_gvalue_wrap_pointer ((GValue *)value_ptr);
 }
 
-static int
-parse_named_function_pointer (PyObject *args, const char **name, void **fn_ptr)
-{
-  return PyArg_ParseTuple (args, "sO&", name, PyLong_AsVoidPtr, fn_ptr);
-}
-
 PyObject *
-py_call_ptr_return_int (PyObject *m, PyObject *args)
+py_gvalue_array_get_nth_type (PyObject *m, PyObject *args)
 {
   (void)m;
-  const char *name = NULL;
-  int (*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
+  PyObject *wrapper;
+  Py_ssize_t index;
+  if (!PyArg_ParseTuple (args, "On", &wrapper, &index))
     return NULL;
-  if (fn == NULL)
-    {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
-      return NULL;
-    }
-  return PyLong_FromLong (fn ());
-}
 
-PyObject *
-py_call_ptr_return_int64 (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  gint64 (*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
-    return NULL;
-  if (fn == NULL)
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
     {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
       return NULL;
     }
-  return PyLong_FromLongLong (fn ());
-}
+  GType value_array_type = g_type_from_name ("GValueArray");
+  if (value_array_type == G_TYPE_INVALID || G_VALUE_TYPE (value) != value_array_type)
+    {
+      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
+      return NULL;
+    }
 
-PyObject *
-py_call_ptr_return_uint (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  guint (*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
-    return NULL;
-  if (fn == NULL)
+  GValueArray *array = g_value_get_boxed (value);
+  if (array == NULL)
     {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
+      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
       return NULL;
     }
-  return PyLong_FromUnsignedLong (fn ());
-}
+  if (index < 0 || (guint)index >= array->n_values)
+    {
+      PyObject *index_obj = PyLong_FromSsize_t (index);
+      if (index_obj == NULL)
+        return NULL;
+      PyErr_SetObject (PyExc_IndexError, index_obj);
+      Py_DECREF (index_obj);
+      return NULL;
+    }
 
-PyObject *
-py_call_ptr_return_uint64 (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  guint64 (*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
-    return NULL;
-  if (fn == NULL)
-    {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
-      return NULL;
-    }
-  return PyLong_FromUnsignedLongLong (fn ());
-}
-
-PyObject *
-py_call_ptr_return_double (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  double (*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
-    return NULL;
-  if (fn == NULL)
-    {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
-      return NULL;
-    }
-  return PyFloat_FromDouble (fn ());
-}
-
-PyObject *
-py_call_ptr_return_ptr (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  void *(*fn) (void) = NULL;
-  if (!parse_named_function_pointer (args, &name, (void **)&fn))
-    return NULL;
-  if (fn == NULL)
-    {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
-      return NULL;
-    }
-  return PyLong_FromVoidPtr (fn ());
-}
-
-PyObject *
-py_call_ptr_uint_return_ptr (PyObject *m, PyObject *args)
-{
-  (void)m;
-  const char *name = NULL;
-  void *fn_ptr = NULL;
-  unsigned long index = 0;
-  if (!PyArg_ParseTuple (args, "sO&k", &name, PyLong_AsVoidPtr, &fn_ptr, &index))
-    return NULL;
-  void *(*fn) (guint) = fn_ptr;
-  if (fn == NULL)
-    {
-      PyErr_Format (PyExc_ValueError, "%s pointer is NULL", name);
-      return NULL;
-    }
-  return PyLong_FromVoidPtr (fn ((guint)index));
+  GValue *item = &array->values[index];
+  return PyLong_FromUnsignedLongLong ((unsigned long long)G_VALUE_TYPE (item));
 }
 
 PyObject *
