@@ -29,9 +29,11 @@ protocols, freeze_notify context manager).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import inspect
 import subprocess
 import sys
+from types import FunctionType
 
 import pytest
 
@@ -98,6 +100,14 @@ def test_registrar_removed_for_namespaces_with_overlays() -> None:
 # ── GLib.idle_add overlay ───────────────────────────────────────────────
 
 
+def _idle_add_overlay_body() -> Callable[..., object]:
+    from ginext import GLib
+
+    wrapped = inspect.unwrap(GLib.idle_add)
+    assert isinstance(wrapped, FunctionType)
+    return wrapped
+
+
 def test_idle_add_signature_is_reshaped() -> None:
     """The overlay's body provides the Pythonic signature, and that's
     what inspect.signature returns."""
@@ -126,7 +136,7 @@ def test_idle_add_default_priority_wraps_callback() -> None:
         fired.append("ok")
         return False
 
-    result = GLib.idle_add.__wrapped__(_underlying, _cb)
+    result = _idle_add_overlay_body()(_underlying, _cb)
 
     assert result is False
     assert seen == [GLib.PRIORITY_DEFAULT_IDLE]
@@ -148,9 +158,7 @@ def test_idle_add_with_explicit_priority_wraps_callback() -> None:
         fired.append((left, right))
         return "explicit"
 
-    result = GLib.idle_add.__wrapped__(
-        _underlying, _cb, "left", "right", priority=150
-    )
+    result = _idle_add_overlay_body()(_underlying, _cb, "left", "right", priority=150)
 
     assert result == "explicit"
     assert seen == [150]
