@@ -11,6 +11,7 @@ from __future__ import annotations
 import gc
 import os
 import uuid
+import time
 from typing import Any
 
 import pytest
@@ -34,6 +35,17 @@ def _tab_bar_close_buttons(Gtk: Any, tab_bar: Any) -> list[Any]:
 
     walk(tab_bar)
     return buttons
+
+
+def _spin_until(GLib: Any, predicate: Any, *, timeout_ms: int = 1000) -> bool:
+    context = GLib.MainContext.default()
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        context.iteration(False)
+        time.sleep(0.01)
+    return bool(predicate())
 
 
 def test_close_page_method_signal_collision(require_gtk4_display: Any) -> None:
@@ -131,9 +143,10 @@ def test_tab_bar_close_button_survives_window_rewrap(
     window = Window(app)
     window.present()
 
-    context = GLib.MainContext.default()
-    for _ in range(10):
-        context.iteration(False)
+    assert _spin_until(
+        GLib,
+        lambda: bool(_tab_bar_close_buttons(Gtk, window.tab_bar)),
+    )
 
     del window
     gc.collect()
@@ -143,8 +156,10 @@ def test_tab_bar_close_button_survives_window_rewrap(
     assert active is not None
     buttons = _tab_bar_close_buttons(Gtk, active.tab_bar)
     assert buttons
-    buttons[0].clicked()
-    for _ in range(5):
-        context.iteration(False)
+    buttons[-1].clicked()
+    assert _spin_until(
+        GLib,
+        lambda: active.close_count == 1 and active.tab_view.get_n_pages() == 1,
+    )
     assert active.close_count == 1
     assert active.tab_view.get_n_pages() == 1
