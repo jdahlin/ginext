@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, cast
 
 from ginext.errors import install_gio_error_classes as _install_gio_error_classes
 from ginext import Gio, GLib, private
-from ginext.gobject.gobjectclass import GObject as _GObjectBase
+from ginext.gobject.gobjectclass import GObject as _GObject
 from ginext_gio._actions import install_application_actions
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ overlay = Gio.overlay
 
 @overlay.method("Application", name="__init__")
 def _application_init(self: Any, **kwargs: object) -> None:
-    _GObjectBase.__init__(self, **kwargs)
+    _GObject.__init__(self, **kwargs)
     install_application_actions(self)
 
 
@@ -275,7 +275,7 @@ def list_model_class_getitem(cls: type[Any], _item: object) -> type[Any]:
 
 @overlay.method("ListStore")
 def __contains__(self: Any, item: Any) -> bool:
-    if not isinstance(item, private.GObjectBase) or not item.is_bound():
+    if not isinstance(item, private.GObject) or not item.is_bound():
         raise TypeError("list store membership test requires a GObject")
     found, _position = self.find(item)
     return bool(found)

@@ -170,8 +170,8 @@ def test_distinct_instances_keep_distinct_wrapper_identity(TestObj: Any) -> None
 
     a = TestObj()
     b = TestObj()
-    assert private.GObjectBase.from_c(a) is a
-    assert private.GObjectBase.from_c(b) is b
+    assert private.GObject.from_c(a) is a
+    assert private.GObject.from_c(b) is b
     assert a is not b
 
 
@@ -182,8 +182,8 @@ def test_bind_existing_pointer_can_skip_post_construct_hooks(TestObj: Any) -> No
 
     seen: list[str] = []
     ptr = GObjectNS.new_with_properties(TestObj, {})
-    cast("private.GObjectBase", private.GObjectBase.from_c(ptr)).ref_sink()
-    cast("private.GObjectBase", private.GObjectBase.from_c(ptr)).ref_sink()
+    cast("private.GObject", private.GObject.from_c(ptr)).ref_sink()
+    cast("private.GObject", private.GObject.from_c(ptr)).ref_sink()
 
     original = gobject._run_post_construct_hooks
 
@@ -193,12 +193,12 @@ def test_bind_existing_pointer_can_skip_post_construct_hooks(TestObj: Any) -> No
     gobject._run_post_construct_hooks = recorder
     try:
         bound = gobject._wrap_existing_pointer(TestObj, ptr, run_post_construct=False)
-        assert private.GObjectBase.from_c(bound) is bound
+        assert private.GObject.from_c(bound) is bound
         assert seen == []
 
         wrapped = gobject._wrap_existing_pointer(TestObj, ptr, run_post_construct=True)
         assert wrapped is bound
-        assert private.GObjectBase.from_c(wrapped) is wrapped
+        assert private.GObject.from_c(wrapped) is wrapped
         assert seen == []
     finally:
         gobject._run_post_construct_hooks = original
@@ -242,7 +242,7 @@ def test_preallocated_construction_state_skips_second_native_allocation(
         gobject.gobject_repo = original_repo
 
     assert calls == ["__init__"]
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
     assert obj.initialized is True
 
 
@@ -276,7 +276,7 @@ def test_preallocated_construction_state_preserves_parent_init_chain(
     gobject._prime_preallocated_construction(obj, ptr)
     Child.__init__(obj)
 
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
     assert order == ["child1", "base1", "base2", "child2"]
 
 
@@ -306,7 +306,7 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
 
     Deferred.__init__(obj)
 
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
     assert seen == [False, True]
 
 
@@ -329,7 +329,7 @@ def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
         ptr = GObjectNS.new_with_properties(DeferredViaPrivate, {})
     finally:
         gobject._pop_python_construction()
-    obj = private.GObjectBase.shell_from_c(ptr)
+    obj = private.GObject.shell_from_c(ptr)
 
     assert isinstance(obj, DeferredViaPrivate)
     assert obj.is_bound() is False
@@ -337,7 +337,7 @@ def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
     obj.__init__()  # type: ignore[misc]
 
     assert obj.initialized is True
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
 
 
 def test_private_object_shell_from_c_keeps_imported_type_bound() -> None:
@@ -346,11 +346,11 @@ def test_private_object_shell_from_c_keeps_imported_type_bound() -> None:
     from ginext import private
 
     ptr = GObjectNS.new_with_properties(Gio.Cancellable, {})
-    obj = private.GObjectBase.shell_from_c(ptr)
+    obj = private.GObject.shell_from_c(ptr)
 
     assert isinstance(obj, Gio.Cancellable)
     assert obj.owns_ref() is False
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
     assert obj.owns_ref() is True
 
 
@@ -378,7 +378,7 @@ def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) ->
     assert deferred.owns_ref() is False
     assert not hasattr(deferred, "_gobject_owns_ref")
 
-    bound = private.GObjectBase.from_c(deferred)
+    bound = private.GObject.from_c(deferred)
     assert deferred.owns_ref() is True
     assert bound is deferred
 
@@ -394,7 +394,7 @@ def test_gobject_pointer_is_not_exposed_as_a_python_attribute(
 
     obj = Slotted()
 
-    assert private.GObjectBase.from_c(obj) is obj
+    assert private.GObject.from_c(obj) is obj
 
 
 def test_c_constructed_python_subclass_runs_init_once(
@@ -413,8 +413,8 @@ def test_c_constructed_python_subclass_runs_init_once(
             self.initialized = True
 
     ptr = GObjectNS.new_with_properties(CConstructed, {})
-    obj = cast("CConstructed", private.GObjectBase.from_c(ptr))
-    same = cast("CConstructed", private.GObjectBase.from_c(ptr))
+    obj = cast("CConstructed", private.GObject.from_c(ptr))
+    same = cast("CConstructed", private.GObject.from_c(ptr))
 
     assert calls == ["__init__"]
     assert obj is same
@@ -443,7 +443,7 @@ def test_c_constructed_python_subclass_preserves_parent_init_chain(
             order.append("child2")
 
     ptr = GObjectNS.new_with_properties(Child, {})
-    obj = cast("Child", private.GObjectBase.from_c(ptr))
+    obj = cast("Child", private.GObject.from_c(ptr))
 
     assert isinstance(obj, Child)
     assert order == ["child1", "base1", "base2", "child2"]
@@ -467,7 +467,7 @@ def test_c_constructed_python_subclass_preserves_properties_and_python_state(
             seen_in_init.append(self.number)
 
     ptr = GObjectNS.new_with_properties(WithProperty, {"number": 42})
-    obj = cast("WithProperty", private.GObjectBase.from_c(ptr))
+    obj = cast("WithProperty", private.GObject.from_c(ptr))
 
     assert seen_in_init == [0]
     assert obj.marker == "set-in-init"
@@ -497,13 +497,13 @@ def test_c_constructed_python_subclass_init_failure_drops_stale_wrapper_state(
     assert stale is not None
     assert stale.is_bound() is False
 
-    obj = cast("Failing", private.GObjectBase.from_c(ptr))
+    obj = cast("Failing", private.GObject.from_c(ptr))
 
     assert isinstance(obj, Failing)
     assert obj is not stale
     assert not hasattr(obj, "marker")
     assert not hasattr(obj, "_gobject_construction_state")
-    assert private.GObjectBase.from_c(ptr) is obj
+    assert private.GObject.from_c(ptr) is obj
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
@@ -527,7 +527,7 @@ def test_c_constructed_python_subclass_init_failure_preserves_construct_properti
             raise RuntimeError("boom")
 
     ptr = GObjectNS.new_with_properties(FailingWithProperty, {"number": 42})
-    obj = cast("FailingWithProperty", private.GObjectBase.from_c(ptr))
+    obj = cast("FailingWithProperty", private.GObject.from_c(ptr))
 
     assert seen_in_init == [0]
     assert obj.number == 42

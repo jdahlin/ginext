@@ -520,7 +520,7 @@ pygi_py_to_gvalue_inplace (PyObject *h, GValue *value, GIArgInfo *arg_info)
   else
     {
       PyObject *py = (PyObject *)(void *)(h);
-      if (pygi_gobject_base_type != NULL && PyObject_TypeCheck (py, pygi_gobject_base_type))
+      if (pygi_gobject_type != NULL && PyObject_TypeCheck (py, pygi_gobject_type))
         {
           GObject *go = pygi_gobject_get (py);
           if (go == NULL)

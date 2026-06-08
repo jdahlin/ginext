@@ -110,9 +110,9 @@ object_or_none (GObject *object)
 {
   if (object == NULL)
     Py_RETURN_NONE;
-  if (pygi_gobject_base_type == NULL)
+  if (pygi_gobject_type == NULL)
     Py_RETURN_NONE;
-  return pygi_gobject_new ((PyObject *)pygi_gobject_base_type, object, 0);
+  return pygi_gobject_new ((PyObject *)pygi_gobject_type, object, 0);
 }
 
 static int

@@ -54,7 +54,7 @@ def is_goi_wrapper(obj: object) -> bool:
     # Every ginext GObject wrapper is an instance of the single GObject base.
     from ginext import private
 
-    return obj is not None and isinstance(obj, private.GObjectBase)
+    return obj is not None and isinstance(obj, private.GObject)
 
 
 def is_goi_weakref(obj: object) -> bool:

@@ -119,7 +119,7 @@ def connect_object(
     signal = self._compat_signal_for_name(signal_name)
     owner = (
         obj
-        if isinstance(obj, ginext.private.GObjectBase) and obj.is_bound()
+        if isinstance(obj, ginext.private.GObject) and obj.is_bound()
         else static_owner
     )
     connection = signal.connect(

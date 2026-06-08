@@ -20,8 +20,8 @@
 
 #include <glib-object.h>
 
-extern PyTypeObject *pygi_gobject_base_type;
-extern PyType_Spec GinextGObjectBase_spec;
+extern PyTypeObject *pygi_gobject_type;
+extern PyType_Spec GinextGObject_spec;
 
 typedef struct
 {
@@ -30,7 +30,7 @@ typedef struct
   PyObject *weakreflist;
   GObject *construction_ptr;
   PyObject *construction_handlers;
-} PyGIGObjectBase;
+} PyGIGObject;
 
 enum
 {

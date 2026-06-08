@@ -219,7 +219,7 @@ class _WeakBoundCallable:
     def __call__(self, *signal_args: object) -> object:
         host = self._self_ref()
         if host is None and self._self_ptr is not None:
-            host = private.GObjectBase.from_c(self._self_ptr)
+            host = private.GObject.from_c(self._self_ptr)
         if host is None:
             return None
         if self._n_args is None:

@@ -77,8 +77,8 @@ maybe_run_python_instance_init (GTypeInstance *instance, gpointer klass)
       return;
     }
 
-  if (!PyObject_TypeCheck (wrapper, pygi_gobject_base_type)
-      || ((PyGIGObjectBase *)wrapper)->construction_ptr == NULL)
+  if (!PyObject_TypeCheck (wrapper, pygi_gobject_type)
+      || ((PyGIGObject *)wrapper)->construction_ptr == NULL)
     {
       PyGILState_Release (gil);
       return;
