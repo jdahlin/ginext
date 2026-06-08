@@ -174,7 +174,11 @@ def install_signals(cls: type) -> None:
         if signal.func is None:
             continue
         func_name = "do_" + name.replace("-", "_")
-        if not hasattr(cls, func_name):
+        # A user-written do_<name> wins, but the native vfunc chain-up wrapper
+        # inherited from GObject.Object must not block the override from being
+        # installed as the default handler.
+        existing = getattr(cls, func_name, None)
+        if existing is None or type(existing).__name__ == "VFuncWrapper":
             setattr(cls, func_name, signal.func)
 
 

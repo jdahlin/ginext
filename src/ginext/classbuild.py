@@ -198,6 +198,21 @@ class ClassBuilder:
                 _classes_by_gtype.setdefault(gtype_key, cached)
             return cached
 
+        # The root GObject base is a single shared class object, not one class
+        # per profile. Once adopted, every profile resolves GObject.Object to
+        # it rather than re-running adoption (which would re-derive the signal
+        # and method tables non-deterministically across profiles).
+        if (
+            data["namespace"] == "GObject"
+            and name == "Object"
+            and "_gobject_root_adopted" in GObject.__dict__
+        ):
+            if gtype:
+                _classes_by_gtype.setdefault(gtype_key, GObject)
+            namespace.cache_member(name, GObject)
+            install_class_overlay(GObject, self._context.name, name)
+            return GObject
+
         parent_cls, bases = self._bases_for_data(
             data, name, is_interface=isinstance(info, InterfaceInfo), info=info
         )
@@ -284,7 +299,21 @@ class ClassBuilder:
         gimeta.signal_method_backings = signal_method_backings
         gimeta.vfunc_infos = vfunc_infos
 
-        cls = cast("type[Any]", type(name, bases, attrs))
+        if data["namespace"] == "GObject" and name == "Object":
+            # Merge the introspected root into the hand-written Python base
+            # instead of stacking a separate subclass on top of it: there is
+            # one canonical base class, reachable as GObject.Object.
+            cls = GObject
+            for attr_name, attr_value in attrs.items():
+                if attr_name == "__module__":
+                    continue
+                setattr(cls, attr_name, attr_value)
+            cls.__name__ = "Object"
+            cls.__qualname__ = "Object"
+            cls.__module__ = cast("str", attrs["__module__"])
+            cls._gobject_root_adopted = True
+        else:
+            cls = cast("type[Any]", type(name, bases, attrs))
         if data["vfuncs"]:
             gimeta.install_native_vfunc_attrs(cls, info)
         if data["gtype"]:

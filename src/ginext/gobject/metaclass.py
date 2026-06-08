@@ -51,10 +51,7 @@ class GObjectMeta(type):
 
     @staticmethod
     def _is_root_gobject_class(cls: type) -> bool:
-        return (
-            cls.__module__ == "ginext.gobject.gobjectclass"
-            and cls.__name__ == "GObject"
-        )
+        return "_gobject_is_root" in cls.__dict__
 
     def __getattribute__(cls, name: str) -> object:
         if name == "Signal" and not GObjectMeta._is_root_gobject_class(cls):

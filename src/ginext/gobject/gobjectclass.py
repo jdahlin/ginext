@@ -296,6 +296,9 @@ class GObject(private.GObjectBase, metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     Signal: ClassVar[type[Signal]]
     _class_struct_name: ClassVar[str | None] = None
+    # Marks the single canonical GObject base (exposed as GObject.Object).
+    # Used by GObjectMeta to gate the `Signal` descriptor to the root only.
+    _gobject_is_root: ClassVar[bool] = True
 
     # Class-level signal lookup table: normalized python name → GISignalInfo
     # (or SignalDescriptor for Python-defined signals). Inherited from the
