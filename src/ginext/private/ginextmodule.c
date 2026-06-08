@@ -180,6 +180,39 @@ py_preload_shared_library (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
+/* Create the GObjectBase type with a Python-supplied metaclass (GObjectMeta).
+ * Deferred out of module init because the metaclass is defined in Python; the
+ * unified GObject.Object base IS this C type, so it must carry GObjectMeta.
+ * Idempotent: returns the already-created type on repeat calls. */
+static PyObject *
+py_init_gobject_base (PyObject *m, PyObject *args)
+{
+  PyObject *metaclass = NULL;
+  if (!PyArg_ParseTuple (args, "O:init_gobject_base", &metaclass))
+    return NULL;
+  if (!PyType_Check (metaclass))
+    {
+      PyErr_SetString (PyExc_TypeError, "metaclass must be a type");
+      return NULL;
+    }
+  if (pygi_gobject_base_type != NULL)
+    return Py_NewRef ((PyObject *)pygi_gobject_base_type);
+
+  PyObject *gobject_base
+      = PyType_FromMetaclass ((PyTypeObject *)metaclass, m, &GinextGObjectBase_spec, NULL);
+  if (gobject_base == NULL)
+    return NULL;
+  pygi_gobject_base_type = (PyTypeObject *)gobject_base;
+  pygi_gobject_base_type->tp_weaklistoffset = offsetof (PyGIGObjectBase, weakreflist);
+  if (PyModule_AddObjectRef (m, "GObjectBase", gobject_base) < 0)
+    {
+      pygi_gobject_base_type = NULL;
+      Py_DECREF (gobject_base);
+      return NULL;
+    }
+  return gobject_base;
+}
+
 /* Test-infra: thin wrappers around PyArg_ParseTuple for each numeric/string
  * format code.  Used by test_pyargs_oracle.py to verify that ginext's type
  * error messages match what CPython's argument parser produces.  These are
@@ -229,6 +262,8 @@ static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
   /* keep: test-infra — pre-loads a .so so g_module_open("libfoo.so") hits cache */
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
+  /* keep: creates the GObjectBase type with the Python GObjectMeta metaclass */
+  { "init_gobject_base", py_init_gobject_base, METH_VARARGS, NULL },
   /* keep: test-infra — PyArg_ParseTuple oracle (release-build getargs_* equivalents) */
   { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
   { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
@@ -396,20 +431,8 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  PyObject *gobject_base = PyType_FromSpec (&GinextGObjectBase_spec);
-  if (gobject_base == NULL)
-    {
-      Py_DECREF (m);
-      return NULL;
-    }
-  pygi_gobject_base_type = (PyTypeObject *)gobject_base;
-  pygi_gobject_base_type->tp_weaklistoffset = offsetof (PyGIGObjectBase, weakreflist);
-  if (PyModule_AddObject (m, "GObjectBase", gobject_base) < 0)
-    {
-      Py_DECREF (gobject_base);
-      Py_DECREF (m);
-      return NULL;
-    }
+  /* GObjectBase is created lazily via init_gobject_base(GObjectMeta) once the
+   * Python metaclass exists; the unified GObject.Object base IS this C type. */
 
   PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);
   if (method_descriptor_type == NULL)

@@ -327,14 +327,46 @@ class ClassBuilder:
         return cast("type[Any]", getattr(namespace, data["name"]))
 
 
+_interface_impl_cache: dict[int, type] = {}
+
+
+def _concrete_impl_for_interface(iface_cls: type) -> type:
+    """A GObject.Object-layout wrapper class for an interface-typed value.
+
+    GInterface classes are layout-free mixins (no PyGIGObjectBase storage), so a
+    returned object whose static type is an interface can't be allocated through
+    the interface class directly. Wrap it with a synthesized
+    ``(GObject.Object, iface)`` class instead: it has the C layout from
+    GObject.Object and the interface's methods via the iface mixin. Cached per
+    interface class.
+    """
+    key = id(iface_cls)
+    impl = _interface_impl_cache.get(key)
+    if impl is None:
+        impl = GObjectMeta(
+            iface_cls.__name__,
+            (GObject, iface_cls),
+            {
+                "gimeta": iface_cls.gimeta,
+                "_class_struct_name": None,
+                "__module__": iface_cls.__module__,
+            },
+        )
+        _interface_impl_cache[key] = impl
+    return cast("type", impl)
+
+
 def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> GObject:
     profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
     cached = _cached_class_for_gtype(profile.name, gtype)
     if cached is None:
         cached = _cached_python_defined_class_for_gtype(gtype)
     if cached is not None:
-        if issubclass(cached, (GObject, GInterface)):
+        if issubclass(cached, GObject):
             return cast("GObject", wrap_existing_pointer_for_class(cached, ptr))
+        if issubclass(cached, GInterface):
+            impl = _concrete_impl_for_interface(cached)
+            return cast("GObject", wrap_existing_pointer_for_class(impl, ptr))
         return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
     data = private.GIMeta.info_by_gtype(gtype).object_info()
     namespace = sys.modules["ginext"]._load_namespace(
@@ -343,8 +375,11 @@ def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> G
         profile=profile,
     )
     cls = getattr(namespace, data["name"])
-    if issubclass(cls, (GObject, GInterface)):
+    if issubclass(cls, GObject):
         return cast("GObject", wrap_existing_pointer_for_class(cls, ptr))
+    if issubclass(cls, GInterface):
+        impl = _concrete_impl_for_interface(cls)
+        return cast("GObject", wrap_existing_pointer_for_class(impl, ptr))
     return cast("GObject", cls._from_gobject_pointer(ptr))
 
 
@@ -362,8 +397,9 @@ def wrap_preallocated_object_from_c(
                 return _wrap_preallocated_construction(cached, ptr)
             return wrap_existing_pointer_for_class(cached, ptr, owns_ref=False)
         if issubclass(cached, GInterface):
+            impl = _concrete_impl_for_interface(cached)
             return cast(
-                "GObject", wrap_existing_pointer_for_class(cached, ptr, owns_ref=False)
+                "GObject", wrap_existing_pointer_for_class(impl, ptr, owns_ref=False)
             )
         return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
     data = private.GIMeta.info_by_gtype(gtype).object_info()
@@ -378,8 +414,9 @@ def wrap_preallocated_object_from_c(
             cast("type[GObject]", cls), ptr, owns_ref=False
         )
     if issubclass(cls, GInterface):
+        impl = _concrete_impl_for_interface(cls)
         return cast(
-            "GObject", wrap_existing_pointer_for_class(cls, ptr, owns_ref=False)
+            "GObject", wrap_existing_pointer_for_class(impl, ptr, owns_ref=False)
         )
     return cast("GObject", cls._from_gobject_pointer(ptr))
 

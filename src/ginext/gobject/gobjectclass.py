@@ -73,6 +73,21 @@ from .properties import (
     call_notify_override,
 )
 
+# Create the C GObjectBase type with GObjectMeta as its metaclass (deferred from
+# the C module init, which runs before the Python metaclass exists) and rebind it
+# on `private`. GObject IS this C base type: one class, GObject.Object, with the
+# instance methods attached directly (transplanted near the bottom of this
+# module). GObject, GObject.Object and private.GObjectBase are all this object.
+private.GObjectBase = private.init_gobject_base(GObjectMeta)
+# The base carries the root class vars directly so GObjectMeta.__getattr__ (which
+# reads _class_struct_name while resolving methods) terminates instead of
+# recursing on a missing attribute.
+private.GObjectBase._class_struct_name = None
+GObject = private.GObjectBase
+# The C-level run_dispose, captured before the Python methods are attached, so
+# __del__ can chain to the default disposer without resolving overrides.
+_base_run_dispose = GObject.run_dispose
+
 _compat_aliases_enabled = False
 _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
@@ -274,46 +289,44 @@ def _python_construction_active() -> bool:
     return bool(private.GObjectBase.python_construction_active())
 
 
+# Interfaces are mixins, not GObjects: GInterface is a layout-free sibling of
+# GObject.Object (a plain object subclass), so concrete classes can write
+# `class Foo(GObject.Object, SomeInterface)` with a consistent MRO and a single
+# C layout (from GObject.Object). Introspected interface methods resolve through
+# GObjectMeta/gimeta; instances are always concrete GObject.Object subclasses,
+# so an interface class is never used to allocate a wrapper.
 @dataclass_transform(field_specifiers=(Property,))
-class GInterface(private.GObjectBase, metaclass=GObjectMeta):
+class GInterface(metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     _class_struct_name: ClassVar[str | None] = None
     __slots__ = ()
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:
+        # Concrete classes list their implemented interfaces before GObject.Object
+        # in __bases__, so this __new__ is reached first; delegate to the real
+        # (C) allocator. Only a bare interface type itself is non-instantiable.
         if (
             int(gobject_repo().type_fundamental(int(cls.gimeta.gtype)))
             != _G_TYPE_INTERFACE
         ):
-            return private.GObjectBase.__new__(cls)
+            return GObject.__new__(cls)
         raise NotImplementedError(
             f"{cls.__module__}.{cls.__name__} is an interface and cannot be instantiated"
         )
 
 
+# Instance methods for the single GObject base. Defined in a throwaway class body
+# (so __init_subclass__ is auto-wrapped as a classmethod and the bodies stay
+# readable) and transplanted onto the C base below. Must not use zero-arg
+# super()/__class__: those bind to _GObjectBody, but the methods run on the base
+# and its subclasses. __init_subclass__ uses explicit super(GObject, cls);
+# __del__ uses the captured _base_run_dispose.
 @dataclass_transform(field_specifiers=(Property,))
-class GObject(private.GObjectBase, metaclass=GObjectMeta):
-    gimeta: ClassVar[private.GIMeta]
-    Signal: ClassVar[type[Signal]]
-    _class_struct_name: ClassVar[str | None] = None
-    # Marks the single canonical GObject base (exposed as GObject.Object).
-    # Used by GObjectMeta to gate the `Signal` descriptor to the root only.
-    _gobject_is_root: ClassVar[bool] = True
-
-    # Class-level signal lookup table: normalized python name → GISignalInfo
-    # (or SignalDescriptor for Python-defined signals). Inherited from the
-    # parent class at class-build time; the explicit copy is necessary
-    # because plain MRO attribute lookup would expose only the closest
-    # class's dict, not a merged view across the chain.
-    # Stored on gimeta (signal_infos, signal_method_backings, vfunc_infos).
-
-    def __new__(cls, *args: object, **kwargs: object) -> Self:
-        return private.GObjectBase.__new__(cls)
-
+class _GObjectBody(GObject, metaclass=GObjectMeta):
     def __init_subclass__(
         cls, /, type_name: str | None = None, **kwargs: object
     ) -> None:
-        super().__init_subclass__(**kwargs)
+        super(GObject, cls).__init_subclass__(**kwargs)
         register_python_subclass(cls, type_name=type_name)
 
     def __init__(self, **kwargs: object) -> None:
@@ -368,7 +381,7 @@ class GObject(private.GObjectBase, metaclass=GObjectMeta):
                 _compat_dispose_state[id(self)] = dispose_state
             try:
                 self.bind_from_c(self)
-                super().run_dispose()
+                _base_run_dispose(self)
             except AttributeError, RuntimeError, TypeError, ValueError:
                 pass
             finally:
@@ -469,18 +482,6 @@ class GObject(private.GObjectBase, metaclass=GObjectMeta):
             else handler_id
         )
         return bool(self.handler_id_is_connected(int(cast("Any", raw))))
-
-    def stop_emission_by_name(self, detailed_signal: str) -> None:
-        super().stop_emission_by_name(detailed_signal)
-
-    def freeze_notify(self) -> None:
-        super().freeze_notify()
-
-    def thaw_notify(self) -> None:
-        super().thaw_notify()
-
-    def run_dispose(self) -> None:
-        super().run_dispose()
 
     def _is_floating_for_test(self) -> bool:
         return bool(self.is_floating())
@@ -630,41 +631,35 @@ class GObject(private.GObjectBase, metaclass=GObjectMeta):
         )
 
 
+# Transplant the instance methods onto the C base: GObject IS the base, so it
+# carries connect/emit/__getattr__/__init_subclass__/... directly. GInterface is
+# a layout-free sibling and does not inherit these (interface methods come via
+# gimeta), so nothing is copied onto it.
+_SKIP_TRANSPLANT = {
+    "__dict__",
+    "__weakref__",
+    "__module__",
+    "__qualname__",
+    "__doc__",
+    "__slots__",
+}
+for _name, _value in list(_GObjectBody.__dict__.items()):
+    if _name in _SKIP_TRANSPLANT:
+        continue
+    setattr(GObject, _name, _value)
+del _GObjectBody
+
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
+# Marks the single canonical GObject base; GObjectMeta gates `Signal` to it.
+GObject._gobject_is_root = True
 # __init_subclass__ only fires for subclasses, so the root must be wired up
 # explicitly. GLib's type lookup works without an explicit g_type_init() in
 # modern GLib — the type system auto-initializes on first use.
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
-
-for _name in (
-    "_from_gobject_pointer",
-    "__del__",
-    "scoped",
-    "connect",
-    "connect_after",
-    "emit",
-    "get_property",
-    "set_property",
-    "disconnect",
-    "handler_is_connected",
-    "stop_emission_by_name",
-    "freeze_notify",
-    "thaw_notify",
-    "run_dispose",
-    "_is_floating_for_test",
-    "_force_floating",
-    "_ref_sink",
-    "_compat_connections",
-    "_compat_remember_connection",
-    "_compat_forget_connection",
-    "_compat_forget_handler_id",
-    "_compat_property_for_name",
-    "__setattr__",
-    "__getattr__",
-    "signal_for_name",
-    "_compat_signal_for_name",
-    "__repr__",
-    "__grefcount__",
-):
-    setattr(GInterface, _name, GObject.__dict__[_name])
+# Present the unified base as GObject.Object everywhere (ClassBuilder also sets
+# this when it adopts the introspected root; doing it here covers pre-adoption
+# use and reprs).
+GObject.__name__ = "Object"
+GObject.__qualname__ = "Object"
+GObject.__module__ = "ginext.GObject"
