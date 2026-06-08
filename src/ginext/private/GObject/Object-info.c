@@ -354,7 +354,16 @@ GObject_construct_with_properties (PyObject *type, PyObject *args)
   PyObject *call_args = PyTuple_Pack (2, type, properties);
   if (call_args == NULL)
     return NULL;
+  /* Mark a Python-initiated construction for the duration of g_object_new so the
+   * construction callback binds this wrapper rather than creating its own. */
+  int depth = python_construction_depth ();
+  if (depth < 0 || set_python_construction_depth (depth + 1) < 0)
+    {
+      Py_DECREF (call_args);
+      return NULL;
+    }
   PyObject *result = py_construct_gobject (NULL, call_args);
+  set_python_construction_depth (depth);
   Py_DECREF (call_args);
   return result;
 }
@@ -462,37 +471,6 @@ GObject_signal_emit_with_gtypes (PyObject *self, PyObject *args)
                          &emit_args))
     return NULL;
   return pygi_signal_emit_with_gtypes_full (self, signal_name, arg_gtypes_tuple, emit_args);
-}
-
-static PyObject *
-GObject_push_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
-{
-  int depth = python_construction_depth ();
-  if (depth < 0)
-    return NULL;
-  if (set_python_construction_depth (depth + 1) < 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
-
-static PyObject *
-GObject_pop_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
-{
-  int depth = python_construction_depth ();
-  if (depth < 0)
-    return NULL;
-  if (set_python_construction_depth (depth <= 1 ? 0 : depth - 1) < 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
-
-static PyObject *
-GObject_python_construction_active (PyObject *type, PyObject *Py_UNUSED (ignored))
-{
-  int active = pygi_python_construction_active ();
-  if (active < 0)
-    return NULL;
-  return PyBool_FromLong (active);
 }
 
 static PyObject *
@@ -759,21 +737,9 @@ GObject_shell_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
 }
 
 static PyMethodDef GObject_methods[] = {
-  { "push_python_construction",
-    GObject_push_python_construction,
-    METH_CLASS | METH_NOARGS,
-    NULL },
   { "construct_with_properties",
     GObject_construct_with_properties,
     METH_CLASS | METH_VARARGS,
-    NULL },
-  { "pop_python_construction",
-    GObject_pop_python_construction,
-    METH_CLASS | METH_NOARGS,
-    NULL },
-  { "python_construction_active",
-    GObject_python_construction_active,
-    METH_CLASS | METH_NOARGS,
     NULL },
   { "new_bound_from_c",
     (PyCFunction)(void (*) (void))GObject_new_bound_from_c,

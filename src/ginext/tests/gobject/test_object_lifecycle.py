@@ -207,7 +207,6 @@ def test_bind_existing_pointer_can_skip_post_construct_hooks(TestObj: Any) -> No
 def test_preallocated_construction_state_skips_second_native_allocation(
     unique_type_name: Any,
 ) -> None:
-    from ginext import GObject as GObjectNS
     from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
@@ -221,11 +220,7 @@ def test_preallocated_construction_state_skips_second_native_allocation(
             super().__init__()
             self.initialized = True
 
-    gobject._push_python_construction()
-    try:
-        ptr = GObjectNS.new_with_properties(Preallocated, {})
-    finally:
-        gobject._pop_python_construction()
+    ptr = Preallocated.construct_with_properties({})
     obj = Preallocated.__new__(Preallocated)
     gobject._prime_preallocated_construction(obj, ptr)
 
@@ -249,7 +244,6 @@ def test_preallocated_construction_state_skips_second_native_allocation(
 def test_preallocated_construction_state_preserves_parent_init_chain(
     unique_type_name: Any,
 ) -> None:
-    from ginext import GObject as GObjectNS
     from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
@@ -267,11 +261,7 @@ def test_preallocated_construction_state_preserves_parent_init_chain(
             super().__init__()
             order.append("child2")
 
-    gobject._push_python_construction()
-    try:
-        ptr = GObjectNS.new_with_properties(Child, {})
-    finally:
-        gobject._pop_python_construction()
+    ptr = Child.construct_with_properties({})
     obj = Child.__new__(Child)
     gobject._prime_preallocated_construction(obj, ptr)
     Child.__init__(obj)
@@ -283,7 +273,6 @@ def test_preallocated_construction_state_preserves_parent_init_chain(
 def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
     unique_type_name: Any,
 ) -> None:
-    from ginext import GObject as GObjectNS
     from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
@@ -295,11 +284,7 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
             super().__init__()
             seen.append(self.is_bound())
 
-    gobject._push_python_construction()
-    try:
-        ptr = GObjectNS.new_with_properties(Deferred, {})
-    finally:
-        gobject._pop_python_construction()
+    ptr = Deferred.construct_with_properties({})
     obj = cast("Deferred", gobject._wrap_preallocated_construction(Deferred, ptr))
 
     assert obj.is_bound() is False
@@ -313,7 +298,6 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
 def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
     unique_type_name: Any,
 ) -> None:
-    from ginext import GObject as GObjectNS
     from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
@@ -324,11 +308,7 @@ def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
             super().__init__()
             self.initialized = True
 
-    gobject._push_python_construction()
-    try:
-        ptr = GObjectNS.new_with_properties(DeferredViaPrivate, {})
-    finally:
-        gobject._pop_python_construction()
+    ptr = DeferredViaPrivate.construct_with_properties({})
     obj = private.GObject.shell_from_c(ptr)
 
     assert isinstance(obj, DeferredViaPrivate)
@@ -355,7 +335,6 @@ def test_private_object_shell_from_c_keeps_imported_type_bound() -> None:
 
 
 def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) -> None:
-    from ginext import GObject as GObjectNS
     from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
@@ -366,11 +345,7 @@ def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) ->
     assert owned.owns_ref() is True
     assert not hasattr(owned, "_gobject_owns_ref")
 
-    gobject._push_python_construction()
-    try:
-        ptr = GObjectNS.new_with_properties(Deferred, {})
-    finally:
-        gobject._pop_python_construction()
+    ptr = Deferred.construct_with_properties({})
 
     deferred = gobject._wrap_preallocated_construction(Deferred, ptr)
     Deferred.__init__(deferred)

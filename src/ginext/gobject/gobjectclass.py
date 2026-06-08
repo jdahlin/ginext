@@ -272,18 +272,6 @@ def _finish_wrapper_construction(
         )
 
 
-def _push_python_construction() -> None:
-    private.GObject.push_python_construction()
-
-
-def _pop_python_construction() -> None:
-    private.GObject.pop_python_construction()
-
-
-def _python_construction_active() -> bool:
-    return bool(private.GObject.python_construction_active())
-
-
 # A layout-free mixin sibling of GObject.Object, so `class Foo(GObject.Object,
 # SomeInterface)` has a consistent MRO. Never instantiated as itself.
 @dataclass_transform(field_specifiers=(Property,))
@@ -324,11 +312,7 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         normalized = _normalize_constructor_properties(properties)
         state = _consume_preallocated_construction(self)
         if state is None:
-            _push_python_construction()
-            try:
-                ptr = type(self).construct_with_properties(normalized)
-            finally:
-                _pop_python_construction()
+            ptr = type(self).construct_with_properties(normalized)
             _finish_wrapper_construction(self, ptr, handlers, owns_ref=True)
             return
         ptr, pending_handlers = state
