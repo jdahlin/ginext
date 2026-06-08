@@ -213,7 +213,7 @@ def _make_arg_adapter(callback: Callable[..., Any]) -> Callable[..., Any]:
 
 def _is_gobject_wrapper(obj: object) -> bool:
     """True if obj is a bound ginext GObject wrapper."""
-    return isinstance(obj, private.GObjectBase) and obj.is_bound()
+    return isinstance(obj, private.GObject) and obj.is_bound()
 
 
 def _infer_owner(callback: Callable[..., Any]) -> Any | None:

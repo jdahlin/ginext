@@ -333,7 +333,7 @@ _interface_impl_cache: dict[int, type] = {}
 def _concrete_impl_for_interface(iface_cls: type) -> type:
     """A GObject.Object-layout wrapper class for an interface-typed value.
 
-    GInterface classes are layout-free mixins (no PyGIGObjectBase storage), so a
+    GInterface classes are layout-free mixins (no PyGIGObject storage), so a
     returned object whose static type is an interface can't be allocated through
     the interface class directly. Wrap it with a synthesized
     ``(GObject.Object, iface)`` class instead: it has the C layout from

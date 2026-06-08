@@ -51,7 +51,7 @@
 #include <string.h>
 
 PyTypeObject *pygi_gboxed_base_type = NULL;
-PyTypeObject *pygi_gobject_base_type = NULL;
+PyTypeObject *pygi_gobject_type = NULL;
 
 static PyObject *boxed_classes_by_gtype = NULL;
 static GHashTable *property_type_infos_by_key = NULL;

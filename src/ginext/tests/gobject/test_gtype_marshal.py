@@ -37,7 +37,7 @@ def test_new_with_properties_accepts_gobject_class() -> None:
     assert isinstance(ptr, int)
     assert ptr
     cast(
-        "ginext.private.GObjectBase", ginext.private.GObjectBase.from_c(ptr)
+        "ginext.private.GObject", ginext.private.GObject.from_c(ptr)
     ).release_ref()
 
 
@@ -49,7 +49,7 @@ def test_new_with_properties_accepts_gtype_object() -> None:
     assert isinstance(ptr, int)
     assert ptr
     cast(
-        "ginext.private.GObjectBase", ginext.private.GObjectBase.from_c(ptr)
+        "ginext.private.GObject", ginext.private.GObject.from_c(ptr)
     ).release_ref()
 
 
@@ -61,7 +61,7 @@ def test_new_with_properties_accepts_object_with_gtype() -> None:
     assert isinstance(ptr, int)
     assert ptr
     cast(
-        "ginext.private.GObjectBase", ginext.private.GObjectBase.from_c(ptr)
+        "ginext.private.GObject", ginext.private.GObject.from_c(ptr)
     ).release_ref()
 
 
@@ -73,7 +73,7 @@ def test_new_with_properties_accepts_gobject_instance_as_type() -> None:
     assert isinstance(ptr, int)
     assert ptr
     cast(
-        "ginext.private.GObjectBase", ginext.private.GObjectBase.from_c(ptr)
+        "ginext.private.GObject", ginext.private.GObject.from_c(ptr)
     ).release_ref()
 
 

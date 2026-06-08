@@ -110,12 +110,12 @@ def _load_gobject():
 _gobject = _load_gobject()
 
 GIMeta = _gobject.GIMeta
-# GObjectBase is created lazily by gobject.gobjectclass via
-# _gobject.init_gobject_base(GObjectMeta) — it needs the Python metaclass — and
+# The GObject base type is created lazily by gobject.gobjectclass via
+# _gobject.init_gobject(GObjectMeta) — it needs the Python metaclass — and
 # rebound here at that point. None until then; only gobjectclass touches it at
 # import time, and it creates it.
-GObjectBase = getattr(_gobject, "GObjectBase", None)
-init_gobject_base = _gobject.init_gobject_base
+GObject = getattr(_gobject, "GObject", None)
+init_gobject = _gobject.init_gobject
 GBoxed = _gobject.GBoxed
 DeclaredProperty = _gobject.DeclaredProperty
 build_callable_descriptor = _gobject.build_callable_descriptor

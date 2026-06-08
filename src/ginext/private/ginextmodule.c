@@ -180,37 +180,37 @@ py_preload_shared_library (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
-/* Create the GObjectBase type with a Python-supplied metaclass (GObjectMeta).
+/* Create the GObject type with a Python-supplied metaclass (GObjectMeta).
  * Deferred out of module init because the metaclass is defined in Python; the
  * unified GObject.Object base IS this C type, so it must carry GObjectMeta.
  * Idempotent: returns the already-created type on repeat calls. */
 static PyObject *
-py_init_gobject_base (PyObject *m, PyObject *args)
+py_init_gobject (PyObject *m, PyObject *args)
 {
   PyObject *metaclass = NULL;
-  if (!PyArg_ParseTuple (args, "O:init_gobject_base", &metaclass))
+  if (!PyArg_ParseTuple (args, "O:init_gobject", &metaclass))
     return NULL;
   if (!PyType_Check (metaclass))
     {
       PyErr_SetString (PyExc_TypeError, "metaclass must be a type");
       return NULL;
     }
-  if (pygi_gobject_base_type != NULL)
-    return Py_NewRef ((PyObject *)pygi_gobject_base_type);
+  if (pygi_gobject_type != NULL)
+    return Py_NewRef ((PyObject *)pygi_gobject_type);
 
-  PyObject *gobject_base
-      = PyType_FromMetaclass ((PyTypeObject *)metaclass, m, &GinextGObjectBase_spec, NULL);
-  if (gobject_base == NULL)
+  PyObject *gobject
+      = PyType_FromMetaclass ((PyTypeObject *)metaclass, m, &GinextGObject_spec, NULL);
+  if (gobject == NULL)
     return NULL;
-  pygi_gobject_base_type = (PyTypeObject *)gobject_base;
-  pygi_gobject_base_type->tp_weaklistoffset = offsetof (PyGIGObjectBase, weakreflist);
-  if (PyModule_AddObjectRef (m, "GObjectBase", gobject_base) < 0)
+  pygi_gobject_type = (PyTypeObject *)gobject;
+  pygi_gobject_type->tp_weaklistoffset = offsetof (PyGIGObject, weakreflist);
+  if (PyModule_AddObjectRef (m, "GObject", gobject) < 0)
     {
-      pygi_gobject_base_type = NULL;
-      Py_DECREF (gobject_base);
+      pygi_gobject_type = NULL;
+      Py_DECREF (gobject);
       return NULL;
     }
-  return gobject_base;
+  return gobject;
 }
 
 /* Test-infra: thin wrappers around PyArg_ParseTuple for each numeric/string
@@ -262,8 +262,8 @@ static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
   /* keep: test-infra — pre-loads a .so so g_module_open("libfoo.so") hits cache */
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
-  /* keep: creates the GObjectBase type with the Python GObjectMeta metaclass */
-  { "init_gobject_base", py_init_gobject_base, METH_VARARGS, NULL },
+  /* keep: creates the GObject type with the Python GObjectMeta metaclass */
+  { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
   /* keep: test-infra — PyArg_ParseTuple oracle (release-build getargs_* equivalents) */
   { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
   { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
@@ -431,7 +431,7 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  /* GObjectBase is created lazily via init_gobject_base(GObjectMeta) once the
+  /* GObject is created lazily via init_gobject(GObjectMeta) once the
    * Python metaclass exists; the unified GObject.Object base IS this C type. */
 
   PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);

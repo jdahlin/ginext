@@ -73,17 +73,17 @@ from .properties import (
     call_notify_override,
 )
 
-# Create the C GObjectBase type with GObjectMeta as its metaclass (deferred from
+# Create the C GObject type with GObjectMeta as its metaclass (deferred from
 # the C module init, which runs before the Python metaclass exists) and rebind it
 # on `private`. GObject IS this C base type: one class, GObject.Object, with the
 # instance methods attached directly (transplanted near the bottom of this
-# module). GObject, GObject.Object and private.GObjectBase are all this object.
-private.GObjectBase = private.init_gobject_base(GObjectMeta)
+# module). GObject, GObject.Object and private.GObject are all this object.
+private.GObject = private.init_gobject(GObjectMeta)
 # The base carries the root class vars directly so GObjectMeta.__getattr__ (which
 # reads _class_struct_name while resolving methods) terminates instead of
 # recursing on a missing attribute.
-private.GObjectBase._class_struct_name = None
-GObject = private.GObjectBase
+private.GObject._class_struct_name = None
+GObject = private.GObject
 # The C-level run_dispose, captured before the Python methods are attached, so
 # __del__ can chain to the default disposer without resolving overrides.
 _base_run_dispose = GObject.run_dispose
@@ -167,8 +167,8 @@ def _wrap_existing_pointer(
     run_post_construct: bool = True,
 ) -> object:
     if run_post_construct:
-        return private.GObjectBase.from_c(ptr)
-    bound_cls = cast("type[private.GObjectBase]", cls)
+        return private.GObject.from_c(ptr)
+    bound_cls = cast("type[private.GObject]", cls)
     obj = bound_cls.new_bound_from_c(ptr, owns_ref=owns_ref)
     if run_post_construct:
         _run_post_construct_hooks(obj)
@@ -190,7 +190,7 @@ def wrap_existing_pointer_for_class(
 def wrap_existing_pointer_for_class(
     cls: type[object], ptr: int, *, owns_ref: bool = True
 ) -> object:
-    bound_cls = cast("type[private.GObjectBase]", cls)
+    bound_cls = cast("type[private.GObject]", cls)
     obj = bound_cls.new_bound_from_c(ptr, owns_ref=owns_ref)
     _run_post_construct_hooks(obj)
     return obj
@@ -278,15 +278,15 @@ def _finish_wrapper_construction(
 
 
 def _push_python_construction() -> None:
-    private.GObjectBase.push_python_construction()
+    private.GObject.push_python_construction()
 
 
 def _pop_python_construction() -> None:
-    private.GObjectBase.pop_python_construction()
+    private.GObject.pop_python_construction()
 
 
 def _python_construction_active() -> bool:
-    return bool(private.GObjectBase.python_construction_active())
+    return bool(private.GObject.python_construction_active())
 
 
 # Interfaces are mixins, not GObjects: GInterface is a layout-free sibling of

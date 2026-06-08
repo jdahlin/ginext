@@ -37,7 +37,7 @@ def test_same_gobject_wrap_is_stable_across_threads() -> None:
     def worker() -> None:
         barrier.wait()
         for _ in range(per_thread):
-            wrapped = private.GObjectBase.from_c(obj)
+            wrapped = private.GObject.from_c(obj)
             if wrapped is not obj:
                 raise AssertionError(
                     "same GObject pointer produced a different wrapper"

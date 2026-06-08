@@ -117,24 +117,24 @@ static void
 restore_wrapper_state (GObject *object, PyObject *wrapper);
 
 static int
-pygi_gobject_base_check (PyObject *wrapper)
+pygi_gobject_check (PyObject *wrapper)
 {
-  return pygi_gobject_base_type != NULL && PyObject_TypeCheck (wrapper, pygi_gobject_base_type);
+  return pygi_gobject_type != NULL && PyObject_TypeCheck (wrapper, pygi_gobject_type);
 }
 
 static PyObject *
-gobject_base_new_instance (PyObject *type)
+gobject_new_instance (PyObject *type)
 {
   if (!PyType_Check (type))
     {
-      PyErr_SetString (PyExc_TypeError, "expected GObjectBase subclass");
+      PyErr_SetString (PyExc_TypeError, "expected GObject subclass");
       return NULL;
     }
 
   PyTypeObject *wrapper_type = (PyTypeObject *)type;
-  if (pygi_gobject_base_type != NULL && !PyType_IsSubtype (wrapper_type, pygi_gobject_base_type))
+  if (pygi_gobject_type != NULL && !PyType_IsSubtype (wrapper_type, pygi_gobject_type))
     {
-      PyErr_SetString (PyExc_TypeError, "expected GObjectBase subclass");
+      PyErr_SetString (PyExc_TypeError, "expected GObject subclass");
       return NULL;
     }
 
@@ -177,7 +177,7 @@ prime_construction_state_from_source (PyObject *self, PyObject *source, PyObject
   if (handler_dict == NULL)
     return -1;
 
-  PyGIGObjectBase *base = (PyGIGObjectBase *)self;
+  PyGIGObject *base = (PyGIGObject *)self;
   base->construction_ptr = object;
   Py_XSETREF (base->construction_handlers, handler_dict);
   return 0;
@@ -186,7 +186,7 @@ prime_construction_state_from_source (PyObject *self, PyObject *source, PyObject
 static int
 apply_construction_properties_from_mapping (PyObject *self, PyObject *properties)
 {
-  PyGIGObjectBase *base = (PyGIGObjectBase *)self;
+  PyGIGObject *base = (PyGIGObject *)self;
   if (base->construction_ptr == NULL)
     {
       PyErr_SetString (PyExc_ValueError, "no deferred construction state");
@@ -284,16 +284,16 @@ wrap_preallocated_gobject_from_source (PyObject *source)
 }
 
 static int
-GObjectBase_traverse (PyObject *self, visitproc visit, void *arg)
+GObject_traverse (PyObject *self, visitproc visit, void *arg)
 {
-  Py_VISIT (((PyGIGObjectBase *)self)->construction_handlers);
+  Py_VISIT (((PyGIGObject *)self)->construction_handlers);
   return PyObject_VisitManagedDict (self, visit, arg);
 }
 
 static int
-GObjectBase_clear (PyObject *self)
+GObject_clear (PyObject *self)
 {
-  PyGIGObjectBase *base = (PyGIGObjectBase *)self;
+  PyGIGObject *base = (PyGIGObject *)self;
   base->construction_ptr = NULL;
   Py_CLEAR (base->construction_handlers);
   PyObject_ClearManagedDict (self);
@@ -301,7 +301,7 @@ GObjectBase_clear (PyObject *self)
 }
 
 static PyObject *
-GObjectBase_prime_construction_state (PyObject *self, PyObject *args)
+GObject_prime_construction_state (PyObject *self, PyObject *args)
 {
   PyObject *source = NULL;
   PyObject *handlers = Py_None;
@@ -314,9 +314,9 @@ GObjectBase_prime_construction_state (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_take_construction_state (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_take_construction_state (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
-  PyGIGObjectBase *base = (PyGIGObjectBase *)self;
+  PyGIGObject *base = (PyGIGObject *)self;
   if (base->construction_ptr == NULL)
     Py_RETURN_NONE;
 
@@ -345,7 +345,7 @@ GObjectBase_take_construction_state (PyObject *self, PyObject *Py_UNUSED (ignore
 }
 
 static PyObject *
-GObjectBase_construct_with_properties (PyObject *type, PyObject *args)
+GObject_construct_with_properties (PyObject *type, PyObject *args)
 {
   PyObject *properties = NULL;
   if (!PyArg_ParseTuple (args, "O!:construct_with_properties", &PyDict_Type, &properties))
@@ -360,7 +360,7 @@ GObjectBase_construct_with_properties (PyObject *type, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_apply_construction_properties (PyObject *self, PyObject *args)
+GObject_apply_construction_properties (PyObject *self, PyObject *args)
 {
   PyObject *properties = NULL;
   if (!PyArg_ParseTuple (args, "O:apply_construction_properties", &properties))
@@ -371,7 +371,7 @@ GObjectBase_apply_construction_properties (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_connect_constructor_handler (PyObject *self, PyObject *args)
+GObject_connect_constructor_handler (PyObject *self, PyObject *args)
 {
   const char *signal_name = NULL;
   PyObject *callback = NULL;
@@ -394,7 +394,7 @@ GObjectBase_connect_constructor_handler (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_signal_is_action (PyObject *self, PyObject *args)
+GObject_signal_is_action (PyObject *self, PyObject *args)
 {
   const char *signal_name = NULL;
   gboolean is_action = FALSE;
@@ -406,7 +406,7 @@ GObjectBase_signal_is_action (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_signal_connect (PyObject *self, PyObject *args)
+GObject_signal_connect (PyObject *self, PyObject *args)
 {
   const char *signal_name = NULL;
   PyObject *callback = NULL;
@@ -437,7 +437,7 @@ GObjectBase_signal_connect (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_signal_emit (PyObject *self, PyObject *args)
+GObject_signal_emit (PyObject *self, PyObject *args)
 {
   const char *signal_name = NULL;
   PyObject *signal_info_capsule = Py_None;
@@ -448,7 +448,7 @@ GObjectBase_signal_emit (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_signal_emit_with_gtypes (PyObject *self, PyObject *args)
+GObject_signal_emit_with_gtypes (PyObject *self, PyObject *args)
 {
   const char *signal_name = NULL;
   PyObject *arg_gtypes_tuple = NULL;
@@ -465,7 +465,7 @@ GObjectBase_signal_emit_with_gtypes (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_push_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
+GObject_push_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
 {
   int depth = python_construction_depth ();
   if (depth < 0)
@@ -476,7 +476,7 @@ GObjectBase_push_python_construction (PyObject *type, PyObject *Py_UNUSED (ignor
 }
 
 static PyObject *
-GObjectBase_pop_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
+GObject_pop_python_construction (PyObject *type, PyObject *Py_UNUSED (ignored))
 {
   int depth = python_construction_depth ();
   if (depth < 0)
@@ -487,7 +487,7 @@ GObjectBase_pop_python_construction (PyObject *type, PyObject *Py_UNUSED (ignore
 }
 
 static PyObject *
-GObjectBase_python_construction_active (PyObject *type, PyObject *Py_UNUSED (ignored))
+GObject_python_construction_active (PyObject *type, PyObject *Py_UNUSED (ignored))
 {
   int active = pygi_python_construction_active ();
   if (active < 0)
@@ -496,7 +496,7 @@ GObjectBase_python_construction_active (PyObject *type, PyObject *Py_UNUSED (ign
 }
 
 static PyObject *
-GObjectBase_bind_from_c (PyObject *self, PyObject *args, PyObject *kwargs)
+GObject_bind_from_c (PyObject *self, PyObject *args, PyObject *kwargs)
 {
   static char *keywords[] = { "source", "owns_ref", NULL };
   PyObject *source = NULL;
@@ -511,7 +511,7 @@ GObjectBase_bind_from_c (PyObject *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyObject *
-GObjectBase_new_bound_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
+GObject_new_bound_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
 {
   static char *keywords[] = { "source", "owns_ref", NULL };
   PyObject *source = NULL;
@@ -525,7 +525,7 @@ GObjectBase_new_bound_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
                                     &owns_ref))
     return NULL;
 
-  PyObject *self = gobject_base_new_instance (type);
+  PyObject *self = gobject_new_instance (type);
   if (self == NULL)
     return NULL;
 
@@ -538,7 +538,7 @@ GObjectBase_new_bound_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
 }
 
 static PyObject *
-GObjectBase_new_preallocated_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
+GObject_new_preallocated_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
 {
   static char *keywords[] = { "source", "handlers", NULL };
   PyObject *source = NULL;
@@ -552,7 +552,7 @@ GObjectBase_new_preallocated_from_c (PyObject *type, PyObject *args, PyObject *k
                                     &handlers))
     return NULL;
 
-  PyObject *self = gobject_base_new_instance (type);
+  PyObject *self = gobject_new_instance (type);
   if (self == NULL)
     return NULL;
 
@@ -565,13 +565,13 @@ GObjectBase_new_preallocated_from_c (PyObject *type, PyObject *args, PyObject *k
 }
 
 static PyObject *
-GObjectBase_is_bound (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_is_bound (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
-  return PyBool_FromLong (((PyGIGObjectBase *)self)->ptr != NULL);
+  return PyBool_FromLong (((PyGIGObject *)self)->ptr != NULL);
 }
 
 static PyObject *
-GObjectBase_owns_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_owns_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   gboolean owns_ref = FALSE;
   pygi_gobject_wrapper_local_owns_ref (self, &owns_ref);
@@ -579,7 +579,7 @@ GObjectBase_owns_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_pointer_value (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_pointer_value (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "pointer_value");
   if (object == NULL)
@@ -588,7 +588,7 @@ GObjectBase_pointer_value (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_release_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_release_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "release_ref");
   if (object == NULL)
@@ -599,14 +599,14 @@ GObjectBase_release_ref (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_preserve_wrapper_state (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_preserve_wrapper_state (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   store_wrapper_state_if_object_survives (self);
   Py_RETURN_NONE;
 }
 
 static PyObject *
-GObjectBase_ref_sink (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_ref_sink (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "ref_sink");
   if (object == NULL)
@@ -617,7 +617,7 @@ GObjectBase_ref_sink (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_make_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_make_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "make_floating");
   if (object == NULL)
@@ -628,7 +628,7 @@ GObjectBase_make_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_ref_count (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_ref_count (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "ref_count");
   if (object == NULL)
@@ -638,7 +638,7 @@ GObjectBase_ref_count (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_is_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_is_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "is_floating");
   if (object == NULL)
@@ -648,7 +648,7 @@ GObjectBase_is_floating (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_freeze_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_freeze_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "freeze_notify");
   if (object == NULL)
@@ -659,7 +659,7 @@ GObjectBase_freeze_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_thaw_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_thaw_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "thaw_notify");
   if (object == NULL)
@@ -670,7 +670,7 @@ GObjectBase_thaw_notify (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_run_dispose (PyObject *self, PyObject *Py_UNUSED (ignored))
+GObject_run_dispose (PyObject *self, PyObject *Py_UNUSED (ignored))
 {
   GObject *object = bound_gobject_from_self (self, "run_dispose");
   if (object == NULL)
@@ -681,7 +681,7 @@ GObjectBase_run_dispose (PyObject *self, PyObject *Py_UNUSED (ignored))
 }
 
 static PyObject *
-GObjectBase_disconnect_handler_id (PyObject *self, PyObject *args)
+GObject_disconnect_handler_id (PyObject *self, PyObject *args)
 {
   int handler_id = 0;
   if (!PyArg_ParseTuple (args, "i:disconnect_handler_id", &handler_id))
@@ -695,7 +695,7 @@ GObjectBase_disconnect_handler_id (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_handler_id_is_connected (PyObject *self, PyObject *args)
+GObject_handler_id_is_connected (PyObject *self, PyObject *args)
 {
   int handler_id = 0;
   if (!PyArg_ParseTuple (args, "i:handler_id_is_connected", &handler_id))
@@ -708,7 +708,7 @@ GObjectBase_handler_id_is_connected (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_stop_emission_by_name (PyObject *self, PyObject *args)
+GObject_stop_emission_by_name (PyObject *self, PyObject *args)
 {
   const char *detailed_signal = NULL;
   if (!PyArg_ParseTuple (args, "s:stop_emission_by_name", &detailed_signal))
@@ -722,7 +722,7 @@ GObjectBase_stop_emission_by_name (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_get_property_by_name (PyObject *self, PyObject *args)
+GObject_get_property_by_name (PyObject *self, PyObject *args)
 {
   const char *name = NULL;
   if (!PyArg_ParseTuple (args, "s:get_property_by_name", &name))
@@ -731,7 +731,7 @@ GObjectBase_get_property_by_name (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_set_property_by_name (PyObject *self, PyObject *args)
+GObject_set_property_by_name (PyObject *self, PyObject *args)
 {
   const char *name = NULL;
   PyObject *py_value = NULL;
@@ -741,7 +741,7 @@ GObjectBase_set_property_by_name (PyObject *self, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
+GObject_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *source = NULL;
   if (!PyArg_ParseTuple (args, "O:from_c", &source))
@@ -750,7 +750,7 @@ GObjectBase_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
 }
 
 static PyObject *
-GObjectBase_shell_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
+GObject_shell_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *source = NULL;
   if (!PyArg_ParseTuple (args, "O:shell_from_c", &source))
@@ -758,75 +758,75 @@ GObjectBase_shell_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
   return wrap_preallocated_gobject_from_source (source);
 }
 
-static PyMethodDef GObjectBase_methods[] = {
+static PyMethodDef GObject_methods[] = {
   { "push_python_construction",
-    GObjectBase_push_python_construction,
+    GObject_push_python_construction,
     METH_CLASS | METH_NOARGS,
     NULL },
   { "construct_with_properties",
-    GObjectBase_construct_with_properties,
+    GObject_construct_with_properties,
     METH_CLASS | METH_VARARGS,
     NULL },
   { "pop_python_construction",
-    GObjectBase_pop_python_construction,
+    GObject_pop_python_construction,
     METH_CLASS | METH_NOARGS,
     NULL },
   { "python_construction_active",
-    GObjectBase_python_construction_active,
+    GObject_python_construction_active,
     METH_CLASS | METH_NOARGS,
     NULL },
   { "new_bound_from_c",
-    (PyCFunction)(void (*) (void))GObjectBase_new_bound_from_c,
+    (PyCFunction)(void (*) (void))GObject_new_bound_from_c,
     METH_CLASS | METH_VARARGS | METH_KEYWORDS,
     NULL },
   { "new_preallocated_from_c",
-    (PyCFunction)(void (*) (void))GObjectBase_new_preallocated_from_c,
+    (PyCFunction)(void (*) (void))GObject_new_preallocated_from_c,
     METH_CLASS | METH_VARARGS | METH_KEYWORDS,
     NULL },
   { "bind_from_c",
-    (PyCFunction)(void (*) (void))GObjectBase_bind_from_c,
+    (PyCFunction)(void (*) (void))GObject_bind_from_c,
     METH_VARARGS | METH_KEYWORDS,
     NULL },
-  { "is_bound", GObjectBase_is_bound, METH_NOARGS, NULL },
-  { "owns_ref", GObjectBase_owns_ref, METH_NOARGS, NULL },
-  { "pointer_value", GObjectBase_pointer_value, METH_NOARGS, NULL },
-  { "release_ref", GObjectBase_release_ref, METH_NOARGS, NULL },
-  { "preserve_wrapper_state", GObjectBase_preserve_wrapper_state, METH_NOARGS, NULL },
-  { "ref_sink", GObjectBase_ref_sink, METH_NOARGS, NULL },
-  { "make_floating", GObjectBase_make_floating, METH_NOARGS, NULL },
-  { "ref_count", GObjectBase_ref_count, METH_NOARGS, NULL },
-  { "is_floating", GObjectBase_is_floating, METH_NOARGS, NULL },
-  { "freeze_notify", GObjectBase_freeze_notify, METH_NOARGS, NULL },
-  { "thaw_notify", GObjectBase_thaw_notify, METH_NOARGS, NULL },
-  { "run_dispose", GObjectBase_run_dispose, METH_NOARGS, NULL },
-  { "disconnect_handler_id", GObjectBase_disconnect_handler_id, METH_VARARGS, NULL },
-  { "handler_id_is_connected", GObjectBase_handler_id_is_connected, METH_VARARGS, NULL },
-  { "stop_emission_by_name", GObjectBase_stop_emission_by_name, METH_VARARGS, NULL },
-  { "get_property_by_name", GObjectBase_get_property_by_name, METH_VARARGS, NULL },
-  { "set_property_by_name", GObjectBase_set_property_by_name, METH_VARARGS, NULL },
-  { "from_c", GObjectBase_from_c, METH_CLASS | METH_VARARGS, NULL },
-  { "shell_from_c", GObjectBase_shell_from_c, METH_CLASS | METH_VARARGS, NULL },
-  { "prime_construction_state", GObjectBase_prime_construction_state, METH_VARARGS, NULL },
+  { "is_bound", GObject_is_bound, METH_NOARGS, NULL },
+  { "owns_ref", GObject_owns_ref, METH_NOARGS, NULL },
+  { "pointer_value", GObject_pointer_value, METH_NOARGS, NULL },
+  { "release_ref", GObject_release_ref, METH_NOARGS, NULL },
+  { "preserve_wrapper_state", GObject_preserve_wrapper_state, METH_NOARGS, NULL },
+  { "ref_sink", GObject_ref_sink, METH_NOARGS, NULL },
+  { "make_floating", GObject_make_floating, METH_NOARGS, NULL },
+  { "ref_count", GObject_ref_count, METH_NOARGS, NULL },
+  { "is_floating", GObject_is_floating, METH_NOARGS, NULL },
+  { "freeze_notify", GObject_freeze_notify, METH_NOARGS, NULL },
+  { "thaw_notify", GObject_thaw_notify, METH_NOARGS, NULL },
+  { "run_dispose", GObject_run_dispose, METH_NOARGS, NULL },
+  { "disconnect_handler_id", GObject_disconnect_handler_id, METH_VARARGS, NULL },
+  { "handler_id_is_connected", GObject_handler_id_is_connected, METH_VARARGS, NULL },
+  { "stop_emission_by_name", GObject_stop_emission_by_name, METH_VARARGS, NULL },
+  { "get_property_by_name", GObject_get_property_by_name, METH_VARARGS, NULL },
+  { "set_property_by_name", GObject_set_property_by_name, METH_VARARGS, NULL },
+  { "from_c", GObject_from_c, METH_CLASS | METH_VARARGS, NULL },
+  { "shell_from_c", GObject_shell_from_c, METH_CLASS | METH_VARARGS, NULL },
+  { "prime_construction_state", GObject_prime_construction_state, METH_VARARGS, NULL },
   { "apply_construction_properties",
-    GObjectBase_apply_construction_properties,
+    GObject_apply_construction_properties,
     METH_VARARGS,
     NULL },
-  { "connect_constructor_handler", GObjectBase_connect_constructor_handler, METH_VARARGS, NULL },
-  { "signal_is_action", GObjectBase_signal_is_action, METH_VARARGS, NULL },
-  { "signal_connect", GObjectBase_signal_connect, METH_VARARGS, NULL },
-  { "signal_emit", GObjectBase_signal_emit, METH_VARARGS, NULL },
-  { "signal_emit_with_gtypes", GObjectBase_signal_emit_with_gtypes, METH_VARARGS, NULL },
-  { "take_construction_state", GObjectBase_take_construction_state, METH_NOARGS, NULL },
+  { "connect_constructor_handler", GObject_connect_constructor_handler, METH_VARARGS, NULL },
+  { "signal_is_action", GObject_signal_is_action, METH_VARARGS, NULL },
+  { "signal_connect", GObject_signal_connect, METH_VARARGS, NULL },
+  { "signal_emit", GObject_signal_emit, METH_VARARGS, NULL },
+  { "signal_emit_with_gtypes", GObject_signal_emit_with_gtypes, METH_VARARGS, NULL },
+  { "take_construction_state", GObject_take_construction_state, METH_NOARGS, NULL },
   { NULL, NULL, 0, NULL },
 };
 
-static PyGetSetDef GObjectBase_getset[] = {
+static PyGetSetDef GObject_getset[] = {
   { "__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict, NULL, NULL },
   { NULL },
 };
 
 static void
-GObjectBase_dealloc (PyObject *self)
+GObject_dealloc (PyObject *self)
 {
   /* GObject.Object is now this C type directly (not a Python subclass whose
    * subtype_dealloc would do this), so the finalizer must be invoked here or
@@ -836,38 +836,38 @@ GObjectBase_dealloc (PyObject *self)
     return;
   PyObject_GC_UnTrack (self);
   PyObject_ClearWeakRefs (self);
-  GObjectBase_clear (self);
-  ((PyGIGObjectBase *)self)->ptr = NULL;
-  ((PyGIGObjectBase *)self)->flags = 0;
-  ((PyGIGObjectBase *)self)->weakreflist = NULL;
-  ((PyGIGObjectBase *)self)->construction_ptr = NULL;
-  ((PyGIGObjectBase *)self)->construction_handlers = NULL;
+  GObject_clear (self);
+  ((PyGIGObject *)self)->ptr = NULL;
+  ((PyGIGObject *)self)->flags = 0;
+  ((PyGIGObject *)self)->weakreflist = NULL;
+  ((PyGIGObject *)self)->construction_ptr = NULL;
+  ((PyGIGObject *)self)->construction_handlers = NULL;
   Py_TYPE (self)->tp_free (self);
 }
 
-static PyType_Slot GinextGObjectBase_slots[] = {
+static PyType_Slot GinextGObject_slots[] = {
   { Py_tp_new, PyType_GenericNew },
-  { Py_tp_dealloc, GObjectBase_dealloc },
-  { Py_tp_traverse, GObjectBase_traverse },
-  { Py_tp_clear, GObjectBase_clear },
-  { Py_tp_methods, GObjectBase_methods },
-  { Py_tp_getset, GObjectBase_getset },
+  { Py_tp_dealloc, GObject_dealloc },
+  { Py_tp_traverse, GObject_traverse },
+  { Py_tp_clear, GObject_clear },
+  { Py_tp_methods, GObject_methods },
+  { Py_tp_getset, GObject_getset },
   { 0, NULL },
 };
 
-PyType_Spec GinextGObjectBase_spec = {
-  .name = "ginext.private._gobject.GObjectBase",
-  .basicsize = sizeof (PyGIGObjectBase),
+PyType_Spec GinextGObject_spec = {
+  .name = "ginext.private._gobject.GObject",
+  .basicsize = sizeof (PyGIGObject),
   .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT,
-  .slots = GinextGObjectBase_slots,
+  .slots = GinextGObject_slots,
 };
 
 static int
 wrapper_local_bound_set (PyObject *wrapper, gboolean bound)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return 0;
-  PyGIGObjectBase *base = (PyGIGObjectBase *)wrapper;
+  PyGIGObject *base = (PyGIGObject *)wrapper;
   if (!bound)
     base->ptr = NULL;
   return 0;
@@ -876,26 +876,26 @@ wrapper_local_bound_set (PyObject *wrapper, gboolean bound)
 int
 pygi_gobject_wrapper_local_bound (PyObject *wrapper, gboolean *bound)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return 0;
-  *bound = ((PyGIGObjectBase *)wrapper)->ptr != NULL;
+  *bound = ((PyGIGObject *)wrapper)->ptr != NULL;
   return 1;
 }
 
 static void
 wrapper_local_bound_clear (PyObject *wrapper)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return;
-  ((PyGIGObjectBase *)wrapper)->ptr = NULL;
+  ((PyGIGObject *)wrapper)->ptr = NULL;
 }
 
 static int
 wrapper_local_owns_ref_set (PyObject *wrapper, gboolean owns_ref)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return 0;
-  PyGIGObjectBase *base = (PyGIGObjectBase *)wrapper;
+  PyGIGObject *base = (PyGIGObject *)wrapper;
   if (owns_ref)
     base->flags |= PYGI_GOBJECT_WRAPPER_OWNS_REF;
   else
@@ -906,9 +906,9 @@ wrapper_local_owns_ref_set (PyObject *wrapper, gboolean owns_ref)
 static int
 wrapper_local_owns_ref_get (PyObject *wrapper, gboolean *owns_ref)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return 0;
-  *owns_ref = ((((PyGIGObjectBase *)wrapper)->flags & PYGI_GOBJECT_WRAPPER_OWNS_REF) != 0);
+  *owns_ref = ((((PyGIGObject *)wrapper)->flags & PYGI_GOBJECT_WRAPPER_OWNS_REF) != 0);
   return 1;
 }
 
@@ -927,9 +927,9 @@ pygi_gobject_wrapper_local_owns_ref (PyObject *wrapper, gboolean *owns_ref)
 static void
 wrapper_local_owns_ref_clear (PyObject *wrapper)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return;
-  ((PyGIGObjectBase *)wrapper)->flags &= ~PYGI_GOBJECT_WRAPPER_OWNS_REF;
+  ((PyGIGObject *)wrapper)->flags &= ~PYGI_GOBJECT_WRAPPER_OWNS_REF;
 }
 
 static GQuark
@@ -1028,10 +1028,10 @@ wrapper_pointer_weak_notify (gpointer data, GObject *where_the_object_was)
 static void
 store_wrapper_state_if_object_survives (PyObject *wrapper)
 {
-  if (!pygi_gobject_base_check (wrapper))
+  if (!pygi_gobject_check (wrapper))
     return;
 
-  GObject *object = ((PyGIGObjectBase *)wrapper)->ptr;
+  GObject *object = ((PyGIGObject *)wrapper)->ptr;
   if (object == NULL || !G_IS_OBJECT (object) || object->ref_count == 0)
     return;
 
@@ -1167,25 +1167,25 @@ pygi_gobject_wrapper_clear (GObject *object)
 GObject *
 pygi_gobject_wrapper_pointer (PyObject *wrapper)
 {
-  if (wrapper == NULL || !pygi_gobject_base_check (wrapper))
+  if (wrapper == NULL || !pygi_gobject_check (wrapper))
     return NULL;
-  return ((PyGIGObjectBase *)wrapper)->ptr;
+  return ((PyGIGObject *)wrapper)->ptr;
 }
 
 void
 pygi_gobject_wrapper_bind_pointer (PyObject *wrapper, GObject *object)
 {
-  if (wrapper == NULL || !pygi_gobject_base_check (wrapper))
+  if (wrapper == NULL || !pygi_gobject_check (wrapper))
     return;
-  ((PyGIGObjectBase *)wrapper)->ptr = object;
+  ((PyGIGObject *)wrapper)->ptr = object;
 }
 
 void
 pygi_gobject_wrapper_forget_pointer (PyObject *wrapper)
 {
-  if (wrapper == NULL || !pygi_gobject_base_check (wrapper))
+  if (wrapper == NULL || !pygi_gobject_check (wrapper))
     return;
-  ((PyGIGObjectBase *)wrapper)->ptr = NULL;
+  ((PyGIGObject *)wrapper)->ptr = NULL;
   wrapper_local_bound_clear (wrapper);
   wrapper_local_owns_ref_clear (wrapper);
 }

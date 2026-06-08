@@ -26,7 +26,7 @@ import itertools
 from typing import Any, TYPE_CHECKING, Protocol, SupportsInt, runtime_checkable
 
 from ginext import Gst, GLib, GObject
-from ginext.gobject.gobjectclass import GObject as _GObjectBase
+from ginext.gobject.gobjectclass import GObject as _GObject
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -454,9 +454,9 @@ def request_pad(
 @overlay.method("Bin", name="__init__")
 def _bin_init(self: Any, name: str | None = None) -> None:
     if name is not None:
-        _GObjectBase.__init__(self, name=name)
+        _GObject.__init__(self, name=name)
     else:
-        _GObjectBase.__init__(self)
+        _GObject.__init__(self)
 
 
 @overlay.method("Bin", name="add")
@@ -487,9 +487,9 @@ def _bin_iter(self: Any) -> Iterator[Any]:
 @overlay.method("Pipeline", name="__init__")
 def _pipeline_init(self: Any, name: str | None = None) -> None:
     if name is not None:
-        _GObjectBase.__init__(self, name=name)
+        _GObject.__init__(self, name=name)
     else:
-        _GObjectBase.__init__(self)
+        _GObject.__init__(self)
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +508,7 @@ def _ghost_pad_init(
         if target is None:
             raise TypeError("you must pass at least one of target and direction")
         direction = target.get_property("direction")
-    _GObjectBase.__init__(self, name=name, direction=direction)
+    _GObject.__init__(self, name=name, direction=direction)
     self.construct()
     if target is not None:
         self.set_target(target)
