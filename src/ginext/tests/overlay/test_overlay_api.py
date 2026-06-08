@@ -54,6 +54,22 @@ def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> boo
     return bool(predicate())
 
 
+def _run_until_quit(callback: Callable[[], bool], *, timeout_ms: int = 1000) -> None:
+    from ginext import GLib
+
+    loop = GLib.MainLoop()
+
+    def _callback() -> bool:
+        try:
+            return callback()
+        finally:
+            loop.quit()
+
+    GLib.idle_add(_callback)
+    GLib.timeout_add(timeout_ms, loop.quit)
+    loop.run()
+
+
 def test_invoke_with_string_namespace() -> None:
     """private.invoke("GLib", ...) dispatches a top-level typelib callable."""
     from ginext import GLib, private
@@ -135,8 +151,8 @@ def test_idle_add_default_priority_fires() -> None:
         fired.append("ok")
         return False
 
-    GLib.idle_add(_cb)
-    assert _spin_until(lambda: fired == ["ok"])
+    _run_until_quit(_cb)
+    assert fired == ["ok"]
 
 
 def test_idle_add_with_explicit_priority_fires() -> None:
@@ -148,8 +164,17 @@ def test_idle_add_with_explicit_priority_fires() -> None:
         fired.append("explicit")
         return False
 
+    loop = GLib.MainLoop()
+
+    def _quit() -> bool:
+        loop.quit()
+        return False
+
     GLib.idle_add(_cb, priority=150)
-    assert _spin_until(lambda: fired == ["explicit"])
+    GLib.idle_add(_quit, priority=200)
+    GLib.timeout_add(1000, loop.quit)
+    loop.run()
+    assert fired == ["explicit"]
 
 
 def test_replace_overlay_hides_injected_fn_argument() -> None:
