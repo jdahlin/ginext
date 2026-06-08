@@ -61,6 +61,21 @@ _SCHEMA_DIR = pathlib.Path(__file__).parent / "fixtures" / "gsettings"
 _SCHEMA_ID = "org.ginext.test"
 
 
+def _schema_source() -> Gio.SettingsSchemaSource:
+    from ginext import Gio
+
+    parent = Gio.SettingsSchemaSource.get_default()
+    source = Gio.SettingsSchemaSource.new_from_directory(str(_SCHEMA_DIR), parent, False)
+    assert source is not None
+    return source
+
+
+def _schema(schema_id: str = _SCHEMA_ID) -> Gio.SettingsSchema:
+    schema = _schema_source().lookup(schema_id, True)
+    assert schema is not None
+    return schema
+
+
 # ── fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -91,7 +106,7 @@ def s() -> Gio.Settings:
     """Fresh Settings object reset to schema defaults before each test."""
     from ginext import Gio
 
-    settings = cast("Gio.Settings", Gio.Settings.new(_SCHEMA_ID))
+    settings = Gio.Settings.new_full(_schema(), None, None)
     for key in settings.list_keys():
         settings.reset(key)
     return settings
@@ -103,7 +118,7 @@ def s() -> Gio.Settings:
 def test_new_returns_settings_instance(s: Gio.Settings) -> None:
     from ginext import Gio
 
-    assert isinstance(s, Gio.Settings)
+    assert type(s) is Gio.Settings
 
 
 def test_new_path_is_set_from_schema(s: Gio.Settings) -> None:
@@ -113,7 +128,7 @@ def test_new_path_is_set_from_schema(s: Gio.Settings) -> None:
 def test_new_with_path_uses_supplied_path() -> None:
     from ginext import Gio
 
-    s = Gio.Settings.new_with_path("org.ginext.nopath", "/custom/path/")
+    s = Gio.Settings.new_full(_schema("org.ginext.nopath"), None, "/custom/path/")
     assert s.get_property("path") == "/custom/path/"
     assert s.get_int("np-int") == 99
 
@@ -122,8 +137,8 @@ def test_new_with_backend_accepts_memory_backend() -> None:
     from ginext import Gio
 
     backend = Gio.memory_settings_backend_new()
-    s = Gio.Settings.new_with_backend(_SCHEMA_ID, backend)
-    assert isinstance(s, Gio.Settings)
+    s = Gio.Settings.new_full(_schema(), backend, None)
+    assert type(s) is Gio.Settings
     assert s.get_boolean("b-val") is True
 
 
@@ -687,27 +702,17 @@ def test_schema_source_get_default_returns_source() -> None:
 
 
 def test_schema_source_lookup_returns_schema() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
+    schema = _schema()
     assert schema is not None
 
 
 def test_schema_source_lookup_unknown_returns_none() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
+    src = _schema_source()
     assert src.lookup("org.ginext.nonexistent", False) is None
 
 
 def test_schema_source_list_schemas_contains_test_schema() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
+    src = _schema_source()
     non_relocatable, relocatable = src.list_schemas(True)
     assert _SCHEMA_ID in non_relocatable
     assert "org.ginext.nopath" in relocatable
@@ -717,52 +722,27 @@ def test_schema_source_list_schemas_contains_test_schema() -> None:
 
 
 def test_schema_get_id() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     assert schema.get_id() == _SCHEMA_ID
 
 
 def test_schema_get_path() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     assert schema.get_path() == "/org/ginext/test/"
 
 
 def test_schema_has_key_true() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     assert schema.has_key("b-val") is True
 
 
 def test_schema_has_key_false() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     assert schema.has_key("nonexistent") is False
 
 
 def test_schema_list_keys() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     keys = schema.list_keys()
     assert "b-val" in keys
     assert "s-val" in keys
@@ -772,79 +752,44 @@ def test_schema_list_keys() -> None:
 
 
 def test_schema_key_get_name() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("b-val")
     assert key.get_name() == "b-val"
 
 
 def test_schema_key_get_value_type_boolean() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("b-val")
     assert key.get_value_type().dup_string() == "b"
 
 
 def test_schema_key_get_value_type_string() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("s-val")
     assert key.get_value_type().dup_string() == "s"
 
 
 def test_schema_key_get_default_value_boolean() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("b-val")
     assert key.get_default_value().get_boolean() is True
 
 
 def test_schema_key_get_default_value_string() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("s-val")
     assert key.get_default_value().get_string() == "hello"
 
 
 def test_schema_key_get_range_unranged() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("i-val")
     kind, _ = key.get_range().unpack()
     assert kind == "type"
 
 
 def test_schema_key_get_range_ranged() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("ranged")
     kind, values = key.get_range().unpack()
     assert kind == "range"
@@ -852,23 +797,13 @@ def test_schema_key_get_range_ranged() -> None:
 
 
 def test_schema_key_get_summary() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("b-val")
     assert key.get_summary() == "A boolean setting"
 
 
 def test_schema_key_get_description() -> None:
-    from ginext import Gio
-
-    src = Gio.SettingsSchemaSource.get_default()
-    assert src is not None
-    schema = src.lookup(_SCHEMA_ID, True)
-    assert schema is not None
+    schema = _schema()
     key = schema.get_key("b-val")
     description = key.get_description()
     assert description is not None
