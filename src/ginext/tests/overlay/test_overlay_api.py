@@ -29,48 +29,14 @@ protocols, freeze_notify context manager).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import inspect
 import subprocess
 import sys
-import time
 
 import pytest
 
 
 # ── private.invoke ───────────────────────────────────────────────────────
-
-
-def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
-    from ginext import GLib
-
-    ctx = GLib.MainContext.default()
-    deadline = time.monotonic() + (timeout_ms / 1000)
-    while time.monotonic() < deadline:
-        if predicate():
-            return True
-        ctx.iteration(False)
-        time.sleep(0.01)
-    return bool(predicate())
-
-
-def _run_until_quit(callback: Callable[[], bool], *, timeout_ms: int = 1000) -> None:
-    from ginext import GLib
-
-    context = GLib.MainContext.default()
-    timed_out = False
-
-    def _timeout() -> bool:
-        nonlocal timed_out
-        timed_out = True
-        return False
-
-    GLib.timeout_add(timeout_ms, _timeout)
-    GLib.idle_add(callback)
-    while not timed_out:
-        context.iteration(True)
-        if not timed_out:
-            return
 
 
 def test_invoke_with_string_namespace() -> None:
@@ -145,41 +111,50 @@ def test_idle_add_signature_is_reshaped() -> None:
     assert params[1].default == 200
 
 
-def test_idle_add_default_priority_fires() -> None:
+def test_idle_add_default_priority_wraps_callback() -> None:
     from ginext import GLib
 
+    seen: list[int] = []
     fired: list[str] = []
+
+    def _underlying(priority: int, callback: object) -> object:
+        seen.append(priority)
+        assert callable(callback)
+        return callback()
 
     def _cb() -> bool:
         fired.append("ok")
         return False
 
-    _run_until_quit(_cb)
+    result = GLib.idle_add.__wrapped__(_underlying, _cb)
+
+    assert result is False
+    assert seen == [GLib.PRIORITY_DEFAULT_IDLE]
     assert fired == ["ok"]
 
 
-def test_idle_add_with_explicit_priority_fires() -> None:
+def test_idle_add_with_explicit_priority_wraps_callback() -> None:
     from ginext import GLib
 
-    fired: list[str] = []
+    seen: list[int] = []
+    fired: list[tuple[str, str]] = []
 
-    def _cb() -> bool:
-        fired.append("explicit")
-        return False
+    def _underlying(priority: int, callback: object) -> object:
+        seen.append(priority)
+        assert callable(callback)
+        return callback()
 
-    context = GLib.MainContext.default()
-    timed_out = False
+    def _cb(left: str, right: str) -> str:
+        fired.append((left, right))
+        return "explicit"
 
-    def _timeout() -> bool:
-        nonlocal timed_out
-        timed_out = True
-        return False
+    result = GLib.idle_add.__wrapped__(
+        _underlying, _cb, "left", "right", priority=150
+    )
 
-    GLib.timeout_add(1000, _timeout)
-    GLib.idle_add(_cb, priority=150)
-    while not fired and not timed_out:
-        context.iteration(True)
-    assert fired == ["explicit"]
+    assert result == "explicit"
+    assert seen == [150]
+    assert fired == [("left", "right")]
 
 
 def test_replace_overlay_hides_injected_fn_argument() -> None:
