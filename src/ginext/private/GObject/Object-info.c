@@ -727,14 +727,6 @@ GObject_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
   return wrap_gobject_from_source (source);
 }
 
-static PyObject *
-GObject_shell_from_c (PyObject *type G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *source = NULL;
-  if (!PyArg_ParseTuple (args, "O:shell_from_c", &source))
-    return NULL;
-  return wrap_preallocated_gobject_from_source (source);
-}
 
 static PyMethodDef GObject_methods[] = {
   { "construct_with_properties",
@@ -771,7 +763,6 @@ static PyMethodDef GObject_methods[] = {
   { "get_property_by_name", GObject_get_property_by_name, METH_VARARGS, NULL },
   { "set_property_by_name", GObject_set_property_by_name, METH_VARARGS, NULL },
   { "from_c", GObject_from_c, METH_CLASS | METH_VARARGS, NULL },
-  { "shell_from_c", GObject_shell_from_c, METH_CLASS | METH_VARARGS, NULL },
   { "prime_construction_state", GObject_prime_construction_state, METH_VARARGS, NULL },
   { "apply_construction_properties",
     GObject_apply_construction_properties,
