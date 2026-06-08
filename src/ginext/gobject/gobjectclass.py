@@ -44,6 +44,7 @@ from __future__ import annotations
 import sys
 import difflib
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -78,15 +79,21 @@ from .properties import (
 # on `private`. GObject IS this C base type: one class, GObject.Object, with the
 # instance methods attached directly (transplanted near the bottom of this
 # module). GObject, GObject.Object and private.GObject are all this object.
-private.GObject = private.init_gobject(GObjectMeta)
-# The base carries the root class vars directly so GObjectMeta.__getattr__ (which
-# reads _class_struct_name while resolving methods) terminates instead of
-# recursing on a missing attribute.
-private.GObject._class_struct_name = None
-GObject = private.GObject
+# At runtime GObject IS the C base type, created here with GObjectMeta as its
+# metaclass (deferred from the C module init, which runs before the metaclass
+# exists). For type checking GObject is presented as _GObjectBody below (which
+# carries the transplanted method signatures, Signal, __init_subclass__ and the
+# @dataclass_transform), so callers see the full API.
+if not TYPE_CHECKING:
+    private.GObject = private.init_gobject(GObjectMeta)
+    # The base carries the root class vars directly so GObjectMeta.__getattr__
+    # (which reads _class_struct_name while resolving methods) terminates instead
+    # of recursing on a missing attribute.
+    private.GObject._class_struct_name = None
+    GObject = private.GObject
 # The C-level run_dispose, captured before the Python methods are attached, so
 # __del__ can chain to the default disposer without resolving overrides.
-_base_run_dispose = GObject.run_dispose
+_base_run_dispose = private.GObject.run_dispose
 
 _compat_aliases_enabled = False
 _compat_dispose_state: dict[int, dict[str, object]] = {}
@@ -322,7 +329,13 @@ class GInterface(metaclass=GObjectMeta):
 # and its subclasses. __init_subclass__ uses explicit super(GObject, cls);
 # __del__ uses the captured _base_run_dispose.
 @dataclass_transform(field_specifiers=(Property,))
-class _GObjectBody(GObject, metaclass=GObjectMeta):
+class _GObjectBody(private.GObject, metaclass=GObjectMeta):
+    gimeta: ClassVar[private.GIMeta]
+    Signal: ClassVar[type[Signal]]
+    _class_struct_name: ClassVar[str | None] = None
+    _gobject_is_root: ClassVar[bool] = True
+    _gobject_root_adopted: ClassVar[bool]
+
     def __init_subclass__(
         cls, /, type_name: str | None = None, **kwargs: object
     ) -> None:
@@ -634,20 +647,24 @@ class _GObjectBody(GObject, metaclass=GObjectMeta):
 # Transplant the instance methods onto the C base: GObject IS the base, so it
 # carries connect/emit/__getattr__/__init_subclass__/... directly. GInterface is
 # a layout-free sibling and does not inherit these (interface methods come via
-# gimeta), so nothing is copied onto it.
-_SKIP_TRANSPLANT = {
-    "__dict__",
-    "__weakref__",
-    "__module__",
-    "__qualname__",
-    "__doc__",
-    "__slots__",
-}
-for _name, _value in list(_GObjectBody.__dict__.items()):
-    if _name in _SKIP_TRANSPLANT:
-        continue
-    setattr(GObject, _name, _value)
-del _GObjectBody
+# gimeta), so nothing is copied onto it. For type checking, GObject is _GObjectBody
+# (which declares the same surface), so callers see the full API.
+if TYPE_CHECKING:
+    GObject = _GObjectBody
+else:
+    _SKIP_TRANSPLANT = {
+        "__dict__",
+        "__weakref__",
+        "__module__",
+        "__qualname__",
+        "__doc__",
+        "__slots__",
+    }
+    for _name, _value in list(_GObjectBody.__dict__.items()):
+        if _name in _SKIP_TRANSPLANT:
+            continue
+        setattr(GObject, _name, _value)
+    del _GObjectBody
 
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
