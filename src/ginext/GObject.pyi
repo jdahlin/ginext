@@ -25,7 +25,6 @@ from typing import (
     Any,
     Callable,
     ClassVar,
-    Concatenate,
     Final,
     Generic,
     Literal,
@@ -52,42 +51,6 @@ ParamFlags = _CompatGObject.ParamFlags
 
 class _Signal(Generic[_SigO, _SigP, _SigR]):
     def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
-    @overload
-    def connect(
-        self,
-        handler: Callable[[], object],
-        *,
-        after: bool = ...,
-        once: bool = ...,
-        owner: Any = ...,
-    ) -> SignalConnection: ...
-    @overload
-    def connect(
-        self,
-        handler: Callable[[Any], object],
-        *,
-        after: bool = ...,
-        once: bool = ...,
-        owner: Any = ...,
-    ) -> SignalConnection: ...
-    @overload
-    def connect(
-        self,
-        handler: Callable[[Any, Any], object],
-        *,
-        after: bool = ...,
-        once: bool = ...,
-        owner: Any = ...,
-    ) -> SignalConnection: ...
-    @overload
-    def connect(
-        self,
-        handler: Callable[[Any, Any, Any], object],
-        *,
-        after: bool = ...,
-        once: bool = ...,
-        owner: Any = ...,
-    ) -> SignalConnection: ...
     def connect(
         self,
         handler: Callable[..., object],
@@ -95,18 +58,6 @@ class _Signal(Generic[_SigO, _SigP, _SigR]):
         after: bool = ...,
         once: bool = ...,
         owner: Any = ...,
-    ) -> SignalConnection: ...
-    @overload
-    def connect_after(self, handler: Callable[[], object]) -> SignalConnection: ...
-    @overload
-    def connect_after(self, handler: Callable[[Any], object]) -> SignalConnection: ...
-    @overload
-    def connect_after(
-        self, handler: Callable[[Any, Any], object]
-    ) -> SignalConnection: ...
-    @overload
-    def connect_after(
-        self, handler: Callable[[Any, Any, Any], object]
     ) -> SignalConnection: ...
     def connect_after(
         self,
@@ -152,7 +103,7 @@ class Object(_CompatGObject.Object):  # type: ignore[misc]
     gimeta: ClassVar[_GIMeta]
     def __init_subclass__(cls, *, type_name: str = ..., **kwargs: object) -> None: ...
     __gtype_name__: Final[str]
-    notify: "DetailedSignal[Self, [ParamSpec], None]"  # type: ignore[assignment]
+    notify: "DetailedSignal[Self, Any, None]"  # type: ignore[assignment]
     def freeze_notify(self) -> "_FreezeNotifyContext": ...  # type: ignore[override]
     def handler_block(  # type: ignore[override]
         self, handler_id: int | SignalConnection

@@ -235,7 +235,7 @@ def test_static_async_under_asyncio_returns_future(_setup: object) -> None:
     from ginext import GdkPixbuf, Gio, GLib
 
     async def main() -> None:
-        stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(b"not an image"))  # type: ignore[arg-type]  # Bytes.new accepts bytes at runtime; MemoryInputStream.new_from_bytes accepts GLib.Bytes at runtime
+        stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(b"not an image"))
         fut = GdkPixbuf.Pixbuf.new_from_stream_async(stream)
         assert isinstance(fut, asyncio.Future)
         assert hasattr(fut, "__await__")
