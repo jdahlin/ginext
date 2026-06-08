@@ -57,17 +57,20 @@ def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> boo
 def _run_until_quit(callback: Callable[[], bool], *, timeout_ms: int = 1000) -> None:
     from ginext import GLib
 
-    loop = GLib.MainLoop()
+    context = GLib.MainContext.default()
+    timed_out = False
 
-    def _callback() -> bool:
-        try:
-            return callback()
-        finally:
-            loop.quit()
+    def _timeout() -> bool:
+        nonlocal timed_out
+        timed_out = True
+        return False
 
-    GLib.idle_add(_callback)
-    GLib.timeout_add(timeout_ms, loop.quit)
-    loop.run()
+    GLib.timeout_add(timeout_ms, _timeout)
+    GLib.idle_add(callback)
+    while not timed_out:
+        context.iteration(True)
+        if not timed_out:
+            return
 
 
 def test_invoke_with_string_namespace() -> None:
@@ -164,16 +167,18 @@ def test_idle_add_with_explicit_priority_fires() -> None:
         fired.append("explicit")
         return False
 
-    loop = GLib.MainLoop()
+    context = GLib.MainContext.default()
+    timed_out = False
 
-    def _quit() -> bool:
-        loop.quit()
+    def _timeout() -> bool:
+        nonlocal timed_out
+        timed_out = True
         return False
 
+    GLib.timeout_add(1000, _timeout)
     GLib.idle_add(_cb, priority=150)
-    GLib.idle_add(_quit, priority=200)
-    GLib.timeout_add(1000, loop.quit)
-    loop.run()
+    while not fired and not timed_out:
+        context.iteration(True)
     assert fired == ["explicit"]
 
 
