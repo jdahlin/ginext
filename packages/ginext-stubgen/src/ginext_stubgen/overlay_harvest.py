@@ -83,13 +83,16 @@ def _harvest_module(tree: ast.Module, acc: _NSOverlay) -> None:
     helper_defs: dict[str, ast.ClassDef] = {
         node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
     }
+    module_functions: dict[str, ast.FunctionDef] = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
     rendered_text: list[str] = []
 
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             _harvest_decorated_fn(node, acc, rendered_text)
         elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-            _harvest_call(node.value, acc, rendered_text)
+            _harvest_call(node.value, acc, rendered_text, module_functions)
 
     # Pull in any helper classes referenced by the rendered signatures (and,
     # transitively, helpers those reference).
@@ -150,7 +153,12 @@ def _harvest_decorated_fn(
         return
 
 
-def _harvest_call(call: ast.Call, acc: _NSOverlay, rendered: list[str]) -> None:
+def _harvest_call(
+    call: ast.Call,
+    acc: _NSOverlay,
+    rendered: list[str],
+    module_functions: dict[str, ast.FunctionDef],
+) -> None:
     verb = _overlay_method_name(call.func)
     if verb is None:
         return
@@ -162,9 +170,12 @@ def _harvest_call(call: ast.Call, acc: _NSOverlay, rendered: list[str]) -> None:
         if bases:
             acc.class_extra_bases.setdefault(class_name, []).extend(bases)
     elif verb in ("constant", "deprecated", "alias"):
-        line = _render_module_value(verb, call)
+        line = _render_module_value(verb, call, module_functions)
         if line:
             acc.module_lines.append(line)
+            name = _str_arg(call.args, 0)
+            if name is not None:
+                acc.module_reserves.append(name)
             rendered.append(line)
     elif verb == "constants":
         # constants({"NAME": value, ...}) — emit each as Any (values are runtime
@@ -175,7 +186,11 @@ def _harvest_call(call: ast.Call, acc: _NSOverlay, rendered: list[str]) -> None:
                     acc.module_lines.append(f"{key.value}: Any")
 
 
-def _render_module_value(verb: str, call: ast.Call) -> str | None:
+def _render_module_value(
+    verb: str,
+    call: ast.Call,
+    module_functions: dict[str, ast.FunctionDef],
+) -> str | None:
     name = _str_arg(call.args, 0)
     if name is None:
         return None
@@ -191,6 +206,8 @@ def _render_module_value(verb: str, call: ast.Call) -> str | None:
     # that don't exist in the stub namespace.
     if len(call.args) >= 2:
         value = call.args[1]
+        if isinstance(value, ast.Name) and value.id in module_functions:
+            return _render_func(module_functions[value.id], name=name)
         if isinstance(value, (ast.Name, ast.Attribute)):
             expr = ast.unparse(value)
             base = expr.split(".")[0]

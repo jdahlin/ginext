@@ -31,12 +31,20 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, cast
 
 from ginext.errors import install_gio_error_classes as _install_gio_error_classes
 from ginext import Gio, GLib, private
+from ginext.gobject.gobjectclass import GObject as _GObjectBase
+from ginext_gio._actions import install_application_actions
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
 
 overlay = Gio.overlay
+
+
+@overlay.method("Application", name="__init__")
+def _application_init(self: Any, **kwargs: object) -> None:
+    _GObjectBase.__init__(self, **kwargs)
+    install_application_actions(self)
 
 
 def apply_to_namespace(namespace: Any) -> None:
@@ -463,7 +471,7 @@ for _cls in ("Application", "SimpleActionGroup"):
 
 def _lookup_action(self: Any, action_name: str) -> Any:
     return private.invoke(
-        type(self).gimeta.namespace.load_namespace(),
+        "Gio",
         "ActionMap.lookup_action",
         self,
         action_name,

@@ -22,7 +22,9 @@
 from __future__ import annotations
 
 import gc
-from typing import Any
+import os
+import uuid
+from typing import Any, cast
 
 
 def test_get_windows_returns_list_without_display() -> None:
@@ -34,6 +36,12 @@ def test_get_windows_returns_list_without_display() -> None:
     )
 
     assert app.get_windows() == []
+
+
+def test_action_decorator_is_exposed() -> None:
+    from ginext import Gtk
+
+    assert callable(Gtk.action)
 
 
 def test_application_vfunc_chain_up_dispatches_through_gtk_application(
@@ -69,6 +77,54 @@ def test_application_vfunc_chain_up_dispatches_through_gtk_application(
     assert app.events == ["startup", "activate", "shutdown"]
 
 
+def test_application_action_metadata_is_stored_on_gimeta_extensions() -> None:
+    from ginext import Gtk
+    from ginext_gio._actions import ActionSpec
+
+    class App(Gtk.Application):
+        @Gtk.action("preferences", ["<Primary>comma"])
+        def _on_preferences(self) -> None:
+            pass
+
+    specs = App.gimeta.extensions["Gtk"]["actions"]
+    assert isinstance(specs, list)
+    assert all(isinstance(spec, ActionSpec) for spec in specs)
+    typed_specs = cast("list[ActionSpec]", specs)
+
+    assert len(typed_specs) == 1
+    assert typed_specs[0].attr_name == "_on_preferences"
+    assert typed_specs[0].name == "preferences"
+    assert typed_specs[0].accels == ("<Primary>comma",)
+
+
+def test_application_action_decorator_registers_action(
+    require_gtk4_display: Any,
+) -> None:
+    from ginext import Gio, Gtk as GtkNS
+
+    Gtk = require_gtk4_display
+
+    class App(Gtk.Application):  # type: ignore[misc, name-defined]
+        def __init__(self) -> None:
+            super().__init__(
+                application_id=f"org.ginext.ActionDecorator{os.getpid()}.t{uuid.uuid4().hex}",
+                flags=Gio.ApplicationFlags.NON_UNIQUE,
+            )
+            self.calls = 0
+
+        @GtkNS.action("preferences", ["<Primary>comma"])
+        def _on_preferences(self) -> None:
+            self.calls += 1
+
+    app = App()
+    action = app.lookup_action("preferences")
+
+    assert action is not None
+    assert app.get_accels_for_action("app.preferences") == ["<Control>comma"]
+    action.activate(None)
+    assert app.calls == 1
+
+
 def test_active_window_preserves_python_subclass_state(
     require_gtk4_display: Any,
 ) -> None:
@@ -82,7 +138,7 @@ def test_active_window_preserves_python_subclass_state(
             self.marker = "original-python-wrapper"
 
     app = Gtk.Application(
-        application_id=None,
+        application_id=f"org.ginext.TestApplication{os.getpid()}.t{uuid.uuid4().hex}",
         flags=Gio.ApplicationFlags.NON_UNIQUE,
     )
     app.register(None)

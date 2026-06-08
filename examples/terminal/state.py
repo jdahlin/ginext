@@ -70,7 +70,7 @@ def _save(path: Path, data: dict[str, object]) -> None:
         print(f"[terminal] state save to {path!r} failed: {e}", file=sys.stderr)
 
 
-class State(GObject.Object, type_name="TerminalState"):
+class TerminalState(GObject.Object, type_name="GinextTerminalState"):
     """Single source of truth for prefs + window state."""
 
     # --- prefs --------------------------------------------------------

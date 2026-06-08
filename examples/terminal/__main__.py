@@ -2,6 +2,6 @@
 
 import sys
 
-from .app import App
+from .app import TerminalApp
 
-raise SystemExit(App().run(sys.argv))
+raise SystemExit(TerminalApp().run(sys.argv))

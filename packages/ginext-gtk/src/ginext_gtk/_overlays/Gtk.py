@@ -24,7 +24,10 @@ registration here happens at import time via the decorator-based overlay API.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
+
 from ginext import Gtk
+from ginext_gio._actions import action as _gio_action
 from ginext_gtk._gtktemplate import Template
 from ginext_gtk._overlays import (
     css,
@@ -36,7 +39,22 @@ from ginext_gtk._overlays import (
     text,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def action(
+    name: str, accels: Sequence[str] | None = None
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    return _gio_action(name, accels)
+
+
 overlay = Gtk.overlay
+overlay.constant("action", action)
 overlay.constant("Template", Template)
 
 __all__ = [

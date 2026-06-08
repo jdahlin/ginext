@@ -17,6 +17,9 @@
 
 from __future__ import annotations
 
+import os
+import uuid
+
 import pytest
 
 
@@ -105,3 +108,26 @@ def test_add_action_entries_rejects_change_state_for_stateless_action() -> None:
 
     with pytest.raises(ValueError, match="Stateless action"):
         group.add_action_entries([("demo", None, None, None, lambda *_args: None)])  # type: ignore[list-item]  # ginext accepts tuples as ActionEntry at runtime
+
+
+def test_gio_application_installs_gtk_action_metadata() -> None:
+    from ginext import Gio, Gtk
+
+    class App(Gio.Application):
+        def __init__(self) -> None:
+            super().__init__(
+                application_id=f"org.ginext.GioAction{os.getpid()}.t{uuid.uuid4().hex}",
+                flags=Gio.ApplicationFlags.NON_UNIQUE,
+            )
+            self.calls = 0
+
+        @Gtk.action("preferences", ["<Primary>comma"])
+        def _on_preferences(self) -> None:
+            self.calls += 1
+
+    app = App()
+    action = app.lookup_action("preferences")
+
+    assert action is not None
+    action.activate(None)
+    assert app.calls == 1

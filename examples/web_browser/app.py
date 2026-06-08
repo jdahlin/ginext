@@ -220,7 +220,6 @@ dd {{ margin: .25rem 0 0; }}
         settings = view.get_settings()
         mapping: dict[str, object] = {
             "set_enable_developer_extras": self.state.developer_extras,
-            "set_enable_dns_prefetching": self.state.dns_prefetching,
             "set_enable_fullscreen": True,
             "set_enable_html5_database": True,
             "set_enable_html5_local_storage": True,
