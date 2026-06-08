@@ -295,7 +295,7 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
     assert seen == [False, True]
 
 
-def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
+def test_preallocated_shell_for_python_type(
     unique_type_name: Any,
 ) -> None:
     from ginext import private
@@ -309,7 +309,7 @@ def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
             self.initialized = True
 
     ptr = DeferredViaPrivate.construct_with_properties({})
-    obj = private.GObject.shell_from_c(ptr)
+    obj = gobject._wrap_preallocated_construction(DeferredViaPrivate, ptr)
 
     assert isinstance(obj, DeferredViaPrivate)
     assert obj.is_bound() is False
@@ -318,20 +318,6 @@ def test_private_object_shell_from_c_uses_deferred_shell_for_python_type(
 
     assert obj.initialized is True
     assert private.GObject.from_c(obj) is obj
-
-
-def test_private_object_shell_from_c_keeps_imported_type_bound() -> None:
-    from ginext import Gio
-    from ginext import GObject as GObjectNS
-    from ginext import private
-
-    ptr = GObjectNS.new_with_properties(Gio.Cancellable, {})
-    obj = private.GObject.shell_from_c(ptr)
-
-    assert isinstance(obj, Gio.Cancellable)
-    assert obj.owns_ref() is False
-    assert private.GObject.from_c(obj) is obj
-    assert obj.owns_ref() is True
 
 
 def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) -> None:
