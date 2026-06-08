@@ -2,31 +2,30 @@
 #
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Ratchet: residual explicit Any not yet removed (adopting --disallow-any-explicit
-# incrementally). Remove this line once the file is Any-clean.
-# mypy: disable-error-code="explicit-any"
-
 from __future__ import annotations
 
 import gc
 import os
 import uuid
 import time
-from typing import Any
+from collections.abc import Callable
 
 import pytest
 
 try:
-    from ginext import Adw
+    from ginext import Adw, GLib, Gio, Gtk
 except ImportError:
     pytest.skip("Adw (libadwaita) namespace not available", allow_module_level=True)
 
 
-def _tab_bar_close_buttons(Gtk: Any, tab_bar: Any) -> list[Any]:
-    buttons: list[Any] = []
+def _tab_bar_close_buttons(tab_bar: Gtk.Widget) -> list[Gtk.Button]:
+    buttons: list[Gtk.Button] = []
 
-    def walk(widget: Any) -> None:
-        if isinstance(widget, Gtk.Button) and widget.get_icon_name() == "window-close-symbolic":
+    def walk(widget: Gtk.Widget) -> None:
+        if (
+            isinstance(widget, Gtk.Button)
+            and widget.get_icon_name() == "window-close-symbolic"
+        ):
             buttons.append(widget)
         child = widget.get_first_child()
         while child is not None:
@@ -37,7 +36,7 @@ def _tab_bar_close_buttons(Gtk: Any, tab_bar: Any) -> list[Any]:
     return buttons
 
 
-def _spin_until(GLib: Any, predicate: Any, *, timeout_ms: int = 1000) -> bool:
+def _spin_until(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
     context = GLib.MainContext.default()
     deadline = time.monotonic() + (timeout_ms / 1000)
     while time.monotonic() < deadline:
@@ -48,14 +47,28 @@ def _spin_until(GLib: Any, predicate: Any, *, timeout_ms: int = 1000) -> bool:
     return bool(predicate())
 
 
-def test_close_page_method_signal_collision(require_gtk4_display: Any) -> None:
-    Gtk = require_gtk4_display
+def _click_any_close_button(
+    tab_bar: Gtk.Widget,
+    predicate: Callable[[], bool],
+) -> bool:
+    for button in _tab_bar_close_buttons(tab_bar):
+        button.clicked()
+        if _spin_until(predicate, timeout_ms=250):
+            return True
+        if button.activate():
+            if _spin_until(predicate, timeout_ms=250):
+                return True
+    return False
+
+
+def test_close_page_method_signal_collision(require_gtk4_display: object) -> None:
+    _ = require_gtk4_display
 
     view = Adw.TabView()
     page = view.append(Gtk.Label(label="Terminal"))
-    seen: list[Any] = []
+    seen: list[Adw.TabPage] = []
 
-    def on_close_page(tab_view: Any, tab_page: Any) -> bool:
+    def on_close_page(tab_view: Adw.TabView, tab_page: Adw.TabPage) -> bool:
         seen.append(tab_page)
         tab_view.close_page_finish(tab_page, True)
         return True
@@ -68,14 +81,12 @@ def test_close_page_method_signal_collision(require_gtk4_display: Any) -> None:
 
 
 def test_bound_method_signal_handler_survives_window_rewrap(
-    require_gtk4_display: Any,
+    require_gtk4_display: object,
 ) -> None:
-    from ginext import Gio
+    _ = require_gtk4_display
 
-    Gtk = require_gtk4_display
-
-    class Window(Gtk.ApplicationWindow):  # type: ignore[misc, name-defined]
-        def __init__(self, application: Any) -> None:
+    class Window(Gtk.ApplicationWindow):
+        def __init__(self, application: Gio.Application) -> None:
             super().__init__(application=application)
             self.tab_view = Adw.TabView()
             self.set_child(self.tab_view)
@@ -83,7 +94,7 @@ def test_bound_method_signal_handler_survives_window_rewrap(
             self.close_count = 0
             self.tab_view.close_page.connect(self._on_close_page)
 
-        def _on_close_page(self, view: Any, page: Any) -> bool:
+        def _on_close_page(self, view: Adw.TabView, page: Adw.TabPage) -> bool:
             self.close_count += 1
             view.close_page_finish(page, True)
             return True
@@ -108,15 +119,12 @@ def test_bound_method_signal_handler_survives_window_rewrap(
 
 
 def test_tab_bar_close_button_survives_window_rewrap(
-    require_gtk4_display: Any,
+    require_gtk4_display: object,
 ) -> None:
-    from ginext import Gio
-    from ginext import GLib
+    _ = require_gtk4_display
 
-    Gtk = require_gtk4_display
-
-    class Window(Gtk.ApplicationWindow):  # type: ignore[misc, name-defined]
-        def __init__(self, application: Any) -> None:
+    class Window(Gtk.ApplicationWindow):
+        def __init__(self, application: Gio.Application) -> None:
             super().__init__(application=application)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.tab_view = Adw.TabView()
@@ -129,7 +137,7 @@ def test_tab_bar_close_button_survives_window_rewrap(
             self.tab_view.append(Gtk.Label(label="One"))
             self.tab_view.append(Gtk.Label(label="Two"))
 
-        def _on_close_page(self, view: Any, page: Any) -> bool:
+        def _on_close_page(self, view: Adw.TabView, page: Adw.TabPage) -> bool:
             self.close_count += 1
             view.close_page_finish(page, True)
             return True
@@ -143,10 +151,7 @@ def test_tab_bar_close_button_survives_window_rewrap(
     window = Window(app)
     window.present()
 
-    assert _spin_until(
-        GLib,
-        lambda: bool(_tab_bar_close_buttons(Gtk, window.tab_bar)),
-    )
+    assert _spin_until(lambda: bool(_tab_bar_close_buttons(window.tab_bar)))
 
     del window
     gc.collect()
@@ -154,11 +159,9 @@ def test_tab_bar_close_button_survives_window_rewrap(
     active = app.get_active_window()
 
     assert active is not None
-    buttons = _tab_bar_close_buttons(Gtk, active.tab_bar)
-    assert buttons
-    buttons[-1].clicked()
-    assert _spin_until(
-        GLib,
+    assert _tab_bar_close_buttons(active.tab_bar)
+    assert _click_any_close_button(
+        active.tab_bar,
         lambda: active.close_count == 1 and active.tab_view.get_n_pages() == 1,
     )
     assert active.close_count == 1

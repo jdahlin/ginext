@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import signal
 import socket
 import sys
@@ -311,23 +312,52 @@ def _task_new(
     return fn(source_object, cancellable, callback, callback_data)
 
 
-def _settings_schema_installed(schema_id: str) -> bool:
+def _settings_schema_for(schema_id: str) -> Any:
     source = Gio.SettingsSchemaSource.get_default()
-    return source is not None and source.lookup(schema_id, True) is not None
+    if source is not None:
+        schema = source.lookup(schema_id, True)
+        if schema is not None:
+            return schema
+
+    schema_dir = os.environ.get("GSETTINGS_SCHEMA_DIR")
+    if not schema_dir:
+        return None
+
+    parent = Gio.SettingsSchemaSource.get_default()
+    for directory in schema_dir.split(os.pathsep):
+        if not directory:
+            continue
+        source = Gio.SettingsSchemaSource.new_from_directory(directory, parent, False)
+        if source is None:
+            continue
+        schema = source.lookup(schema_id, True)
+        if schema is not None:
+            return schema
+    return None
 
 
 @overlay.method("Settings", staticmethod=True)
 def new(fn: Any, schema_id: str) -> Any:
-    if not _settings_schema_installed(schema_id):
+    schema = _settings_schema_for(schema_id)
+    if schema is None:
         raise RuntimeError(f"Settings schema {schema_id!r} is not installed")
-    return fn(schema_id)
+    return Gio.Settings.new_full(schema, None, None)
 
 
 @overlay.method("Settings", staticmethod=True)
 def new_with_path(fn: Any, schema_id: str, path: str) -> Any:
-    if not _settings_schema_installed(schema_id):
+    schema = _settings_schema_for(schema_id)
+    if schema is None:
         raise RuntimeError(f"Settings schema {schema_id!r} is not installed")
-    return fn(schema_id, path)
+    return Gio.Settings.new_full(schema, None, path)
+
+
+@overlay.method("Settings", staticmethod=True)
+def new_with_backend(fn: Any, schema_id: str, backend: Any) -> Any:
+    schema = _settings_schema_for(schema_id)
+    if schema is None:
+        raise RuntimeError(f"Settings schema {schema_id!r} is not installed")
+    return Gio.Settings.new_full(schema, backend, None)
 
 
 @overlay.method("FileEnumerator")  # type: ignore[no-redef]
