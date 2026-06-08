@@ -142,9 +142,6 @@ class _NotifyCompatProxy:
         self._source = source
 
     def __call__(self, detail: str | "_PropertyDetail") -> object:
-        # Emit notify via the low-level introspection invoke rather than the
-        # class's signal_method_backings: GObject.Object is the single base
-        # shared across profiles, so its gimeta state must not gate this.
         from .. import private
 
         return private.invoke("GObject", "Object.notify", self._source, str(detail))
@@ -175,9 +172,6 @@ def freeze_notify(fn: Any, self: Any) -> _FreezeNotifyContext:
 def notify(self: _gobject_root.GObject) -> _NotifySignalSelector | _NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
-    # GObject.Object is one class across both ABI profiles, so per-class profile
-    # can't disambiguate notify for a direct GObject.Object() instance; drive the
-    # compat-vs-native choice off the process-global feature flag instead.
     if features.is_enabled(features.PYGOBJECT_COMPAT):
         return _NotifyCompatProxy(self)
     return _NotifySignalSelector(self)
@@ -330,9 +324,6 @@ def _root_notify(
 ) -> _NotifySignalSelector | _NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
-    # GObject.Object is one class across both ABI profiles, so per-class profile
-    # can't disambiguate notify for a direct GObject.Object() instance; drive the
-    # compat-vs-native choice off the process-global feature flag instead.
     if features.is_enabled(features.PYGOBJECT_COMPAT):
         return _NotifyCompatProxy(self)
     return _NotifySignalSelector(self)

@@ -828,10 +828,7 @@ static PyGetSetDef GObject_getset[] = {
 static void
 GObject_dealloc (PyObject *self)
 {
-  /* GObject.Object is now this C type directly (not a Python subclass whose
-   * subtype_dealloc would do this), so the finalizer must be invoked here or
-   * __del__ (which drops the GObject ref via release_ref) never runs on a
-   * refcount-based free. Idempotent: a no-op if already finalized. */
+  /* Run __del__ (drops the GObject ref); no-op if already finalized. */
   if (PyObject_CallFinalizerFromDealloc (self) < 0)
     return;
   PyObject_GC_UnTrack (self);

@@ -180,15 +180,57 @@ py_preload_shared_library (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
-/* Create the GObject type with a Python-supplied metaclass (GObjectMeta).
- * Deferred out of module init because the metaclass is defined in Python; the
- * unified GObject.Object base IS this C type, so it must carry GObjectMeta.
- * Idempotent: returns the already-created type on repeat calls. */
+/* Build the GObject.Object base type with the GObjectMeta metaclass and the
+ * Python methods from `body`. Idempotent. */
+static int
+gobject_copy_body_methods (PyObject *type, PyObject *body)
+{
+  PyObject *body_dict = PyObject_GetAttrString (body, "__dict__");
+  if (body_dict == NULL)
+    return -1;
+  PyObject *items = PyMapping_Items (body_dict);
+  Py_DECREF (body_dict);
+  if (items == NULL)
+    return -1;
+
+  static const char *const skip[]
+      = { "__dict__", "__weakref__",   "__module__", "__qualname__",
+          "__name__", "__slots__", "__doc__",    NULL };
+  Py_ssize_t n = PyList_GET_SIZE (items);
+  for (Py_ssize_t i = 0; i < n; i++)
+    {
+      PyObject *kv = PyList_GET_ITEM (items, i);
+      PyObject *key = PyTuple_GET_ITEM (kv, 0);
+      PyObject *val = PyTuple_GET_ITEM (kv, 1);
+      const char *ks = PyUnicode_AsUTF8 (key);
+      if (ks == NULL)
+        {
+          Py_DECREF (items);
+          return -1;
+        }
+      gboolean skipped = FALSE;
+      for (const char *const *s = skip; *s != NULL; s++)
+        if (strcmp (ks, *s) == 0)
+          {
+            skipped = TRUE;
+            break;
+          }
+      if (!skipped && PyObject_SetAttr (type, key, val) < 0)
+        {
+          Py_DECREF (items);
+          return -1;
+        }
+    }
+  Py_DECREF (items);
+  return 0;
+}
+
 static PyObject *
 py_init_gobject (PyObject *m, PyObject *args)
 {
   PyObject *metaclass = NULL;
-  if (!PyArg_ParseTuple (args, "O:init_gobject", &metaclass))
+  PyObject *body = NULL;
+  if (!PyArg_ParseTuple (args, "OO:init_gobject", &metaclass, &body))
     return NULL;
   if (!PyType_Check (metaclass))
     {
@@ -204,13 +246,32 @@ py_init_gobject (PyObject *m, PyObject *args)
     return NULL;
   pygi_gobject_type = (PyTypeObject *)gobject;
   pygi_gobject_type->tp_weaklistoffset = offsetof (PyGIGObject, weakreflist);
-  if (PyModule_AddObjectRef (m, "GObject", gobject) < 0)
+
+  static const char *const naming[][2] = { { "__name__", "Object" },
+                                           { "__qualname__", "Object" },
+                                           { "__module__", "ginext.GObject" } };
+  for (size_t i = 0; i < 3; i++)
     {
-      pygi_gobject_type = NULL;
-      Py_DECREF (gobject);
-      return NULL;
+      PyObject *v = PyUnicode_FromString (naming[i][1]);
+      if (v == NULL || PyObject_SetAttrString (gobject, naming[i][0], v) < 0)
+        {
+          Py_XDECREF (v);
+          goto error;
+        }
+      Py_DECREF (v);
     }
+
+  if (gobject_copy_body_methods (gobject, body) < 0)
+    goto error;
+
+  if (PyModule_AddObjectRef (m, "GObject", gobject) < 0)
+    goto error;
   return gobject;
+
+error:
+  pygi_gobject_type = NULL;
+  Py_DECREF (gobject);
+  return NULL;
 }
 
 /* Test-infra: thin wrappers around PyArg_ParseTuple for each numeric/string
@@ -431,8 +492,7 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  /* GObject is created lazily via init_gobject(GObjectMeta) once the
-   * Python metaclass exists; the unified GObject.Object base IS this C type. */
+  /* GObject.Object is created later via init_gobject(GObjectMeta, body). */
 
   PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);
   if (method_descriptor_type == NULL)
