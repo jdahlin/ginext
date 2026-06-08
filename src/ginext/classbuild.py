@@ -198,10 +198,7 @@ class ClassBuilder:
                 _classes_by_gtype.setdefault(gtype_key, cached)
             return cached
 
-        # The root GObject base is a single shared class object, not one class
-        # per profile. Once adopted, every profile resolves GObject.Object to
-        # it rather than re-running adoption (which would re-derive the signal
-        # and method tables non-deterministically across profiles).
+        # GObject.Object is one shared class across profiles; adopt it once.
         if (
             data["namespace"] == "GObject"
             and name == "Object"
@@ -300,17 +297,14 @@ class ClassBuilder:
         gimeta.vfunc_infos = vfunc_infos
 
         if data["namespace"] == "GObject" and name == "Object":
-            # Merge the introspected root into the hand-written Python base
-            # instead of stacking a separate subclass on top of it: there is
-            # one canonical base class, reachable as GObject.Object.
+            # Adopt the introspected root onto the single GObject.Object base
+            # (gimeta, signal tables) rather than stacking a subclass. Its name
+            # and module are set in C by init_gobject.
             cls = GObject
             for attr_name, attr_value in attrs.items():
                 if attr_name == "__module__":
                     continue
                 setattr(cls, attr_name, attr_value)
-            cls.__name__ = "Object"
-            cls.__qualname__ = "Object"
-            cls.__module__ = cast("str", attrs["__module__"])
             cls._gobject_root_adopted = True
         else:
             cls = cast("type[Any]", type(name, bases, attrs))
@@ -331,15 +325,8 @@ _interface_impl_cache: dict[int, type] = {}
 
 
 def _concrete_impl_for_interface(iface_cls: type[GInterface]) -> type[GObject]:
-    """A GObject.Object-layout wrapper class for an interface-typed value.
-
-    GInterface classes are layout-free mixins (no PyGIGObject storage), so a
-    returned object whose static type is an interface can't be allocated through
-    the interface class directly. Wrap it with a synthesized
-    ``(GObject.Object, iface)`` class instead: it has the C layout from
-    GObject.Object and the interface's methods via the iface mixin. Cached per
-    interface class.
-    """
+    # GInterface is layout-free, so an interface-typed value is wrapped with a
+    # synthesized (GObject.Object, iface) class that has the C layout.
     key = id(iface_cls)
     impl = _interface_impl_cache.get(key)
     if impl is None:

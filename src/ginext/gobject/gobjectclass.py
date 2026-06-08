@@ -74,26 +74,14 @@ from .properties import (
     call_notify_override,
 )
 
-# Create the C GObject type with GObjectMeta as its metaclass (deferred from
-# the C module init, which runs before the Python metaclass exists) and rebind it
-# on `private`. GObject IS this C base type: one class, GObject.Object, with the
-# instance methods attached directly (transplanted near the bottom of this
-# module). GObject, GObject.Object and private.GObject are all this object.
-# At runtime GObject IS the C base type, created here with GObjectMeta as its
-# metaclass (deferred from the C module init, which runs before the metaclass
-# exists). For type checking GObject is presented as _GObjectBody below (which
-# carries the transplanted method signatures, Signal, __init_subclass__ and the
-# @dataclass_transform), so callers see the full API.
-if not TYPE_CHECKING:
-    private.GObject = private.init_gobject(GObjectMeta)
-    # The base carries the root class vars directly so GObjectMeta.__getattr__
-    # (which reads _class_struct_name while resolving methods) terminates instead
-    # of recursing on a missing attribute.
-    private.GObject._class_struct_name = None
-    GObject = private.GObject
-# The C-level run_dispose, captured before the Python methods are attached, so
-# __del__ can chain to the default disposer without resolving overrides.
-_base_run_dispose = private.GObject.run_dispose
+# GObject.Object is the C base type, built below by init_gobject from the method
+# definitions in _GObjectBody. _GObjectBody subclasses the C type only for type
+# checking (so its bodies and GObject see the full API); at runtime it is a bare
+# namespace whose methods init_gobject installs on the C type.
+if TYPE_CHECKING:
+    _MethodsBase = private.GObject
+else:
+    _MethodsBase = object
 
 _compat_aliases_enabled = False
 _compat_dispose_state: dict[int, dict[str, object]] = {}
@@ -296,12 +284,8 @@ def _python_construction_active() -> bool:
     return bool(private.GObject.python_construction_active())
 
 
-# Interfaces are mixins, not GObjects: GInterface is a layout-free sibling of
-# GObject.Object (a plain object subclass), so concrete classes can write
-# `class Foo(GObject.Object, SomeInterface)` with a consistent MRO and a single
-# C layout (from GObject.Object). Introspected interface methods resolve through
-# GObjectMeta/gimeta; instances are always concrete GObject.Object subclasses,
-# so an interface class is never used to allocate a wrapper.
+# A layout-free mixin sibling of GObject.Object, so `class Foo(GObject.Object,
+# SomeInterface)` has a consistent MRO. Never instantiated as itself.
 @dataclass_transform(field_specifiers=(Property,))
 class GInterface(metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
@@ -309,9 +293,6 @@ class GInterface(metaclass=GObjectMeta):
     __slots__ = ()
 
     def __new__(cls, *args: object, **kwargs: object) -> Self:
-        # Concrete classes list their implemented interfaces before GObject.Object
-        # in __bases__, so this __new__ is reached first; delegate to the real
-        # (C) allocator. Only a bare interface type itself is non-instantiable.
         if (
             int(gobject_repo().type_fundamental(int(cls.gimeta.gtype)))
             != _G_TYPE_INTERFACE
@@ -322,14 +303,10 @@ class GInterface(metaclass=GObjectMeta):
         )
 
 
-# Instance methods for the single GObject base. Defined in a throwaway class body
-# (so __init_subclass__ is auto-wrapped as a classmethod and the bodies stay
-# readable) and transplanted onto the C base below. Must not use zero-arg
-# super()/__class__: those bind to _GObjectBody, but the methods run on the base
-# and its subclasses. __init_subclass__ uses explicit super(GObject, cls);
-# __del__ uses the captured _base_run_dispose.
+# The GObject.Object method definitions. init_gobject installs these on the C
+# type; _GObjectBody itself is only the type-checking view of GObject.
 @dataclass_transform(field_specifiers=(Property,))
-class _GObjectBody(private.GObject, metaclass=GObjectMeta):
+class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     Signal: ClassVar[type[Signal]]
     _class_struct_name: ClassVar[str | None] = None
@@ -644,39 +621,14 @@ class _GObjectBody(private.GObject, metaclass=GObjectMeta):
         )
 
 
-# Transplant the instance methods onto the C base: GObject IS the base, so it
-# carries connect/emit/__getattr__/__init_subclass__/... directly. GInterface is
-# a layout-free sibling and does not inherit these (interface methods come via
-# gimeta), so nothing is copied onto it. For type checking, GObject is _GObjectBody
-# (which declares the same surface), so callers see the full API.
 if TYPE_CHECKING:
     GObject = _GObjectBody
 else:
-    _SKIP_TRANSPLANT = {
-        "__dict__",
-        "__weakref__",
-        "__module__",
-        "__qualname__",
-        "__doc__",
-        "__slots__",
-    }
-    for _name, _value in list(_GObjectBody.__dict__.items()):
-        if _name in _SKIP_TRANSPLANT:
-            continue
-        setattr(GObject, _name, _value)
+    GObject = private.init_gobject(GObjectMeta, _GObjectBody)
+    private.GObject = GObject
     del _GObjectBody
 
+_base_run_dispose = GObject.run_dispose
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
-# _gobject_is_root (the marker GObjectMeta uses to gate `Signal` to the root) is
-# transplanted onto GObject from _GObjectBody above.
-# __init_subclass__ only fires for subclasses, so the root must be wired up
-# explicitly. GLib's type lookup works without an explicit g_type_init() in
-# modern GLib — the type system auto-initializes on first use.
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
-# Present the unified base as GObject.Object everywhere (ClassBuilder also sets
-# this when it adopts the introspected root; doing it here covers pre-adoption
-# use and reprs).
-GObject.__name__ = "Object"
-GObject.__qualname__ = "Object"
-GObject.__module__ = "ginext.GObject"
