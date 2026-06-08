@@ -106,7 +106,7 @@ class ByteWindow:
     def _read(self, size: int) -> bytes:
         if self.stream is None or size <= 0:
             return b""
-        return self.stream.read_bytes(size, None)
+        return self.stream.read_bytes(size, None).get_data()
 
     def _reopen_and_read(self, offset: int, size: int) -> bytes:
         self.close()

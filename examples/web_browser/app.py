@@ -157,7 +157,7 @@ class App(Gtk.Application, type_name="WebBrowserApp"):
                 f"<h1>browser://{path}</h1><p>No page is registered for this path.</p>"
             )
         data = body.encode("utf-8")
-        stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(data))  # type: ignore[arg-type]  # stub mismodels new_from_bytes as bytes instead of GLib.Bytes
+        stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(data))
         request.finish(stream, len(data), "text/html")
         print(f"[web-browser] served {uri}", file=sys.stderr)
 

@@ -231,7 +231,7 @@ from ginext_gtk._gtktemplate import Child as Child, Template as Template
 [ns."Gtk".classes."Widget"]
 # Gtk.Widget class-side template API (used by _gtktemplate.py).
 body = '''
-notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+notify: DetailedSignal[Self, Any, None]
 @classmethod
 def set_template(cls, template_bytes: "bytes | GLib.Bytes") -> None: ...
 @classmethod
@@ -259,7 +259,7 @@ extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
 item_type = "_T"
 extra_bases = ["Gio.ListModel[_T]", "Generic[_T]"]
 body = '''
-notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+notify: DetailedSignal[Self, Any, None]
 '''
 reserves = ["notify"]
 
@@ -300,19 +300,19 @@ item_type = "_T"
 [ns."Gtk".classes."SingleSelection"]
 item_type = "_T"
 body = '''
-notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+notify: DetailedSignal[Self, Any, None]
 '''
 reserves = ["notify"]
 [ns."Gtk".classes."MultiSelection"]
 item_type = "_T"
 body = '''
-notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+notify: DetailedSignal[Self, Any, None]
 '''
 reserves = ["notify"]
 [ns."Gtk".classes."NoSelection"]
 item_type = "_T"
 body = '''
-notify: DetailedSignal[Self, [GObject.ParamSpec], None]
+notify: DetailedSignal[Self, Any, None]
 '''
 reserves = ["notify"]
 

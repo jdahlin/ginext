@@ -1551,7 +1551,7 @@ class Emitter:
             # ParamSpec aliased: GObject defines its own `ParamSpec` class, so
             # the bare typing name would clash in GObject.pyi.
             self.lines.append(
-                "from typing import Any, Awaitable, Callable, ClassVar, Concatenate, Generic, "
+                "from typing import Any, Awaitable, Callable, ClassVar, Generic, "
                 "Final, Literal, NamedTuple, ParamSpec as _ParamSpec, Self, TypeVar, override, overload"
             )
         else:
@@ -1636,13 +1636,10 @@ class Emitter:
             "-> _SigR: ..."
         )
         self.lines.append(
-            "    def connect(self, handler: Callable[Concatenate[_SigO, _SigP], "
-            "_SigR], *, after: bool = ..., once: bool = ..., "
-            "owner: Any = ...) -> SignalConnection: ..."
+            "    def connect(self, handler: Callable[..., object], *, after: bool = ..., once: bool = ..., owner: Any = ...) -> SignalConnection: ..."
         )
         self.lines.append(
-            "    def connect_after(self, handler: Callable[Concatenate[_SigO, "
-            "_SigP], _SigR]) -> SignalConnection: ..."
+            "    def connect_after(self, handler: Callable[..., object]) -> SignalConnection: ..."
         )
         self.lines.append(
             "    def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> "
