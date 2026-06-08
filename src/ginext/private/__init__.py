@@ -147,8 +147,8 @@ gvalue_init_value = _gobject.gvalue_init_value
 gvalue_unset_value = _gobject.gvalue_unset_value
 gvalue_reset_value = _gobject.gvalue_reset_value
 gvalue_get_value = _gobject.gvalue_get_value
-gvalue_array_get_nth_type = _gobject.gvalue_array_get_nth_type
 gvalue_set_value = _gobject.gvalue_set_value
+gvalue_array_get_nth_type = _gobject.gvalue_array_get_nth_type
 gvalue_set_to_py_fallback = _gobject.gvalue_set_to_py_fallback
 gvalue_get_to_py_fallback = _gobject.gvalue_get_to_py_fallback
 gvalue_set_from_py_converter = _gobject.gvalue_set_from_py_converter
@@ -156,7 +156,6 @@ gvalue_get_from_py_converter = _gobject.gvalue_get_from_py_converter
 gvalue_set_data_int = _gobject.gvalue_set_data_int
 gvalue_set_data_uint64 = _gobject.gvalue_set_data_uint64
 gvalue_new_for_gtype = _gobject.gvalue_new_for_gtype
-gvalue_get_value_from_pointer = _gobject.gvalue_get_value_from_pointer
 gvalue_wrap_pointer = _gobject.gvalue_wrap_pointer
 
 
@@ -176,14 +175,6 @@ def register_converter(to_py, from_py):
 def get_converters():
     """Return the currently-installed ``(to_py, from_py)`` converters."""
     return gvalue_get_to_py_fallback(), gvalue_get_from_py_converter()
-call_ptr_return_int = _gobject.call_ptr_return_int
-call_ptr_return_int64 = _gobject.call_ptr_return_int64
-call_ptr_return_uint = _gobject.call_ptr_return_uint
-call_ptr_return_uint64 = _gobject.call_ptr_return_uint64
-call_ptr_return_double = _gobject.call_ptr_return_double
-call_ptr_return_ptr = _gobject.call_ptr_return_ptr
-call_ptr_uint_return_ptr = _gobject.call_ptr_uint_return_ptr
-invoke_class_struct_callable = _gobject.invoke_class_struct_callable
 gstrv_get_type = _gobject.gstrv_get_type
 gerror_get_type = _gobject.gerror_get_type
 ensure_cairo_gobject_types = _gobject.ensure_cairo_gobject_types

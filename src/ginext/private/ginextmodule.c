@@ -121,24 +121,6 @@ py_gvalue_wrap_pointer (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_new_for_gtype (PyObject *m, PyObject *args);
 extern PyObject *
-py_gvalue_get_value_from_pointer (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_int (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_int64 (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_uint (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_uint64 (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_double (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_return_ptr (PyObject *m, PyObject *args);
-extern PyObject *
-py_call_ptr_uint_return_ptr (PyObject *m, PyObject *args);
-extern PyObject *
-py_invoke_class_struct_callable (PyObject *m, PyObject *args);
-extern PyObject *
 py_gstrv_get_type (PyObject *m, PyObject *args);
 extern PyObject *
 py_gerror_get_type (PyObject *m, PyObject *args);
@@ -406,9 +388,8 @@ static PyMethodDef methods[] = {
   /* keep: GValue marshalling primitive */
   { "gvalue_get_value", py_gvalue_get_value, METH_VARARGS, NULL },
   /* keep: GValue marshalling primitive */
-  { "gvalue_array_get_nth_type", py_gvalue_array_get_nth_type, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_set_value", py_gvalue_set_value, METH_VARARGS, NULL },
+  { "gvalue_array_get_nth_type", py_gvalue_array_get_nth_type, METH_VARARGS, NULL },
   /* keep: extension point for custom-fundamental GType converters */
   { "gvalue_set_to_py_fallback", py_gvalue_set_to_py_fallback, METH_VARARGS, NULL },
   { "gvalue_get_to_py_fallback", py_gvalue_get_to_py_fallback, METH_NOARGS, NULL },
@@ -418,19 +399,7 @@ static PyMethodDef methods[] = {
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
   /* keep: allocates a zeroed GValue wrapper for a given GType */
   { "gvalue_new_for_gtype", py_gvalue_new_for_gtype, METH_VARARGS, NULL },
-  /* keep: raw GValue* -> Python conversion for overlay fallbacks */
-  { "gvalue_get_value_from_pointer", py_gvalue_get_value_from_pointer, METH_VARARGS, NULL },
   { "gvalue_wrap_pointer", py_gvalue_wrap_pointer, METH_VARARGS, NULL },
-  /* keep: low-level native symbol call helpers for overlay fallbacks */
-  { "call_ptr_return_int", py_call_ptr_return_int, METH_VARARGS, NULL },
-  { "call_ptr_return_int64", py_call_ptr_return_int64, METH_VARARGS, NULL },
-  { "call_ptr_return_uint", py_call_ptr_return_uint, METH_VARARGS, NULL },
-  { "call_ptr_return_uint64", py_call_ptr_return_uint64, METH_VARARGS, NULL },
-  { "call_ptr_return_double", py_call_ptr_return_double, METH_VARARGS, NULL },
-  { "call_ptr_return_ptr", py_call_ptr_return_ptr, METH_VARARGS, NULL },
-  { "call_ptr_uint_return_ptr", py_call_ptr_uint_return_ptr, METH_VARARGS, NULL },
-  /* keep: class-struct vfunc dispatch (special) */
-  { "invoke_class_struct_callable", py_invoke_class_struct_callable, METH_VARARGS, NULL },
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },
