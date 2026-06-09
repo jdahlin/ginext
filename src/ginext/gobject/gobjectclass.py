@@ -155,6 +155,40 @@ def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
 # creation (bottom of this module). Defined with non-dunder names so they are
 # plain module functions (a module-level `def __getattr__` would become the
 # module's PEP 562 attribute hook); registered under their dunder names.
+def _obj_signal_for_name(self: Any, name: str) -> _SignalInstance:
+    # Lazy signal lookup. Methods (and any other class attribute) are found via
+    # normal __getattribute__ first; only true attribute misses fall here. Signal
+    # names that collided with a method had the method rerouted into
+    # signal_method_backings at class-build time, so asking for `obj.activate`
+    # falls through here and produces a Signal with method backing.
+    if not isinstance(name, str):
+        raise TypeError(f"signal name must be a str, not {type(name).__name__}")
+    if "::" in name:
+        name, detail = name.split("::", 1)
+    else:
+        detail = None
+    name = name.replace("-", "_")
+    cls = type(self)
+    info = cls.gimeta.signal_infos.get(name)
+    method = cls.gimeta.signal_method_backings.get(name)
+    if info is None and cls is GObject:
+        obj_cls = gobject_repo().Object
+        info = obj_cls.gimeta.signal_infos.get(name)
+        method = obj_cls.gimeta.signal_method_backings.get(name)
+    if info is None:
+        raise AttributeError(name)
+    gobject_name = name.replace("_", "-")
+    if isinstance(info, Signal):
+        signal = cast("_SignalInstance", info.__get__(self, cls))
+        if detail is not None:
+            return signal.detail_signal(detail)
+        return signal
+    signal = _SignalInstance(self, gobject_name, info, cast("Any", method))
+    if detail is not None:
+        return signal.detail_signal(detail)
+    return signal
+
+
 def _obj_init_subclass(
     cls: type[GObject], /, type_name: str | None = None, **kwargs: object
 ) -> None:
@@ -245,40 +279,7 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         ) -> None: ...
         def __setattr__(self, name: str, value: object) -> None: ...
         def __getattr__(self, name: str) -> Any: ...
-
-    def signal_for_name(self, name: str) -> _SignalInstance:
-        # Lazy signal lookup. Methods (and any other class attribute) are
-        # found via normal __getattribute__ first; only true attribute misses
-        # fall here. Signal names that collided with a method had the method
-        # rerouted into `_signal_method_backings` at class-build time, so
-        # asking for `obj.activate` falls through to this branch and produces
-        # a Signal with method backing.
-        if not isinstance(name, str):
-            raise TypeError(f"signal name must be a str, not {type(name).__name__}")
-        if "::" in name:
-            name, detail = name.split("::", 1)
-        else:
-            detail = None
-        name = name.replace("-", "_")
-        cls = type(self)
-        info = cls.gimeta.signal_infos.get(name)
-        method = cls.gimeta.signal_method_backings.get(name)
-        if info is None and cls is GObject:
-            obj_cls = gobject_repo().Object
-            info = obj_cls.gimeta.signal_infos.get(name)
-            method = obj_cls.gimeta.signal_method_backings.get(name)
-        if info is None:
-            raise AttributeError(name)
-        gobject_name = name.replace("_", "-")
-        if isinstance(info, Signal):
-            signal = info.__get__(self, cls)
-            if detail is not None:
-                return signal.detail_signal(detail)
-            return signal
-        signal = _SignalInstance(self, gobject_name, info, cast("Any", method))
-        if detail is not None:
-            return signal.detail_signal(detail)
-        return signal
+        def signal_for_name(self, name: str) -> _SignalInstance: ...
 
 
 
@@ -309,4 +310,5 @@ if not TYPE_CHECKING:
     )
     _base_overlay.method("Object", name="__setattr__")(_obj_setattr)
     _base_overlay.method("Object", name="__getattr__")(_obj_getattr)
+    _base_overlay.method("Object", name="signal_for_name")(_obj_signal_for_name)
     _install_class_overlay(GObject, "GObject", "Object")
