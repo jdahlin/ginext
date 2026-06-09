@@ -83,36 +83,6 @@ _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
 
 
-def _compat_finalize_dispose(self: "GObject") -> None:
-    # pygobject compat: run a Python `do_dispose` override during finalization,
-    # while the wrapper's instance dict is still reachable (stashed in
-    # _compat_dispose_state so __getattr__ can serve it mid-dispose). Caller has
-    # already checked PYGOBJECT_COMPAT and that self is a python-defined subclass.
-    has_python_dispose = False
-    for cls in type(self).__mro__:
-        if not issubclass(cls, GObject):
-            continue
-        if cls is GObject:
-            break
-        if not _is_python_defined_gobject_subclass(cls):
-            continue
-        if "do_dispose" in cls.__dict__:
-            has_python_dispose = True
-            break
-    if not has_python_dispose:
-        return
-    dispose_state = dict(vars(self))
-    if dispose_state:
-        _compat_dispose_state[id(self)] = dispose_state
-    try:
-        self.bind_from_c(self)
-        _base_run_dispose(self)
-    except (AttributeError, RuntimeError, TypeError, ValueError):
-        pass
-    finally:
-        _compat_dispose_state.pop(id(self), None)
-
-
 def _synthesize_pspec_property(cls: type, py_name: str) -> _PspecProperty:
     """Install (once) a descriptor for a GObject property the class didn't
     declare, so it reads/writes as a plain attribute. Also surface it in
@@ -217,22 +187,6 @@ def _wrap_preallocated_construction(
     cls: type["GObject"], ptr: int, handlers: dict[str, object] | None = None
 ) -> "GObject":
     return cls.new_preallocated_from_c(ptr, handlers)
-
-
-def _is_python_defined_gobject_subclass(type_or_gtype: object) -> bool:
-    if not isinstance(type_or_gtype, type):
-        return False
-    if not issubclass(type_or_gtype, GObject):
-        return False
-    try:
-        gimeta = type_or_gtype.gimeta
-    except AttributeError:
-        return False
-    try:
-        gi_info = gimeta.gi_info
-    except AttributeError:
-        return False
-    return gi_info is None
 
 
 def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
@@ -399,7 +353,6 @@ else:
     private.GObject = GObject
     del _GObjectBody
 
-_base_run_dispose = GObject.run_dispose
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
