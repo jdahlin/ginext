@@ -155,6 +155,13 @@ def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
 # creation (bottom of this module). Defined with non-dunder names so they are
 # plain module functions (a module-level `def __getattr__` would become the
 # module's PEP 562 attribute hook); registered under their dunder names.
+def _obj_init_subclass(
+    cls: type[GObject], /, type_name: str | None = None, **kwargs: object
+) -> None:
+    super(GObject, cls).__init_subclass__(**kwargs)
+    register_python_subclass(cls, type_name=type_name)
+
+
 def _obj_setattr(self: Any, name: str, value: object) -> None:
     # A write to an introspected/inherited GObject property must route through
     # the property system, not land in the instance dict: on first write to a
@@ -228,17 +235,14 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     _gobject_is_root: ClassVar[bool] = True
     _gobject_root_adopted: ClassVar[bool]
 
-    def __init_subclass__(
-        cls, /, type_name: str | None = None, **kwargs: object
-    ) -> None:
-        super(GObject, cls).__init_subclass__(**kwargs)
-        register_python_subclass(cls, type_name=type_name)
-
     if TYPE_CHECKING:
-        # Runtime implementations are _obj_setattr/_obj_getattr below, installed
-        # on GObject.Object as overlays at creation (bottom of this module). These
+        # Runtime implementations are the _obj_* functions below, installed on
+        # GObject.Object as overlays at creation (bottom of this module). These
         # stubs keep the type-checking view complete — __getattr__ in particular
         # is what lets mypy allow dynamic property/signal attribute access.
+        def __init_subclass__(
+            cls, /, type_name: str | None = None, **kwargs: object
+        ) -> None: ...
         def __setattr__(self, name: str, value: object) -> None: ...
         def __getattr__(self, name: str) -> Any: ...
 
@@ -300,6 +304,9 @@ if not TYPE_CHECKING:
     from ..overlay.registrar import OverlayRegistrar as _OverlayRegistrar
 
     _base_overlay = _OverlayRegistrar(_types.SimpleNamespace(__name__="GObject"))
+    _base_overlay.method("Object", name="__init_subclass__", as_classmethod=True)(
+        _obj_init_subclass
+    )
     _base_overlay.method("Object", name="__setattr__")(_obj_setattr)
     _base_overlay.method("Object", name="__getattr__")(_obj_getattr)
     _install_class_overlay(GObject, "GObject", "Object")
