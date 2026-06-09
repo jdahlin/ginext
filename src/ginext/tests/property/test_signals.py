@@ -26,7 +26,9 @@ def test_setting_property_emits_notify(make_property_class: Any) -> None:
     cls = make_property_class(int, name="count", default=0)
     seen = []
     obj = cls()
-    obj.notify("count").connect(lambda source, pspec: seen.append(source.count))
+    obj.notify("count").connect(
+        lambda source, pspec: seen.append(source.count), owner=obj
+    )
     obj.count = 5
     assert seen == [5]
 
@@ -35,7 +37,7 @@ def test_setting_to_same_value_still_notifies(make_property_class: Any) -> None:
     cls = make_property_class(int, default=7)
     seen = []
     obj = cls()
-    obj.notify("x").connect(lambda *_: seen.append(1))
+    obj.notify("x").connect(lambda *_: seen.append(1), owner=obj)
     obj.x = 7
     assert len(seen) == 1
 
@@ -44,7 +46,9 @@ def test_notify_pspec_argument_matches_property(make_property_class: Any) -> Non
     cls = make_property_class(str, name="title", default="")
     received = []
     obj = cls()
-    obj.notify("title").connect(lambda source, pspec: received.append(pspec.name))
+    obj.notify("title").connect(
+        lambda source, pspec: received.append(pspec.name), owner=obj
+    )
     obj.title = "hello"
     assert received == ["title"]
 
@@ -53,8 +57,8 @@ def test_notify_detail_uses_canonical_name(make_property_class: Any) -> None:
     cls = make_property_class(int, name="my_field", default=0)
     seen = []
     obj = cls()
-    obj.notify("my-field").connect(lambda *_: seen.append("hyphen"))
-    obj.notify("my_field").connect(lambda *_: seen.append("underscore"))
+    obj.notify("my-field").connect(lambda *_: seen.append("hyphen"), owner=obj)
+    obj.notify("my_field").connect(lambda *_: seen.append("underscore"), owner=obj)
     obj.my_field = 1
     assert sorted(seen) == ["hyphen", "underscore"]
 
@@ -63,7 +67,7 @@ def test_freeze_thaw_coalesces_notifies(make_property_class: Any) -> None:
     cls = make_property_class(int, default=0)
     seen = []
     obj = cls()
-    obj.notify("x").connect(lambda *_: seen.append(1))
+    obj.notify("x").connect(lambda *_: seen.append(1), owner=obj)
     obj.freeze_notify()
     for value in range(10):
         obj.x = value
@@ -75,7 +79,7 @@ def test_handler_disconnect_stops_notifications(make_property_class: Any) -> Non
     cls = make_property_class(int, default=0)
     obj = cls()
     seen = []
-    handler = obj.notify("x").connect(lambda *_: seen.append(1))
+    handler = obj.notify("x").connect(lambda *_: seen.append(1), owner=obj)
     obj.x = 1
     handler.disconnect()
     obj.x = 2
@@ -93,6 +97,6 @@ def test_inherited_property_emits_notify_on_subclass(
 
     obj = B()
     seen = []
-    obj.notify("x").connect(lambda *_: seen.append(1))
+    obj.notify("x").connect(lambda *_: seen.append(1), owner=obj)
     obj.x = 5
     assert seen == [1]

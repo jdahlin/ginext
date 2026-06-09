@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ginext import Gdk
 
 
+@pytest.mark.filterwarnings(
+    "ignore:RGBA positional/keyword construction is deprecated:DeprecationWarning"
+)
 def test_rgba_parses_copies_and_formats() -> None:
     color = Gdk.RGBA()
 

@@ -339,10 +339,23 @@ def pytest_collection_modifyitems(
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
     is_debug_python = hasattr(sys, "gettotalrefcount")
     is_win32 = sys.platform == "win32"
+    compat_warning_filters = (
+        pytest.mark.filterwarnings(
+            "ignore:connecting .* without an owner:ginext.signal.connection.UnownedSignalHandlerWarning"
+        ),
+        pytest.mark.filterwarnings(
+            "ignore:'asyncio\\.set_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning"
+        ),
+        pytest.mark.filterwarnings(
+            "ignore:.* positional/keyword construction is deprecated:DeprecationWarning"
+        ),
+    )
     for item in items:
         _, sep, relative_nodeid = item.nodeid.rpartition("/pygobject/")
         if not sep:
             continue
+        for marker in compat_warning_filters:
+            item.add_marker(marker)
         if is_win32 and relative_nodeid in _WIN32_SKIP_NODES:
             item.add_marker(
                 pytest.mark.skip(reason="win32: feature unported/unavailable")
@@ -408,6 +421,14 @@ def _bootstrap_pygobject_compat() -> object:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "filterwarnings",
+        "ignore::ginext.signal.connection.UnownedSignalHandlerWarning",
+    )
+    config.addinivalue_line(
+        "filterwarnings",
+        "ignore:'asyncio\\.set_event_loop_policy' is deprecated and slated for removal in Python 3\\.16:DeprecationWarning",
+    )
     _bootstrap_pygobject_compat()
 
 

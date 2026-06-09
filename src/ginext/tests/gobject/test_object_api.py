@@ -36,7 +36,7 @@ def test_run_dispose_disconnects_signal_handlers(
     def on_notify(*args: object) -> None:
         called.append(args)
 
-    obj.notify("int-prop").connect(on_notify)
+    obj.notify("int-prop").connect(on_notify, owner=obj)
     obj.int_prop = 1
     obj.int_prop = 2
     obj.run_dispose()
@@ -88,7 +88,9 @@ def test_freeze_notify_context(
 
     obj = TestObject()
     tracking = []
-    obj.notify("prop").connect(lambda obj, _pspec: tracking.append(obj.prop))
+    obj.notify("prop").connect(
+        lambda obj, _pspec: tracking.append(obj.prop), owner=obj
+    )
 
     obj.prop = 1
     with obj.freeze_notify():
@@ -106,7 +108,9 @@ def test_handler_block_context(
 
     obj = TestObject()
     tracking = []
-    handler = obj.notify("prop").connect(lambda obj, _pspec: tracking.append(obj.prop))
+    handler = obj.notify("prop").connect(
+        lambda obj, _pspec: tracking.append(obj.prop), owner=obj
+    )
 
     obj.prop = 1
     with obj.handler_block(handler):

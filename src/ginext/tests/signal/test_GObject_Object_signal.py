@@ -49,10 +49,18 @@ if TYPE_CHECKING:
         `connect(name, handler, *user_data)` form exercised here.)"""
 
         def connect(  # type: ignore[explicit-any]
-            self, signal: str, handler: Callable[..., object], *user_data: object
+            self,
+            signal: str,
+            handler: Callable[..., object],
+            *user_data: object,
+            owner: object = ...,
         ) -> object: ...
         def connect_after(  # type: ignore[explicit-any]
-            self, signal: str, handler: Callable[..., object], *user_data: object
+            self,
+            signal: str,
+            handler: Callable[..., object],
+            *user_data: object,
+            owner: object = ...,
         ) -> object: ...
         def cancel(self) -> None: ...
 
@@ -91,7 +99,7 @@ def test_connect_forwards_user_data(
     def handler(c: object, *extras: object) -> None:
         seen.append((c is cancellable, extras))
 
-    cancellable.connect("cancelled", handler, *user_data)
+    cancellable.connect("cancelled", handler, *user_data, owner=cancellable)
     cancellable.cancel()
     assert seen == [(True, expected_extras)]
 
@@ -103,7 +111,7 @@ def test_connect_after_forwards_user_data(cancellable: _SignalSource) -> None:
     def handler(c: object, mark: object) -> None:
         seen.append(mark)
 
-    cancellable.connect_after("cancelled", handler, "after-mark")
+    cancellable.connect_after("cancelled", handler, "after-mark", owner=cancellable)
     cancellable.cancel()
     assert seen == ["after-mark"]
 
@@ -111,8 +119,8 @@ def test_connect_after_forwards_user_data(cancellable: _SignalSource) -> None:
 def test_handler_id_increments(cancellable: _SignalSource) -> None:
     """connect returns a non-zero handler id; subsequent connects
     return distinct ids on the same object."""
-    h1 = cancellable.connect("cancelled", lambda c: None)
-    h2 = cancellable.connect("cancelled", lambda c: None, "extra")
+    h1 = cancellable.connect("cancelled", lambda c: None, owner=cancellable)
+    h2 = cancellable.connect("cancelled", lambda c: None, "extra", owner=cancellable)
     assert h1 != 0 and h2 != 0
     assert h1 != h2
 
@@ -120,9 +128,13 @@ def test_handler_id_increments(cancellable: _SignalSource) -> None:
 def test_multiple_handlers_all_fire(cancellable: _SignalSource) -> None:
     """All connected handlers run on a single signal emission."""
     seen = []
-    cancellable.connect("cancelled", lambda c: seen.append("a"))
-    cancellable.connect("cancelled", lambda c, mark: seen.append(mark), "b")
-    cancellable.connect_after("cancelled", lambda c: seen.append("after"))
+    cancellable.connect("cancelled", lambda c: seen.append("a"), owner=cancellable)
+    cancellable.connect(
+        "cancelled", lambda c, mark: seen.append(mark), "b", owner=cancellable
+    )
+    cancellable.connect_after(
+        "cancelled", lambda c: seen.append("after"), owner=cancellable
+    )
     cancellable.cancel()
     # Order: connect-before handlers fire in connect order, then connect_after.
     assert seen == ["a", "b", "after"]
@@ -146,6 +158,11 @@ def test_connect_rejects_bad_args(
 ) -> None:
     with pytest.raises(TypeError, match=match):
         cancellable.connect(*args)  # type: ignore[arg-type]
+
+
+test_connect_rejects_bad_args = pytest.mark.filterwarnings(
+    "ignore:connecting .* without an owner:ginext.signal.connection.UnownedSignalHandlerWarning"
+)(test_connect_rejects_bad_args)
 
 
 def test_connect_rejects_unknown_signal(cancellable: _SignalSource) -> None:

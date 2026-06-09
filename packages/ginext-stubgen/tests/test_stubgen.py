@@ -496,6 +496,7 @@ class TestDocgen:
         assert "helper_make" not in index
         assert "### make {#static-make}" in helper
 
+    @pytest.mark.filterwarnings("ignore:unclosed file .*:ResourceWarning")
     def test_new_doc_fields_do_not_leak_into_pyi(self, doclib_gir: Path) -> None:
         # Property/parameter doc fields are additive: the .pyi Emitter ignores
         # them, so the native stub output is unchanged by their presence.

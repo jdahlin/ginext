@@ -300,7 +300,7 @@ def test_notify_signal_marshals_object_and_paramspec_args(
         seen["obj"] = obj
         seen["pspec"] = pspec
 
-    action.connect("notify::enabled", on_notify)
+    action.connect("notify::enabled", on_notify, owner=action)
     action.set_enabled(False)
 
     assert seen["obj"] is action
@@ -340,7 +340,7 @@ def test_command_line_options_dict_returns_variant_dict(
         seen["has_version"] = getattr(options, "contains")("version")
         return 0
 
-    app.connect("command-line", on_cli)
+    app.connect("command-line", on_cli, owner=app)
     assert app.run(["prog", "--version"]) == 0
     assert seen["type"] == "VariantDict"
     assert seen["has_version"] is True

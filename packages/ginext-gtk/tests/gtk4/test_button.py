@@ -42,7 +42,7 @@ def test_clicked_action_signal(require_gtk4_display: Any) -> None:
 
     button: Any = Gtk.Button()
     fired: list[object] = []
-    conn = button.clicked.connect(lambda btn: fired.append(btn))
+    conn = button.clicked.connect(lambda btn: fired.append(btn), owner=button)
 
     button.clicked()  # calling an action signal emits it
     button.clicked.emit()  # and explicit emit works too

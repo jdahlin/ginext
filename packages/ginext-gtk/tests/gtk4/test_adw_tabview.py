@@ -41,7 +41,7 @@ def test_close_page_method_signal_collision(require_gtk4_display: object) -> Non
         tab_view.close_page_finish(tab_page, True)
         return True
 
-    view.close_page.connect(on_close_page)
+    view.close_page.connect(on_close_page, owner=view)
     view.close_page(page)
 
     assert seen == [page]
