@@ -18,6 +18,7 @@
 
 #include "GObject/Fundamental.h"
 #include "GObject/Object.h"
+#include "GObject/ObjectMeta.h"
 #include "marshal/conversion.h"
 #include "marshal/enum.h"
 #include "runtime/class-registry.h"
@@ -853,16 +854,19 @@ pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
                             "signal_for_name",
                             "wrap_object",
                             "wrap_preallocated",
+                            "meta_getattr",
+                            "meta_dir",
                             NULL };
   PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
   PyObject *init_subclass_fn = NULL, *signal_for_name_fn = NULL;
   PyObject *wrap_object_fn = NULL, *wrap_preallocated_fn = NULL;
+  PyObject *meta_getattr_fn = NULL, *meta_dir_fn = NULL;
   /* All keyword-only and optional, so new hooks can be added without breaking
    * callers and partial (re-)registration is allowed (gobjectclass registers the
    * instance hooks; classbuild registers the wrapper factories). */
   if (!PyArg_ParseTupleAndKeywords (args,
                                     kwargs,
-                                    "|$OOOOOOO:register_gobject_callbacks",
+                                    "|$OOOOOOOOO:register_gobject_callbacks",
                                     kwlist,
                                     &getattr_fn,
                                     &setattr_fn,
@@ -870,8 +874,12 @@ pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
                                     &init_subclass_fn,
                                     &signal_for_name_fn,
                                     &wrap_object_fn,
-                                    &wrap_preallocated_fn))
+                                    &wrap_preallocated_fn,
+                                    &meta_getattr_fn,
+                                    &meta_dir_fn))
     return NULL;
+  if (meta_getattr_fn != NULL || meta_dir_fn != NULL)
+    pygi_gobjectmeta_set_hooks (meta_getattr_fn, meta_dir_fn);
   /* getattr/setattr/finish are consumed by the tp_getattro/tp_setattro slots
    * and tp_init. __init_subclass__ (a classmethod) and signal_for_name are
    * installed straight onto the type here — the C bootstrap's equivalent of the
