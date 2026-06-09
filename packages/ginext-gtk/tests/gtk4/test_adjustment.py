@@ -30,7 +30,7 @@ def test_initially_unowned_subclass_is_not_floating_after_construct() -> None:
     # Reaching into the C-level "is_floating" via a test hook on the
     # wrapper. If no such hook exists, this test documents the
     # expectation (and forces the implementer to expose one).
-    assert adj._is_floating_for_test() is False
+    assert adj.is_floating() is False
 
 
 def test_constructor_with_kwargs_also_sinks_floating_ref() -> None:
@@ -39,7 +39,7 @@ def test_constructor_with_kwargs_also_sinks_floating_ref() -> None:
 
     adj = Gtk.Adjustment(upper=10.0)
     assert adj.get_upper() == 10.0
-    assert adj._is_floating_for_test() is False
+    assert adj.is_floating() is False
 
 
 def test_subclass_can_pass_kwargs_to_base() -> None:
