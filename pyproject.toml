@@ -256,6 +256,70 @@ disable_error_code = ["no-untyped-call"]
 module = ["ginext.GObject"]
 disable_error_code = ["misc", "attr-defined", "name-defined", "unused-ignore", "override", "assignment"]
 
+[tool.pyrefly]
+project-includes = [
+    "src",
+    "packages/ginext-gio/src",
+    "packages/ginext-gio/tests",
+    "packages/ginext-gtk/src",
+    "packages/ginext-gtk/tests",
+    "packages/ginext-gst/src",
+    "packages/ginext-gst/tests",
+    "packages/ginext-libsoup/src",
+    "packages/ginext-libsoup/tests",
+    "packages/ginext-stubgen/src",
+    "packages/ginext-stubgen/tests",
+]
+project-excludes = [
+    "**/build/**",
+    "**/.venv*/**",
+    "**/examples/**",
+    "**/apps/**",
+    "**/packages/ginext-gi-compat/**",
+    "**/src/ginext/Adw.pyi*",
+    "**/src/ginext/GIMarshallingTests.pyi*",
+    "**/src/ginext/GLib.pyi*",
+    "**/src/ginext/GModule.pyi*",
+    "**/src/ginext/Gdk.pyi*",
+    "**/src/ginext/GdkPixbuf.pyi*",
+    "**/src/ginext/Gio.pyi*",
+    "**/src/ginext/GioUnix.pyi*",
+    "**/src/ginext/GoiBench.pyi*",
+    "**/src/ginext/Graphene.pyi*",
+    "**/src/ginext/Gsk.pyi*",
+    "**/src/ginext/Gst.pyi*",
+    "**/src/ginext/GstApp.pyi*",
+    "**/src/ginext/GstAudio.pyi*",
+    "**/src/ginext/GstBase.pyi*",
+    "**/src/ginext/GstVideo.pyi*",
+    "**/src/ginext/Gtk.pyi*",
+    "**/src/ginext/GtkSource.pyi*",
+    "**/src/ginext/HarfBuzz.pyi*",
+    "**/src/ginext/Pango.pyi*",
+    "**/src/ginext/PangoCairo.pyi*",
+    "**/src/ginext/Regress.pyi*",
+    "**/src/ginext/RegressUnix.pyi*",
+    "**/src/ginext/Vte.pyi*",
+    "**/src/ginext/WebKit.pyi*",
+    "**/src/ginext/freetype2.pyi*",
+    "**/src/ginext/mypy_plugin.py",
+    "**/scripts/check_gir_test_coverage.py",
+]
+search-path = [
+    "src",
+    "packages/ginext-gio/src",
+    "packages/ginext-gio/tests",
+    "packages/ginext-gtk/src",
+    "packages/ginext-gtk/tests",
+    "packages/ginext-gst/src",
+    "packages/ginext-gst/tests",
+    "packages/ginext-gst/tests/plugins",
+    "packages/ginext-libsoup/src",
+    "packages/ginext-stubgen/src",
+]
+python-interpreter-path = ".venv-cpython-3.14t/bin/python"
+preset = "legacy"
+
 [tool.ruff]
 extend-exclude = [
     "examples",

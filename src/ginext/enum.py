@@ -262,17 +262,29 @@ class EnumBuilder:
             name, members, module=module_name, qualname=name
         )
         assert isinstance(cls, type)
-        cls.__info__ = info
+        setattr(cls, "__info__", info)
         if gtype > 255:
-            cls.gimeta = types.SimpleNamespace(gtype=gtype, profile=context.profile)
-            cls.__gtype__ = gtype
-        cls._value_names = {
+            setattr(
+                cls,
+                "gimeta",
+                types.SimpleNamespace(gtype=gtype, profile=context.profile),
+            )
+            setattr(cls, "__gtype__", gtype)
+        setattr(
+            cls,
+            "_value_names",
+            {
             value: _enum_c_value_name(context.name, name, raw_name)
             for raw_name, value in raw_members
-        }
-        cls._value_nicks = {
+            },
+        )
+        setattr(
+            cls,
+            "_value_nicks",
+            {
             value: raw_name.replace("_", "-") for raw_name, value in raw_members
-        }
+            },
+        )
         _install_enum_callable_aliases(self._context, cls, name)
         _enum_classes_by_key[key] = cls
         # The functional IntEnum/IntFlag API constructs the class dynamically

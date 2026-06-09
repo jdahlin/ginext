@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Protocol, TypeVar
 
 from ginext import Gst
 
@@ -18,6 +18,18 @@ from .plugin import (
 _T = TypeVar("_T", bound=type[Any])
 
 
+class _HasMetadata(Protocol):
+    @classmethod
+    def set_metadata(
+        cls, longname: str, classification: str, description: str, author: str
+    ) -> None: ...
+
+
+class _HasPadTemplates(Protocol):
+    @classmethod
+    def add_pad_template(cls, templ: Any) -> None: ...
+
+
 def metadata(
     longname: str,
     classification: str,
@@ -25,7 +37,8 @@ def metadata(
     author: str,
 ) -> Callable[[_T], _T]:
     def decorator(cls: _T) -> _T:
-        cls.set_metadata(longname, classification, description, author)
+        metadata_cls: _HasMetadata = cls
+        metadata_cls.set_metadata(longname, classification, description, author)
         return cls
 
     return decorator
@@ -33,8 +46,9 @@ def metadata(
 
 def pads(*templates: Any) -> Callable[[_T], _T]:
     def decorator(cls: _T) -> _T:
+        pad_cls: _HasPadTemplates = cls
         for templ in templates:
-            cls.add_pad_template(templ)
+            pad_cls.add_pad_template(templ)
         return cls
 
     return decorator
