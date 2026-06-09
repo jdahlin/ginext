@@ -295,25 +295,15 @@ GObject.Signal = Signal
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
 
 if not TYPE_CHECKING:
-    # Hand the foundational instance hooks to C: the tp_getattro/tp_setattro
-    # slots and tp_init call back into these bodies (which reach the classbuild /
-    # property / signal machinery) without C ever importing this module.
-    private.register_gobject_callbacks(_obj_getattr, _obj_setattr, _finish_construction)
-
-    # signal_for_name still installs through the overlay layer (the remaining
-    # foundational method not yet exposed as a C slot); apply at creation time by
-    # passing the freshly built class to install_class_overlay.
-    import types as _types
-
-    from ..overlay.install import install_class_overlay as _install_class_overlay
-    from ..overlay.registrar import OverlayRegistrar as _OverlayRegistrar
-
-    _base_overlay = _OverlayRegistrar(_types.SimpleNamespace(__name__="GObject"))
-    _base_overlay.method("Object", name="__init_subclass__", as_classmethod=True)(
-        _obj_init_subclass
+    # Hand every foundational instance hook to C at bootstrap. __getattr__ and
+    # __setattr__ back the tp_getattro/tp_setattro slots and _finish_construction
+    # backs tp_init; __init_subclass__ and signal_for_name are installed straight
+    # onto the C type by register_gobject_callbacks. C never imports this module —
+    # the dependency is one-directional — and there is no overlay round-trip.
+    private.register_gobject_callbacks(
+        _obj_getattr,
+        _obj_setattr,
+        _finish_construction,
+        _obj_init_subclass,
+        _obj_signal_for_name,
     )
-    # __setattr__/__getattr__ are installed as C slots (tp_setattro/tp_getattro)
-    # that delegate to _obj_setattr/_obj_getattr above; only the remaining
-    # foundational methods still install through the overlay layer here.
-    _base_overlay.method("Object", name="signal_for_name")(_obj_signal_for_name)
-    _install_class_overlay(GObject, "GObject", "Object")

@@ -863,15 +863,35 @@ PyObject *
 pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
+  PyObject *init_subclass_fn = NULL, *signal_for_name_fn = NULL;
   if (!PyArg_ParseTuple (args,
-                         "OOO:register_gobject_callbacks",
+                         "OOOOO:register_gobject_callbacks",
                          &getattr_fn,
                          &setattr_fn,
-                         &finish_fn))
+                         &finish_fn,
+                         &init_subclass_fn,
+                         &signal_for_name_fn))
     return NULL;
+  /* getattr/setattr/finish are consumed by the tp_getattro/tp_setattro slots
+   * and tp_init. __init_subclass__ (a classmethod) and signal_for_name are
+   * installed straight onto the type here — the C bootstrap's equivalent of the
+   * old creation-time overlay install, with no overlay round-trip. */
   Py_XSETREF (gobject_cb_getattr, Py_NewRef (getattr_fn));
   Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
   Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
+  if (pygi_gobject_type != NULL)
+    {
+      PyObject *type = (PyObject *)pygi_gobject_type;
+      PyObject *cm = PyClassMethod_New (init_subclass_fn);
+      if (cm == NULL)
+        return NULL;
+      int rc = PyObject_SetAttrString (type, "__init_subclass__", cm);
+      Py_DECREF (cm);
+      if (rc < 0)
+        return NULL;
+      if (PyObject_SetAttrString (type, "signal_for_name", signal_for_name_fn) < 0)
+        return NULL;
+    }
   Py_RETURN_NONE;
 }
 
