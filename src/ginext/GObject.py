@@ -19,11 +19,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import _load_namespace, defaults
+import ginext
+
+from . import defaults
 
 
 def _namespace() -> object:
-    return _load_namespace(
+    load_namespace = getattr(ginext, "_load_namespace")
+    return load_namespace(
         "GObject",
         defaults.resolve_version("GObject") or "2.0",
         _module_name_override=f"{__name__}._namespace",

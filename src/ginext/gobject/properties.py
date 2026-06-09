@@ -97,7 +97,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
     construct_only: bool
     maximum: RangeValue | None
     minimum: RangeValue | None
-    default: T
+    default: ValueType | None | object
     owner: "type[GObject]"
 
     def __init__(

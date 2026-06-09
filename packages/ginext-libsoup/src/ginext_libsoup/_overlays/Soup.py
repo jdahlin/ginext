@@ -33,9 +33,9 @@ def _merge_query_params(
     split = urlsplit(url)
     query = list(parse_qsl(split.query, keep_blank_values=True))
     if isinstance(params, Mapping):
-        query.extend((key, str(value)) for key, value in params.items())
+        query.extend([(str(key), str(value)) for key, value in params.items()])
     else:
-        query.extend((key, str(value)) for key, value in params)
+        query.extend([(key, str(value)) for key, value in params])
     return urlunsplit(
         (split.scheme, split.netloc, split.path, urlencode(query), split.fragment)
     )
