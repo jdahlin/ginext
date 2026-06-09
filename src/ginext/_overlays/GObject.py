@@ -312,7 +312,9 @@ def __call__(self: Any) -> Any:
 def weak_ref(self: Any, callback: object = None, *args: object) -> object:
     if callback is None:
         return _weakref.ref(self)
-    raise NotImplementedError("weak_ref with a callback is not yet implemented")
+    if not callable(callback):
+        raise TypeError("weak_ref callback must be callable")
+    return private._gobject.gobject_add_weak_notify(self, callback, args)
 
 
 # User-defined GObject subclasses inherit from gobject.GObject (Python

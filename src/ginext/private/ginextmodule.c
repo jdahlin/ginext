@@ -24,6 +24,7 @@
 #include "GObject/Closure.h"
 #include "GObject/DeclaredProperty.h"
 #include "GObject/Object-info.h"
+#include "GObject/Object-weakref.h"
 #include "GObject/Object.h"
 #include "GObject/ObjectMeta.h"
 #include "GObject/GIMeta.h"
@@ -385,6 +386,8 @@ static PyMethodDef methods[] = {
   { "param_spec_default_value", py_param_spec_default_value, METH_VARARGS, NULL },
   /* keep: reads a pspec numeric range — no method */
   { "param_spec_numeric_info", py_param_spec_numeric_info, METH_VARARGS, NULL },
+  /* keep: GObject.weak_ref(callback, *args) — registers a GWeakNotify */
+  { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
   { NULL }
 };
 
@@ -495,6 +498,11 @@ PyInit__gobject (void)
     }
 
   if (ginext_register_info_types (m) < 0)
+    {
+      Py_DECREF (m);
+      return NULL;
+    }
+  if (pygi_gobject_weakref_init (m) < 0)
     {
       Py_DECREF (m);
       return NULL;
