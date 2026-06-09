@@ -233,9 +233,10 @@ def install_class_constructor(cls: type, ns: str, class_name: str) -> None:
                 fn_globals[ns_name] = saved
 
     __new__.__name__ = "__new__"
-    cls.__new__ = staticmethod(__new__)
-    cls.__init__ = entry.init if entry.init is not None else _noop_init
-    cls._pygobject_compat_constructor = True
+    typed_cls = cast("Any", cls)
+    typed_cls.__new__ = staticmethod(__new__)
+    typed_cls.__init__ = entry.init if entry.init is not None else _noop_init
+    typed_cls._pygobject_compat_constructor = True
 
 
 def install_class_overlay(cls: type, ns: str, class_name: str) -> None:
