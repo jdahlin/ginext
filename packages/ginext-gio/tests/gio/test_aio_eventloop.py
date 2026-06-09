@@ -297,7 +297,7 @@ def test_run_application_drives_async_tasks() -> None:
         app.hold()
         asyncio.ensure_future(work())
 
-    app.activate.connect(on_activate)
+    app.activate.connect(on_activate, owner=app)
     loop = aio.EventLoop()
     try:
         rc = loop.run_application(app, [])

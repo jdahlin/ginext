@@ -131,7 +131,11 @@ def test_old_signal_api_enables_string_connect(monkeypatch: pytest.MonkeyPatch) 
     obj = Gio.SimpleAction(name="feature-test")
     seen = []
 
-    handler = obj.connect("notify::enabled", lambda source, _pspec: seen.append(source))
+    handler = obj.connect(
+        "notify::enabled",
+        lambda source, _pspec: seen.append(source),
+        owner=obj,
+    )
     obj.set_enabled(False)
     obj.disconnect(handler)
 

@@ -164,7 +164,7 @@ def test_add_main_option() -> None:
         description="some string",
         arg_description=None,
     )
-    app.handle_local_options.connect(on_handle_local_options)
+    app.handle_local_options.connect(on_handle_local_options, owner=app)
 
     assert app.run(["app", "-s", "test string"]) == 0
     assert len(stored_options) == 1

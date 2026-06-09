@@ -312,7 +312,7 @@ def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
         getattr(location, "assign")(getattr(buffer, "get_end_iter")())
 
     getattr(buf, "set_text")("first line\n")
-    getattr(buf, "connect")("insert-text", relocate_to_end)
+    getattr(buf, "connect")("insert-text", relocate_to_end, owner=buf)
     getattr(buf, "place_cursor")(getattr(buf, "get_start_iter")())
     getattr(buf, "insert_at_cursor")("second line\n")
     assert getattr(buf, "get_property")("text") == "first line\nsecond line\n"

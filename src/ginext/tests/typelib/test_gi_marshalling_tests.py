@@ -525,7 +525,7 @@ def test_signal_callback_marshals_boxed_struct_args(t: Namespace) -> None:
         seen["string_"] = getattr(boxed, "string_", None)
         seen["g_strv"] = getattr(boxed, "g_strv", None)
 
-    obj.some_boxed_struct.connect(on_boxed)
+    obj.some_boxed_struct.connect(on_boxed, owner=obj)
     obj.emit_boxed_struct()
 
     assert seen == {

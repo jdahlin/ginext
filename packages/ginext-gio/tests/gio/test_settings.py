@@ -551,21 +551,21 @@ def test_no_unapplied_at_default(s: Gio.Settings) -> None:
 
 def test_changed_signal_fires_on_set(s: Gio.Settings) -> None:
     log = []
-    s.changed.connect(lambda settings, key: log.append(key))
+    s.changed.connect(lambda settings, key: log.append(key), owner=s)
     s.set_string("s-val", "trigger")
     assert "s-val" in log
 
 
 def test_changed_signal_fires_with_correct_key(s: Gio.Settings) -> None:
     log = []
-    s.changed.connect(lambda settings, key: log.append(key))
+    s.changed.connect(lambda settings, key: log.append(key), owner=s)
     s.set_boolean("b-val", False)
     assert log == ["b-val"]
 
 
 def test_changed_signal_disconnect_stops_delivery(s: Gio.Settings) -> None:
     log = []
-    handle = s.changed.connect(lambda settings, key: log.append(key))
+    handle = s.changed.connect(lambda settings, key: log.append(key), owner=s)
     s.set_string("s-val", "first")
     handle.disconnect()
     s.set_string("s-val", "second")
@@ -574,7 +574,7 @@ def test_changed_signal_disconnect_stops_delivery(s: Gio.Settings) -> None:
 
 def test_changed_signal_fires_multiple_times(s: Gio.Settings) -> None:
     log = []
-    s.changed.connect(lambda settings, key: log.append(key))
+    s.changed.connect(lambda settings, key: log.append(key), owner=s)
     s.set_int("i-val", 1)
     s.set_int("i-val", 2)
     assert log == ["i-val", "i-val"]
@@ -585,7 +585,7 @@ def test_changed_signal_fires_multiple_times(s: Gio.Settings) -> None:
 
 def test_writable_changed_signal_is_connectable(s: Gio.Settings) -> None:
     log = []
-    s.writable_changed.connect(lambda settings, key: log.append(key))
+    s.writable_changed.connect(lambda settings, key: log.append(key), owner=s)
     assert isinstance(log, list)
 
 
@@ -599,7 +599,7 @@ def test_change_event_fires_on_set(s: Gio.Settings) -> None:
         log.append(len(keys) if keys is not None else 0)
         return False
 
-    s.change_event.connect(_on_change_event)
+    s.change_event.connect(_on_change_event, owner=s)
     s.set_boolean("b-val", False)
     assert log == [1]
 
