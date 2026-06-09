@@ -40,6 +40,10 @@ if TYPE_CHECKING:
     # annotate with to Any so mypy can resolve the names.
     Gtk = Any
 
+    class _TemplateWidgetType(type[Any]):
+        def init_template(self, *args: object, **kwargs: object) -> object: ...
+        def set_template(self, template: object) -> None: ...
+
 
 TemplateValidation = Literal["strict", "warn", "ignore"]
 TemplateSourceKind = Literal["string", "filename", "resource_path"]
@@ -339,7 +343,7 @@ class TemplateRuntime:
     source: TemplateSource
     children: list[TemplateChild]
     signals: list[TemplateSignal]
-    base_init_template: Callable[[Any], None]
+    base_init_template: Callable[[Any], object]
     validate: TemplateValidation = "strict"
     connect_signals: bool = True
 
@@ -545,16 +549,17 @@ class Template:
             raise TypeError("Cannot nest template classes")
 
         template_bytes, signals = _prepare_template_bytes(self.source, cls)
+        template_cls = cast("_TemplateWidgetType", cls)
         runtime = TemplateRuntime(
             cls=cls,
             source=self.source,
             children=_collect_template_children(cls),
             signals=signals,
-            base_init_template=cls.init_template,
+            base_init_template=template_cls.init_template,
             validate=self.validate,
             connect_signals=self.connect_signals,
         )
         _set_runtime(cls, runtime)
-        cls.set_template(GLib.Bytes.new(template_bytes))
+        template_cls.set_template(GLib.Bytes.new(template_bytes))
         runtime.bind_class()
         return cls

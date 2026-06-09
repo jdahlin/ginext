@@ -24,6 +24,7 @@ stubs/
 # Generated stub files — run `make stubs` or `uv run python -m ginext_stubgen install`
 packages/ginext-stubs/ginext/*.pyi
 packages/ginext-stubs/ginext-stubs/*.pyi
+packages/ginext-stubs/.generated/
 src/ginext/*.pyi
 !src/ginext/__init__.pyi
 !src/ginext/GObject.pyi

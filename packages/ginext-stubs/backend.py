@@ -30,7 +30,18 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _generate_stubs() -> None:
+def _generated_stub_dir() -> Path:
+    return Path(__file__).resolve().parent / ".generated" / "ginext"
+
+
+def _generate_stubs(*, force: bool = False) -> None:
+    generated_dir = _generated_stub_dir()
+    if (
+        not force
+        and (generated_dir / "__init__.pyi").exists()
+        and (generated_dir / "py.typed").exists()
+    ):
+        return
     repo_root = _repo_root()
     stubgen_src = repo_root / "packages" / "ginext-stubgen" / "src"
     if str(stubgen_src) not in sys.path:
@@ -41,7 +52,7 @@ def _generate_stubs() -> None:
     old_cwd = Path.cwd()
     os.chdir(repo_root)
     try:
-        rc = cmd_generate_all(type("Args", (), {"out": None})())
+        rc = cmd_generate_all(type("Args", (), {"out": generated_dir})())
     finally:
         os.chdir(old_cwd)
     if rc != 0:

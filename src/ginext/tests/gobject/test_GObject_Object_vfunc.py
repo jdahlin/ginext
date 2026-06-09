@@ -321,7 +321,8 @@ def test_ambiguous_gst_vfunc_short_name_is_rejected() -> None:
             GstBase.BaseTransform,
             type_name=_unique_name("AmbiguousTransform"),
         ):
-            def do_query(self, *args: object) -> bool:
+            def do_query(self, direction: object, query: object) -> bool:
+                del direction, query
                 return False
 
 

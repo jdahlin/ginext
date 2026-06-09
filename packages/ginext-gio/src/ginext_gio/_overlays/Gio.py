@@ -571,7 +571,7 @@ def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
     import warnings
     from ginext import PyGIWarning
 
-    super(type(self), self).__init__(*args, **kwargs)
+    type(self).__mro__[1].__init__(self, *args, **kwargs)
     warnings.warn(
         "Gio.VolumeMonitor shouldn't be instantiated directly, "
         "use Gio.VolumeMonitor.get() instead.",
