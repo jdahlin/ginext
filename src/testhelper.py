@@ -15,7 +15,67 @@
 
 from __future__ import annotations
 
-from gi.repository import GObject
+from gi.repository import GLib, GObject
+
+
+def test_value(value: object) -> object:
+    """Round-trip a Python value through GValue and back."""
+    if isinstance(value, str):
+        gtype = GObject.TYPE_STRING
+    elif isinstance(value, bool):
+        gtype = GObject.TYPE_BOOLEAN
+    elif isinstance(value, int):
+        gtype = GObject.TYPE_INT
+    elif isinstance(value, float):
+        gtype = GObject.TYPE_DOUBLE
+    else:
+        raise TypeError(f"unsupported type: {type(value)}")
+    gv = GObject.Value(gtype, value)
+    return gv.get_value()
+
+
+def test_value_array(values: list) -> list:
+    """Round-trip a list of Python values through GValueArray and back."""
+    return [test_value(v) for v in values]
+
+
+def test_gerror_exception(callable_: object) -> None:
+    """Call callable_; re-raise GError if it raises one, else return None."""
+    if not callable(callable_):
+        raise TypeError("argument must be callable")
+    try:
+        result = callable_()
+    except GLib.GError:
+        raise
+    except Exception:
+        pass
+    return None
+
+
+def test_to_unichar_conv(value: object) -> int:
+    """Convert a single character string to its Unicode code point."""
+    if not isinstance(value, str):
+        raise TypeError(f"expected str, got {type(value).__name__}")
+    if len(value) != 1:
+        raise TypeError(f"expected single character, got {len(value)!r}")
+    return ord(value)
+
+
+def constant_strip_prefix(name: str, prefix: str) -> str:
+    """Strip a prefix from a constant name, stopping before a digit boundary.
+
+    Strips prefix characters one at a time; stops if the remaining string
+    would begin with a digit character.
+    """
+    stripped = 0
+    for i, ch in enumerate(prefix):
+        if i >= len(name) or name[i] != ch:
+            break
+        next_char = name[i + 1] if i + 1 < len(name) else ""
+        if next_char.isdigit():
+            break
+        stripped = i + 1
+    return name[stripped:]
 
 
 def value_array_get_nth_type(value_or_array: object, index: int) -> int:
