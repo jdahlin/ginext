@@ -31,4 +31,4 @@ def test_translate_keeps_wrapper_alive_for_later_namespace_use() -> None:
     assert transform.to_translate() == (2.0, 3.0)
 
     adjustment = Gtk.Adjustment()
-    assert adjustment._is_floating_for_test() is False
+    assert adjustment.is_floating() is False

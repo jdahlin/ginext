@@ -179,6 +179,16 @@ def __grefcount__(self: Any) -> int:
 
 
 @overlay.method("Object")
+def _force_floating(self: Any) -> None:
+    self.make_floating()
+
+
+@overlay.method("Object")
+def _ref_sink(self: Any) -> None:
+    self.ref_sink()
+
+
+@overlay.method("Object")
 def _compat_property_for_name(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-").removesuffix("-")
     try:

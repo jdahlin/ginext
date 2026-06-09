@@ -377,15 +377,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         """
         return ScopedCallable(self, callback, *args, **kwargs)
 
-    def _is_floating_for_test(self) -> bool:
-        return bool(self.is_floating())
-
-    def _force_floating(self) -> None:
-        self.make_floating()
-
-    def _ref_sink(self) -> None:
-        self.ref_sink()
-
     def __setattr__(self, name: str, value: object) -> None:
         # Writes to an introspected/inherited GObject property must route through
         # the property system, not land in the instance dict. Mirror __getattr__:

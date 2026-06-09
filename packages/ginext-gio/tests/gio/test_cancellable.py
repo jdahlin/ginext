@@ -235,7 +235,7 @@ def test_not_floating_after_construct() -> None:
     from ginext import Gio
 
     c = Gio.Cancellable()
-    assert c._is_floating_for_test() is False
+    assert c.is_floating() is False
 
 
 def test_descriptor_get_returns_callable() -> None:
