@@ -35,10 +35,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import ginext
 from ginext import features
-from ginext.gobject.gobjectclass import (
-    _compat_finalize_dispose,
-    _is_python_defined_gobject_subclass,
-)
+from ginext.gobject.gobjectclass import _compat_dispose_state
 from ginext.gobject.properties import call_notify_override
 from ginext.overlay.registrar import OverlayRegistrar
 from ginext.signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
@@ -50,6 +47,54 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 overlay = OverlayRegistrar(ginext.GObject)
+
+
+def _is_python_defined_gobject_subclass(type_or_gtype: Any) -> bool:
+    if not isinstance(type_or_gtype, type):
+        return False
+    if not issubclass(type_or_gtype, ginext.private.GObject):
+        return False
+    try:
+        gimeta = type_or_gtype.gimeta
+    except AttributeError:
+        return False
+    try:
+        gi_info = gimeta.gi_info
+    except AttributeError:
+        return False
+    return gi_info is None
+
+
+def _compat_finalize_dispose(self: Any) -> None:
+    # Run a python do_dispose override during finalization, while the wrapper's
+    # instance dict is still reachable (stashed in _compat_dispose_state — which
+    # lives in core gobjectclass — so the base __getattr__ can serve it
+    # mid-dispose). The caller (__del__ overlay) has checked self is a
+    # python-defined subclass.
+    base = ginext.private.GObject
+    has_python_dispose = False
+    for cls in type(self).__mro__:
+        if not issubclass(cls, base):
+            continue
+        if cls is base:
+            break
+        if not _is_python_defined_gobject_subclass(cls):
+            continue
+        if "do_dispose" in cls.__dict__:
+            has_python_dispose = True
+            break
+    if not has_python_dispose:
+        return
+    dispose_state = dict(vars(self))
+    if dispose_state:
+        _compat_dispose_state[id(self)] = dispose_state
+    try:
+        self.bind_from_c(self)
+        base.run_dispose(self)
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        pass
+    finally:
+        _compat_dispose_state.pop(id(self), None)
 
 
 @overlay.method("Object")
