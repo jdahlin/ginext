@@ -40,42 +40,24 @@ gobject_finish_construction_attr (void);
 static int
 gobject_run_post_construct_hooks (PyObject *self);
 
-static PyObject *
-pygi_load_wrapper_factory (PyObject **cache, const char *attr_name)
-{
-  if (*cache != NULL)
-    return *cache;
-
-  PyObject *module = PyImport_ImportModule ("ginext.classbuild");
-  if (module == NULL)
-    return NULL;
-
-  PyObject *factory = PyObject_GetAttrString (module, attr_name);
-  Py_DECREF (module);
-  if (factory == NULL)
-    return NULL;
-  if (!PyCallable_Check (factory))
-    {
-      Py_DECREF (factory);
-      PyErr_Format (PyExc_TypeError, "ginext.classbuild.%s must be callable", attr_name);
-      return NULL;
-    }
-
-  *cache = factory;
-  return factory;
-}
-
+/* The wrapper factories (classbuild.wrap_object_from_c /
+ * wrap_preallocated_object_from_c) are registered into C by classbuild at import
+ * via register_gobject_callbacks, so C never imports classbuild to fetch them. */
 static PyObject *
 pygi_gobject_wrapper_factory (void)
 {
-  return pygi_load_wrapper_factory (&gobject_wrapper_factory, "wrap_object_from_c");
+  if (gobject_wrapper_factory == NULL)
+    PyErr_SetString (PyExc_RuntimeError, "GObject wrapper factory not registered");
+  return gobject_wrapper_factory;
 }
 
 static PyObject *
 pygi_preallocated_gobject_wrapper_factory (void)
 {
-  return pygi_load_wrapper_factory (&preallocated_gobject_wrapper_factory,
-                                    "wrap_preallocated_object_from_c");
+  if (preallocated_gobject_wrapper_factory == NULL)
+    PyErr_SetString (PyExc_RuntimeError,
+                     "preallocated GObject wrapper factory not registered");
+  return preallocated_gobject_wrapper_factory;
 }
 
 static int
@@ -864,22 +846,31 @@ pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
                                  PyObject *args,
                                  PyObject *kwargs)
 {
-  static char *kwlist[]
-      = { "getattr",       "setattr",         "finish_construction",
-          "init_subclass", "signal_for_name", NULL };
+  static char *kwlist[] = { "getattr",
+                            "setattr",
+                            "finish_construction",
+                            "init_subclass",
+                            "signal_for_name",
+                            "wrap_object",
+                            "wrap_preallocated",
+                            NULL };
   PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
   PyObject *init_subclass_fn = NULL, *signal_for_name_fn = NULL;
+  PyObject *wrap_object_fn = NULL, *wrap_preallocated_fn = NULL;
   /* All keyword-only and optional, so new hooks can be added without breaking
-   * callers and partial (re-)registration is allowed. */
+   * callers and partial (re-)registration is allowed (gobjectclass registers the
+   * instance hooks; classbuild registers the wrapper factories). */
   if (!PyArg_ParseTupleAndKeywords (args,
                                     kwargs,
-                                    "|$OOOOO:register_gobject_callbacks",
+                                    "|$OOOOOOO:register_gobject_callbacks",
                                     kwlist,
                                     &getattr_fn,
                                     &setattr_fn,
                                     &finish_fn,
                                     &init_subclass_fn,
-                                    &signal_for_name_fn))
+                                    &signal_for_name_fn,
+                                    &wrap_object_fn,
+                                    &wrap_preallocated_fn))
     return NULL;
   /* getattr/setattr/finish are consumed by the tp_getattro/tp_setattro slots
    * and tp_init. __init_subclass__ (a classmethod) and signal_for_name are
@@ -891,6 +882,10 @@ pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
     Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
   if (finish_fn != NULL)
     Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
+  if (wrap_object_fn != NULL)
+    Py_XSETREF (gobject_wrapper_factory, Py_NewRef (wrap_object_fn));
+  if (wrap_preallocated_fn != NULL)
+    Py_XSETREF (preallocated_gobject_wrapper_factory, Py_NewRef (wrap_preallocated_fn));
   if (pygi_gobject_type != NULL)
     {
       PyObject *type = (PyObject *)pygi_gobject_type;
