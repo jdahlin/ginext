@@ -115,6 +115,13 @@ def _compat_finalize_dispose(self: "GObject") -> None:
         _compat_dispose_state.pop(id(self), None)
 
 
+def _compat_finalize(self: "GObject") -> None:
+    # Finalization hook called from C (GObject_finalize) when PYGOBJECT_COMPAT is
+    # enabled: run a Python do_dispose override for python-defined subclasses.
+    if _is_python_defined_gobject_subclass(type(self)):
+        _compat_finalize_dispose(self)
+
+
 def signal_for_instance(obj: "GObject", name: str) -> _SignalInstance:
     return obj.signal_for_name(name)
 
@@ -352,21 +359,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     @classmethod
     def _from_gobject_pointer(cls, ptr: int) -> "GObject":
         return wrap_existing_pointer_for_class(cls, ptr)
-
-    def __del__(self) -> None:
-        if not self.is_bound():
-            return
-        if not self.owns_ref():
-            return
-        self.preserve_wrapper_state()
-        if features.is_enabled(
-            features.PYGOBJECT_COMPAT
-        ) and _is_python_defined_gobject_subclass(type(self)):
-            _compat_finalize_dispose(self)
-        # Raw C unref, not the introspected GObject.Object.unref: __del__ runs
-        # during interpreter shutdown when sys.meta_path is gone, so a lazy
-        # `from ginext import GObject` would ImportError and leak the ref.
-        self.release_ref()
 
     def scoped(
         self, callback: Callable[..., Any], *args: object, **kwargs: object

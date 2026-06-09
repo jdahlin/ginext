@@ -873,10 +873,71 @@ done:
   return result;
 }
 
+/* Lazily import (and cache) gobjectclass._compat_finalize, the Python hook that
+ * runs a pygobject do_dispose override during finalization. Returns NULL (and
+ * clears any error) if it cannot be reached — e.g. during interpreter
+ * shutdown. */
+static PyObject *
+gobject_compat_finalize_hook (void)
+{
+  static PyObject *hook = NULL;
+  if (hook == NULL)
+    {
+      PyObject *mod = PyImport_ImportModule ("ginext.gobject.gobjectclass");
+      if (mod == NULL)
+        {
+          PyErr_Clear ();
+          return NULL;
+        }
+      hook = PyObject_GetAttrString (mod, "_compat_finalize");
+      Py_DECREF (mod);
+      if (hook == NULL)
+        PyErr_Clear ();
+    }
+  return hook;
+}
+
+static void
+GObject_finalize (PyObject *self)
+{
+  PyObject *etype, *evalue, *etb;
+  PyErr_Fetch (&etype, &evalue, &etb);
+
+  if (((PyGIGObject *)self)->ptr != NULL)
+    {
+      gboolean owns_ref = FALSE;
+      pygi_gobject_wrapper_local_owns_ref (self, &owns_ref);
+      if (owns_ref)
+        {
+          Py_XDECREF (GObject_preserve_wrapper_state (self, NULL));
+          if (pygobject_compat_is_enabled ())
+            {
+              PyObject *hook = gobject_compat_finalize_hook ();
+              if (hook != NULL)
+                {
+                  PyObject *res = PyObject_CallOneArg (hook, self);
+                  if (res == NULL)
+                    PyErr_Clear ();
+                  else
+                    Py_DECREF (res);
+                }
+            }
+          /* Raw C unref (not the introspected GObject.Object.unref): finalize
+           * runs during interpreter shutdown when a lazy import would fail. */
+          Py_XDECREF (GObject_release_ref (self, NULL));
+          if (PyErr_Occurred ())
+            PyErr_Clear ();
+        }
+    }
+
+  PyErr_Restore (etype, evalue, etb);
+}
+
 static PyType_Slot GinextGObject_slots[] = {
   { Py_tp_new, PyType_GenericNew },
   { Py_tp_dealloc, GObject_dealloc },
   { Py_tp_repr, GObject_repr },
+  { Py_tp_finalize, GObject_finalize },
   { Py_tp_traverse, GObject_traverse },
   { Py_tp_clear, GObject_clear },
   { Py_tp_methods, GObject_methods },
