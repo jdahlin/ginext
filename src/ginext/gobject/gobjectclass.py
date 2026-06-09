@@ -85,6 +85,36 @@ _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
 
 
+def _compat_finalize_dispose(self: "GObject") -> None:
+    # pygobject compat: run a Python `do_dispose` override during finalization,
+    # while the wrapper's instance dict is still reachable (stashed in
+    # _compat_dispose_state so __getattr__ can serve it mid-dispose). Caller has
+    # already checked PYGOBJECT_COMPAT and that self is a python-defined subclass.
+    has_python_dispose = False
+    for cls in type(self).__mro__:
+        if not issubclass(cls, GObject):
+            continue
+        if cls is GObject:
+            break
+        if not _is_python_defined_gobject_subclass(cls):
+            continue
+        if "do_dispose" in cls.__dict__:
+            has_python_dispose = True
+            break
+    if not has_python_dispose:
+        return
+    dispose_state = dict(vars(self))
+    if dispose_state:
+        _compat_dispose_state[id(self)] = dispose_state
+    try:
+        self.bind_from_c(self)
+        _base_run_dispose(self)
+    except (AttributeError, RuntimeError, TypeError, ValueError):
+        pass
+    finally:
+        _compat_dispose_state.pop(id(self), None)
+
+
 def signal_for_instance(obj: "GObject", name: str) -> _SignalInstance:
     return obj.signal_for_name(name)
 
@@ -326,37 +356,13 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     def __del__(self) -> None:
         if not self.is_bound():
             return
-        owns_ref = self.owns_ref()
-        if not owns_ref:
+        if not self.owns_ref():
             return
         self.preserve_wrapper_state()
         if features.is_enabled(
             features.PYGOBJECT_COMPAT
         ) and _is_python_defined_gobject_subclass(type(self)):
-            has_python_dispose = False
-            for cls in type(self).__mro__:
-                if not issubclass(cls, GObject):
-                    continue
-                if cls is GObject:
-                    break
-                if not _is_python_defined_gobject_subclass(cls):
-                    continue
-                if "do_dispose" in cls.__dict__:
-                    has_python_dispose = True
-                    break
-            if not has_python_dispose:
-                self.release_ref()
-                return
-            dispose_state = dict(vars(self))
-            if dispose_state:
-                _compat_dispose_state[id(self)] = dispose_state
-            try:
-                self.bind_from_c(self)
-                _base_run_dispose(self)
-            except AttributeError, RuntimeError, TypeError, ValueError:
-                pass
-            finally:
-                _compat_dispose_state.pop(id(self), None)
+            _compat_finalize_dispose(self)
         # Raw C unref, not the introspected GObject.Object.unref: __del__ runs
         # during interpreter shutdown when sys.meta_path is gone, so a lazy
         # `from ginext import GObject` would ImportError and leak the ref.
