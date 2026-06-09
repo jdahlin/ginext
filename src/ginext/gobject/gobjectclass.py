@@ -115,13 +115,6 @@ def _compat_finalize_dispose(self: "GObject") -> None:
         _compat_dispose_state.pop(id(self), None)
 
 
-def _compat_finalize(self: "GObject") -> None:
-    # Finalization hook called from C (GObject_finalize) when PYGOBJECT_COMPAT is
-    # enabled: run a Python do_dispose override for python-defined subclasses.
-    if _is_python_defined_gobject_subclass(type(self)):
-        _compat_finalize_dispose(self)
-
-
 def signal_for_instance(obj: "GObject", name: str) -> _SignalInstance:
     return obj.signal_for_name(name)
 

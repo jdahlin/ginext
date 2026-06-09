@@ -27,6 +27,7 @@ static PyObject *gobject_wrapper_factory = NULL;
 static PyObject *preallocated_gobject_wrapper_factory = NULL;
 static Py_tss_t construction_depth_key = Py_tss_NEEDS_INIT;
 
+
 static PyObject *
 pygi_wrap_gobject_with_factory (GObject *object, GType wrapper_gtype, PyObject *factory);
 
@@ -799,31 +800,12 @@ GObject_dealloc (PyObject *self)
   Py_TYPE (self)->tp_free (self);
 }
 
-static gboolean
-pygobject_compat_is_enabled (void)
-{
-  PyObject *features = PyImport_ImportModule ("ginext.features");
-  if (features == NULL)
-    {
-      PyErr_Clear ();
-      return FALSE;
-    }
-  PyObject *res =
-      PyObject_CallMethod (features, "is_enabled", "s", "pygobject_compat");
-  Py_DECREF (features);
-  if (res == NULL)
-    {
-      PyErr_Clear ();
-      return FALSE;
-    }
-  gboolean enabled = PyObject_IsTrue (res) == 1;
-  Py_DECREF (res);
-  return enabled;
-}
-
 static PyObject *
 GObject_repr (PyObject *self)
 {
+  /* Native repr. The gi-compat layer installs its own __repr__ overlay (with
+   * the pygobject "type at 0xADDR" form) that overrides this slot in compat
+   * mode. */
   PyObject *type = (PyObject *)Py_TYPE (self);
   PyObject *module = NULL, *stripped = NULL, *name = NULL;
   PyObject *gimeta = NULL, *type_name = NULL, *result = NULL;
@@ -858,9 +840,6 @@ GObject_repr (PyObject *self)
   if (((PyGIGObject *)self)->ptr == NULL)
     result = PyUnicode_FromFormat ("<%U.%U object at %p (%U unbound)>", stripped,
                                    name, self, type_name);
-  else if (pygobject_compat_is_enabled ())
-    result = PyUnicode_FromFormat ("<%U.%U object at %p (%U at %p)>", stripped,
-                                   name, self, type_name, self);
   else
     result = PyUnicode_FromFormat ("<%U.%U object at %p (%U)>", stripped, name,
                                    self, type_name);
@@ -871,30 +850,6 @@ done:
   Py_XDECREF (gimeta);
   Py_XDECREF (type_name);
   return result;
-}
-
-/* Lazily import (and cache) gobjectclass._compat_finalize, the Python hook that
- * runs a pygobject do_dispose override during finalization. Returns NULL (and
- * clears any error) if it cannot be reached — e.g. during interpreter
- * shutdown. */
-static PyObject *
-gobject_compat_finalize_hook (void)
-{
-  static PyObject *hook = NULL;
-  if (hook == NULL)
-    {
-      PyObject *mod = PyImport_ImportModule ("ginext.gobject.gobjectclass");
-      if (mod == NULL)
-        {
-          PyErr_Clear ();
-          return NULL;
-        }
-      hook = PyObject_GetAttrString (mod, "_compat_finalize");
-      Py_DECREF (mod);
-      if (hook == NULL)
-        PyErr_Clear ();
-    }
-  return hook;
 }
 
 static void
@@ -910,20 +865,10 @@ GObject_finalize (PyObject *self)
       if (owns_ref)
         {
           Py_XDECREF (GObject_preserve_wrapper_state (self, NULL));
-          if (pygobject_compat_is_enabled ())
-            {
-              PyObject *hook = gobject_compat_finalize_hook ();
-              if (hook != NULL)
-                {
-                  PyObject *res = PyObject_CallOneArg (hook, self);
-                  if (res == NULL)
-                    PyErr_Clear ();
-                  else
-                    Py_DECREF (res);
-                }
-            }
-          /* Raw C unref (not the introspected GObject.Object.unref): finalize
-           * runs during interpreter shutdown when a lazy import would fail. */
+          /* Native finalization. The gi-compat layer installs a __del__ overlay
+           * (the pygobject do_dispose dance) that overrides this slot in compat
+           * mode. Raw C unref (not the introspected GObject.Object.unref):
+           * finalize runs during interpreter shutdown when imports would fail. */
           Py_XDECREF (GObject_release_ref (self, NULL));
           if (PyErr_Occurred ())
             PyErr_Clear ();
