@@ -156,9 +156,6 @@ def test_gobject_weak_ref_no_callback() -> None:
     assert wr() is None
 
 
-@pytest.mark.xfail(
-    reason="GObject.weak_ref not yet implemented (overlay)", strict=False
-)
 def test_gobject_weak_ref_callback_fires() -> None:
     calls: list[tuple[object, ...]] = []
 
@@ -176,9 +173,6 @@ def test_gobject_weak_ref_callback_fires() -> None:
     assert calls == [("tag", 42)]
 
 
-@pytest.mark.xfail(
-    reason="GObject.weak_ref not yet implemented (overlay)", strict=False
-)
 def test_gobject_weak_ref_unref_cancels_notify() -> None:
     fired = []
     obj = _new_gobject()
@@ -196,9 +190,6 @@ def test_gobject_weak_ref_unref_cancels_notify() -> None:
     assert fired == []
 
 
-@pytest.mark.xfail(
-    reason="GObject.weak_ref not yet implemented (overlay)", strict=False
-)
 def test_gobject_weak_ref_rejects_non_callable() -> None:
     obj = _new_gobject()
     try:

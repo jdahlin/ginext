@@ -30,6 +30,7 @@ py.extension_module(
     'ginext/private/GObject/ObjectMeta.c',
     'ginext/private/GObject/Object-wrapper.c',
     'ginext/private/GObject/Object-unref.c',
+    'ginext/private/GObject/Object-weakref.c',
     'ginext/private/GObject/Closure-record.c',
     'ginext/private/GObject/Closure-signal.c',
     'ginext/private/callable_descriptor.c',
