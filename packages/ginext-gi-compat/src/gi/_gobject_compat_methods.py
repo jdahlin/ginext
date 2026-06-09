@@ -178,6 +178,18 @@ def __grefcount__(self: Any) -> int:
     return int(self.ref_count())
 
 
+@overlay.method("Object")
+def _compat_property_for_name(self: Any, name: str) -> object:
+    prop_name = name.replace("_", "-").removesuffix("-")
+    try:
+        return type(self).gimeta.get_property(self, prop_name)
+    except AttributeError:
+        try:
+            return self.get_property_by_name(prop_name)
+        except (AttributeError, TypeError):
+            raise AttributeError(name) from None
+
+
 def _same_callback(left: object, right: object) -> bool:
     if left is right:
         return True

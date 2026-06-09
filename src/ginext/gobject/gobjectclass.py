@@ -386,16 +386,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     def _ref_sink(self) -> None:
         self.ref_sink()
 
-    def _compat_property_for_name(self, name: str) -> object:
-        prop_name = name.replace("_", "-").removesuffix("-")
-        try:
-            return type(self).gimeta.get_property(self, prop_name)
-        except AttributeError:
-            try:
-                return self.get_property_by_name(prop_name)
-            except AttributeError, TypeError:
-                raise AttributeError(name) from None
-
     def __setattr__(self, name: str, value: object) -> None:
         # Writes to an introspected/inherited GObject property must route through
         # the property system, not land in the instance dict. Mirror __getattr__:
