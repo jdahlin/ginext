@@ -112,6 +112,7 @@ _gobject = _load_gobject()
 GIMeta = _gobject.GIMeta
 # Created and bound by gobject.gobjectclass via init_gobject (it needs GObjectMeta).
 GObject = None
+GObjectMeta = _gobject.GObjectMeta
 init_gobject = _gobject.init_gobject
 register_gobject_callbacks = _gobject.register_gobject_callbacks
 GBoxed = _gobject.GBoxed
