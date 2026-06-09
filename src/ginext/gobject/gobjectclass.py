@@ -286,7 +286,7 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
 if TYPE_CHECKING:
     GObject = _GObjectBody
 else:
-    GObject = private.init_gobject(GObjectMeta, _GObjectBody)
+    GObject = private.init_gobject(GObjectMeta)
     private.GObject = GObject
     del _GObjectBody
 

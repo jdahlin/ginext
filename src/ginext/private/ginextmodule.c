@@ -163,57 +163,11 @@ py_preload_shared_library (PyObject *m, PyObject *args)
 }
 
 
-/* Build the GObject.Object base type with the GObjectMeta metaclass and the
- * Python methods from `body`. Idempotent. */
-static int
-gobject_copy_body_methods (PyObject *type, PyObject *body)
-{
-  PyObject *body_dict = PyObject_GetAttrString (body, "__dict__");
-  if (body_dict == NULL)
-    return -1;
-  PyObject *items = PyMapping_Items (body_dict);
-  Py_DECREF (body_dict);
-  if (items == NULL)
-    return -1;
-
-  static const char *const skip[]
-      = { "__dict__", "__weakref__",   "__module__", "__qualname__",
-          "__name__", "__slots__", "__doc__",    NULL };
-  Py_ssize_t n = PyList_GET_SIZE (items);
-  for (Py_ssize_t i = 0; i < n; i++)
-    {
-      PyObject *kv = PyList_GET_ITEM (items, i);
-      PyObject *key = PyTuple_GET_ITEM (kv, 0);
-      PyObject *val = PyTuple_GET_ITEM (kv, 1);
-      const char *ks = PyUnicode_AsUTF8 (key);
-      if (ks == NULL)
-        {
-          Py_DECREF (items);
-          return -1;
-        }
-      gboolean skipped = FALSE;
-      for (const char *const *s = skip; *s != NULL; s++)
-        if (strcmp (ks, *s) == 0)
-          {
-            skipped = TRUE;
-            break;
-          }
-      if (!skipped && PyObject_SetAttr (type, key, val) < 0)
-        {
-          Py_DECREF (items);
-          return -1;
-        }
-    }
-  Py_DECREF (items);
-  return 0;
-}
-
 static PyObject *
 py_init_gobject (PyObject *m, PyObject *args)
 {
   PyObject *metaclass = NULL;
-  PyObject *body = NULL;
-  if (!PyArg_ParseTuple (args, "OO:init_gobject", &metaclass, &body))
+  if (!PyArg_ParseTuple (args, "O:init_gobject", &metaclass))
     return NULL;
   if (!PyType_Check (metaclass))
     {
@@ -244,7 +198,13 @@ py_init_gobject (PyObject *m, PyObject *args)
       Py_DECREF (v);
     }
 
-  if (gobject_copy_body_methods (gobject, body) < 0)
+  /* The two class variables the old _GObjectBody body carried. _gobject_is_root
+   * must live in GObject.Object's own __dict__ (the metaclass keys the root-class
+   * check on that); _class_struct_name defaults to None and is overridden per
+   * class by classbuild. */
+  if (PyObject_SetAttrString (gobject, "_class_struct_name", Py_None) < 0)
+    goto error;
+  if (PyObject_SetAttrString (gobject, "_gobject_is_root", Py_True) < 0)
     goto error;
 
   if (PyModule_AddObjectRef (m, "GObject", gobject) < 0)
@@ -468,7 +428,7 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  /* GObject.Object is created later via init_gobject(GObjectMeta, body). */
+  /* GObject.Object is created later via init_gobject(GObjectMeta). */
 
   PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);
   if (method_descriptor_type == NULL)
