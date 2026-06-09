@@ -878,8 +878,138 @@ GObject_finalize (PyObject *self)
   PyErr_Restore (etype, evalue, etb);
 }
 
+/* Lazily import (and cache) a construction helper from gobjectclass. */
+static PyObject *gobject_prepare_construction_fn = NULL;
+static PyObject *gobject_finish_construction_fn = NULL;
+
+static PyObject *
+gobjectclass_construction_attr (const char *name, PyObject **cache)
+{
+  if (*cache == NULL)
+    {
+      PyObject *mod = PyImport_ImportModule ("ginext.gobject.gobjectclass");
+      if (mod == NULL)
+        return NULL;
+      *cache = PyObject_GetAttrString (mod, name);
+      Py_DECREF (mod);
+    }
+  return *cache;
+}
+
+/* tp_init: GObject construction. The feature-gated kwarg split/normalize
+ * (_prepare_construction) and the post-bind tail of hooks + on_* handler wiring
+ * (_finish_construction) stay in Python; the construct/consume + bind core is C.
+ */
+static int
+GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
+{
+  if (args != NULL && PyTuple_GET_SIZE (args) != 0)
+    {
+      PyErr_SetString (PyExc_TypeError,
+                       "GObject.Object() takes no positional arguments");
+      return -1;
+    }
+
+  PyObject *prepare = gobjectclass_construction_attr (
+      "_prepare_construction", &gobject_prepare_construction_fn);
+  if (prepare == NULL)
+    return -1;
+  PyObject *finish = gobjectclass_construction_attr (
+      "_finish_construction", &gobject_finish_construction_fn);
+  if (finish == NULL)
+    return -1;
+
+  PyObject *owned_kwargs = NULL;
+  PyObject *kwargs = kwds;
+  if (kwargs == NULL)
+    {
+      owned_kwargs = PyDict_New ();
+      if (owned_kwargs == NULL)
+        return -1;
+      kwargs = owned_kwargs;
+    }
+
+  PyObject *prep = PyObject_CallOneArg (prepare, kwargs);
+  Py_XDECREF (owned_kwargs);
+  if (prep == NULL)
+    return -1;
+  if (!PyTuple_Check (prep) || PyTuple_GET_SIZE (prep) != 2)
+    {
+      PyErr_SetString (PyExc_TypeError,
+                       "_prepare_construction must return (properties, handlers)");
+      Py_DECREF (prep);
+      return -1;
+    }
+  PyObject *normalized = Py_NewRef (PyTuple_GET_ITEM (prep, 0));
+  PyObject *handlers = Py_NewRef (PyTuple_GET_ITEM (prep, 1));
+  Py_DECREF (prep);
+
+  int rc = -1;
+  PyObject *ptr = NULL;
+  PyObject *merged = NULL;
+  PyGIGObject *base = (PyGIGObject *)self;
+
+  if (base->construction_ptr == NULL)
+    {
+      /* Normal path: g_object_new then bind, owning the ref. */
+      PyObject *call_args = PyTuple_Pack (1, normalized);
+      if (call_args == NULL)
+        goto done;
+      ptr = GObject_construct_with_properties ((PyObject *)Py_TYPE (self), call_args);
+      Py_DECREF (call_args);
+      if (ptr == NULL)
+        goto done;
+      if (bind_wrapper_from_source (self, ptr, TRUE) < 0)
+        goto done;
+      PyObject *r = PyObject_CallFunctionObjArgs (finish, self, handlers, NULL);
+      if (r == NULL)
+        goto done;
+      Py_DECREF (r);
+    }
+  else
+    {
+      /* Deferred-shell path (C-initiated python subclass): consume the primed
+       * construction state, apply any kwargs, bind without owning the ref. */
+      GObject *object = base->construction_ptr;
+      PyObject *pending = base->construction_handlers; /* owned; may be NULL */
+      base->construction_ptr = NULL;
+      base->construction_handlers = NULL;
+
+      if (PyDict_Check (normalized) && PyDict_GET_SIZE (normalized) > 0
+          && apply_construction_properties_from_mapping (self, normalized) < 0)
+        {
+          Py_XDECREF (pending);
+          goto done;
+        }
+      ptr = PyLong_FromVoidPtr (object);
+      if (ptr == NULL || bind_wrapper_from_source (self, ptr, FALSE) < 0)
+        {
+          Py_XDECREF (pending);
+          goto done;
+        }
+      merged = pending != NULL ? pending : PyDict_New ();
+      if (merged == NULL)
+        goto done;
+      if (PyDict_Update (merged, handlers) < 0)
+        goto done;
+      PyObject *r = PyObject_CallFunctionObjArgs (finish, self, merged, NULL);
+      if (r == NULL)
+        goto done;
+      Py_DECREF (r);
+    }
+  rc = 0;
+
+done:
+  Py_XDECREF (normalized);
+  Py_XDECREF (handlers);
+  Py_XDECREF (ptr);
+  Py_XDECREF (merged);
+  return rc;
+}
+
 static PyType_Slot GinextGObject_slots[] = {
   { Py_tp_new, PyType_GenericNew },
+  { Py_tp_init, GObject_init },
   { Py_tp_dealloc, GObject_dealloc },
   { Py_tp_repr, GObject_repr },
   { Py_tp_finalize, GObject_finalize },

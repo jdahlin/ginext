@@ -230,15 +230,6 @@ def _wrap_preallocated_construction(
     return cls.new_preallocated_from_c(ptr, handlers)
 
 
-def _consume_preallocated_construction(
-    obj: "GObject",
-) -> tuple[int, dict[str, object]] | None:
-    state = obj.take_construction_state()
-    if state is None:
-        return None
-    return state
-
-
 def _is_python_defined_gobject_subclass(type_or_gtype: object) -> bool:
     if not isinstance(type_or_gtype, type):
         return False
@@ -339,20 +330,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     ) -> None:
         super(GObject, cls).__init_subclass__(**kwargs)
         register_python_subclass(cls, type_name=type_name)
-
-    def __init__(self, **kwargs: object) -> None:
-        normalized, handlers = _prepare_construction(kwargs)
-        state = _consume_preallocated_construction(self)
-        if state is None:
-            ptr = type(self).construct_with_properties(normalized)
-            self.bind_from_c(ptr, owns_ref=True)
-            _finish_construction(self, handlers)
-            return
-        ptr, pending_handlers = state
-        if normalized:
-            self.apply_construction_properties(normalized)
-        self.bind_from_c(ptr, owns_ref=False)
-        _finish_construction(self, {**pending_handlers, **handlers})
 
     @classmethod
     def _from_gobject_pointer(cls, ptr: int) -> "GObject":
