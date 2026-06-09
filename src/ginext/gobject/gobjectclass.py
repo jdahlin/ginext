@@ -79,7 +79,6 @@ if TYPE_CHECKING:
 else:
     _MethodsBase = object
 
-_compat_aliases_enabled = False
 _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
 
@@ -112,15 +111,6 @@ def _compat_finalize_dispose(self: "GObject") -> None:
         pass
     finally:
         _compat_dispose_state.pop(id(self), None)
-
-
-def signal_for_instance(obj: "GObject", name: str) -> _SignalInstance:
-    return obj.signal_for_name(name)
-
-
-def set_compat_aliases_enabled(enabled: bool) -> None:
-    global _compat_aliases_enabled
-    _compat_aliases_enabled = enabled
 
 
 def _synthesize_pspec_property(cls: type, py_name: str) -> _PspecProperty:
