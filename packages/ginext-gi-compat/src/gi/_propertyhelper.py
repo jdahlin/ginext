@@ -23,6 +23,7 @@ from ginext.gobject.properties import (
     call_notify_override,
     coerce_property_default,
     gimeta_type_name,
+    own_annotations_dict,
     unset,
 )
 
@@ -115,7 +116,7 @@ class _CompatProperty(Generic[T]):
         # Inject the type into __annotations__ so register_gobject_subclass
         # picks it up via its annotation-iteration path.
         if self.type is not None:
-            anns: dict[str, object] = vars(owner).get("__annotations__") or {}
+            anns = own_annotations_dict(owner)
             if name not in anns:
                 owner.__annotations__ = {**anns, name: self.type}
             # Coerce GVariant string defaults (GLib.Variant("i", 42) may return "42")

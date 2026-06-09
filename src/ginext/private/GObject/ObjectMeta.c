@@ -26,11 +26,37 @@ pygi_gobjectmeta_set_hooks (PyObject *meta_getattr, PyObject *meta_dir)
     Py_XSETREF (meta_cb_dir, Py_NewRef (meta_dir));
 }
 
-/* tp_getattro: normal class-attribute lookup, then the registered class-level
- * __getattr__ body (lazy introspected-method install) on a genuine miss. */
+/* `Signal` is exposed only on the root GObject.Object (which carries
+ * "_gobject_is_root" in its own __dict__); subclasses must use GObject.Signal.
+ * The gate runs before normal lookup because Signal is otherwise inherited. */
+static int
+gobjectmeta_signal_is_hidden (PyObject *cls, PyObject *name)
+{
+  if (!PyUnicode_Check (name) || PyUnicode_CompareWithASCIIString (name, "Signal") != 0)
+    return 0;
+  PyObject *dict = PyType_GetDict ((PyTypeObject *)cls);
+  if (dict == NULL)
+    return 0;
+  int is_root = PyDict_ContainsString (dict, "_gobject_is_root");
+  Py_DECREF (dict);
+  if (is_root < 0)
+    return -1;
+  return is_root == 0; /* hidden when NOT the root */
+}
+
+/* tp_getattro: the Signal gate, then normal class-attribute lookup, then the
+ * registered class-level __getattr__ body (lazy install) on a genuine miss. */
 static PyObject *
 gobjectmeta_getattro (PyObject *cls, PyObject *name)
 {
+  int hidden = gobjectmeta_signal_is_hidden (cls, name);
+  if (hidden < 0)
+    return NULL;
+  if (hidden)
+    {
+      PyErr_SetObject (PyExc_AttributeError, name);
+      return NULL;
+    }
   PyObject *result = PyType_Type.tp_getattro (cls, name);
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;

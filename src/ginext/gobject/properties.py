@@ -315,6 +315,25 @@ def property_value_type(value_type: object) -> object:
     return value_type
 
 
+def own_annotations_dict(cls: type) -> dict[str, object]:
+    """Return the class's own explicitly-stored annotations as a plain dict.
+
+    Reading this is subtle on CPython 3.14 (PEP 649): assigning
+    ``cls.__annotations__`` routes through ``type``'s ``__annotations__`` getset,
+    which stores the value under ``__annotations_cache__`` rather than
+    ``__annotations__`` — unless the metaclass happens to shadow that getset with
+    a plain dict in its own ``__dict__`` (which the legacy Python ``GObjectMeta``
+    did, via ``from __future__ import annotations`` + a class annotation). The C
+    ``GObjectMeta`` metatype does not, so descriptors that accumulate annotations
+    in ``__set_name__`` must read from either location to see prior injections.
+    """
+    own = cls.__dict__
+    stored = own.get("__annotations__")
+    if stored is None:
+        stored = own.get("__annotations_cache__")
+    return dict(stored or {})
+
+
 def resolve_annotations(raw_annotations: dict[str, object]) -> dict[str, object]:
     annotations = dict(raw_annotations)
     unresolved = {
