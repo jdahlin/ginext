@@ -878,28 +878,114 @@ GObject_finalize (PyObject *self)
   PyErr_Restore (etype, evalue, etb);
 }
 
-/* Lazily import (and cache) a construction helper from gobjectclass. */
-static PyObject *gobject_prepare_construction_fn = NULL;
+/* Lazily import (and cache) _finish_construction from gobjectclass: it runs the
+ * post-construct hooks (Gtk.Template) and on_* handler wiring (difflib hints +
+ * inspect arg counting), kept in Python. Only called when there are handlers or
+ * the type has post-construct hooks. */
 static PyObject *gobject_finish_construction_fn = NULL;
 
 static PyObject *
-gobjectclass_construction_attr (const char *name, PyObject **cache)
+gobject_finish_construction_attr (void)
 {
-  if (*cache == NULL)
+  if (gobject_finish_construction_fn == NULL)
     {
       PyObject *mod = PyImport_ImportModule ("ginext.gobject.gobjectclass");
       if (mod == NULL)
         return NULL;
-      *cache = PyObject_GetAttrString (mod, name);
+      gobject_finish_construction_fn
+          = PyObject_GetAttrString (mod, "_finish_construction");
       Py_DECREF (mod);
     }
-  return *cache;
+  return gobject_finish_construction_fn;
 }
 
-/* tp_init: GObject construction. The feature-gated kwarg split/normalize
- * (_prepare_construction) and the post-bind tail of hooks + on_* handler wiring
- * (_finish_construction) stay in Python; the construct/consume + bind core is C.
- */
+/* Split construction kwargs into (properties, handlers): keys "on_<signal>"
+ * become handler entries (on_ prefix stripped); the rest are properties with
+ * normalized "foo_bar" -> "foo-bar" names. */
+static int
+split_construction_kwargs (PyObject *kwds, PyObject **out_properties,
+                           PyObject **out_handlers)
+{
+  PyObject *properties = PyDict_New ();
+  PyObject *handlers = PyDict_New ();
+  if (properties == NULL || handlers == NULL)
+    goto error;
+  if (kwds != NULL)
+    {
+      Py_ssize_t pos = 0;
+      PyObject *key, *value;
+      while (PyDict_Next (kwds, &pos, &key, &value))
+        {
+          Py_ssize_t len = 0;
+          const char *k = PyUnicode_AsUTF8AndSize (key, &len);
+          if (k == NULL)
+            goto error;
+          if (len > 3 && k[0] == 'o' && k[1] == 'n' && k[2] == '_')
+            {
+              PyObject *signal_name = PyUnicode_FromStringAndSize (k + 3, len - 3);
+              if (signal_name == NULL)
+                goto error;
+              int r = PyDict_SetItem (handlers, signal_name, value);
+              Py_DECREF (signal_name);
+              if (r < 0)
+                goto error;
+            }
+          else
+            {
+              PyObject *name = PyObject_CallMethod (key, "replace", "ss", "_", "-");
+              if (name == NULL)
+                goto error;
+              int r = PyDict_SetItem (properties, name, value);
+              Py_DECREF (name);
+              if (r < 0)
+                goto error;
+            }
+        }
+    }
+  *out_properties = properties;
+  *out_handlers = handlers;
+  return 0;
+error:
+  Py_XDECREF (properties);
+  Py_XDECREF (handlers);
+  return -1;
+}
+
+/* Whether self's type registered post-construct hooks (e.g. Gtk.Template):
+ * gimeta.extensions["core"]["post_construct_hooks"]. */
+static int
+gobject_type_has_post_construct_hooks (PyObject *self)
+{
+  PyObject *gimeta = PyObject_GetAttrString ((PyObject *)Py_TYPE (self), "gimeta");
+  if (gimeta == NULL)
+    {
+      PyErr_Clear ();
+      return 0;
+    }
+  PyObject *extensions = PyObject_GetAttrString (gimeta, "extensions");
+  Py_DECREF (gimeta);
+  if (extensions == NULL)
+    {
+      PyErr_Clear ();
+      return 0;
+    }
+  int result = 0;
+  if (PyDict_Check (extensions))
+    {
+      PyObject *core = PyDict_GetItemString (extensions, "core"); /* borrowed */
+      if (core != NULL && PyDict_Check (core))
+        {
+          PyObject *hooks = PyDict_GetItemString (core, "post_construct_hooks");
+          if (hooks != NULL && PyObject_IsTrue (hooks) == 1)
+            result = 1;
+        }
+    }
+  Py_DECREF (extensions);
+  return result;
+}
+
+/* tp_init: GObject construction in C. _finish_construction (Python) is only
+ * invoked when there are on_* handlers or the type has post-construct hooks. */
 static int
 GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
 {
@@ -910,89 +996,66 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
       return -1;
     }
 
-  PyObject *prepare = gobjectclass_construction_attr (
-      "_prepare_construction", &gobject_prepare_construction_fn);
-  if (prepare == NULL)
+  PyObject *properties = NULL, *handlers = NULL;
+  if (split_construction_kwargs (kwds, &properties, &handlers) < 0)
     return -1;
-  PyObject *finish = gobjectclass_construction_attr (
-      "_finish_construction", &gobject_finish_construction_fn);
-  if (finish == NULL)
-    return -1;
-
-  PyObject *owned_kwargs = NULL;
-  PyObject *kwargs = kwds;
-  if (kwargs == NULL)
-    {
-      owned_kwargs = PyDict_New ();
-      if (owned_kwargs == NULL)
-        return -1;
-      kwargs = owned_kwargs;
-    }
-
-  PyObject *prep = PyObject_CallOneArg (prepare, kwargs);
-  Py_XDECREF (owned_kwargs);
-  if (prep == NULL)
-    return -1;
-  if (!PyTuple_Check (prep) || PyTuple_GET_SIZE (prep) != 2)
-    {
-      PyErr_SetString (PyExc_TypeError,
-                       "_prepare_construction must return (properties, handlers)");
-      Py_DECREF (prep);
-      return -1;
-    }
-  PyObject *normalized = Py_NewRef (PyTuple_GET_ITEM (prep, 0));
-  PyObject *handlers = Py_NewRef (PyTuple_GET_ITEM (prep, 1));
-  Py_DECREF (prep);
 
   int rc = -1;
+  gboolean owns_ref = TRUE;
   PyObject *ptr = NULL;
-  PyObject *merged = NULL;
+  PyObject *pending = NULL; /* deferred: handlers primed by C, owned */
+  PyObject *finish_handlers = NULL;
   PyGIGObject *base = (PyGIGObject *)self;
 
   if (base->construction_ptr == NULL)
     {
-      /* Normal path: g_object_new then bind, owning the ref. */
-      PyObject *call_args = PyTuple_Pack (1, normalized);
+      /* Normal path: g_object_new, owning the ref. */
+      PyObject *call_args = PyTuple_Pack (1, properties);
       if (call_args == NULL)
         goto done;
       ptr = GObject_construct_with_properties ((PyObject *)Py_TYPE (self), call_args);
       Py_DECREF (call_args);
       if (ptr == NULL)
         goto done;
-      if (bind_wrapper_from_source (self, ptr, TRUE) < 0)
-        goto done;
-      PyObject *r = PyObject_CallFunctionObjArgs (finish, self, handlers, NULL);
-      if (r == NULL)
-        goto done;
-      Py_DECREF (r);
     }
   else
     {
       /* Deferred-shell path (C-initiated python subclass): consume the primed
        * construction state, apply any kwargs, bind without owning the ref. */
-      GObject *object = base->construction_ptr;
-      PyObject *pending = base->construction_handlers; /* owned; may be NULL */
+      pending = base->construction_handlers; /* owned; may be NULL */
+      ptr = PyLong_FromVoidPtr (base->construction_ptr);
       base->construction_ptr = NULL;
       base->construction_handlers = NULL;
+      if (ptr == NULL)
+        goto done;
+      if (PyDict_GET_SIZE (properties) > 0
+          && apply_construction_properties_from_mapping (self, properties) < 0)
+        goto done;
+      owns_ref = FALSE;
+    }
 
-      if (PyDict_Check (normalized) && PyDict_GET_SIZE (normalized) > 0
-          && apply_construction_properties_from_mapping (self, normalized) < 0)
-        {
-          Py_XDECREF (pending);
-          goto done;
-        }
-      ptr = PyLong_FromVoidPtr (object);
-      if (ptr == NULL || bind_wrapper_from_source (self, ptr, FALSE) < 0)
-        {
-          Py_XDECREF (pending);
-          goto done;
-        }
-      merged = pending != NULL ? pending : PyDict_New ();
-      if (merged == NULL)
+  if (bind_wrapper_from_source (self, ptr, owns_ref) < 0)
+    goto done;
+
+  /* Handlers to wire: the on_* kwargs, merged onto any primed by the deferred
+   * path. */
+  if (pending != NULL)
+    {
+      finish_handlers = pending;
+      pending = NULL;
+      if (PyDict_Update (finish_handlers, handlers) < 0)
         goto done;
-      if (PyDict_Update (merged, handlers) < 0)
+    }
+  else
+    finish_handlers = Py_NewRef (handlers);
+
+  if (PyDict_GET_SIZE (finish_handlers) > 0
+      || gobject_type_has_post_construct_hooks (self))
+    {
+      PyObject *finish = gobject_finish_construction_attr ();
+      if (finish == NULL)
         goto done;
-      PyObject *r = PyObject_CallFunctionObjArgs (finish, self, merged, NULL);
+      PyObject *r = PyObject_CallFunctionObjArgs (finish, self, finish_handlers, NULL);
       if (r == NULL)
         goto done;
       Py_DECREF (r);
@@ -1000,10 +1063,11 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
   rc = 0;
 
 done:
-  Py_XDECREF (normalized);
+  Py_XDECREF (properties);
   Py_XDECREF (handlers);
   Py_XDECREF (ptr);
-  Py_XDECREF (merged);
+  Py_XDECREF (pending);
+  Py_XDECREF (finish_handlers);
   return rc;
 }
 
