@@ -31,9 +31,12 @@ from ..gobject import gobjectclass as _gobject_root
 from .. import private
 from ..gobject.gtype import GTypeMeta
 from ..signal.bound import Signal as _BoundSignal
+from ..signal.scoped import ScopedCallable
 from ginext import GLib, GObject
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from ..overlay import OverlayRegistrar
     from ..signal.bound import _PropertyDetail
     from ..signal.connection import SignalConnection
@@ -41,6 +44,17 @@ if TYPE_CHECKING:
 
 overlay: OverlayRegistrar = GObject.overlay
 overlay.hide_attribute("Value")
+
+
+@overlay.method("Object")
+def scoped(
+    self: _gobject_root.GObject,
+    callback: "Callable[..., object]",
+    *args: object,
+    **kwargs: object,
+) -> ScopedCallable:
+    """Wrap a callback so its signal-connection owner is this instance."""
+    return ScopedCallable(self, callback, *args, **kwargs)
 
 
 @overlay.replace
