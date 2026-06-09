@@ -66,6 +66,7 @@ from .subclass import register_python_subclass
 from .properties import (
     Property as Property,
     _PspecProperty,
+    own_annotations_dict,
 )
 
 # GObject.Object is the C base type, built below by init_gobject from the method
@@ -87,11 +88,9 @@ def _synthesize_pspec_property(cls: type, py_name: str) -> _PspecProperty:
     ``__annotations__`` so the class advertises the field, dataclass-style."""
     descriptor = _PspecProperty(py_name)
     setattr(cls, py_name, descriptor)
-    annotations = cls.__dict__.get("__annotations__")
-    if annotations is None:
-        annotations = {}
-        cls.__annotations__ = annotations
-    annotations.setdefault(py_name, object)
+    annotations = own_annotations_dict(cls)
+    if py_name not in annotations:
+        cls.__annotations__ = {**annotations, py_name: object}
     return descriptor
 
 
