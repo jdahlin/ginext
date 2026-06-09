@@ -67,9 +67,9 @@ def test_bind_model_factory_receives_none_user_data(
     seen: list[Any] = []
 
     def factory(item: Any, user_data: Any) -> Any:
-        seen.append((item.get_property("val"), user_data))
+        seen.append((item.get_property_by_name("val"), user_data))
         row = Gtk.ListBoxRow()
-        row.add(Gtk.Label.new(str(item.get_property("val"))))
+        row.add(Gtk.Label.new(str(item.get_property_by_name("val"))))
         return row
 
     listbox = Gtk.ListBox()
@@ -78,7 +78,7 @@ def test_bind_model_factory_receives_none_user_data(
 
     for v in (1, 2, 3):
         item = Item()
-        item.set_property("val", v)
+        item.set_property_by_name("val", v)
         store.append(item)
 
     assert [s[0] for s in seen] == [1, 2, 3]
@@ -92,7 +92,7 @@ def test_bind_model_pygobject_arity(namespaces: tuple[Any, Any, Any]) -> None:
     destroy) and the 3-arg form (user_data supplied, destroy omitted,
     which is the gnome-music PlaylistsWidget shape:
     `self._sidebar.bind_model(self._model, self._add_playlist_to_sidebar)`
-    and `self._songs_list.bind_model(playlist.get_property("model"),
+    and `self._songs_list.bind_model(playlist.get_property_by_name("model"),
     self._create_song_widget, playlist)`).
     """
     GObject, Gio, Gtk = namespaces
@@ -106,12 +106,12 @@ def test_bind_model_pygobject_arity(namespaces: tuple[Any, Any, Any]) -> None:
     seen1: list[Any] = []
 
     def f1(item: Any) -> Any:
-        seen1.append(item.get_property("val"))
+        seen1.append(item.get_property_by_name("val"))
         return Gtk.ListBoxRow()
 
     lb1.bind_model(m1, f1)
     item1 = Item()
-    item1.set_property("val", 7)
+    item1.set_property_by_name("val", 7)
     m1.append(item1)
     assert seen1 == [7]
 
@@ -121,12 +121,12 @@ def test_bind_model_pygobject_arity(namespaces: tuple[Any, Any, Any]) -> None:
     seen2: list[Any] = []
 
     def f2(item: Any, user_data: Any) -> Any:
-        seen2.append((item.get_property("val"), user_data))
+        seen2.append((item.get_property_by_name("val"), user_data))
         return Gtk.ListBoxRow()
 
     lb2.bind_model(m2, f2, "tag")
     item2 = Item()
-    item2.set_property("val", 9)
+    item2.set_property_by_name("val", 9)
     m2.append(item2)
     assert seen2 == [(9, "tag")]
 
@@ -146,7 +146,7 @@ def test_bind_model_factory_return_survives_python_gc(
 
     def factory(item: Any, _user_data: Any) -> Any:
         row = Gtk.ListBoxRow()
-        row.add(Gtk.Label.new(str(item.get_property("val"))))
+        row.add(Gtk.Label.new(str(item.get_property_by_name("val"))))
         return row  # local — would be GC'd immediately on the way out
 
     listbox = Gtk.ListBox()
@@ -157,7 +157,7 @@ def test_bind_model_factory_return_survives_python_gc(
     # → g_object_is_floating chain repeatedly.
     for v in range(8):
         item = Item()
-        item.set_property("val", v)
+        item.set_property_by_name("val", v)
         store.append(item)
 
     # If the ref bump is missing, GTK's own logging would already have

@@ -101,15 +101,15 @@ def test_tag_table_present(buf: object) -> None:
 @needs_display
 def test_create_tag_sets_properties(tagged_buf: tuple[object, object]) -> None:
     _, tag = tagged_buf
-    assert getattr(tag, "get_property")("name") == "title"
-    assert getattr(tag, "get_property")("font") == "Sans 18"
+    assert getattr(tag, "get_property_by_name")("name") == "title"
+    assert getattr(tag, "get_property_by_name")("font") == "Sans 18"
 
 
 @needs_display
 def test_create_tag_anonymous(buf: object) -> None:
     tag = getattr(buf, "create_tag")(None, font="Sans 12")
-    assert getattr(tag, "get_property")("name") is None
-    assert getattr(tag, "get_property")("font") == "Sans 12"
+    assert getattr(tag, "get_property_by_name")("name") is None
+    assert getattr(tag, "get_property_by_name")("font") == "Sans 12"
 
 
 # --------------------------------------------------------------------------
@@ -307,10 +307,10 @@ def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
         getattr(location, "assign")(getattr(buffer, "get_end_iter")())
 
     getattr(buf, "set_text")("first line\n")
-    getattr(buf, "connect")("insert-text", relocate_to_end)
+    getattr(buf, "signal_for_name")("insert-text").connect(relocate_to_end)
     getattr(buf, "place_cursor")(getattr(buf, "get_start_iter")())
     getattr(buf, "insert_at_cursor")("second line\n")
-    assert getattr(buf, "get_property")("text") == "first line\nsecond line\n"
+    assert getattr(buf, "get_property_by_name")("text") == "first line\nsecond line\n"
 
 
 # --------------------------------------------------------------------------

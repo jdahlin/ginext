@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, dataclass_transform
 from xml.etree import ElementTree
 
-from ginext import GLib, GObject, Gio
+from ginext import GLib, Gio
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -440,7 +440,6 @@ class TemplateRuntime:
         flags: int,
         connect_object: object,
     ) -> object:
-        from ginext import Gtk
 
         swapped = int(flags & _CONNECT_SWAPPED)
         if swapped:
@@ -493,16 +492,11 @@ class TemplateRuntime:
             )
             if connect_object is not None:
                 setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, None)
-            connection = (
-                cast("Any", obj)
-                ._compat_signal_for_name(signal.signal_name)
-                .connect(
-                    callback,
-                    after=signal.after,
-                    owner=instance,
-                )
+            cast("Any", obj).signal_for_name(signal.signal_name).connect(
+                callback,
+                after=signal.after,
+                owner=instance,
             )
-            instance._compat_remember_connection(connection)
 
 
 @dataclass(slots=True)

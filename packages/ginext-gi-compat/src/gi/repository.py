@@ -403,21 +403,21 @@ def _install_gobject_compat(namespace: Namespace) -> object:
 
 
 def _install_gobject_signal_methods(gobject_cls: Any) -> None:
-    """Install the pygobject-shaped connection helpers onto the GObject class.
+    """Install the pygobject-shaped GObject methods onto the GObject class.
 
     These live in the compat package, not core ginext: native ginext offers the
-    attribute-based signal API, and `connect`/`emit`/`disconnect` (the
-    OLD_SIGNAL_API feature). The object/data/by-func variants below are
-    pygobject's shape and are only present once the compat layer installs them.
+    attribute-based signal API and attribute property access. connect/emit/
+    disconnect/get_property/set_property, the connect_object/connect_data/by-func
+    variants and the _compat_* bookkeeping are all pygobject's shape, registered
+    (on import of _gobject_compat_methods) as a second overlay source for
+    GObject.Object. GObject.Object is already built here, so apply the freshly
+    registered ("GObject", "Object") overlays explicitly.
     """
-    from . import _gobject_signals as sig
+    from ginext.overlay.install import install_class_overlay
 
-    gobject_cls.connect_data = sig.connect_data
-    gobject_cls.connect_object = sig.connect_object
-    gobject_cls.connect_object_after = sig.connect_object_after
-    gobject_cls.disconnect_by_func = sig.disconnect_by_func
-    gobject_cls.handler_block_by_func = sig.handler_block_by_func
-    gobject_cls.handler_unblock_by_func = sig.handler_unblock_by_func
+    from . import _gobject_compat_methods  # noqa: F401  (registers overlays)
+
+    install_class_overlay(gobject_cls, "GObject", "Object")
 
 
 def _install_gobject_props(gobject_cls: Any) -> None:

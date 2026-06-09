@@ -255,10 +255,10 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
         first_row = sidebar.get_row_at_index(0)
         sidebar.select_row(first_row)
         selected = sidebar.get_selected_row()
-        selected.get_property("playlist")  # ← must still see the value the
+        selected.get_property_by_name("playlist")  # ← must still see the value the
                                  #   factory stored via __init__
 
-    Before the tp_finalize save fix, `selected.get_property("playlist")` came
+    Before the tp_finalize save fix, `selected.get_property_by_name("playlist")` came
     back as None — the factory wrote it to the wrapper's __dict__,
     but Python's subtype_dealloc cleared that dict between the wrapper
     being GC'd and goi's tp_dealloc seeing it, so the qdata save
@@ -285,8 +285,8 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
 
         def __init__(self, playlist: Any) -> None:
             super().__init__()
-            self.set_property("playlist", playlist)
-            self._label.set_label(playlist.get_property("title"))
+            self.set_property_by_name("playlist", playlist)
+            self._label.set_label(playlist.get_property_by_name("title"))
 
     def _factory(playlist: Any, _user_data: Any) -> Any:
         return Tile(playlist)
@@ -297,7 +297,7 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
 
     for name in ("MostPlayed", "Recent", "Favorites"):
         pl = Playlist()
-        pl.set_property("title", name)
+        pl.set_property_by_name("title", name)
         model.append(pl)  # type: ignore[arg-type]  # Playlist is a GObject subclass, accepted at runtime
     capfd.readouterr()
 
@@ -306,10 +306,10 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
     selected = sidebar.get_selected_row()
 
     assert selected is first_row
-    assert selected.get_property("playlist") is not None, (
-        "get_selected_row().get_property('playlist') lost the factory __init__ write"
+    assert selected.get_property_by_name("playlist") is not None, (
+        "get_selected_row().get_property_by_name('playlist') lost the factory __init__ write"
     )
-    assert selected.get_property("playlist").get_property("title") == "MostPlayed"
+    assert selected.get_property_by_name("playlist").get_property_by_name("title") == "MostPlayed"
 
 
 def test_template_cannot_nest(Gtk: Any) -> None:
