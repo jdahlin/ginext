@@ -256,7 +256,7 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
             seen.append(self.is_bound())
 
     ptr = Deferred.construct_with_properties({})
-    obj = cast("Deferred", Deferred.new_preallocated_from_c(ptr))
+    obj = Deferred.new_preallocated_from_c(ptr)
 
     assert obj.is_bound() is False
 
