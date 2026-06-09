@@ -57,21 +57,18 @@ from typing import (
 from .. import features
 from .. import private
 from ..signal.adapt import (
-    _SIGNAL_ARG_LIMIT_ATTR,
     _accepted_signal_arg_count,
     _split_constructor_kwargs,
 )
 from ..signal.bound import Signal as _SignalInstance
-from ..signal.connection import SignalConnection
 from ..signal.descriptor import SignalDescriptor as Signal
-from ..signal.scoped import ScopedCallable, static_owner
+from ..signal.scoped import ScopedCallable
 from .metaclass import GObjectMeta as GObjectMeta
 from .resolve import classbuild_module, gobject_repo as gobject_repo
 from .subclass import register_python_subclass
 from .properties import (
     Property as Property,
     _PspecProperty,
-    call_notify_override,
 )
 
 # GObject.Object is the C base type, built below by init_gobject from the method
@@ -380,83 +377,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         """
         return ScopedCallable(self, callback, *args, **kwargs)
 
-    def connect(
-        self,
-        signal_name: str,
-        callback: Callable[..., Any],
-        *user_data: object,
-        **kwargs: object,
-    ) -> SignalConnection:
-        if not features.is_enabled(features.OLD_SIGNAL_API):
-            raise TypeError("GObject.connect() is disabled by old_signal_api")
-        if user_data:
-            original_callback = callback
-            signal_arg_limit = _accepted_signal_arg_count(
-                original_callback, len(user_data)
-            )
-
-            def callback(*signal_args: object) -> object:
-                return original_callback(*signal_args, *user_data)
-
-            setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
-            kwargs.setdefault("owner", static_owner)
-        signal = self.signal_for_name(signal_name)
-        kwargs.setdefault("_weak_callback_record", True)
-        connection = signal.connect(callback, **cast("Any", kwargs))
-        self._compat_remember_connection(connection)
-        return connection
-
-    def connect_after(
-        self,
-        signal_name: str,
-        callback: Callable[..., Any],
-        *user_data: object,
-        **kwargs: object,
-    ) -> SignalConnection:
-        kwargs["after"] = True
-        return self.connect(signal_name, callback, *user_data, **kwargs)
-
-    def emit(self, signal_name: str, *args: object) -> object:
-        if not features.is_enabled(features.OLD_SIGNAL_API):
-            raise TypeError("GObject.emit() is disabled by old_signal_api")
-        signal = self._compat_signal_for_name(signal_name)
-        return signal.emit(*args)
-
-    def get_property(self, name: str) -> object:
-        prop_name = name.replace("_", "-")
-        try:
-            return type(self).gimeta.get_property(self, prop_name)
-        except AttributeError:
-            return self.get_property_by_name(prop_name)
-
-    def set_property(self, name: str, value: object) -> None:
-        prop_name = name.replace("_", "-")
-        try:
-            type(self).gimeta.set_property(self, prop_name, value)
-        except AttributeError:
-            self.set_property_by_name(prop_name, value)
-        call_notify_override(self, prop_name)
-
-    def disconnect(self, connection: SignalConnection | int) -> None:
-        if isinstance(connection, SignalConnection):
-            connection.disconnect()
-            self._compat_forget_connection(connection)
-            return
-        if not features.is_enabled(features.OLD_SIGNAL_API):
-            raise TypeError(
-                "GObject.disconnect(handler_id) is disabled by old_signal_api"
-            )
-        self.disconnect_handler_id(int(connection))
-        self._compat_forget_handler_id(int(connection))
-
-    def handler_is_connected(self, handler_id: object) -> bool:
-        raw = (
-            handler_id.handler_id
-            if isinstance(handler_id, SignalConnection)
-            else handler_id
-        )
-        return bool(self.handler_id_is_connected(int(cast("Any", raw))))
-
     def _is_floating_for_test(self) -> bool:
         return bool(self.is_floating())
 
@@ -465,29 +385,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
 
     def _ref_sink(self) -> None:
         self.ref_sink()
-
-    def _compat_connections(self) -> list[SignalConnection]:
-        connections = vars(self).get("_compat_signal_connections")
-        if connections is None:
-            connections = []
-            self._compat_signal_connections = connections
-        return cast("list[SignalConnection]", connections)
-
-    def _compat_remember_connection(self, connection: SignalConnection) -> None:
-        self._compat_connections().append(connection)
-
-    def _compat_forget_connection(self, connection: SignalConnection) -> None:
-        connections = self._compat_connections()
-        if connection in connections:
-            connections.remove(connection)
-
-    def _compat_forget_handler_id(self, handler_id: int) -> None:
-        connections = self._compat_connections()
-        connections[:] = [c for c in connections if c.handler_id != handler_id]
-
-    @property
-    def __grefcount__(self) -> int:
-        return self.ref_count()
 
     def _compat_property_for_name(self, name: str) -> object:
         prop_name = name.replace("_", "-").removesuffix("-")
@@ -578,12 +475,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         if detail is not None:
             return signal.detail_signal(detail)
         return signal
-
-    def _compat_signal_for_name(self, name: str) -> _SignalInstance:
-        try:
-            return self.signal_for_name(name)
-        except AttributeError:
-            return _SignalInstance(self, name.replace("_", "-"), None, None)
 
     def __repr__(self) -> str:
         module = (

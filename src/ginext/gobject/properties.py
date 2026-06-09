@@ -250,10 +250,19 @@ class _PspecProperty:
     def __get__(self, obj: "GObject | None", objtype: object = None) -> object:
         if obj is None:
             return self
-        return obj.get_property(self.name)
+        prop_name = self.name.replace("_", "-")
+        try:
+            return type(obj).gimeta.get_property(obj, prop_name)
+        except AttributeError:
+            return obj.get_property_by_name(prop_name)
 
     def __set__(self, obj: "GObject", value: object) -> None:
-        obj.set_property(self.name, value)
+        prop_name = self.name.replace("_", "-")
+        try:
+            type(obj).gimeta.set_property(obj, prop_name, value)
+        except AttributeError:
+            obj.set_property_by_name(prop_name, value)
+        call_notify_override(obj, prop_name)
 
 
 def validate_pygobject_property_metadata(cls: type) -> None:
