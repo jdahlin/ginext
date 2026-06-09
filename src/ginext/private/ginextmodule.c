@@ -162,6 +162,7 @@ py_preload_shared_library (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
 /* Build the GObject.Object base type with the GObjectMeta metaclass and the
  * Python methods from `body`. Idempotent. */
 static int

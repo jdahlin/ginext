@@ -35,6 +35,10 @@ from typing import TYPE_CHECKING, Any, cast
 
 import ginext
 from ginext import features
+from ginext.gobject.gobjectclass import (
+    _compat_finalize_dispose,
+    _is_python_defined_gobject_subclass,
+)
 from ginext.gobject.properties import call_notify_override
 from ginext.overlay.registrar import OverlayRegistrar
 from ginext.signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
@@ -176,6 +180,37 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
 @overlay.property("Object")
 def __grefcount__(self: Any) -> int:
     return int(self.ref_count())
+
+
+@overlay.method("Object")
+def __repr__(self: Any) -> str:
+    # Overrides the native C tp_repr. This overlay only exists in compat mode, so
+    # we unconditionally use pygobject's form (the GObject address printed twice).
+    module = (
+        type(self).__module__.removeprefix("ginext.").removeprefix("gi.repository.")
+    )
+    type_name = type(self).gimeta.type_name
+    name = type(self).__name__
+    if not self.is_bound():
+        return f"<{module}.{name} object at 0x{id(self):x} ({type_name} unbound)>"
+    return (
+        f"<{module}.{name} object at 0x{id(self):x} ({type_name} at 0x{id(self):x})>"
+    )
+
+
+@overlay.method("Object")
+def __del__(self: Any) -> None:
+    # Overrides the native C tp_finalize. Only installed in compat mode, so it
+    # unconditionally runs the python do_dispose override for python-defined
+    # subclasses before the unref.
+    if not self.is_bound():
+        return
+    if not self.owns_ref():
+        return
+    self.preserve_wrapper_state()
+    if _is_python_defined_gobject_subclass(type(self)):
+        _compat_finalize_dispose(self)
+    self.release_ref()
 
 
 @overlay.method("Object")
