@@ -305,10 +305,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         super(GObject, cls).__init_subclass__(**kwargs)
         register_python_subclass(cls, type_name=type_name)
 
-    @classmethod
-    def _from_gobject_pointer(cls, ptr: int) -> "GObject":
-        return wrap_existing_pointer_for_class(cls, ptr)
-
     def scoped(
         self, callback: Callable[..., Any], *args: object, **kwargs: object
     ) -> ScopedCallable:
