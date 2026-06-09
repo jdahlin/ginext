@@ -63,8 +63,6 @@ from .gobject.gobjectclass import (
     GInterface,
     GObject,
     GObjectMeta,
-    _wrap_preallocated_construction,
-    wrap_existing_pointer_for_class,
 )
 from .gobject.resolve import own_gimeta
 from .method import attach_owner_metadata, callable_name, make_method
@@ -350,10 +348,10 @@ def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> G
         cached = _cached_python_defined_class_for_gtype(gtype)
     if cached is not None:
         if issubclass(cached, GObject):
-            return wrap_existing_pointer_for_class(cached, ptr)
+            return cached.new_bound_from_c(ptr)
         if issubclass(cached, GInterface):
             impl = _concrete_impl_for_interface(cached)
-            return wrap_existing_pointer_for_class(impl, ptr)
+            return impl.new_bound_from_c(ptr)
         return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
     data = private.GIMeta.info_by_gtype(gtype).object_info()
     namespace = sys.modules["ginext"]._load_namespace(
@@ -363,10 +361,10 @@ def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> G
     )
     cls = getattr(namespace, data["name"])
     if issubclass(cls, GObject):
-        return cast("GObject", wrap_existing_pointer_for_class(cls, ptr))
+        return cast("GObject", cls.new_bound_from_c(ptr))
     if issubclass(cls, GInterface):
         impl = _concrete_impl_for_interface(cls)
-        return wrap_existing_pointer_for_class(impl, ptr)
+        return impl.new_bound_from_c(ptr)
     return cast("GObject", cls._from_gobject_pointer(ptr))
 
 
@@ -381,11 +379,11 @@ def wrap_preallocated_object_from_c(
         if issubclass(cached, GObject):
             gimeta = own_gimeta(cached)
             if gimeta is not None and getattr(gimeta, "gi_info", None) is None:
-                return _wrap_preallocated_construction(cached, ptr)
-            return wrap_existing_pointer_for_class(cached, ptr, owns_ref=False)
+                return cached.new_preallocated_from_c(ptr)
+            return cached.new_bound_from_c(ptr, owns_ref=False)
         if issubclass(cached, GInterface):
             impl = _concrete_impl_for_interface(cached)
-            return wrap_existing_pointer_for_class(impl, ptr, owns_ref=False)
+            return impl.new_bound_from_c(ptr, owns_ref=False)
         return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
     data = private.GIMeta.info_by_gtype(gtype).object_info()
     namespace = sys.modules["ginext"]._load_namespace(
@@ -395,12 +393,10 @@ def wrap_preallocated_object_from_c(
     )
     cls = getattr(namespace, data["name"])
     if issubclass(cls, GObject):
-        return wrap_existing_pointer_for_class(
-            cast("type[GObject]", cls), ptr, owns_ref=False
-        )
+        return cast("GObject", cls.new_bound_from_c(ptr, owns_ref=False))
     if issubclass(cls, GInterface):
         impl = _concrete_impl_for_interface(cls)
-        return wrap_existing_pointer_for_class(impl, ptr, owns_ref=False)
+        return impl.new_bound_from_c(ptr, owns_ref=False)
     return cast("GObject", cls._from_gobject_pointer(ptr))
 
 
