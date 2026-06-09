@@ -272,10 +272,16 @@ def _normalize_constructor_properties(
     return {name.replace("_", "-"): value for name, value in properties.items()}
 
 
-def _finish_wrapper_construction(
-    obj: "GObject", ptr: int, handlers: dict[str, object], *, owns_ref: bool
-) -> None:
-    obj.bind_from_c(ptr, owns_ref=owns_ref)
+def _prepare_construction(
+    kwargs: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Split constructor kwargs into (normalized properties, on_* handlers)."""
+    properties, handlers = _split_gobject_constructor_kwargs(kwargs)
+    return _normalize_constructor_properties(properties), handlers
+
+
+def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
+    """Post-bind construction tail: run post-construct hooks, wire on_* handlers."""
     _run_post_construct_hooks(obj)
     for signal_attr_name, callback in handlers.items():
         if not callable(callback):
@@ -335,19 +341,18 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         register_python_subclass(cls, type_name=type_name)
 
     def __init__(self, **kwargs: object) -> None:
-        properties, handlers = _split_gobject_constructor_kwargs(kwargs)
-        normalized = _normalize_constructor_properties(properties)
+        normalized, handlers = _prepare_construction(kwargs)
         state = _consume_preallocated_construction(self)
         if state is None:
             ptr = type(self).construct_with_properties(normalized)
-            _finish_wrapper_construction(self, ptr, handlers, owns_ref=True)
+            self.bind_from_c(ptr, owns_ref=True)
+            _finish_construction(self, handlers)
             return
         ptr, pending_handlers = state
         if normalized:
             self.apply_construction_properties(normalized)
-        merged_handlers = dict(pending_handlers)
-        merged_handlers.update(handlers)
-        _finish_wrapper_construction(self, ptr, merged_handlers, owns_ref=False)
+        self.bind_from_c(ptr, owns_ref=False)
+        _finish_construction(self, {**pending_handlers, **handlers})
 
     @classmethod
     def _from_gobject_pointer(cls, ptr: int) -> "GObject":
