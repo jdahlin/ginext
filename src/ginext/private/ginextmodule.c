@@ -310,7 +310,10 @@ static PyMethodDef methods[] = {
   { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
   /* keep: bootstrap handshake — Python registers GObject.Object instance hooks
    * (__getattr__/__setattr__/_finish_construction) so C slots never import back */
-  { "register_gobject_callbacks", pygi_register_gobject_callbacks, METH_VARARGS, NULL },
+  { "register_gobject_callbacks",
+    (PyCFunction)(void (*) (void))pygi_register_gobject_callbacks,
+    METH_VARARGS | METH_KEYWORDS,
+    NULL },
   /* keep: test-infra — PyArg_ParseTuple oracle (release-build getargs_* equivalents) */
   { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
   { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
