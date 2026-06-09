@@ -27,6 +27,7 @@ py.extension_module(
     'ginext/private/GObject/Object-vfunc.c',
     'ginext/private/GObject/Object-vfunc-wrapper.c',
     'ginext/private/GObject/Object-construct.c',
+    'ginext/private/GObject/ObjectMeta.c',
     'ginext/private/GObject/Object-wrapper.c',
     'ginext/private/GObject/Object-unref.c',
     'ginext/private/GObject/Closure-record.c',

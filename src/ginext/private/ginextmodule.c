@@ -25,6 +25,7 @@
 #include "GObject/DeclaredProperty.h"
 #include "GObject/Object-info.h"
 #include "GObject/Object.h"
+#include "GObject/ObjectMeta.h"
 #include "GObject/GIMeta.h"
 #include "GObject/Object-vfunc-wrapper.h"
 #include "GIRepository/BaseInfo.h"
@@ -428,7 +429,13 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  /* GObject.Object is created later via init_gobject(GObjectMeta). */
+  /* GObject.Object is created later via init_gobject(GObjectMeta). The
+   * GObjectMeta metatype is created here so it exists for that call. */
+  if (pygi_create_gobjectmeta (m) == NULL)
+    {
+      Py_DECREF (m);
+      return NULL;
+    }
 
   PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);
   if (method_descriptor_type == NULL)
