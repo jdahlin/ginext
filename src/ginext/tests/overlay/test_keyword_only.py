@@ -25,7 +25,7 @@ introspected signature (tail params become KEYWORD_ONLY) and the call itself
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import inspect
 
@@ -74,7 +74,7 @@ def test_registrar_records_method_and_function_cutoffs(kw_only_state: Any) -> No
     from ginext.overlay import keyword_only_after_for
     from ginext.overlay.registrar import OverlayRegistrar
 
-    registrar = OverlayRegistrar(_FakeNamespace())
+    registrar = OverlayRegistrar(cast("Any", _FakeNamespace()))
     registrar.keyword_only("KeyFile", "set_string", after=1)
     registrar.keyword_only("spawn_async", after=2)
 
@@ -87,7 +87,9 @@ def test_registrar_rejects_negative_cutoff(kw_only_state: Any) -> None:
     from ginext.overlay.registrar import OverlayRegistrar
 
     with pytest.raises(ValueError, match="must be >= 0"):
-        OverlayRegistrar(_FakeNamespace()).keyword_only("spawn_async", after=-1)
+        OverlayRegistrar(cast("Any", _FakeNamespace())).keyword_only(
+            "spawn_async", after=-1
+        )
 
 
 # ── module-level function ───────────────────────────────────────────────
@@ -99,7 +101,7 @@ def test_module_function_signature_and_enforcement(kw_only_state: Any) -> None:
     state.keyword_only_args[("GLib", "")] = {"spawn_async": 1}
     _force_fresh(GLib, "spawn_async", kw_only_state)
 
-    spawn_async = GLib.spawn_async
+    spawn_async = cast("Any", GLib.spawn_async)
     kinds = {p.name: p.kind for p in inspect.signature(spawn_async).parameters.values()}
     assert kinds["working_directory"] is inspect.Parameter.POSITIONAL_OR_KEYWORD
     assert kinds["argv"] is inspect.Parameter.KEYWORD_ONLY
@@ -147,7 +149,8 @@ def test_after_zero_makes_everything_keyword_only(kw_only_state: Any) -> None:
     state.keyword_only_args[("GLib", "")] = {"spawn_async": 0}
     _force_fresh(GLib, "spawn_async", kw_only_state)
 
-    params = inspect.signature(GLib.spawn_async).parameters.values()
+    spawn_async = cast("Any", GLib.spawn_async)
+    params = inspect.signature(spawn_async).parameters.values()
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in params)
     with pytest.raises(TypeError, match="keyword-only"):
-        GLib.spawn_async(".")
+        spawn_async(".")
