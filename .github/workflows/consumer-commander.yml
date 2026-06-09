@@ -1,0 +1,97 @@
+name: Consumer Commander
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: consumer-commander-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  IMAGE: ghcr.io/jdahlin/ginext-ci
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: tag
+        run: echo "ref=${IMAGE}:$(sha256sum ci/Dockerfile | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push image only if this Dockerfile hash isn't already published
+        run: |
+          if docker manifest inspect "${{ steps.tag.outputs.ref }}" >/dev/null 2>&1; then
+            echo "Image ${{ steps.tag.outputs.ref }} already exists — reusing, no rebuild."
+          else
+            echo "ci/Dockerfile changed — building ${{ steps.tag.outputs.ref }}"
+            docker build -t "${{ steps.tag.outputs.ref }}" -f ci/Dockerfile ci
+            docker push "${{ steps.tag.outputs.ref }}"
+          fi
+
+  consumer-commander:
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: .cache/uv
+          key: uv-consumer-commander-${{ hashFiles('uv.lock', 'examples/commander/pyproject.toml') }}
+          restore-keys: |
+            uv-consumer-commander-
+            uv-
+      - name: Build consumer artifacts
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          rm -rf dist-consumer && mkdir -p dist-consumer
+          build() { uvx --python 3.14t --with virtualenv --from build pyproject-build "$@"; }
+          build --wheel --outdir dist-consumer packages/ginext-gio
+          build --wheel --outdir dist-consumer packages/ginext-gtk
+          build --wheel --outdir dist-consumer packages/ginext-stubs
+          build --wheel --outdir dist-consumer examples/commander
+          build --wheel --outdir dist-consumer .
+      - name: Install commander from built artifacts into a fresh venv
+        run: |
+          set -eux
+          uv venv --python 3.14t /tmp/consumer-commander
+          uv pip install \
+            --python /tmp/consumer-commander/bin/python \
+            --find-links dist-consumer \
+            dist-consumer/commander-*.whl \
+            dist-consumer/ginext_stubs-*.whl
+      - name: Strict mypy against the installed package set
+        run: |
+          set -eux
+          cd examples/commander
+          uvx --python 3.14t --from mypy mypy \
+            --python-executable /tmp/consumer-commander/bin/python \
+            --config-file pyproject.toml \
+            src/commander
+      - name: Import smoke test from installed packages
+        run: |
+          set -eux
+          /tmp/consumer-commander/bin/python -c \
+            "from commander.app import CommanderApp; print(CommanderApp.__name__)"

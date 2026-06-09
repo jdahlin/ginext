@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import itertools
 import sys
+import types
 from typing import Any, Callable
 
 import pytest
@@ -315,17 +316,25 @@ def test_ambiguous_gst_vfunc_short_name_is_rejected() -> None:
 
     GstBase = ginext.GstBase
 
-    with pytest.raises(TypeError, match="do_query"):
+    def do_query(
+        self: object,
+        direction: ginext.Gst.PadDirection,
+        query: ginext.Gst.Query,
+    ) -> bool:
+        del self, direction, query
+        return False
 
-        class AmbiguousTransform(  # type: ignore[call-arg]
-            GstBase.BaseTransform,
-            type_name=_unique_name("AmbiguousTransform"),
-        ):
-            def do_query(  # type: ignore[override]
-                self, direction: ginext.Gst.PadDirection, query: ginext.Gst.Query
-            ) -> bool:
-                del direction, query
-                return False
+    def exec_body(ns: dict[str, object]) -> None:
+        ns["__module__"] = __name__
+        ns["do_query"] = do_query
+
+    with pytest.raises(TypeError, match="do_query"):
+        types.new_class(
+            "AmbiguousTransform",
+            (GstBase.BaseTransform,),
+            {"type_name": _unique_name("AmbiguousTransform")},
+            exec_body,
+        )
 
 
 def test_explicit_gst_base_qualified_vfunc_name_is_accepted() -> None:
