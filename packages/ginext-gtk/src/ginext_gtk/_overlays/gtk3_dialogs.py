@@ -123,13 +123,13 @@ if Gtk.__version__[0] == 3:
 
     @overlay.method("MessageDialog")
     def format_secondary_text(self: Gtk.MessageDialog, message_format: str) -> None:
-        self.set_property_by_name("secondary-use-markup", False)
-        self.set_property_by_name("secondary-text", message_format)
+        self.set_property("secondary-use-markup", False)
+        self.set_property("secondary-text", message_format)
 
     @overlay.method("MessageDialog")
     def format_secondary_markup(self: Gtk.MessageDialog, message_format: str) -> None:
-        self.set_property_by_name("secondary-use-markup", True)
-        self.set_property_by_name("secondary-text", message_format)
+        self.set_property("secondary-use-markup", True)
+        self.set_property("secondary-text", message_format)
 
     @overlay.method("Button", name="__init__")
     def _button_init(self: Gtk.Button, *args: object, **kwargs: object) -> None:
