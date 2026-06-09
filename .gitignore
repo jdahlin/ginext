@@ -23,6 +23,7 @@ wheelhouse/
 stubs/
 # Generated stub files — run `make stubs` or `uv run python -m ginext_stubgen install`
 packages/ginext-stubs/ginext/*.pyi
+packages/ginext-stubs/ginext-stubs/*.pyi
 src/ginext/*.pyi
 !src/ginext/__init__.pyi
 !src/ginext/GObject.pyi
