@@ -129,6 +129,7 @@ namespace_find = _gobject.namespace_find
 namespace_is_registered = _gobject.namespace_is_registered
 namespace_get_dependencies = _gobject.namespace_get_dependencies
 namespace_get_immediate_dependencies = _gobject.namespace_get_immediate_dependencies
+namespace_find_by_gtype = _gobject.namespace_find_by_gtype
 synthetic_callable = _gobject.synthetic_callable
 callable_async_info = _gobject.callable_async_info
 instantiatable_unref = _gobject.instantiatable_unref

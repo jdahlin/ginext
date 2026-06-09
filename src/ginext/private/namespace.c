@@ -700,6 +700,38 @@ py_object_info_by_gtype (PyObject *module G_GNUC_UNUSED, PyObject *args)
   return pygi_object_info_by_gtype ((GType)gtype_arg);
 }
 
+/* namespace_find_by_gtype(gtype_int) -> (namespace, name) | None
+ *
+ * Look up any registered GI type (object, interface, enum, flags, struct,
+ * union) by its GType integer.  Returns a (namespace, name) tuple on success,
+ * or None if the GType is not registered in the introspection data.
+ */
+PyObject *
+py_namespace_find_by_gtype (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  unsigned long long gtype_arg = 0;
+  if (!PyArg_ParseTuple (args, "K", &gtype_arg))
+    return NULL;
+  GType gtype = (GType)gtype_arg;
+
+  GIRepository *repo = ginext_shared_repository ();
+  if (repo == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
+      return NULL;
+    }
+
+  GIBaseInfo *info = gi_repository_find_by_gtype (repo, gtype);
+  if (info == NULL)
+    Py_RETURN_NONE;
+
+  const char *ns = gi_base_info_get_namespace (info);
+  const char *name = gi_base_info_get_name (info);
+  PyObject *result = Py_BuildValue ("(ss)", ns, name);
+  gi_base_info_unref (info);
+  return result;
+}
+
 /* ObjectInfo.object_info() / InterfaceInfo.object_info() — build the metadata
  * dict the class builder consumes. Registered as a METH_NOARGS method on both
  * types (self is the GIObjectInfo or GIInterfaceInfo). */

@@ -166,6 +166,64 @@ def set_property(self: Any, name: str, value: object) -> None:
 
 
 @overlay.method("Object")
+def set_properties(self: Any, **kwargs: object) -> None:
+    for name, value in kwargs.items():
+        self.set_property(name, value)
+
+
+@overlay.method("Object")
+def get_properties(self: Any, *names: str) -> tuple[object, ...]:
+    return tuple(self.get_property(name) for name in names)
+
+
+class _ParamSpecWrapper:
+    """Wraps a ginext ParamSpec, adding flags_class / enum_class for compat."""
+
+    __slots__ = ("_pspec",)
+
+    def __init__(self, pspec: object) -> None:
+        object.__setattr__(self, "_pspec", pspec)
+
+    def __getattr__(self, name: str) -> object:
+        if name == "flags_class":
+            vtype = getattr(self._pspec, "value_type", None)
+            if vtype is not None:
+                return self._gtype_to_class(vtype)
+            raise AttributeError("flags_class")
+        if name == "enum_class":
+            vtype = getattr(self._pspec, "value_type", None)
+            if vtype is not None:
+                return self._gtype_to_class(vtype)
+            raise AttributeError("enum_class")
+        return getattr(self._pspec, name)
+
+    def _gtype_to_class(self, gtype: object) -> object:
+        from ginext import private
+        import ginext
+        import sys
+
+        result = private.namespace_find_by_gtype(int(gtype))
+        if result is None:
+            raise AttributeError(f"cannot find class for gtype {gtype!r}")
+        namespace_name, class_name = result
+        # Find the already-loaded namespace module (any profile).
+        from gi import repository as _gi_repo
+        ns_mod = getattr(_gi_repo, namespace_name, None)
+        if ns_mod is None:
+            raise AttributeError(f"namespace {namespace_name!r} not loaded")
+        return getattr(ns_mod, class_name)
+
+
+@overlay.method("Object", as_classmethod=True)
+def find_property(cls: Any, name: str) -> object:
+    prop_name = name.replace("_", "-")
+    pspec = cls.gimeta.param_spec(prop_name)
+    if pspec is None:
+        raise AttributeError(f"no property '{name}'")
+    return _ParamSpecWrapper(pspec)
+
+
+@overlay.method("Object")
 def disconnect(self: Any, connection: SignalConnection | int) -> None:
     if isinstance(connection, SignalConnection):
         connection.disconnect()

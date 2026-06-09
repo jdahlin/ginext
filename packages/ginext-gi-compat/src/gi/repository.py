@@ -96,6 +96,11 @@ def _gi_enum_base_hook(base: type) -> type:
 
 _register_enum_base_hook(_gi_enum_base_hook)
 
+# Register the pygobject-compat GObject.Object overlays early so they are
+# installed when GObject.Object is built (regardless of whether gi.repository.GObject
+# is explicitly accessed before other namespaces).
+from . import _gobject_compat_methods  # noqa: F401
+
 
 def _clear_value_cache(obj: object, name: str) -> None:
     if hasattr(obj, name):
@@ -415,6 +420,9 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
     """
     from ginext.overlay.install import install_class_overlay
 
+    # _gobject_compat_methods is already imported eagerly at module level;
+    # this import is kept for the side-effect of registering overlays in case
+    # the module was somehow not yet imported (defensive).
     from . import _gobject_compat_methods  # noqa: F401  (registers overlays)
 
     install_class_overlay(gobject_cls, "GObject", "Object")
