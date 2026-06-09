@@ -110,8 +110,9 @@ def test_query_info_keyword_shape_errors() -> None:
     from ginext import Gio
 
     file = Gio.File.new_for_path("/tmp")
+    query_info = getattr(file, "query_info")
     with pytest.raises(TypeError) as exc_info:
-        file.query_info(  # type: ignore[misc]  # testing runtime rejection: multiple values for 'attributes'
+        query_info(
             "standard::name",
             attributes="standard::type",
             flags=Gio.FileQueryInfoFlags.NONE,

@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from ginext.namespace import Namespace
@@ -31,6 +33,23 @@ def gm() -> Namespace:
 @pytest.fixture(scope="module")
 def regress() -> Namespace:
     return load_test_namespace("Regress")
+
+
+if TYPE_CHECKING:
+
+    def _match_test_simple_boxed_a_positionally(
+        boxed: object, cls: object
+    ) -> tuple[int, float] | None: ...
+else:
+
+    def _match_test_simple_boxed_a_positionally(
+        boxed: object, cls: object
+    ) -> tuple[int, float] | None:
+        match boxed:
+            case cls(some_int, _int8, some_double):
+                return some_int, some_double
+            case _:
+                return None
 
 
 def test_simple_struct_default_constructor_and_fields(gm: Namespace) -> None:
@@ -155,12 +174,11 @@ def test_struct_positional_pattern_match(regress: Namespace) -> None:
     boxed.some_int = 7
     boxed.some_double = 2.5
 
-    match boxed:
-        case regress.TestSimpleBoxedA(some_int, _int8, some_double):
-            assert some_int == 7
-            assert some_double == pytest.approx(2.5)
-        case _:  # pragma: no cover - guards against a matching regression
-            raise AssertionError("TestSimpleBoxedA did not match positionally")
+    matched = _match_test_simple_boxed_a_positionally(boxed, regress.TestSimpleBoxedA)
+    assert matched is not None
+    some_int, some_double = matched
+    assert some_int == 7
+    assert some_double == pytest.approx(2.5)
 
 
 def test_struct_keyword_pattern_match(regress: Namespace) -> None:

@@ -118,7 +118,7 @@ def test_native_property_cache_ignores_replaced_class_attribute(
     assert f.get_property("value") == 2
     assert f.value == "class-value"  # type: ignore[comparison-overlap]
 
-    f.value = 7
+    setattr(f, "value", 7)
     assert f.value == 7
     assert f.__dict__["value"] == 7
     assert f.get_property("value") == 2
@@ -162,7 +162,7 @@ def test_native_property_cache_uses_replacement_data_descriptor(
     cast("Any", Foo).value = property(get_value, set_value)
 
     assert f.value == "descriptor-value"  # type: ignore[comparison-overlap]
-    f.value = 9
+    setattr(f, "value", 9)
     assert seen == [9]
     assert f.get_property("value") == 1
 

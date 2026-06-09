@@ -161,8 +161,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: |
-            packages/ginext-stubs/ginext-stubs
-            packages/ginext-stubs/.stub-generated.stamp
+            build/stubs
           key: stubs-${{ github.ref_name }}
           restore-keys: stubs-
       - run: make typecheck

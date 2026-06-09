@@ -4,7 +4,7 @@ Subcommands
 -----------
 generate NAMESPACE:VERSION ...
     Regenerate .pyi stubs for the given (Namespace, version) pairs and write
-    them into the output directory (default: packages/ginext-stubs/ginext
+    them into the output directory (default: build/stubs/ginext
     for native mode).
 
 generate-all
@@ -41,7 +41,7 @@ def parse_spec(spec: str) -> tuple[str, str]:
 
 # Default output directory per mode, relative to the repo root.
 _DEFAULT_OUT = {
-    "native": Path("packages/ginext-stubs/ginext"),
+    "native": Path("build/stubs/ginext"),
     "gi": Path("stubs/gi/repository"),
 }
 
@@ -121,6 +121,12 @@ def _write_init_pyi(namespaces: list[str], out_dir: Path) -> None:
     print(f"wrote {out_path} ({len(lines)} lines)")
 
 
+def _write_py_typed(out_dir: Path) -> None:
+    out_path = out_dir / "py.typed"
+    out_path.write_text("", encoding="utf-8")
+    print(f"wrote {out_path} (0 lines)")
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
     out_dir: Path = args.out if args.out is not None else _DEFAULT_OUT[args.mode]
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -160,12 +166,18 @@ def cmd_generate(args: argparse.Namespace) -> int:
 def cmd_generate_all(args: argparse.Namespace) -> int:
     out_dir: Path = args.out if args.out is not None else _DEFAULT_OUT["native"]
     out_dir.mkdir(parents=True, exist_ok=True)
+    for path in out_dir.glob("*.pyi"):
+        path.unlink()
+    py_typed = out_dir / "py.typed"
+    if py_typed.exists():
+        py_typed.unlink()
     written: list[str] = []
     for name, version in _DEFAULT_NAMESPACES:
         ns = _generate_one(name, version, out_dir, "native")
         if ns:
             written.append(ns)
     _write_init_pyi(written, out_dir)
+    _write_py_typed(out_dir)
     return 0
 
 

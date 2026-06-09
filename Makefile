@@ -251,11 +251,11 @@ tox-release:
 # reinstall-into-venv is gated separately on the venv stamp — a fresh venv must
 # always have ginext-stubs (re)installed for mypy's PEP 561 stub discovery.
 STUB_PKG_ROOT      := packages/ginext-stubs
-STUB_GEN_STAMP     := $(STUB_PKG_ROOT)/.stub-generated.stamp
+STUB_GEN_ROOT      := build/stubs
+STUB_GEN_STAMP     := $(STUB_GEN_ROOT)/.generated.stamp
 STUB_INSTALL_STAMP := $(VENV)/.ginext-stubs-installed
 STUBGEN_SRC        := $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.py) \
-                      $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.toml) \
-                      scripts/sync_namespace_stubs.py
+                      $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.toml)
 STUB_OVERLAYS      := $(wildcard src/ginext/_overlays/*.py) \
                       $(wildcard src/ginext/_overlays/*.toml)
 STUB_TEST_GIRS     := $(wildcard $(GI_TESTS_BDIR)/*.gir)
@@ -269,7 +269,6 @@ typelibs: setup
 
 $(STUB_GEN_STAMP): $(STUBGEN_SRC) $(STUB_OVERLAYS) | typelibs
 	$(UV_RUN) ginext-stubgen generate-all
-	$(PY) scripts/sync_namespace_stubs.py
 	@touch $@
 
 $(STUB_INSTALL_STAMP): $(STUB_GEN_STAMP) $(VENV)/.pygir-sync-stamp
