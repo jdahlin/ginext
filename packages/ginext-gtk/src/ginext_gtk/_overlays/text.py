@@ -84,7 +84,7 @@ def create_tag(
 ) -> Gtk.TextTag:
     tag = Gtk.TextTag(name=tag_name) if tag_name is not None else Gtk.TextTag()
     for name, value in properties.items():
-        tag.set_property(name.replace("_", "-"), value)
+        tag.set_property_by_name(name.replace("_", "-"), value)
     self.get_tag_table().add(tag)
     return tag
 

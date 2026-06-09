@@ -30,18 +30,13 @@ from .. import features
 from ..gobject import gobjectclass as _gobject_root
 from .. import private
 from ..gobject.gtype import GTypeMeta
-from ..gobject.properties import call_notify_override
-from ..signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
 from ..signal.bound import Signal as _BoundSignal
-from ..signal.connection import SignalConnection
-from ..signal.scoped import static_owner
 from ginext import GLib, GObject
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from ..overlay import OverlayRegistrar
     from ..signal.bound import _PropertyDetail
+    from ..signal.connection import SignalConnection
 
 
 overlay: OverlayRegistrar = GObject.overlay
@@ -508,133 +503,3 @@ def list_properties(type_or_instance: object) -> list[Any]:
 
     _list_props_cache[gtype] = result
     return result
-
-
-# pygobject-compat signal/property API. These live in the overlay layer rather
-# than the GObject.Object base; the base keeps only signal_for_name and the
-# pspec machinery they build on.
-@overlay.method("Object")
-def connect(
-    self: Any,
-    signal_name: str,
-    callback: Callable[..., Any],
-    *user_data: object,
-    **kwargs: object,
-) -> SignalConnection:
-    if not features.is_enabled(features.OLD_SIGNAL_API):
-        raise TypeError("GObject.connect() is disabled by old_signal_api")
-    if user_data:
-        original_callback = callback
-        signal_arg_limit = _accepted_signal_arg_count(original_callback, len(user_data))
-
-        def callback(*signal_args: object) -> object:
-            return original_callback(*signal_args, *user_data)
-
-        setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
-        kwargs.setdefault("owner", static_owner)
-    signal = self.signal_for_name(signal_name)
-    kwargs.setdefault("_weak_callback_record", True)
-    connection = signal.connect(callback, **cast("Any", kwargs))
-    self._compat_remember_connection(connection)
-    return cast("SignalConnection", connection)
-
-
-@overlay.method("Object")
-def connect_after(
-    self: Any,
-    signal_name: str,
-    callback: Callable[..., Any],
-    *user_data: object,
-    **kwargs: object,
-) -> SignalConnection:
-    kwargs["after"] = True
-    return cast("SignalConnection", self.connect(signal_name, callback, *user_data, **kwargs))
-
-
-@overlay.method("Object")
-def emit(self: Any, signal_name: str, *args: object) -> object:
-    if not features.is_enabled(features.OLD_SIGNAL_API):
-        raise TypeError("GObject.emit() is disabled by old_signal_api")
-    signal = self._compat_signal_for_name(signal_name)
-    return signal.emit(*args)
-
-
-@overlay.method("Object")
-def get_property(self: Any, name: str) -> object:
-    prop_name = name.replace("_", "-")
-    try:
-        return type(self).gimeta.get_property(self, prop_name)
-    except AttributeError:
-        return self.get_property_by_name(prop_name)
-
-
-@overlay.method("Object")
-def set_property(self: Any, name: str, value: object) -> None:
-    prop_name = name.replace("_", "-")
-    try:
-        type(self).gimeta.set_property(self, prop_name, value)
-    except AttributeError:
-        self.set_property_by_name(prop_name, value)
-    call_notify_override(self, prop_name)
-
-
-@overlay.method("Object")
-def disconnect(self: Any, connection: SignalConnection | int) -> None:
-    if isinstance(connection, SignalConnection):
-        connection.disconnect()
-        self._compat_forget_connection(connection)
-        return
-    if not features.is_enabled(features.OLD_SIGNAL_API):
-        raise TypeError("GObject.disconnect(handler_id) is disabled by old_signal_api")
-    self.disconnect_handler_id(int(connection))
-    self._compat_forget_handler_id(int(connection))
-
-
-@overlay.method("Object")
-def handler_is_connected(self: Any, handler_id: object) -> bool:
-    raw = (
-        handler_id.handler_id
-        if isinstance(handler_id, SignalConnection)
-        else handler_id
-    )
-    return bool(self.handler_id_is_connected(int(cast("Any", raw))))
-
-
-@overlay.method("Object")
-def _compat_connections(self: Any) -> list[SignalConnection]:
-    connections = vars(self).get("_compat_signal_connections")
-    if connections is None:
-        connections = []
-        self._compat_signal_connections = connections
-    return cast("list[SignalConnection]", connections)
-
-
-@overlay.method("Object")
-def _compat_remember_connection(self: Any, connection: SignalConnection) -> None:
-    self._compat_connections().append(connection)
-
-
-@overlay.method("Object")
-def _compat_forget_connection(self: Any, connection: SignalConnection) -> None:
-    connections = self._compat_connections()
-    if connection in connections:
-        connections.remove(connection)
-
-
-@overlay.method("Object")
-def _compat_forget_handler_id(self: Any, handler_id: int) -> None:
-    connections = self._compat_connections()
-    connections[:] = [c for c in connections if c.handler_id != handler_id]
-
-
-@overlay.method("Object")
-def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
-    try:
-        return cast("_BoundSignal", self.signal_for_name(name))
-    except AttributeError:
-        return _BoundSignal(self, name.replace("_", "-"), None, None)
-
-
-@overlay.property("Object")
-def __grefcount__(self: Any) -> int:
-    return int(self.ref_count())
