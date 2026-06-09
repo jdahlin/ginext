@@ -4,7 +4,7 @@ Subcommands
 -----------
 generate NAMESPACE:VERSION ...
     Regenerate .pyi stubs for the given (Namespace, version) pairs and write
-    them into the output directory (default: packages/ginext-stubs/.generated/ginext
+    them into the output directory (default: build/stubs/ginext
     for native mode).
 
 generate-all
@@ -41,7 +41,7 @@ def parse_spec(spec: str) -> tuple[str, str]:
 
 # Default output directory per mode, relative to the repo root.
 _DEFAULT_OUT = {
-    "native": Path("packages/ginext-stubs/.generated/ginext"),
+    "native": Path("build/stubs/ginext"),
     "gi": Path("stubs/gi/repository"),
 }
 

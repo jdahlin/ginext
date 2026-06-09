@@ -15,6 +15,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/jdahlin/ginext-ci
+  UV_INDEX_URL: https://pypi.org/simple
 
 jobs:
   image:
@@ -79,6 +80,7 @@ jobs:
           uv venv --python 3.14t /tmp/consumer-commander
           uv pip install \
             --python /tmp/consumer-commander/bin/python \
+            --index-url "$UV_INDEX_URL" \
             --find-links dist-consumer \
             dist-consumer/commander-*.whl \
             dist-consumer/ginext_stubs-*.whl
