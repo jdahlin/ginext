@@ -29,8 +29,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ginext.gobject.properties import call_notify_override
-
 if TYPE_CHECKING:
     from ginext.gobject.gobjectclass import GObject
 
@@ -43,19 +41,10 @@ class PropsProxy:
         super().__setattr__("_obj", obj)
 
     def __getattr__(self, name: str) -> object:
-        prop_name = name.replace("_", "-")
-        try:
-            return type(self._obj).gimeta.get_property(self._obj, prop_name)
-        except AttributeError:
-            return self._obj.get_property_by_name(prop_name)
+        return self._obj.get_property(name)
 
     def __setattr__(self, name: str, value: object) -> None:
-        prop_name = name.replace("_", "-")
-        try:
-            type(self._obj).gimeta.set_property(self._obj, prop_name, value)
-        except AttributeError:
-            self._obj.set_property_by_name(prop_name, value)
-        call_notify_override(self._obj, prop_name)
+        self._obj.set_property(name, value)
 
     def __dir__(self) -> list[str]:
         pspecs = type(self._obj).gimeta.pspecs
