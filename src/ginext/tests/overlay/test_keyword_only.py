@@ -126,6 +126,21 @@ def test_object_method_signature_and_enforcement(kw_only_state: Any) -> None:
     assert kinds["cancellable"] is inspect.Parameter.KEYWORD_ONLY
 
 
+def test_keyword_only_call_dispatches_into_c(kw_only_state: Any) -> None:
+    """A successful by-keyword call still reaches the underlying C function."""
+    from ginext import GLib
+
+    state.keyword_only_args[("GLib", "KeyFile")] = {"set_string": 1}
+    _force_fresh(GLib.KeyFile, "set_string", kw_only_state)
+
+    key_file = GLib.KeyFile()
+    key_file.set_string("group", key="name", string="value")
+    assert key_file.get_string("group", "name") == "value"
+
+    with pytest.raises(TypeError, match="keyword-only"):
+        key_file.set_string("group", "name", "value")
+
+
 def test_after_zero_makes_everything_keyword_only(kw_only_state: Any) -> None:
     from ginext import GLib
 
