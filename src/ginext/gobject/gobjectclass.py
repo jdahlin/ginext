@@ -60,7 +60,6 @@ from ..signal.adapt import (
 )
 from ..signal.bound import Signal as _SignalInstance
 from ..signal.descriptor import SignalDescriptor as Signal
-from ..signal.scoped import ScopedCallable
 from .metaclass import GObjectMeta as GObjectMeta
 from .resolve import classbuild_module, gobject_repo as gobject_repo
 from .subclass import register_python_subclass
@@ -186,21 +185,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     ) -> None:
         super(GObject, cls).__init_subclass__(**kwargs)
         register_python_subclass(cls, type_name=type_name)
-
-    def scoped(
-        self, callback: Callable[..., Any], *args: object, **kwargs: object
-    ) -> ScopedCallable:
-        """Wrap a callback so its owner is this instance.
-
-        Use with lambdas / free functions / nested functions / partials
-        where `owner=self` would otherwise be needed. The wrapper's
-        `__self__` is this instance, so `Signal.connect`'s inference
-        path picks it up automatically. Extra args/kwargs are appended
-        after the runtime signal args:
-
-            button.clicked.connect(self.scoped(self.run_action, "save"))
-        """
-        return ScopedCallable(self, callback, *args, **kwargs)
 
     def __setattr__(self, name: str, value: object) -> None:
         # Writes to an introspected/inherited GObject property must route through
