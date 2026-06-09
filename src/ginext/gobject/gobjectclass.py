@@ -269,10 +269,12 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     _gobject_root_adopted: ClassVar[bool]
 
     if TYPE_CHECKING:
-        # Runtime implementations are the _obj_* functions below, installed on
-        # GObject.Object as overlays at creation (bottom of this module). These
-        # stubs keep the type-checking view complete — __getattr__ in particular
-        # is what lets mypy allow dynamic property/signal attribute access.
+        # Runtime implementations are the _obj_* functions below (installed on
+        # GObject.Object as overlays at creation) or the C tp_init; these stubs
+        # keep the type-checking view complete — __getattr__ in particular is what
+        # lets mypy allow dynamic property/signal attribute access, and __init__
+        # types `GObject.Object(**properties)` / explicit base-init calls.
+        def __init__(self, **properties: object) -> None: ...
         def __init_subclass__(
             cls, /, type_name: str | None = None, **kwargs: object
         ) -> None: ...
