@@ -39,6 +39,10 @@ class_bases_overlays: dict[tuple[str, str], ClassBasesOverlay] = {}
 constructor_overlays: dict[tuple[str, str], ConstructorOverlay] = {}
 # (namespace, class) -> {method_name: {param_name: default_value}}
 method_arg_defaults: dict[tuple[str, str], dict[str, dict[str, object]]] = {}
+# (namespace, owner) -> {method_name: cutoff}.  `owner` is the class name, or
+# "" for module-level functions. Visible arguments at index >= cutoff become
+# keyword-only: they may only be passed by name, never positionally.
+keyword_only_args: dict[tuple[str, str], dict[str, int]] = {}
 # (namespace, class, async_method) -> OUT-param names for the finish result,
 # wrapped into a ginext.aio.NamedReturn so awaited callers can read OUT values
 # by name (e.g. `result.out_fd_list`).

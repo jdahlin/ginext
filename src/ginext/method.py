@@ -46,6 +46,14 @@ class _PackedUserData(tuple[object, ...]):
     __slots__ = ()
 
 
+def _keyword_only_message(name: str, after: int, given: int) -> str:
+    plural = "" if after == 1 else "s"
+    return (
+        f"{name}() takes {after} positional argument{plural} but {given} were "
+        f"given (arguments past the first {after} are keyword-only)"
+    )
+
+
 def callable_name(info: CallableInfo) -> str:
     name: str = info.get_name().replace("-", "_")
     if keyword.iskeyword(name):
@@ -56,6 +64,9 @@ def callable_name(info: CallableInfo) -> str:
 class Function:
     def __init__(self, context: "NamespaceContext", info: FunctionInfo):
         name = callable_name(info)
+        kw_only_after = sys.modules["ginext.overlay"].keyword_only_after_for(
+            context.name, "", name
+        )
         self.gimeta = types.SimpleNamespace(
             namespace=context,
             info=info,
@@ -64,6 +75,7 @@ class Function:
             descriptor=None,
             has_self=False,
             signature=None,
+            keyword_only_after=kw_only_after,
         )
         self.info = info
         self.__name__ = name
@@ -85,6 +97,9 @@ class Function:
                 self.gimeta.namespace.load_namespace(),
             )
             self.gimeta.descriptor = descriptor
+        after = self.gimeta.keyword_only_after
+        if after is not None and len(args) > after:
+            raise TypeError(_keyword_only_message(self.__name__, after, len(args)))
         return descriptor(*args, **kwargs)
 
     def __eq__(self, other: object) -> bool:
@@ -106,6 +121,9 @@ class FunctionBuilder:
 
     def build_function(self, info: "FunctionInfo") -> object:
         name = callable_name(info)
+        kw_only_after = sys.modules["ginext.overlay"].keyword_only_after_for(
+            self._context.name, "", name
+        )
         gimeta = types.SimpleNamespace(
             namespace=self._context,
             info=info,
@@ -114,6 +132,7 @@ class FunctionBuilder:
             descriptor=None,
             has_self=False,
             signature=None,
+            keyword_only_after=kw_only_after,
         )
         descriptor = private.build_callable_descriptor(
             info,
@@ -123,6 +142,16 @@ class FunctionBuilder:
         )
         gimeta.descriptor = descriptor
         self.functions[gimeta.name] = gimeta
+        if kw_only_after is not None:
+
+            def function(*args: object, **kwargs: object) -> object:
+                if len(args) > kw_only_after:
+                    raise TypeError(
+                        _keyword_only_message(name, kw_only_after, len(args))
+                    )
+                return descriptor(*args, **kwargs)
+
+            return _GICallable(function, gimeta)
         return _attach_callable_metadata(
             descriptor,
             gimeta=gimeta,
@@ -288,9 +317,9 @@ def make_method(
     )
 
     ns_name, _, class_name = owner_name.rpartition(".")
-    arg_defaults = sys.modules["ginext.overlay"].method_arg_defaults_for(
-        ns_name, class_name, name
-    )
+    overlay = sys.modules["ginext.overlay"]
+    arg_defaults = overlay.method_arg_defaults_for(ns_name, class_name, name)
+    kw_only_after = overlay.keyword_only_after_for(ns_name, class_name, name)
     arg_index = (
         {pname: i for i, pname in enumerate(info.arg_names)} if arg_defaults else {}
     )
@@ -307,14 +336,22 @@ def make_method(
                 continue
             kwargs[pname] = default
 
+    def _check_keyword_only(user_args: tuple[object, ...]) -> None:
+        if kw_only_after is not None and len(user_args) > kw_only_after:
+            raise TypeError(
+                _keyword_only_message(name, kw_only_after, len(user_args))
+            )
+
     def method(self: object, *args: object, **kwargs: object) -> object:
         if arg_defaults:
             _apply_defaults(args, kwargs)
+        _check_keyword_only(args)
         return descriptor(self, *args, **kwargs)
 
     def static_method(*args: object, **kwargs: object) -> object:
         if arg_defaults:
             _apply_defaults(args, kwargs)
+        _check_keyword_only(args)
         return descriptor(*args, **kwargs)
 
     impl = method if has_self else static_method
@@ -326,8 +363,9 @@ def make_method(
         has_self=has_self,
         descriptor=descriptor,
         signature=None,
+        keyword_only_after=kw_only_after,
     )
-    if arg_defaults:
+    if arg_defaults or kw_only_after is not None:
         return _GICallable(impl, gimeta)
     return cast(
         "Callable[..., object]",

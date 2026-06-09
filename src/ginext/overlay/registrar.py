@@ -283,6 +283,37 @@ class OverlayRegistrar:
         )
         per_class.setdefault(method_name, {}).update(param_defaults)
 
+    def keyword_only(
+        self,
+        owner: str,
+        method_name: str | None = None,
+        *,
+        after: int,
+    ) -> None:
+        """Mark a callable's trailing arguments as keyword-only.
+
+        The first ``after`` visible arguments stay positional-or-keyword; every
+        argument after them may only be passed by name. This is meant for large
+        APIs such as ``spawn_async()`` where a long tail of options reads far
+        better named than as a run of bare positional values.
+
+        For a method, pass the class and method name; for a module-level
+        function, pass just the function name::
+
+            overlay.keyword_only("SubprocessLauncher", "spawn", after=2)
+            overlay.keyword_only("spawn_async", after=2)
+
+        It shapes both the introspected ``inspect.Signature`` (the tail
+        parameters become ``KEYWORD_ONLY``) and the call itself (passing a
+        keyword-only argument positionally raises ``TypeError``).
+        """
+        if method_name is None:
+            owner, method_name = "", owner
+        if after < 0:
+            raise ValueError("keyword_only() 'after' must be >= 0")
+        per_owner = state.keyword_only_args.setdefault((self._ns_name, owner), {})
+        per_owner[method_name] = after
+
     def async_result(self, class_name: str, method_name: str, *out_names: str) -> None:
         """Shape an async method's awaited result as a ``NamedReturn``.
 

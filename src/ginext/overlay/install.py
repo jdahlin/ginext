@@ -112,6 +112,15 @@ def method_arg_defaults_for(
     return state.method_arg_defaults.get((ns, class_name), {}).get(method_name, {})
 
 
+def keyword_only_after_for(ns: str, owner: str, method_name: str) -> int | None:
+    """Cutoff index past which a callable's visible args are keyword-only.
+
+    ``owner`` is the class name, or "" for a module-level function. Returns
+    None when the callable has no keyword-only overlay.
+    """
+    return state.keyword_only_args.get((ns, owner), {}).get(method_name)
+
+
 def class_bases_overlay_for(
     ns: str, class_name: str, profile: object = None
 ) -> tuple[type, ...]:

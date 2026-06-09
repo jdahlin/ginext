@@ -179,13 +179,23 @@ def _maybe_optional(annotation: Any, nullable: bool) -> tuple[Any, Any]:
     return annotation | None, None
 
 
-def build_signature(info: Any, *, has_self: bool, context: Any) -> inspect.Signature:
+def build_signature(
+    info: Any,
+    *,
+    has_self: bool,
+    context: Any,
+    keyword_only_after: int | None = None,
+) -> inspect.Signature:
     """Build the Signature for a GI callable.
 
     Parameters are the IN/INOUT args (in `arg_names` order, already filtered of
     array-length and closure/destroy companions), each typed from its pspec and
     defaulting to None when nullable/optional. `self` is prepended for methods.
     The return annotation mirrors the GI return type (None for void).
+
+    When `keyword_only_after` is set, visible parameters at that index and
+    beyond (not counting `self`) are emitted as KEYWORD_ONLY — set by the
+    `overlay.keyword_only(...)` declaration.
     """
     parameters: list[inspect.Parameter] = []
     if has_self:
@@ -209,13 +219,16 @@ def build_signature(info: Any, *, has_self: bool, context: Any) -> inspect.Signa
             if companion >= 0:
                 skip.add(companion)
 
-    for name in info.arg_names:
+    for index, name in enumerate(info.arg_names):
         arg = args_by_name.get(name)
         param_name = _safe_param_name(name)
+        kind = (
+            inspect.Parameter.KEYWORD_ONLY
+            if keyword_only_after is not None and index >= keyword_only_after
+            else inspect.Parameter.POSITIONAL_OR_KEYWORD
+        )
         if arg is None:
-            parameters.append(
-                inspect.Parameter(param_name, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-            )
+            parameters.append(inspect.Parameter(param_name, kind))
             continue
         annotation = annotation_for_type(arg.get_type_info(), context)
         nullable = arg.may_be_null() or arg.is_optional()
@@ -223,7 +236,7 @@ def build_signature(info: Any, *, has_self: bool, context: Any) -> inspect.Signa
         parameters.append(
             inspect.Parameter(
                 param_name,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                kind,
                 annotation=annotation,
                 default=default,
             )
@@ -270,6 +283,9 @@ def callable_signature(gimeta: Any) -> inspect.Signature:
     """
     if gimeta.signature is None:
         gimeta.signature = build_signature(
-            gimeta.info, has_self=gimeta.has_self, context=gimeta.namespace
+            gimeta.info,
+            has_self=gimeta.has_self,
+            context=gimeta.namespace,
+            keyword_only_after=getattr(gimeta, "keyword_only_after", None),
         )
     return cast("inspect.Signature", gimeta.signature)
