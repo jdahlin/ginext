@@ -50,7 +50,6 @@ from typing import (
     ClassVar,
     dataclass_transform,
     cast,
-    overload,
     Self,
 )
 
@@ -126,67 +125,6 @@ def _run_post_construct_hooks(obj: object) -> None:
             hook(obj)
         except (AttributeError, RuntimeError, TypeError) as exc:
             sys.excepthook(type(exc), exc, exc.__traceback__)
-
-
-@overload
-def _wrap_existing_pointer(
-    cls: type["GObject"], ptr: int, *, run_post_construct: bool = True
-) -> "GObject": ...
-
-
-@overload
-def _wrap_existing_pointer(
-    cls: type["GInterface"], ptr: int, *, run_post_construct: bool = True
-) -> "GInterface": ...
-
-
-def _wrap_existing_pointer(
-    cls: type[object],
-    ptr: int,
-    *,
-    owns_ref: bool = True,
-    run_post_construct: bool = True,
-) -> object:
-    if run_post_construct:
-        return private.GObject.from_c(ptr)
-    bound_cls = cast("type[private.GObject]", cls)
-    obj = bound_cls.new_bound_from_c(ptr, owns_ref=owns_ref)
-    if run_post_construct:
-        _run_post_construct_hooks(obj)
-    return obj
-
-
-@overload
-def wrap_existing_pointer_for_class(
-    cls: type["GObject"], ptr: int, *, owns_ref: bool = True
-) -> "GObject": ...
-
-
-@overload
-def wrap_existing_pointer_for_class(
-    cls: type["GInterface"], ptr: int, *, owns_ref: bool = True
-) -> "GInterface": ...
-
-
-def wrap_existing_pointer_for_class(
-    cls: type[object], ptr: int, *, owns_ref: bool = True
-) -> object:
-    bound_cls = cast("type[private.GObject]", cls)
-    obj = bound_cls.new_bound_from_c(ptr, owns_ref=owns_ref)
-    _run_post_construct_hooks(obj)
-    return obj
-
-
-def _prime_preallocated_construction(
-    obj: "GObject", ptr: int, handlers: dict[str, object] | None = None
-) -> None:
-    obj.prime_construction_state(ptr, handlers)
-
-
-def _wrap_preallocated_construction(
-    cls: type["GObject"], ptr: int, handlers: dict[str, object] | None = None
-) -> "GObject":
-    return cls.new_preallocated_from_c(ptr, handlers)
 
 
 def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:

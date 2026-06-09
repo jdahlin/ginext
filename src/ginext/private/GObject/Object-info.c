@@ -32,6 +32,14 @@ static Py_tss_t construction_depth_key = Py_tss_NEEDS_INIT;
 static PyObject *
 pygi_wrap_gobject_with_factory (GObject *object, GType wrapper_gtype, PyObject *factory);
 
+/* Defined alongside tp_init below; new_bound_from_c runs post-construct hooks. */
+static int
+gobject_type_has_post_construct_hooks (PyObject *self);
+static PyObject *
+gobject_finish_construction_attr (void);
+static int
+gobject_run_post_construct_hooks (PyObject *self);
+
 static PyObject *
 pygi_load_wrapper_factory (PyObject **cache, const char *attr_name)
 {
@@ -471,7 +479,10 @@ GObject_new_bound_from_c (PyObject *type, PyObject *args, PyObject *kwargs)
   if (self == NULL)
     return NULL;
 
-  if (bind_wrapper_from_source (self, source, owns_ref) < 0)
+  /* Bind an existing C pointer and run post-construct hooks — the C equivalent
+   * of the old Python wrap_existing_pointer_for_class. */
+  if (bind_wrapper_from_source (self, source, owns_ref) < 0
+      || gobject_run_post_construct_hooks (self) < 0)
     {
       Py_DECREF (self);
       return NULL;
@@ -934,6 +945,27 @@ gobject_type_has_post_construct_hooks (PyObject *self)
     }
   Py_DECREF (extensions);
   return result;
+}
+
+/* Run the type's post-construct hooks (Gtk.Template) via _finish_construction
+ * with no handlers. No-op (no Python call) when the type has no hooks. */
+static int
+gobject_run_post_construct_hooks (PyObject *self)
+{
+  if (!gobject_type_has_post_construct_hooks (self))
+    return 0;
+  PyObject *finish = gobject_finish_construction_attr ();
+  if (finish == NULL)
+    return -1;
+  PyObject *empty = PyDict_New ();
+  if (empty == NULL)
+    return -1;
+  PyObject *r = PyObject_CallFunctionObjArgs (finish, self, empty, NULL);
+  Py_DECREF (empty);
+  if (r == NULL)
+    return -1;
+  Py_DECREF (r);
+  return 0;
 }
 
 /* tp_init: GObject construction in C. _finish_construction (Python) is only

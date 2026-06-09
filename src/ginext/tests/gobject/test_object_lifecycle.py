@@ -175,35 +175,6 @@ def test_distinct_instances_keep_distinct_wrapper_identity(TestObj: Any) -> None
     assert a is not b
 
 
-def test_bind_existing_pointer_can_skip_post_construct_hooks(TestObj: Any) -> None:
-    from ginext import GObject as GObjectNS
-    from ginext import private
-    from ginext.gobject import gobjectclass as gobject
-
-    seen: list[str] = []
-    ptr = GObjectNS.new_with_properties(TestObj, {})
-    cast("private.GObject", private.GObject.from_c(ptr)).ref_sink()
-    cast("private.GObject", private.GObject.from_c(ptr)).ref_sink()
-
-    original = gobject._run_post_construct_hooks
-
-    def recorder(obj: object) -> None:
-        seen.append(type(obj).__name__)
-
-    gobject._run_post_construct_hooks = recorder
-    try:
-        bound = gobject._wrap_existing_pointer(TestObj, ptr, run_post_construct=False)
-        assert private.GObject.from_c(bound) is bound
-        assert seen == []
-
-        wrapped = gobject._wrap_existing_pointer(TestObj, ptr, run_post_construct=True)
-        assert wrapped is bound
-        assert private.GObject.from_c(wrapped) is wrapped
-        assert seen == []
-    finally:
-        gobject._run_post_construct_hooks = original
-
-
 def test_preallocated_construction_state_skips_second_native_allocation(
     unique_type_name: Any,
 ) -> None:
@@ -222,7 +193,7 @@ def test_preallocated_construction_state_skips_second_native_allocation(
 
     ptr = Preallocated.construct_with_properties({})
     obj = Preallocated.__new__(Preallocated)
-    gobject._prime_preallocated_construction(obj, ptr)
+    obj.prime_construction_state(ptr)
 
     original_repo = gobject.gobject_repo
 
@@ -263,7 +234,7 @@ def test_preallocated_construction_state_preserves_parent_init_chain(
 
     ptr = Child.construct_with_properties({})
     obj = Child.__new__(Child)
-    gobject._prime_preallocated_construction(obj, ptr)
+    obj.prime_construction_state(ptr)
     Child.__init__(obj)
 
     assert private.GObject.from_c(obj) is obj
@@ -285,7 +256,7 @@ def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
             seen.append(self.is_bound())
 
     ptr = Deferred.construct_with_properties({})
-    obj = cast("Deferred", gobject._wrap_preallocated_construction(Deferred, ptr))
+    obj = cast("Deferred", Deferred.new_preallocated_from_c(ptr))
 
     assert obj.is_bound() is False
 
@@ -309,7 +280,7 @@ def test_preallocated_shell_for_python_type(
             self.initialized = True
 
     ptr = DeferredViaPrivate.construct_with_properties({})
-    obj = gobject._wrap_preallocated_construction(DeferredViaPrivate, ptr)
+    obj = DeferredViaPrivate.new_preallocated_from_c(ptr)
 
     assert isinstance(obj, DeferredViaPrivate)
     assert obj.is_bound() is False
@@ -333,7 +304,7 @@ def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) ->
 
     ptr = Deferred.construct_with_properties({})
 
-    deferred = gobject._wrap_preallocated_construction(Deferred, ptr)
+    deferred = Deferred.new_preallocated_from_c(ptr)
     Deferred.__init__(deferred)
 
     assert deferred.owns_ref() is False
