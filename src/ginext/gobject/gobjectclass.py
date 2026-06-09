@@ -58,7 +58,6 @@ from .. import features
 from .. import private
 from ..signal.adapt import (
     _accepted_signal_arg_count,
-    _split_constructor_kwargs,
 )
 from ..signal.bound import Signal as _SignalInstance
 from ..signal.descriptor import SignalDescriptor as Signal
@@ -244,31 +243,6 @@ def _is_python_defined_gobject_subclass(type_or_gtype: object) -> bool:
     except AttributeError:
         return False
     return gi_info is None
-
-
-def _split_gobject_constructor_kwargs(
-    kwargs: dict[str, object],
-) -> tuple[dict[str, object], dict[str, object]]:
-    if features.is_enabled(features.NEW_SIGNAL_API):
-        return _split_constructor_kwargs(kwargs)
-    return dict(kwargs), {}
-
-
-def _normalize_constructor_properties(
-    properties: dict[str, object],
-) -> dict[str, object]:
-    if properties and not features.is_enabled(features.GOBJECT_PROPERTY_CONSTRUCTOR):
-        names = ", ".join(sorted(properties))
-        raise TypeError(f"GObject property constructor kwargs are disabled: {names}")
-    return {name.replace("_", "-"): value for name, value in properties.items()}
-
-
-def _prepare_construction(
-    kwargs: dict[str, object],
-) -> tuple[dict[str, object], dict[str, object]]:
-    """Split constructor kwargs into (normalized properties, on_* handlers)."""
-    properties, handlers = _split_gobject_constructor_kwargs(kwargs)
-    return _normalize_constructor_properties(properties), handlers
 
 
 def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:

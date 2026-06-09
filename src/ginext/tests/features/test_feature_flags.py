@@ -103,17 +103,6 @@ def test_unknown_feature_raises() -> None:
         features.is_enabled("not_a_real_feature")
 
 
-def test_constructor_property_kwargs_can_be_disabled(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("GINEXT_FEATURES", "gobject_property_constructor=0")
-
-    from ginext import Gio
-
-    with pytest.raises(TypeError, match="property constructor kwargs are disabled"):
-        Gio.Application(application_id="org.example.GinextFeatureFlags")
-
-
 def test_old_signal_api_is_disabled_by_default() -> None:
     from ginext import Gio
 
