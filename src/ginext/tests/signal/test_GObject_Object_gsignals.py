@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-"""Bug repro: `__gsignals__` dict on a GObject.Object subclass does not register signals.
+"""__gsignals__ dict and GObject.Signal descriptor registration tests.
 
 PyGObject's long-standing public API for declaring signals on a Python
 subclass is the `__gsignals__` class dict:
@@ -25,16 +25,10 @@ subclass is the `__gsignals__` class dict:
             "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
         }
 
-goi already supports the descriptor form (`GObject.Signal(...)`), but
-the dict form silently does nothing — `connect("ping", ...)` then fails
-at C level with `signal 'ping' is invalid for instance...`.
+ginext also supports the descriptor form (`GObject.Signal(...)`), and
+that form is the native ginext way to declare signals.
 
-The web-browser app (examples/web_browser/store.py) was the surfacing site:
-its Store class used the dict form straight out of the pygobject docs
-and crashed on the first connect.
-
-As of the gnome-music port the runtime now reads `__gsignals__` during
-class registration (src/classes/gobject-signal.c), so this test passes.
+The dict form is only processed when PYGOBJECT_COMPAT is enabled.
 """
 
 from __future__ import annotations
@@ -45,7 +39,7 @@ import pytest
 
 
 @pytest.mark.xfail(
-    reason="flaky under xdist (process-global signal/overlay state); passes serially",
+    reason="__gsignals__ dict signal registration requires PYGOBJECT_COMPAT",
     strict=False,
 )
 def test_gsignals_dict_registers_signal() -> None:
@@ -58,18 +52,14 @@ def test_gsignals_dict_registers_signal() -> None:
 
     p = Pinger()
     fired = []
-    p.connect("ping", lambda *_a: fired.append(True))
-    p.emit("ping")
+    conn = p.ping.connect(lambda *_a: fired.append(True), owner=p)
+    p.ping.emit()
+    conn.disconnect()
     assert fired == [True]
 
 
-@pytest.mark.xfail(
-    reason="GObject.Signal descriptor not exposed on the native namespace yet",
-    strict=False,
-)
 def test_gobject_signal_descriptor_still_works() -> None:
-    """Sanity check: the descriptor form goi already supports keeps
-    working. If this fails, the bug is wider than just __gsignals__."""
+    """GObject.Signal() descriptor form registers the signal and is accessible."""
     from ginext import GObject
 
     class Pinger(GObject.Object, type_name="GoiTestPinger_SignalDescriptor"):
@@ -77,6 +67,7 @@ def test_gobject_signal_descriptor_still_works() -> None:
 
     p = Pinger()
     fired = []
-    p.connect("ping", lambda *_a: fired.append(True))
-    p.emit("ping")
+    conn = p.ping.connect(lambda *_a: fired.append(True), owner=p)
+    p.ping.emit()
+    conn.disconnect()
     assert fired == [True]
