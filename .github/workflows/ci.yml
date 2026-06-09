@@ -194,27 +194,29 @@ jobs:
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           rm -rf dist-consumer && mkdir -p dist-consumer
-          build() { uvx --python 3.14 --with virtualenv --from build pyproject-build "$@"; }
+          build() { uvx --python 3.14t --with virtualenv --from build pyproject-build "$@"; }
           build --wheel --outdir dist-consumer packages/ginext-gio
           build --wheel --outdir dist-consumer packages/ginext-gtk
           build --wheel --outdir dist-consumer packages/ginext-stubs
           build --wheel --outdir dist-consumer examples/commander
-          build --sdist --outdir dist-consumer .
+          build --wheel --outdir dist-consumer .
       - name: Install commander from built artifacts into a fresh venv
         run: |
           set -eux
-          uv venv --python 3.14 /tmp/consumer-commander
+          uv venv --python 3.14t /tmp/consumer-commander
           uv pip install \
             --python /tmp/consumer-commander/bin/python \
             --find-links dist-consumer \
-            commander ginext-stubs
+            dist-consumer/commander-*.whl \
+            dist-consumer/ginext_stubs-*.whl
       - name: Strict mypy against the installed package set
         run: |
           set -eux
-          uvx --python 3.14 --from mypy mypy \
+          cd examples/commander
+          uvx --python 3.14t --from mypy mypy \
             --python-executable /tmp/consumer-commander/bin/python \
-            --config-file examples/commander/pyproject.toml \
-            examples/commander/src/commander
+            --config-file pyproject.toml \
+            src/commander
       - name: Import smoke test from installed packages
         run: |
           set -eux

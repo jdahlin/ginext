@@ -321,7 +321,9 @@ def test_ambiguous_gst_vfunc_short_name_is_rejected() -> None:
             GstBase.BaseTransform,
             type_name=_unique_name("AmbiguousTransform"),
         ):
-            def do_query(self, direction: object, query: object) -> bool:
+            def do_query(  # type: ignore[override]
+                self, direction: ginext.Gst.PadDirection, query: ginext.Gst.Query
+            ) -> bool:
                 del direction, query
                 return False
 
@@ -338,7 +340,9 @@ def test_explicit_gst_base_qualified_vfunc_name_is_accepted() -> None:
         GstBase.BaseTransform,
         type_name=_unique_name("ExplicitTransform"),
     ):
-        def do_base_transform_query(self, direction: object, query: object) -> bool:
+        def do_base_transform_query(
+            self, direction: ginext.Gst.PadDirection, query: ginext.Gst.Query
+        ) -> bool:
             return False
 
     assert ExplicitTransform.gimeta.gtype != 0

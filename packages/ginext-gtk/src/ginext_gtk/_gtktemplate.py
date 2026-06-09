@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     # annotate with to Any so mypy can resolve the names.
     Gtk = Any
 
-    class _TemplateWidgetType(type[Any]):
+    class _TemplateWidgetType(type):
         def init_template(self, *args: object, **kwargs: object) -> object: ...
         def set_template(self, template: object) -> None: ...
 
