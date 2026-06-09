@@ -31,7 +31,7 @@ def _repo_root() -> Path:
 
 
 def _generated_stub_dir() -> Path:
-    return Path(__file__).resolve().parent / ".generated" / "ginext"
+    return _repo_root() / "build" / "stubs" / "ginext"
 
 
 def _generate_stubs(*, force: bool = False) -> None:

@@ -251,7 +251,8 @@ tox-release:
 # reinstall-into-venv is gated separately on the venv stamp — a fresh venv must
 # always have ginext-stubs (re)installed for mypy's PEP 561 stub discovery.
 STUB_PKG_ROOT      := packages/ginext-stubs
-STUB_GEN_STAMP     := $(STUB_PKG_ROOT)/.stub-generated.stamp
+STUB_GEN_ROOT      := build/stubs
+STUB_GEN_STAMP     := $(STUB_GEN_ROOT)/.generated.stamp
 STUB_INSTALL_STAMP := $(VENV)/.ginext-stubs-installed
 STUBGEN_SRC        := $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.py) \
                       $(wildcard packages/ginext-stubgen/src/ginext_stubgen/*.toml)
