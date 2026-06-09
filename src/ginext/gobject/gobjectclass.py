@@ -295,10 +295,14 @@ GObject.Signal = Signal
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
 
 if not TYPE_CHECKING:
-    # Install the foundational instance overlays (__setattr__/__getattr__) on
-    # GObject.Object at creation time — they are needed for attribute access long
-    # before the namespace-adoption overlay pass runs, so register them here and
-    # apply immediately by passing the freshly built class to install_class_overlay.
+    # Hand the foundational instance hooks to C: the tp_getattro/tp_setattro
+    # slots and tp_init call back into these bodies (which reach the classbuild /
+    # property / signal machinery) without C ever importing this module.
+    private.register_gobject_callbacks(_obj_getattr, _obj_setattr, _finish_construction)
+
+    # signal_for_name still installs through the overlay layer (the remaining
+    # foundational method not yet exposed as a C slot); apply at creation time by
+    # passing the freshly built class to install_class_overlay.
     import types as _types
 
     from ..overlay.install import install_class_overlay as _install_class_overlay
@@ -308,7 +312,8 @@ if not TYPE_CHECKING:
     _base_overlay.method("Object", name="__init_subclass__", as_classmethod=True)(
         _obj_init_subclass
     )
-    _base_overlay.method("Object", name="__setattr__")(_obj_setattr)
-    _base_overlay.method("Object", name="__getattr__")(_obj_getattr)
+    # __setattr__/__getattr__ are installed as C slots (tp_setattro/tp_getattro)
+    # that delegate to _obj_setattr/_obj_getattr above; only the remaining
+    # foundational methods still install through the overlay layer here.
     _base_overlay.method("Object", name="signal_for_name")(_obj_signal_for_name)
     _install_class_overlay(GObject, "GObject", "Object")
