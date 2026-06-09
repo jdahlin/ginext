@@ -255,13 +255,13 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
           if (self_obj == NULL)
             {
               PyErr_Clear ();
-              return pygi_raise_gobject_type_error_for_gtype (G_TYPE_OBJECT, self_py);
+              return pygi_raise_gobject_type_error_for_gtype_named (G_TYPE_OBJECT, self_py, "self");
             }
           GType actual_gtype = G_TYPE_FROM_INSTANCE ((GTypeInstance *)self_obj);
           if (plan->self_gtype != G_TYPE_INVALID && plan->self_gtype != G_TYPE_NONE
               && actual_gtype != 0 && !g_type_is_a (actual_gtype, plan->self_gtype))
             {
-              return pygi_raise_gobject_type_error_for_gtype (plan->self_gtype, self_py);
+              return pygi_raise_gobject_type_error_for_gtype_named (plan->self_gtype, self_py, "self");
             }
           /* Transfer-full instance: the callee consumes the ref. Bump
            * before passing so the wrapper retains its own — without
@@ -483,11 +483,12 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
                   if (PyErr_ExceptionMatches (PyExc_AttributeError))
                     {
                       PyErr_Clear ();
-                      return pygi_raise_gobject_type_error_for_gtype (
+                      return pygi_raise_gobject_type_error_for_gtype_named (
                           ap->type.gtype != G_TYPE_INVALID && ap->type.gtype != G_TYPE_NONE
                               ? ap->type.gtype
                               : G_TYPE_OBJECT,
-                          py);
+                          py,
+                          ap->cached_ai ? gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai) : NULL);
                     }
                   return -1;
                 }
@@ -495,7 +496,9 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
                   && !g_type_is_a (G_TYPE_FROM_INSTANCE ((GTypeInstance *)out->v_pointer),
                                    ap->type.gtype))
                 {
-                  return pygi_raise_gobject_type_error_for_gtype (ap->type.gtype, py);
+                  return pygi_raise_gobject_type_error_for_gtype_named (
+                      ap->type.gtype, py,
+                      ap->cached_ai ? gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai) : NULL);
                 }
               continue;
             case PYGI_MARSHAL_GOBJECT_OWNED:
@@ -521,11 +524,12 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
                   if (PyErr_ExceptionMatches (PyExc_AttributeError))
                     {
                       PyErr_Clear ();
-                      return pygi_raise_gobject_type_error_for_gtype (
+                      return pygi_raise_gobject_type_error_for_gtype_named (
                           ap->type.gtype != G_TYPE_INVALID && ap->type.gtype != G_TYPE_NONE
                               ? ap->type.gtype
                               : G_TYPE_OBJECT,
-                          py);
+                          py,
+                          ap->cached_ai ? gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai) : NULL);
                     }
                   return -1;
                 }
@@ -533,7 +537,9 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
                   && !g_type_is_a (G_TYPE_FROM_INSTANCE ((GTypeInstance *)out->v_pointer),
                                    ap->type.gtype))
                 {
-                  return pygi_raise_gobject_type_error_for_gtype (ap->type.gtype, py);
+                  return pygi_raise_gobject_type_error_for_gtype_named (
+                      ap->type.gtype, py,
+                      ap->cached_ai ? gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai) : NULL);
                 }
               gpointer owned = NULL;
               if (pygi_instantiatable_ref (out->v_pointer, ap->type.gtype, &owned) != 0)
@@ -1066,7 +1072,19 @@ pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
             return -1;
           }
         if (pygi_marshal_from_py (args[ap->py_arg_index], &mslot) != 0)
-          return -1;
+          {
+            if (ap->cached_ai != NULL && PyErr_Occurred () == PyExc_TypeError)
+              {
+                PyObject *exc = PyErr_GetRaisedException ();
+                const char *aname = gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai);
+                if (aname != NULL)
+                  PyErr_Format (PyExc_TypeError, "%s: %S", aname, exc);
+                else
+                  PyErr_SetRaisedException (exc);
+                Py_DECREF (exc);
+              }
+            return -1;
+          }
         if (gi_type_info_is_gvalue (ti) && !gi_type_info_is_pointer (ti))
           {
             /* By-value GValue inputs can be shallow-copied by callees into

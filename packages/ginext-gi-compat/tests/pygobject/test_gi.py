@@ -2211,7 +2211,6 @@ class TestEnumVFuncResults(unittest.TestCase):
 
 
 class TestGEnum(unittest.TestCase):
-    @pytest.mark.xfail(reason="enum issubclass")
     def test_genum(self):
         self.assertTrue(issubclass(GIMarshallingTests.GEnum, GObject.GEnum))
         self.assertTrue(
@@ -3135,11 +3134,6 @@ class TestPythonGObject(unittest.TestCase):
         GIMarshallingTests.SubSubObject.do_method_deep_hierarchy(sub_sub_sub_object, 5)
         self.assertEqual(sub_sub_sub_object.props.int, 5)
 
-    @pytest.mark.xfail(
-        reason="crashes in interface variant array vfunc handling",
-        run=False,
-        strict=False,
-    )
     def test_interface3impl(self):
         iface3 = self.Interface3Impl()
         variants = [GLib.Variant("i", 27), GLib.Variant("s", "Hello")]
@@ -3289,11 +3283,6 @@ class TestInterfaces(unittest.TestCase):
         self.assertEqual(instance.val, None)
         self.assertEqual(instance.val2, 42)
 
-    @pytest.mark.xfail(
-        reason="crashes in wrong-type argument mismatch handling",
-        run=False,
-        strict=False,
-    )
     def test_type_mismatch(self):
         obj = GIMarshallingTests.Object()
 

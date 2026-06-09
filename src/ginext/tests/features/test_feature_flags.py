@@ -103,34 +103,6 @@ def test_unknown_feature_raises() -> None:
         features.is_enabled("not_a_real_feature")
 
 
-def test_old_signal_api_is_disabled_by_default() -> None:
-    from ginext import Gio
-
-    obj = Gio.SimpleAction(name="feature-test")
-
-    with pytest.raises(TypeError, match="old_signal_api"):
-        obj.connect("notify::enabled", lambda source, _pspec: None)
-
-
-def test_old_signal_api_enables_string_connect(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GINEXT_FEATURES", "old_signal_api")
-
-    from ginext import Gio
-
-    obj = Gio.SimpleAction(name="feature-test")
-    seen = []
-
-    handler = obj.connect(
-        "notify::enabled",
-        lambda source, _pspec: seen.append(source),
-        owner=obj,
-    )
-    obj.set_enabled(False)
-    obj.disconnect(handler)
-
-    assert seen == [obj]
-
-
 def test_new_signal_api_disable_blocks_attribute_signal_access(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -1683,6 +1683,14 @@ pygi_raise_gobject_type_error (const char *expected, PyObject *actual)
 int
 pygi_raise_gobject_type_error_for_gtype (GType expected_gtype, PyObject *actual)
 {
+  return pygi_raise_gobject_type_error_for_gtype_named (expected_gtype, actual, NULL);
+}
+
+int
+pygi_raise_gobject_type_error_for_gtype_named (GType expected_gtype,
+                                               PyObject *actual,
+                                               const char *arg_name)
+{
   PyObject *expected = pygi_expected_gobject_type_name (expected_gtype);
   if (expected == NULL)
     return -1;
@@ -1694,7 +1702,11 @@ pygi_raise_gobject_type_error_for_gtype (GType expected_gtype, PyObject *actual)
       return -1;
     }
 
-  PyErr_Format (PyExc_TypeError, "expected a %U, but got %U", expected, actual_repr);
+  if (arg_name != NULL)
+    PyErr_Format (PyExc_TypeError, "%s: expected %U, but got %U",
+                  arg_name, expected, actual_repr);
+  else
+    PyErr_Format (PyExc_TypeError, "expected a %U, but got %U", expected, actual_repr);
   Py_DECREF (expected);
   Py_DECREF (actual_repr);
   return -1;

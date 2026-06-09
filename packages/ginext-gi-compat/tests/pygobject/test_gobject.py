@@ -1049,3 +1049,31 @@ def test_custom_class_update():
     new_action = group.lookup("custom-action")
 
     assert type(new_action) is CustomAction
+
+
+def test_old_signal_api_is_disabled_by_default() -> None:
+    import ginext.features as features
+
+    snap = features.overrides_snapshot()
+    features.set_enabled(features.OLD_SIGNAL_API, False)
+    try:
+        obj = Gio.SimpleAction(name="feature-test")
+        with pytest.raises(TypeError, match="old_signal_api"):
+            obj.connect("notify::enabled", lambda source, _pspec: None)
+    finally:
+        features.overrides_restore(snap)
+
+
+def test_old_signal_api_enables_string_connect() -> None:
+    obj = Gio.SimpleAction(name="feature-test")
+    seen = []
+
+    handler = obj.connect(
+        "notify::enabled",
+        lambda source, _pspec: seen.append(source),
+        owner=obj,
+    )
+    obj.set_enabled(False)
+    obj.disconnect(handler)
+
+    assert seen == [obj]

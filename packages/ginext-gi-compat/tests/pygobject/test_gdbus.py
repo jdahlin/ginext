@@ -453,9 +453,6 @@ class AsyncDBusTests(unittest.TestCase):
         self.loop = policy.get_event_loop()
         self.addCleanup(self.loop.close)
 
-    @pytest.mark.xfail(
-        reason="GLib asyncio event loop compatibility is incomplete", strict=False
-    )
     def test_async_bus_get(self):
         async def run():
             bus = await Gio.bus_get(Gio.BusType.SESSION)
@@ -463,9 +460,6 @@ class AsyncDBusTests(unittest.TestCase):
 
         self.loop.run_until_complete(run())
 
-    @pytest.mark.xfail(
-        reason="GLib asyncio event loop compatibility is incomplete", strict=False
-    )
     def test_async_proxy(self):
         async def run():
             proxy = await Gio.DBusProxy.new_for_bus(

@@ -209,7 +209,7 @@ def test_kwargs_static_constructor(gim: Any) -> None:
     obj1 = gim.Object.new(42)
     obj2 = gim.Object.new(int_=42)
 
-    assert obj1.get_property("int") == obj2.get_property("int") == 42
+    assert obj1.get_property_by_name("int") == obj2.get_property_by_name("int") == 42
 
 
 def test_int_args_accept_floats_truncated(gim: Any) -> None:
@@ -231,7 +231,7 @@ def test_object_arg_type_error_uses_expected_type_and_instance_repr(gim: Any) ->
     with pytest.raises(
         TypeError,
         match=(
-            r"expected a GIMarshallingTests\.Object, but got "
+            r"self: expected GIMarshallingTests\.Object, but got "
             r"<GObject\.Object object at 0x"
         ),
     ):

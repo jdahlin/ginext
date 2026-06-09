@@ -279,9 +279,7 @@ def test_interface_methods_are_found_on_implementing_object_instances(Gio: Names
 
 
 @pytest.mark.xfail(
-    reason="interface methods are callable but not yet listed in __dir__ "
-    "(see test_interface_methods_are_found_on_implementing_object_instances "
-    "which calls add_action directly and passes)",
+    reason="interface methods are callable but not yet listed in __dir__",
     strict=False,
 )
 def test_dir_includes_interface_methods(Gio: Namespace) -> None:
@@ -291,7 +289,7 @@ def test_dir_includes_interface_methods(Gio: Namespace) -> None:
 
 
 def test_notify_signal_marshals_object_and_paramspec_args(
-    Gio: Namespace, old_signal_api: None
+    Gio: Namespace,
 ) -> None:
     action = Gio.SimpleAction.new("demo", None)
     seen: dict[str, object] = {}
@@ -300,12 +298,13 @@ def test_notify_signal_marshals_object_and_paramspec_args(
         seen["obj"] = obj
         seen["pspec"] = pspec
 
-    action.connect("notify::enabled", on_notify, owner=action)
+    conn = action.notify("enabled").connect(on_notify, owner=action)
     action.set_enabled(False)
 
     assert seen["obj"] is action
     assert seen["pspec"] is not None
     assert "ParamSpec" in type(seen["pspec"]).__name__
+    conn.disconnect()
 
 
 @pytest.mark.xfail(

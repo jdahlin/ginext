@@ -52,20 +52,36 @@ class Repository:
         return RepositoryInfo(namespace, name, kind, info)
 
     def is_registered(self, namespace: str, version: str | None = None) -> bool:
-        raise NotImplementedError
+        if not isinstance(namespace, str):
+            raise TypeError("namespace must be a string")
+        return private.namespace_is_registered(namespace, version)
 
     def require(
         self, namespace: str, version: str | None = None, flags: int = 0
     ) -> object:
-        raise NotImplementedError
+        resolved = ginext.defaults.resolve_namespace_name(namespace)
+        if resolved is None:
+            v = version or ""
+        else:
+            namespace, v = resolved
+            if version is not None:
+                v = version
+        private.require_namespace(namespace, v)
+        from gi import repository as gi_repository
+
+        return getattr(gi_repository, namespace)
 
     def get_dependencies(self, namespace: str, version: str | None = None) -> list[str]:
-        raise NotImplementedError
+        if not isinstance(namespace, str):
+            raise TypeError("namespace must be a string")
+        return private.namespace_get_dependencies(namespace)
 
     def get_immediate_dependencies(
         self, namespace: str, version: str | None = None
     ) -> list[str]:
-        raise NotImplementedError
+        if not isinstance(namespace, str):
+            raise TypeError("namespace must be a string")
+        return private.namespace_get_immediate_dependencies(namespace)
 
     def __getattr__(self, name: str) -> Any:
         raise AttributeError(name)
