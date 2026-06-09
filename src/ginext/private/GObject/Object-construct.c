@@ -73,17 +73,13 @@ normalized_property_name (PyObject *py_name)
   return normalized;
 }
 
-PyObject *
-py_construct_gobject (PyObject *module G_GNUC_UNUSED, PyObject *args)
+/* Construct a GObject of `gtype` from a properties dict, returning a new owned
+ * reference (NULL on error). Property names are normalized foo_bar -> foo-bar.
+ * This is the C core shared by the py_construct_gobject module function and the
+ * GObject tp_init (which uses it without boxing the pointer through a PyLong). */
+GObject *
+pygi_construct_gobject_object (GType gtype, PyObject *kwargs)
 {
-  PyObject *gtype_obj = NULL;
-  PyObject *kwargs = NULL;
-  if (!PyArg_ParseTuple (args, "OO!", &gtype_obj, &PyDict_Type, &kwargs))
-    return NULL;
-
-  GType gtype = G_TYPE_INVALID;
-  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
-    return NULL;
   if (!g_type_is_a (gtype, G_TYPE_OBJECT))
     {
       PyErr_Format (PyExc_TypeError, "%s is not a GObject type", g_type_name (gtype));
@@ -176,9 +172,29 @@ py_construct_gobject (PyObject *module G_GNUC_UNUSED, PyObject *args)
   if (G_IS_INITIALLY_UNOWNED (obj))
     g_object_ref_sink (obj);
 
+  return g_steal_pointer (&obj);
+}
+
+PyObject *
+py_construct_gobject (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj = NULL;
+  PyObject *kwargs = NULL;
+  if (!PyArg_ParseTuple (args, "OO!", &gtype_obj, &PyDict_Type, &kwargs))
+    return NULL;
+
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+
+  GObject *obj = pygi_construct_gobject_object (gtype, kwargs);
+  if (obj == NULL)
+    return NULL;
   PyObject *ptr_obj = PyLong_FromVoidPtr (obj);
   if (ptr_obj == NULL)
-    return NULL;
-  g_steal_pointer (&obj);
+    {
+      g_object_unref (obj);
+      return NULL;
+    }
   return ptr_obj;
 }
