@@ -851,21 +851,36 @@ GObject_finalize (PyObject *self)
  * post-construct hooks (Gtk.Template) and on_* handler wiring (difflib hints +
  * inspect arg counting), kept in Python. Only called when there are handlers or
  * the type has post-construct hooks. */
-static PyObject *gobject_finish_construction_fn = NULL;
+/* Foundational GObject.Object instance hooks whose bodies live in
+ * ginext.gobject.gobjectclass. Python registers them into C at bootstrap (see
+ * pygi_register_gobject_callbacks) instead of C importing the module — the
+ * dependency stays one-directional and slots never call PyImport_ImportModule. */
+static PyObject *gobject_cb_getattr = NULL;
+static PyObject *gobject_cb_setattr = NULL;
+static PyObject *gobject_cb_finish_construction = NULL;
+
+PyObject *
+pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
+  if (!PyArg_ParseTuple (args,
+                         "OOO:register_gobject_callbacks",
+                         &getattr_fn,
+                         &setattr_fn,
+                         &finish_fn))
+    return NULL;
+  Py_XSETREF (gobject_cb_getattr, Py_NewRef (getattr_fn));
+  Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
+  Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
+  Py_RETURN_NONE;
+}
 
 static PyObject *
 gobject_finish_construction_attr (void)
 {
-  if (gobject_finish_construction_fn == NULL)
-    {
-      PyObject *mod = PyImport_ImportModule ("ginext.gobject.gobjectclass");
-      if (mod == NULL)
-        return NULL;
-      gobject_finish_construction_fn
-          = PyObject_GetAttrString (mod, "_finish_construction");
-      Py_DECREF (mod);
-    }
-  return gobject_finish_construction_fn;
+  if (gobject_cb_finish_construction == NULL)
+    PyErr_SetString (PyExc_RuntimeError, "GObject callbacks not registered");
+  return gobject_cb_finish_construction;
 }
 
 /* Split construction kwargs into (properties, handlers): keys "on_<signal>"
@@ -1053,12 +1068,44 @@ done:
   return rc;
 }
 
+/* tp_getattro: normal attribute lookup, then the registered __getattr__ body
+ * (pspec synthesis, signal access, compat shims) on a genuine miss. */
+static PyObject *
+GObject_getattro (PyObject *self, PyObject *name)
+{
+  PyObject *result = PyObject_GenericGetAttr (self, name);
+  if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
+    return result;
+  if (gobject_cb_getattr == NULL)
+    return NULL; /* keep the AttributeError */
+  PyErr_Clear ();
+  return PyObject_CallFunctionObjArgs (gobject_cb_getattr, self, name, NULL);
+}
+
+/* tp_setattro: route writes through the registered __setattr__ body (which
+ * synthesizes a pspec descriptor for introspected properties before the set).
+ * Deletes — and writes before registration — fall back to the generic path. */
+static int
+GObject_setattro (PyObject *self, PyObject *name, PyObject *value)
+{
+  if (value == NULL || gobject_cb_setattr == NULL)
+    return PyObject_GenericSetAttr (self, name, value);
+  PyObject *r
+      = PyObject_CallFunctionObjArgs (gobject_cb_setattr, self, name, value, NULL);
+  if (r == NULL)
+    return -1;
+  Py_DECREF (r);
+  return 0;
+}
+
 static PyType_Slot GinextGObject_slots[] = {
   { Py_tp_new, PyType_GenericNew },
   { Py_tp_init, GObject_init },
   { Py_tp_dealloc, GObject_dealloc },
   { Py_tp_repr, GObject_repr },
   { Py_tp_finalize, GObject_finalize },
+  { Py_tp_getattro, GObject_getattro },
+  { Py_tp_setattro, GObject_setattro },
   { Py_tp_traverse, GObject_traverse },
   { Py_tp_clear, GObject_clear },
   { Py_tp_methods, GObject_methods },

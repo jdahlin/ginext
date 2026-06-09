@@ -69,6 +69,8 @@ py_construct_gobject (PyObject *module, PyObject *args);
 GObject *
 pygi_construct_gobject_object (GType gtype, PyObject *kwargs);
 PyObject *
+pygi_register_gobject_callbacks (PyObject *self, PyObject *args);
+PyObject *
 pygi_signal_connect_full (PyObject *source_arg,
                           const char *signal_name,
                           PyObject *callback,

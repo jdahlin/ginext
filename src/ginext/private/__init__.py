@@ -113,6 +113,7 @@ GIMeta = _gobject.GIMeta
 # Created and bound by gobject.gobjectclass via init_gobject (it needs GObjectMeta).
 GObject = None
 init_gobject = _gobject.init_gobject
+register_gobject_callbacks = _gobject.register_gobject_callbacks
 GBoxed = _gobject.GBoxed
 DeclaredProperty = _gobject.DeclaredProperty
 build_callable_descriptor = _gobject.build_callable_descriptor
