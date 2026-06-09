@@ -71,6 +71,8 @@ class RecordMeta(type):
     __prepare__ = type.__prepare__
 
     def __getattr__(cls, name: str) -> object:
+        if name == "__info__":
+            return getattr(cls.gimeta, "info", None)
         found = install_method_for_record_class(cast("type[RecordBase]", cls), name)
         if found is None:
             raise AttributeError(name)
@@ -108,7 +110,8 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                     except TypeError:
                         pass
                 return cast("Self", cast("Any", method)())
-        obj = private.record_new(cls, cls.gimeta.info)
+        info = cls.__dict__.get("__info__", cls.gimeta.info)
+        obj = private.record_new(cls, info)
         _ensure_anonymous_union_storage(cls, obj)
         return cast("Self", obj)
 
@@ -130,6 +133,8 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
         )
 
     def __getattr__(self, name: str) -> object:
+        if name == "__info__":
+            return getattr(type(self).gimeta, "info", None)
         if name == "copy":
             return types.MethodType(_record_copy, self)
         if name in type(self).gimeta.method_infos:

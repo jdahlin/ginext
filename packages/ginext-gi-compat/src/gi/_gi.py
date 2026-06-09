@@ -20,59 +20,38 @@ from types import ModuleType
 from enum import IntEnum
 from typing import Any, SupportsIndex
 
+import ginext.GIRepository as _GIRepo
 from ginext import GObject as _GObject_namespace
 from ginext.gobject.gobjectclass import GObject
+from gi.module import (
+    BaseInfoWrapper as BaseInfo,
+    CallableInfoWrapper as CallableInfo,
+    FunctionInfoWrapper as FunctionInfo,
+    VFuncInfoWrapper as VFuncInfo,
+    SignalInfoWrapper as SignalInfo,
+    CallbackInfoWrapper as CallbackInfo,
+    ObjectInfoWrapper as ObjectInfo,
+    InterfaceInfoWrapper as InterfaceInfo,
+    StructInfoWrapper as StructInfo,
+    UnionInfoWrapper as UnionInfo,
+    EnumInfoWrapper as EnumInfo,
+    ArgInfoWrapper as ArgInfo,
+    TypeInfoWrapper as TypeInfo,
+    FieldInfoWrapper as FieldInfo,
+    PropertyInfoWrapper as PropertyInfo,
+    ConstantInfoWrapper as ConstantInfo,
+    RegisteredTypeInfoWrapper as RegisteredTypeInfo,
+)
 
-
-class CallableInfo:
-    pass
-
-
-class FunctionInfo(CallableInfo):
-    pass
-
-
-class VFuncInfo(CallableInfo):
-    pass
-
-
-class ObjectInfo:
-    pass
-
-
-class StructInfo:
-    pass
-
-
-class Direction(IntEnum):
-    IN = 0
-    OUT = 1
-    INOUT = 2
-
-
-class TypeTag(IntEnum):
-    VOID = 0
-    BOOLEAN = 1
-    INT8 = 2
-    UINT8 = 3
-    INT16 = 4
-    UINT16 = 5
-    INT32 = 6
-    UINT32 = 7
-    INT64 = 8
-    UINT64 = 9
-    FLOAT = 10
-    DOUBLE = 11
-    GTYPE = 12
-    UTF8 = 13
-    FILENAME = 14
-    ARRAY = 15
-    INTERFACE = 16
-    GLIST = 17
-    GSLIST = 18
-    GHASH = 19
-    ERROR = 20
-    UNICHAR = 21
+# Enum/flags types
+Direction = _GIRepo.Direction
+Transfer = _GIRepo.Transfer
+ScopeType = _GIRepo.ScopeType
+ArrayType = _GIRepo.ArrayType
+TypeTag = _GIRepo.TypeTag
+FieldInfoFlags = _GIRepo.FieldInfoFlags
+FunctionInfoFlags = _GIRepo.FunctionInfoFlags
+VFuncInfoFlags = _GIRepo.VFuncInfoFlags
 
 
 class ResultTuple(tuple):

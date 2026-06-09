@@ -15,9 +15,59 @@
  */
 
 #include "GIRepository/Info.h"
+#include "GIRepository/BaseInfo.h"
 
-INFO_DEFINE_TYPE (PyGIFunctionInfo_Type,
-                  "FunctionInfo",
-                  &PyGICallableInfo_Type,
-                  INFO_NO_GETTERS,
-                  NULL);
+#define FUNCTION_INFO_GETTERS(X)                                                                   \
+  X (STR, function_info, get_symbol, GIFunctionInfo)                                               \
+  X (INT, function_info, get_flags, GIFunctionInfo)
+
+FUNCTION_INFO_GETTERS (INFO_EMIT_FN)
+
+static PyObject *
+functionfn_is_constructor (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  GIFunctionInfoFlags flags = gi_function_info_get_flags ((GIFunctionInfo *)PYGI_INFO (self));
+  return PyBool_FromLong (flags & GI_FUNCTION_IS_CONSTRUCTOR);
+}
+
+static PyObject *
+functionfn_is_method (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  GIFunctionInfoFlags flags = gi_function_info_get_flags ((GIFunctionInfo *)PYGI_INFO (self));
+  return PyBool_FromLong (flags & GI_FUNCTION_IS_METHOD);
+}
+
+static PyObject *
+functionfn_get_finish_func (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  GIFunctionInfo *info = (GIFunctionInfo *)PYGI_INFO (self);
+  GICallableInfo *finish = gi_callable_info_get_finish_function ((GICallableInfo *)info);
+  if (finish == NULL)
+    Py_RETURN_NONE;
+  return gi_info_to_py_owned ((GIBaseInfo *)finish);
+}
+
+static PyObject *
+functionfn_get_vfunc (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  return gi_info_to_py_owned (
+      (GIBaseInfo *)gi_function_info_get_vfunc ((GIFunctionInfo *)PYGI_INFO (self)));
+}
+
+static PyMethodDef function_info_methods[]
+    = { FUNCTION_INFO_GETTERS (INFO_EMIT_DEF){
+          "is_constructor", functionfn_is_constructor, METH_NOARGS,
+          "($self, /) -> bool\n--\n\n" },
+        { "is_method", functionfn_is_method, METH_NOARGS,
+          "($self, /) -> bool\n--\n\n" },
+        { "get_finish_func", functionfn_get_finish_func, METH_NOARGS,
+          "($self, /) -> FunctionInfo | None\n--\n\n" },
+        { "get_vfunc", functionfn_get_vfunc, METH_NOARGS,
+          "($self, /) -> VFuncInfo | None\n--\n\n" },
+        { 0 } };
+
+INFO_TYPE (PyGIFunctionInfo_Type,
+           "FunctionInfo",
+           &PyGICallableInfo_Type,
+           function_info_methods,
+           NULL);

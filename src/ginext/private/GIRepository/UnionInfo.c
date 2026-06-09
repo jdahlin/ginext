@@ -18,7 +18,8 @@
 
 #define UNION_INFO_GETTERS(X)                                                                      \
   X (UINT, union_info, get_n_methods, GIUnionInfo)                                                 \
-  X (SIZE, union_info, get_size, GIUnionInfo)
+  X (SIZE, union_info, get_size, GIUnionInfo)                                                      \
+  X (SIZE, union_info, get_alignment, GIUnionInfo)
 
 UNION_INFO_GETTERS (INFO_EMIT_FN)
 

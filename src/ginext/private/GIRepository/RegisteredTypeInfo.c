@@ -20,8 +20,24 @@
   X (STR, registered_type_info, get_type_name, GIRegisteredTypeInfo)                               \
   X (GTYPE, registered_type_info, get_g_type, GIRegisteredTypeInfo)
 
-INFO_DEFINE_TYPE (PyGIRegisteredTypeInfo_Type,
-                  "RegisteredTypeInfo",
-                  &PyGIBaseInfo_Type,
-                  REGISTERED_TYPE_INFO_GETTERS,
-                  NULL);
+REGISTERED_TYPE_INFO_GETTERS (INFO_EMIT_FN)
+
+static PyObject *
+registeredfn_get_type_init (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  const char *s
+      = gi_registered_type_info_get_type_init_function_name ((GIRegisteredTypeInfo *)PYGI_INFO (self));
+  return PyUnicode_FromString (s ? s : "");
+}
+
+static PyMethodDef registered_type_info_methods[]
+    = { REGISTERED_TYPE_INFO_GETTERS (INFO_EMIT_DEF){
+          "get_type_init", registeredfn_get_type_init, METH_NOARGS,
+          "($self, /) -> str\n--\n\n" },
+        { 0 } };
+
+INFO_TYPE (PyGIRegisteredTypeInfo_Type,
+           "RegisteredTypeInfo",
+           &PyGIBaseInfo_Type,
+           registered_type_info_methods,
+           NULL);

@@ -15,5 +15,30 @@
  */
 
 #include "GIRepository/Info.h"
+#include "GIRepository/BaseInfo.h"
 
-INFO_DEFINE_TYPE (PyGIFieldInfo_Type, "FieldInfo", &PyGIBaseInfo_Type, INFO_NO_GETTERS, NULL);
+#define FIELD_INFO_GETTERS(X)                                                                      \
+  X (INT, field_info, get_flags, GIFieldInfo)                                                      \
+  X (INT, field_info, get_offset, GIFieldInfo)                                                     \
+  X (INT, field_info, get_size, GIFieldInfo)
+
+FIELD_INFO_GETTERS (INFO_EMIT_FN)
+
+static PyObject *
+fieldfn_get_type_info (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  return gi_info_to_py_owned (
+      (GIBaseInfo *)gi_field_info_get_type_info ((GIFieldInfo *)PYGI_INFO (self)));
+}
+
+static PyMethodDef field_info_methods[]
+    = { FIELD_INFO_GETTERS (INFO_EMIT_DEF){
+          "get_type_info", fieldfn_get_type_info, METH_NOARGS,
+          "($self, /) -> TypeInfo\n--\n\n" },
+        { 0 } };
+
+INFO_TYPE (PyGIFieldInfo_Type,
+           "FieldInfo",
+           &PyGIBaseInfo_Type,
+           field_info_methods,
+           NULL);

@@ -91,7 +91,24 @@ info_repr (PyObject *self)
                                name ? name : "?");
 }
 
-static PyMethodDef base_info_methods[] = { BASE_INFO_GETTERS (INFO_EMIT_DEF){ 0 } };
+/* get_attribute(name): return the annotation value or None. */
+static PyObject *
+baseinfofn_get_attribute (PyObject *self, PyObject *arg)
+{
+  const char *name = PyUnicode_AsUTF8 (arg);
+  if (name == NULL)
+    return NULL;
+  const char *val = gi_base_info_get_attribute (PYGI_INFO (self), name);
+  if (val == NULL)
+    Py_RETURN_NONE;
+  return PyUnicode_FromString (val);
+}
+
+static PyMethodDef base_info_methods[]
+    = { BASE_INFO_GETTERS (INFO_EMIT_DEF){
+          "get_attribute", baseinfofn_get_attribute, METH_O,
+          "($self, name, /) -> str | None\n--\n\n" },
+        { 0 } };
 
 PyTypeObject PyGIBaseInfo_Type = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ginext.GIRepository.BaseInfo",
