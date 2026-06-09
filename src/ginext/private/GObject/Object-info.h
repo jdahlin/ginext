@@ -66,6 +66,8 @@ PyObject *
 pygi_object_info_to_py (GIArgument *arg, GITransfer transfer);
 PyObject *
 py_construct_gobject (PyObject *module, PyObject *args);
+GObject *
+pygi_construct_gobject_object (GType gtype, PyObject *kwargs);
 PyObject *
 pygi_signal_connect_full (PyObject *source_arg,
                           const char *signal_name,

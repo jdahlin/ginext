@@ -18,6 +18,7 @@
 
 #include "GObject/Fundamental.h"
 #include "GObject/Object.h"
+#include "marshal/conversion.h"
 #include "marshal/enum.h"
 #include "runtime/class-registry.h"
 
@@ -184,39 +185,43 @@ prime_construction_state_from_source (PyObject *self, PyObject *source, PyObject
   return 0;
 }
 
+/* Set each (name, value) from a properties dict on an already-constructed
+ * GObject, normalizing foo_bar -> foo-bar. The dict is iterated directly (the
+ * caller — tp_init — owns it and never mutates it during the call). */
 static int
-apply_construction_properties_from_mapping (PyObject *self, PyObject *properties)
+apply_construction_properties (GObject *object, PyObject *properties)
 {
-  PyGIGObject *base = (PyGIGObject *)self;
-  if (base->construction_ptr == NULL)
-    {
-      PyErr_SetString (PyExc_ValueError, "no deferred construction state");
-      return -1;
-    }
-
-  PyObject *mapping = PyObject_CallFunctionObjArgs ((PyObject *)&PyDict_Type, properties, NULL);
-  if (mapping == NULL)
-    return -1;
-
   Py_ssize_t pos = 0;
   PyObject *key = NULL;
   PyObject *value = NULL;
-  while (PyDict_Next (mapping, &pos, &key, &value))
+  while (PyDict_Next (properties, &pos, &key, &value))
     {
-      const char *name = PyUnicode_AsUTF8 (key);
-      if (name == NULL)
-        {
-          Py_DECREF (mapping);
-          return -1;
-        }
-      if (pygi_gobject_set_property_on_object (base->construction_ptr, name, value) != 0)
-        {
-          Py_DECREF (mapping);
-          return -1;
-        }
+      PyObject *norm = PyObject_CallMethod (key, "replace", "ss", "_", "-");
+      if (norm == NULL)
+        return -1;
+      const char *name = PyUnicode_AsUTF8 (norm);
+      int r = name != NULL
+                  ? pygi_gobject_set_property_on_object (object, name, value)
+                  : -1;
+      Py_DECREF (norm);
+      if (r != 0)
+        return -1;
     }
+  return 0;
+}
 
-  Py_DECREF (mapping);
+static int
+bind_wrapper_to_object (PyObject *self, GObject *object, gboolean owns_ref)
+{
+  if (object == NULL)
+    {
+      PyErr_SetString (PyExc_ValueError, "GObject pointer is NULL");
+      return -1;
+    }
+  if (pygi_gobject_wrapper_store (object, self) < 0)
+    return -1;
+  pygi_gobject_wrapper_set_owns_ref (object, owns_ref);
+  pygi_gobject_wrapper_local_set_owns_ref (self, owns_ref);
   return 0;
 }
 
@@ -226,18 +231,7 @@ bind_wrapper_from_source (PyObject *self, PyObject *source, gboolean owns_ref)
   GObject *object = gobject_from_source (source);
   if (object == NULL && PyErr_Occurred ())
     return -1;
-  if (object == NULL)
-    {
-      PyErr_SetString (PyExc_ValueError, "GObject pointer is NULL");
-      return -1;
-    }
-
-  if (pygi_gobject_wrapper_store (object, self) < 0)
-    return -1;
-
-  pygi_gobject_wrapper_set_owns_ref (object, owns_ref);
-  pygi_gobject_wrapper_local_set_owns_ref (self, owns_ref);
-  return 0;
+  return bind_wrapper_to_object (self, object, owns_ref);
 }
 
 static GObject *
@@ -314,35 +308,21 @@ GObject_prime_construction_state (PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyObject *
-GObject_take_construction_state (PyObject *self, PyObject *Py_UNUSED (ignored))
+/* Construct a GObject for `type`, returning a new owned reference. Bracketed by
+ * the python-construction-depth flag so the construction callback during
+ * g_object_new binds this wrapper rather than auto-creating one. */
+static GObject *
+gobject_construct_for_type (PyObject *type, PyObject *properties)
 {
-  PyGIGObject *base = (PyGIGObject *)self;
-  if (base->construction_ptr == NULL)
-    Py_RETURN_NONE;
-
-  PyObject *ptr = PyLong_FromVoidPtr (base->construction_ptr);
-  if (ptr == NULL)
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (type, &gtype) != 0)
     return NULL;
-
-  PyObject *handlers = base->construction_handlers;
-  if (handlers == NULL)
-    handlers = PyDict_New ();
-  else
-    Py_INCREF (handlers);
-  if (handlers == NULL)
-    {
-      Py_DECREF (ptr);
-      return NULL;
-    }
-
-  base->construction_ptr = NULL;
-  Py_CLEAR (base->construction_handlers);
-
-  PyObject *state = PyTuple_Pack (2, ptr, handlers);
-  Py_DECREF (ptr);
-  Py_DECREF (handlers);
-  return state;
+  int depth = python_construction_depth ();
+  if (depth < 0 || set_python_construction_depth (depth + 1) < 0)
+    return NULL;
+  GObject *object = pygi_construct_gobject_object (gtype, properties);
+  set_python_construction_depth (depth);
+  return object;
 }
 
 static PyObject *
@@ -351,33 +331,16 @@ GObject_construct_with_properties (PyObject *type, PyObject *args)
   PyObject *properties = NULL;
   if (!PyArg_ParseTuple (args, "O!:construct_with_properties", &PyDict_Type, &properties))
     return NULL;
-
-  PyObject *call_args = PyTuple_Pack (2, type, properties);
-  if (call_args == NULL)
+  GObject *object = gobject_construct_for_type (type, properties);
+  if (object == NULL)
     return NULL;
-  /* Mark a Python-initiated construction for the duration of g_object_new so the
-   * construction callback binds this wrapper rather than creating its own. */
-  int depth = python_construction_depth ();
-  if (depth < 0 || set_python_construction_depth (depth + 1) < 0)
+  PyObject *ptr = PyLong_FromVoidPtr (object);
+  if (ptr == NULL)
     {
-      Py_DECREF (call_args);
+      g_object_unref (object);
       return NULL;
     }
-  PyObject *result = py_construct_gobject (NULL, call_args);
-  set_python_construction_depth (depth);
-  Py_DECREF (call_args);
-  return result;
-}
-
-static PyObject *
-GObject_apply_construction_properties (PyObject *self, PyObject *args)
-{
-  PyObject *properties = NULL;
-  if (!PyArg_ParseTuple (args, "O:apply_construction_properties", &properties))
-    return NULL;
-  if (apply_construction_properties_from_mapping (self, properties) < 0)
-    return NULL;
-  Py_RETURN_NONE;
+  return ptr;
 }
 
 static PyObject *
@@ -765,16 +728,11 @@ static PyMethodDef GObject_methods[] = {
   { "set_property_by_name", GObject_set_property_by_name, METH_VARARGS, NULL },
   { "from_c", GObject_from_c, METH_CLASS | METH_VARARGS, NULL },
   { "prime_construction_state", GObject_prime_construction_state, METH_VARARGS, NULL },
-  { "apply_construction_properties",
-    GObject_apply_construction_properties,
-    METH_VARARGS,
-    NULL },
   { "connect_constructor_handler", GObject_connect_constructor_handler, METH_VARARGS, NULL },
   { "signal_is_action", GObject_signal_is_action, METH_VARARGS, NULL },
   { "signal_connect", GObject_signal_connect, METH_VARARGS, NULL },
   { "signal_emit", GObject_signal_emit, METH_VARARGS, NULL },
   { "signal_emit_with_gtypes", GObject_signal_emit_with_gtypes, METH_VARARGS, NULL },
-  { "take_construction_state", GObject_take_construction_state, METH_NOARGS, NULL },
   { NULL, NULL, 0, NULL },
 };
 
@@ -930,16 +888,10 @@ split_construction_kwargs (PyObject *kwds, PyObject **out_properties,
               if (r < 0)
                 goto error;
             }
-          else
-            {
-              PyObject *name = PyObject_CallMethod (key, "replace", "ss", "_", "-");
-              if (name == NULL)
-                goto error;
-              int r = PyDict_SetItem (properties, name, value);
-              Py_DECREF (name);
-              if (r < 0)
-                goto error;
-            }
+          /* Property names stay raw here; the construct core and
+           * apply_construction_properties normalize foo_bar -> foo-bar. */
+          else if (PyDict_SetItem (properties, key, value) < 0)
+            goto error;
         }
     }
   *out_properties = properties;
@@ -1001,8 +953,8 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
     return -1;
 
   int rc = -1;
-  gboolean owns_ref = TRUE;
-  PyObject *ptr = NULL;
+  gboolean owns_ref;
+  GObject *object;
   PyObject *pending = NULL; /* deferred: handlers primed by C, owned */
   PyObject *finish_handlers = NULL;
   PyGIGObject *base = (PyGIGObject *)self;
@@ -1010,32 +962,31 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
   if (base->construction_ptr == NULL)
     {
       /* Normal path: g_object_new, owning the ref. */
-      PyObject *call_args = PyTuple_Pack (1, properties);
-      if (call_args == NULL)
+      object = gobject_construct_for_type ((PyObject *)Py_TYPE (self), properties);
+      if (object == NULL)
         goto done;
-      ptr = GObject_construct_with_properties ((PyObject *)Py_TYPE (self), call_args);
-      Py_DECREF (call_args);
-      if (ptr == NULL)
-        goto done;
+      owns_ref = TRUE;
     }
   else
     {
       /* Deferred-shell path (C-initiated python subclass): consume the primed
        * construction state, apply any kwargs, bind without owning the ref. */
       pending = base->construction_handlers; /* owned; may be NULL */
-      ptr = PyLong_FromVoidPtr (base->construction_ptr);
+      object = base->construction_ptr;
       base->construction_ptr = NULL;
       base->construction_handlers = NULL;
-      if (ptr == NULL)
-        goto done;
       if (PyDict_GET_SIZE (properties) > 0
-          && apply_construction_properties_from_mapping (self, properties) < 0)
+          && apply_construction_properties (object, properties) < 0)
         goto done;
       owns_ref = FALSE;
     }
 
-  if (bind_wrapper_from_source (self, ptr, owns_ref) < 0)
-    goto done;
+  if (bind_wrapper_to_object (self, object, owns_ref) < 0)
+    {
+      if (owns_ref)
+        g_object_unref (object); /* construct gave us a ref; bind didn't take it */
+      goto done;
+    }
 
   /* Handlers to wire: the on_* kwargs, merged onto any primed by the deferred
    * path. */
@@ -1065,7 +1016,6 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
 done:
   Py_XDECREF (properties);
   Py_XDECREF (handlers);
-  Py_XDECREF (ptr);
   Py_XDECREF (pending);
   Py_XDECREF (finish_handlers);
   return rc;
