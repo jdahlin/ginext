@@ -151,6 +151,54 @@ def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
         )
 
 
+# Runtime __setattr__/__getattr__ for GObject.Object, installed as overlays at
+# creation (bottom of this module). Defined with non-dunder names so they are
+# plain module functions (a module-level `def __getattr__` would become the
+# module's PEP 562 attribute hook); registered under their dunder names.
+def _obj_setattr(self: Any, name: str, value: object) -> None:
+    # A write to an introspected/inherited GObject property must route through
+    # the property system, not land in the instance dict: on first write to a
+    # non-dunder name that names a pspec, synthesize the descriptor first.
+    if not name.startswith("_"):
+        cls = type(self)
+        if not any(name in klass.__dict__ for klass in cls.__mro__):
+            pspec = cls.gimeta.param_spec(name.replace("_", "-"))
+            if pspec is not None:
+                _synthesize_pspec_property(cls, name)
+    object.__setattr__(self, name, value)
+
+
+def _obj_getattr(self: Any, name: str) -> Any:
+    if features.is_enabled(features.PYGOBJECT_COMPAT):
+        dispose_state = _compat_dispose_state.get(id(self))
+        if dispose_state is not None and name in dispose_state:
+            return dispose_state[name]
+    method = classbuild_module().method_for_instance(self, name)
+    if method is not None:
+        return method
+    # Any GObject property is reachable as a plain attribute: on first miss,
+    # synthesize a descriptor from its pspec and cache it on the class.
+    if not name.startswith("_"):
+        cls = type(self)
+        pspec = cls.gimeta.param_spec(name.replace("_", "-"))
+        if pspec is not None:
+            return _synthesize_pspec_property(cls, name).__get__(self, cls)
+    if features.is_enabled(features.PYGOBJECT_COMPAT):
+        if name == "__gtype__":
+            return type(self).__gtype__
+        try:
+            return self._compat_property_for_name(name)
+        except AttributeError:
+            pass
+    if name.replace("-", "_") in type(self).gimeta.signal_infos:
+        if not features.is_enabled(features.NEW_SIGNAL_API):
+            raise AttributeError(name)
+        return self.signal_for_name(name)
+    if not features.is_enabled(features.NEW_SIGNAL_API):
+        raise AttributeError(name)
+    return self.signal_for_name(name)
+
+
 # A layout-free mixin sibling of GObject.Object, so `class Foo(GObject.Object,
 # SomeInterface)` has a consistent MRO. Never instantiated as itself.
 @dataclass_transform(field_specifiers=(Property,))
@@ -186,51 +234,13 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         super(GObject, cls).__init_subclass__(**kwargs)
         register_python_subclass(cls, type_name=type_name)
 
-    def __setattr__(self, name: str, value: object) -> None:
-        # Writes to an introspected/inherited GObject property must route through
-        # the property system, not land in the instance dict. Mirror __getattr__:
-        # on first write to a name that isn't already a class attribute but does
-        # name a pspec, synthesize the descriptor, then let it handle the set.
-        # Property names never start with "_", so internal sets skip the lookup.
-        if not name.startswith("_"):
-            cls = type(self)
-            if not any(name in klass.__dict__ for klass in cls.__mro__):
-                pspec = cls.gimeta.param_spec(name.replace("_", "-"))
-                if pspec is not None:
-                    _synthesize_pspec_property(cls, name)
-        object.__setattr__(self, name, value)
-
-    def __getattr__(self, name: str) -> Any:
-        if features.is_enabled(features.PYGOBJECT_COMPAT):
-            dispose_state = _compat_dispose_state.get(id(self))
-            if dispose_state is not None and name in dispose_state:
-                return dispose_state[name]
-        method = classbuild_module().method_for_instance(self, name)
-        if method is not None:
-            return method
-        # Any GObject property (introspected or inherited) is reachable as a
-        # plain attribute: on first miss, synthesize a descriptor from its pspec
-        # and cache it on the class. Property names never start with "_", so
-        # dunder/private misses skip the (C) pspec lookup.
-        if not name.startswith("_"):
-            cls = type(self)
-            pspec = cls.gimeta.param_spec(name.replace("_", "-"))
-            if pspec is not None:
-                return _synthesize_pspec_property(cls, name).__get__(self, cls)
-        if features.is_enabled(features.PYGOBJECT_COMPAT):
-            if name == "__gtype__":
-                return type(self).__gtype__
-            try:
-                return self._compat_property_for_name(name)
-            except AttributeError:
-                pass
-        if name.replace("-", "_") in type(self).gimeta.signal_infos:
-            if not features.is_enabled(features.NEW_SIGNAL_API):
-                raise AttributeError(name)
-            return self.signal_for_name(name)
-        if not features.is_enabled(features.NEW_SIGNAL_API):
-            raise AttributeError(name)
-        return self.signal_for_name(name)
+    if TYPE_CHECKING:
+        # Runtime implementations are _obj_setattr/_obj_getattr below, installed
+        # on GObject.Object as overlays at creation (bottom of this module). These
+        # stubs keep the type-checking view complete — __getattr__ in particular
+        # is what lets mypy allow dynamic property/signal attribute access.
+        def __setattr__(self, name: str, value: object) -> None: ...
+        def __getattr__(self, name: str) -> Any: ...
 
     def signal_for_name(self, name: str) -> _SignalInstance:
         # Lazy signal lookup. Methods (and any other class attribute) are
@@ -278,3 +288,18 @@ else:
 GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
 GObject.Signal = Signal
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
+
+if not TYPE_CHECKING:
+    # Install the foundational instance overlays (__setattr__/__getattr__) on
+    # GObject.Object at creation time — they are needed for attribute access long
+    # before the namespace-adoption overlay pass runs, so register them here and
+    # apply immediately by passing the freshly built class to install_class_overlay.
+    import types as _types
+
+    from ..overlay.install import install_class_overlay as _install_class_overlay
+    from ..overlay.registrar import OverlayRegistrar as _OverlayRegistrar
+
+    _base_overlay = _OverlayRegistrar(_types.SimpleNamespace(__name__="GObject"))
+    _base_overlay.method("Object", name="__setattr__")(_obj_setattr)
+    _base_overlay.method("Object", name="__getattr__")(_obj_getattr)
+    _install_class_overlay(GObject, "GObject", "Object")

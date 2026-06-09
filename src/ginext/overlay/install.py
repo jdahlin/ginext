@@ -233,9 +233,9 @@ def install_class_constructor(cls: type, ns: str, class_name: str) -> None:
                 fn_globals[ns_name] = saved
 
     __new__.__name__ = "__new__"
-    setattr(cls, "__new__", staticmethod(__new__))
-    setattr(cls, "__init__", entry.init if entry.init is not None else _noop_init)
-    setattr(cls, "_pygobject_compat_constructor", True)
+    cls.__new__ = staticmethod(__new__)
+    cls.__init__ = entry.init if entry.init is not None else _noop_init
+    cls._pygobject_compat_constructor = True
 
 
 def install_class_overlay(cls: type, ns: str, class_name: str) -> None:
@@ -248,13 +248,23 @@ def install_class_overlay(cls: type, ns: str, class_name: str) -> None:
         typelib_methods = getattr(gimeta, "typelib_methods", None)
         if typelib_methods is not None and method_name not in typelib_methods:
             existing = cls.__dict__.get(method_name)
-            from ginext.classbuild import install_method_for_class
+            try:
+                from ginext.classbuild import install_method_for_class
 
-            found = install_method_for_class(cls, method_name)
-            if found is None:
-                from ginext.record import install_method_for_record_class
+                found = install_method_for_class(cls, method_name)
+                if found is None:
+                    from ginext.record import install_method_for_record_class
 
-                found = install_method_for_record_class(cast("Any", cls), method_name)
+                    found = install_method_for_record_class(
+                        cast("Any", cls), method_name
+                    )
+            except ImportError:
+                # Reached when applying overlays during bootstrap — e.g. installing
+                # the foundational GObject.Object overlays at creation, before
+                # classbuild has finished importing. A method that can't be resolved
+                # through classbuild/record is not a typelib method, so treat it as a
+                # plain overlay (the common case for the foundational dunders).
+                found = None
             if found is not None:
                 existing = cls.__dict__.get(method_name)
             # On the cached-by-gtype re-entry path, `existing` is the
