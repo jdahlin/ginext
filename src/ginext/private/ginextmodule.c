@@ -44,6 +44,12 @@ py_namespace_find (PyObject *m, PyObject *args);
 extern PyObject *
 py_namespace_dir (PyObject *m, PyObject *args);
 extern PyObject *
+py_namespace_is_registered (PyObject *m, PyObject *args);
+extern PyObject *
+py_namespace_get_dependencies (PyObject *m, PyObject *args);
+extern PyObject *
+py_namespace_get_immediate_dependencies (PyObject *m, PyObject *args);
+extern PyObject *
 py_instantiatable_unref (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_new (PyObject *m, PyObject *args);
@@ -297,6 +303,9 @@ static PyMethodDef methods[] = {
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
   /* keep: typelib namespace listing */
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
+  { "namespace_is_registered", py_namespace_is_registered, METH_VARARGS, NULL },
+  { "namespace_get_dependencies", py_namespace_get_dependencies, METH_VARARGS, NULL },
+  { "namespace_get_immediate_dependencies", py_namespace_get_immediate_dependencies, METH_VARARGS, NULL },
   /* keep: repository gtype->info lookup */
   /* keep: fundamental-type unref lifecycle */
   { "instantiatable_unref", py_instantiatable_unref, METH_VARARGS, NULL },

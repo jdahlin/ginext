@@ -1636,14 +1636,14 @@ invoke_descriptor_gobject_self_fastcall (PyGIInvokePlan *plan,
   if (self_obj == NULL)
     {
       PyErr_Clear ();
-      pygi_raise_gobject_type_error_for_gtype (G_TYPE_OBJECT, self_arg);
+      pygi_raise_gobject_type_error_for_gtype_named (G_TYPE_OBJECT, self_arg, "self");
       return -1;
     }
 
   GType actual_gtype = G_TYPE_FROM_INSTANCE ((GTypeInstance *)self_obj);
   if (actual_gtype != 0 && !g_type_is_a (actual_gtype, plan->self_gtype))
     {
-      pygi_raise_gobject_type_error_for_gtype (plan->self_gtype, self_arg);
+      pygi_raise_gobject_type_error_for_gtype_named (plan->self_gtype, self_arg, "self");
       return -1;
     }
 
@@ -1666,17 +1666,22 @@ invoke_descriptor_gobject_arg_fastcall (const PyGIArgPlan *arg_plan,
       if (arg_ptr == NULL)
         {
           PyErr_Clear ();
-          pygi_raise_gobject_type_error_for_gtype (arg_plan->type.gtype != G_TYPE_INVALID
-                                                           && arg_plan->type.gtype != G_TYPE_NONE
-                                                       ? arg_plan->type.gtype
-                                                       : G_TYPE_OBJECT,
-                                                   arg);
+          pygi_raise_gobject_type_error_for_gtype_named (arg_plan->type.gtype != G_TYPE_INVALID
+                                                                 && arg_plan->type.gtype != G_TYPE_NONE
+                                                             ? arg_plan->type.gtype
+                                                             : G_TYPE_OBJECT,
+                                                         arg,
+                                                         arg_plan->cached_ai
+                                                             ? gi_base_info_get_name ((GIBaseInfo *)arg_plan->cached_ai)
+                                                             : NULL);
           return -1;
         }
       if (arg_plan->type.gtype != G_TYPE_INVALID && arg_plan->type.gtype != G_TYPE_NONE
           && !g_type_is_a (G_TYPE_FROM_INSTANCE ((GTypeInstance *)arg_ptr), arg_plan->type.gtype))
         {
-          pygi_raise_gobject_type_error_for_gtype (arg_plan->type.gtype, arg);
+          pygi_raise_gobject_type_error_for_gtype_named (
+              arg_plan->type.gtype, arg,
+              arg_plan->cached_ai ? gi_base_info_get_name ((GIBaseInfo *)arg_plan->cached_ai) : NULL);
           return -1;
         }
       if (arg_plan->marshal_kind == PYGI_MARSHAL_GOBJECT_OWNED && G_IS_OBJECT (arg_ptr))

@@ -184,10 +184,6 @@ class TestFields(unittest.TestCase):
         s = Regress.TestStructE()
         self.assertEqual(s.some_union, [None, None])
 
-    @pytest.mark.xfail(
-        reason="record nested-struct field compatibility is incomplete",
-        strict=False,
-    )
     def test_struct(self):
         s = GIMarshallingTests.NestedStruct()
 

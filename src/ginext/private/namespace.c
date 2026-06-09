@@ -545,6 +545,101 @@ py_namespace_dir (PyObject *module G_GNUC_UNUSED, PyObject *args)
 }
 
 PyObject *
+py_namespace_is_registered (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  const char *namespace_name = NULL;
+  PyObject *version_obj = Py_None;
+  if (!PyArg_ParseTuple (args, "sO", &namespace_name, &version_obj))
+    return NULL;
+
+  const char *version = NULL;
+  if (version_obj != Py_None)
+    {
+      if (!PyUnicode_Check (version_obj))
+        {
+          PyErr_SetString (PyExc_TypeError, "version must be a string or None");
+          return NULL;
+        }
+      version = PyUnicode_AsUTF8 (version_obj);
+      if (version == NULL)
+        return NULL;
+      if (version[0] == '\0')
+        Py_RETURN_FALSE;
+    }
+
+  GIRepository *repo = ginext_shared_repository ();
+  if (repo == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
+      return NULL;
+    }
+
+  gboolean registered = gi_repository_is_registered (repo, namespace_name, version);
+  return PyBool_FromLong (registered ? 1 : 0);
+}
+
+static PyObject *
+strv_to_list (const char *const *strv, gsize n)
+{
+  PyObject *list = PyList_New ((Py_ssize_t)n);
+  if (list == NULL)
+    return NULL;
+  for (gsize i = 0; i < n; i++)
+    {
+      PyObject *s = PyUnicode_FromString (strv[i] ? strv[i] : "");
+      if (s == NULL)
+        {
+          Py_DECREF (list);
+          return NULL;
+        }
+      PyList_SET_ITEM (list, (Py_ssize_t)i, s);
+    }
+  return list;
+}
+
+PyObject *
+py_namespace_get_dependencies (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  const char *namespace_name = NULL;
+  if (!PyArg_ParseTuple (args, "s", &namespace_name))
+    return NULL;
+
+  GIRepository *repo = ginext_shared_repository ();
+  if (repo == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
+      return NULL;
+    }
+
+  gsize n_deps = 0;
+  char **deps = gi_repository_get_dependencies (repo, namespace_name, &n_deps);
+  if (deps == NULL)
+    return PyList_New (0);
+  return strv_to_list ((const char *const *)deps, n_deps);
+}
+
+PyObject *
+py_namespace_get_immediate_dependencies (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  const char *namespace_name = NULL;
+  if (!PyArg_ParseTuple (args, "s", &namespace_name))
+    return NULL;
+
+  GIRepository *repo = ginext_shared_repository ();
+  if (repo == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
+      return NULL;
+    }
+
+  gsize n_deps = 0;
+  char **deps = gi_repository_get_immediate_dependencies (repo, namespace_name, &n_deps);
+  if (deps == NULL)
+    return PyList_New (0);
+  return strv_to_list ((const char *const *)deps, n_deps);
+}
+
+PyObject *
 pygi_object_info_by_gtype (GType lookup_gtype)
 {
   GIRepository *repo = ginext_shared_repository ();

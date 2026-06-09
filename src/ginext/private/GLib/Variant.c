@@ -36,7 +36,11 @@ pygi_variant_from_py (PyObject *value, GIArgument *out)
       PyGIGLibBoxed *boxed = (PyGIGLibBoxed *)value;
       if (boxed->gtype != G_TYPE_VARIANT)
         {
-          PyErr_SetString (PyExc_TypeError, "GVariant argument must be GLib.Variant");
+          PyObject *repr = PyObject_Repr (value);
+          if (repr == NULL)
+            repr = PyUnicode_FromFormat ("<%s object>", Py_TYPE (value)->tp_name);
+          PyErr_Format (PyExc_TypeError, "expected GLib.Variant, but got %U", repr);
+          Py_XDECREF (repr);
           return -1;
         }
       out->v_pointer = boxed->boxed != NULL ? g_variant_ref ((GVariant *)boxed->boxed) : NULL;
@@ -46,8 +50,11 @@ pygi_variant_from_py (PyObject *value, GIArgument *out)
 
   if (!PyUnicode_Check (value))
     {
-      PyErr_SetString (PyExc_TypeError,
-                       "GVariant argument must be GLib.Variant, a string, or None");
+      PyObject *repr = PyObject_Repr (value);
+      if (repr == NULL)
+        repr = PyUnicode_FromFormat ("<%s object>", Py_TYPE (value)->tp_name);
+      PyErr_Format (PyExc_TypeError, "expected GLib.Variant, a string, or None, but got %U", repr);
+      Py_XDECREF (repr);
       return -1;
     }
 

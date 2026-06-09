@@ -94,10 +94,6 @@ def test_gtype_from_name_roundtrip(GObject: Any) -> None:
     assert int(gt) != 0
 
 
-@pytest.mark.xfail(
-    reason="GObject TYPE_PYOBJECT / synthesized PyObject GType not yet exposed",
-    strict=False,
-)
 def test_type_pyobject_is_synthesized(GObject: Any) -> None:
     value = GObject.type_from_name("PyObject")
     assert value != 0

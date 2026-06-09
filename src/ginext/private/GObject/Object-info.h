@@ -54,6 +54,10 @@ int
 pygi_raise_gobject_type_error (const char *expected, PyObject *actual);
 int
 pygi_raise_gobject_type_error_for_gtype (GType expected_gtype, PyObject *actual);
+int
+pygi_raise_gobject_type_error_for_gtype_named (GType expected_gtype,
+                                               PyObject *actual,
+                                               const char *arg_name);
 PyObject *
 pygi_gobject_to_py (GObject *object, GITransfer transfer);
 PyObject *
