@@ -730,8 +730,18 @@ static PyMethodDef GObject_methods[] = {
   { NULL, NULL, 0, NULL },
 };
 
+static PyObject *
+GObject_get_grefcount (PyObject *self, void *Py_UNUSED (closure))
+{
+  GObject *obj = ((PyGIGObject *)self)->ptr;
+  if (obj == NULL)
+    return PyLong_FromLong (0);
+  return PyLong_FromUnsignedLong ((unsigned long)obj->ref_count);
+}
+
 static PyGetSetDef GObject_getset[] = {
   { "__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict, NULL, NULL },
+  { "__grefcount__", GObject_get_grefcount, NULL, NULL, NULL },
   { NULL },
 };
 
