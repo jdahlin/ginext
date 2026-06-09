@@ -22,7 +22,12 @@
   X (UINT, object_info, get_n_vfuncs, GIObjectInfo)                                                \
   X (UINT, object_info, get_n_properties, GIObjectInfo)                                            \
   X (UINT, object_info, get_n_interfaces, GIObjectInfo)                                            \
-  X (BOOL, object_info, get_fundamental, GIObjectInfo)
+  X (BOOL, object_info, get_fundamental, GIObjectInfo)                                             \
+  X (BOOL, object_info, get_abstract, GIObjectInfo)                                                \
+  X (STR, object_info, get_ref_function_name, GIObjectInfo)                                        \
+  X (STR, object_info, get_unref_function_name, GIObjectInfo)                                      \
+  X (STR, object_info, get_get_value_function_name, GIObjectInfo)                                  \
+  X (STR, object_info, get_set_value_function_name, GIObjectInfo)
 
 OBJECT_INFO_GETTERS (INFO_EMIT_FN)
 

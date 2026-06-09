@@ -22,7 +22,9 @@
   X (BOOL, callable_info, is_async, GICallableInfo)                                                \
   X (UINT, callable_info, get_n_args, GICallableInfo)                                              \
   X (BOOL, callable_info, may_return_null, GICallableInfo)                                         \
-  X (BOOL, callable_info, skip_return, GICallableInfo)
+  X (BOOL, callable_info, skip_return, GICallableInfo)                                             \
+  X (BOOL, callable_info, can_throw_gerror, GICallableInfo)                                        \
+  X (INT, callable_info, get_caller_owns, GICallableInfo)
 
 CALLABLE_INFO_GETTERS (INFO_EMIT_FN)
 
@@ -55,6 +57,23 @@ callablefn_get_has_user_data_slot (PyObject *self, PyObject *Py_UNUSED (a))
   return ginext_callable_info_has_user_data_slot ((GICallableInfo *)PYGI_INFO (self));
 }
 
+/* get_return_attribute(name): returns the attribute value or raises AttributeError. */
+static PyObject *
+callablefn_get_return_attribute (PyObject *self, PyObject *arg)
+{
+  const char *name = PyUnicode_AsUTF8 (arg);
+  if (name == NULL)
+    return NULL;
+  const char *val
+      = gi_callable_info_get_return_attribute ((GICallableInfo *)PYGI_INFO (self), name);
+  if (val == NULL)
+    {
+      PyErr_Format (PyExc_AttributeError, "no return attribute '%s'", name);
+      return NULL;
+    }
+  return PyUnicode_FromString (val);
+}
+
 static PyMethodDef callable_info_methods[]
     = { CALLABLE_INFO_GETTERS (INFO_EMIT_DEF){
           "get_arg", callablefn_get_arg, METH_O,
@@ -65,6 +84,8 @@ static PyMethodDef callable_info_methods[]
           "($self, /) -> list[str]\n--\n\n" },
         { "get_has_user_data_slot", callablefn_get_has_user_data_slot, METH_NOARGS,
           "($self, /) -> bool\n--\n\n" },
+        { "get_return_attribute", callablefn_get_return_attribute, METH_O,
+          "($self, name, /) -> str\n--\n\n" },
         { 0 } };
 
 INFO_TYPE (PyGICallableInfo_Type,

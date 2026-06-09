@@ -16,4 +16,10 @@
 
 #include "GIRepository/Info.h"
 
-INFO_DEFINE_TYPE (PyGISignalInfo_Type, "SignalInfo", &PyGICallableInfo_Type, INFO_NO_GETTERS, NULL);
+#define SIGNAL_INFO_GETTERS(X) X (INT, signal_info, get_flags, GISignalInfo)
+
+INFO_DEFINE_TYPE (PyGISignalInfo_Type,
+                  "SignalInfo",
+                  &PyGICallableInfo_Type,
+                  SIGNAL_INFO_GETTERS,
+                  NULL);

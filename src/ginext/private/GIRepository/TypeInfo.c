@@ -53,10 +53,42 @@ typefn_get_array_length_index (PyObject *self, PyObject *Py_UNUSED (a))
   return PyLong_FromLong (-1);
 }
 
+static PyObject *
+typefn_get_tag_as_string (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  GITypeTag tag = gi_type_info_get_tag ((GITypeInfo *)PYGI_INFO (self));
+  return PyUnicode_FromString (gi_type_tag_to_string (tag));
+}
+
+static PyObject *
+typefn_get_array_type (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  return PyLong_FromLong ((long)gi_type_info_get_array_type ((GITypeInfo *)PYGI_INFO (self)));
+}
+
+static PyObject *
+typefn_get_array_fixed_size (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  size_t size = 0;
+  if (gi_type_info_get_array_fixed_size ((GITypeInfo *)PYGI_INFO (self), &size))
+    return PyLong_FromSize_t (size);
+  return PyLong_FromLong (-1);
+}
+
+static PyObject *
+typefn_is_zero_terminated (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  return PyBool_FromLong (gi_type_info_is_zero_terminated ((GITypeInfo *)PYGI_INFO (self)));
+}
+
 static PyMethodDef type_info_methods[]
     = { TYPE_INFO_GETTERS (INFO_EMIT_DEF){ "get_param_type", typefn_get_param_type, METH_O, NULL },
         { "get_interface", typefn_get_interface, METH_NOARGS, NULL },
         { "get_array_length_index", typefn_get_array_length_index, METH_NOARGS, NULL },
+        { "get_tag_as_string", typefn_get_tag_as_string, METH_NOARGS, NULL },
+        { "get_array_type", typefn_get_array_type, METH_NOARGS, NULL },
+        { "get_array_fixed_size", typefn_get_array_fixed_size, METH_NOARGS, NULL },
+        { "is_zero_terminated", typefn_is_zero_terminated, METH_NOARGS, NULL },
         { 0 } };
 
 INFO_TYPE (PyGITypeInfo_Type, "TypeInfo", &PyGIBaseInfo_Type, type_info_methods, NULL);

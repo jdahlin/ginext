@@ -15,5 +15,29 @@
  */
 
 #include "GIRepository/Info.h"
+#include "GIRepository/BaseInfo.h"
 
-INFO_DEFINE_TYPE (PyGIPropertyInfo_Type, "PropertyInfo", &PyGIBaseInfo_Type, INFO_NO_GETTERS, NULL);
+#define PROPERTY_INFO_GETTERS(X)                                                                   \
+  X (INT, property_info, get_flags, GIPropertyInfo)                                                \
+  X (INT, property_info, get_ownership_transfer, GIPropertyInfo)
+
+PROPERTY_INFO_GETTERS (INFO_EMIT_FN)
+
+static PyObject *
+propertyfn_get_type_info (PyObject *self, PyObject *Py_UNUSED (a))
+{
+  return gi_info_to_py_owned (
+      (GIBaseInfo *)gi_property_info_get_type_info ((GIPropertyInfo *)PYGI_INFO (self)));
+}
+
+static PyMethodDef property_info_methods[]
+    = { PROPERTY_INFO_GETTERS (INFO_EMIT_DEF){
+          "get_type_info", propertyfn_get_type_info, METH_NOARGS,
+          "($self, /) -> TypeInfo\n--\n\n" },
+        { 0 } };
+
+INFO_TYPE (PyGIPropertyInfo_Type,
+           "PropertyInfo",
+           &PyGIBaseInfo_Type,
+           property_info_methods,
+           NULL);

@@ -882,6 +882,8 @@ ginext_object_info_method (PyObject *self, PyObject *Py_UNUSED (args))
   GIBaseInfo *class_struct = NULL;
   if (object_info != NULL)
     class_struct = (GIBaseInfo *)gi_object_info_get_class_struct (object_info);
+  else if (interface_info != NULL)
+    class_struct = (GIBaseInfo *)gi_interface_info_get_iface_struct (interface_info);
   PyObject *class_struct_obj = class_struct ? info_to_py_owned (class_struct) : Py_NewRef (Py_None);
   if (class_struct_obj == NULL)
     goto error;
