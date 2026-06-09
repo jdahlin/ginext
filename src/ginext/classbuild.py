@@ -703,3 +703,12 @@ def method_for_instance(obj: object, name: str) -> object | None:
         if bound is not None:
             return cast("object", bound)
     return types.MethodType(cast("Any", method), obj)
+
+
+# Hand the wrapper factories to C so it never imports this module to fetch them
+# (the inverse of the old PyImport_ImportModule("ginext.classbuild")). Registered
+# at import — before any GObject is wrapped from C.
+private.register_gobject_callbacks(
+    wrap_object=wrap_object_from_c,
+    wrap_preallocated=wrap_preallocated_object_from_c,
+)
