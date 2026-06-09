@@ -860,36 +860,52 @@ static PyObject *gobject_cb_setattr = NULL;
 static PyObject *gobject_cb_finish_construction = NULL;
 
 PyObject *
-pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED, PyObject *args)
+pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
+                                 PyObject *args,
+                                 PyObject *kwargs)
 {
+  static char *kwlist[]
+      = { "getattr",       "setattr",         "finish_construction",
+          "init_subclass", "signal_for_name", NULL };
   PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
   PyObject *init_subclass_fn = NULL, *signal_for_name_fn = NULL;
-  if (!PyArg_ParseTuple (args,
-                         "OOOOO:register_gobject_callbacks",
-                         &getattr_fn,
-                         &setattr_fn,
-                         &finish_fn,
-                         &init_subclass_fn,
-                         &signal_for_name_fn))
+  /* All keyword-only and optional, so new hooks can be added without breaking
+   * callers and partial (re-)registration is allowed. */
+  if (!PyArg_ParseTupleAndKeywords (args,
+                                    kwargs,
+                                    "|$OOOOO:register_gobject_callbacks",
+                                    kwlist,
+                                    &getattr_fn,
+                                    &setattr_fn,
+                                    &finish_fn,
+                                    &init_subclass_fn,
+                                    &signal_for_name_fn))
     return NULL;
   /* getattr/setattr/finish are consumed by the tp_getattro/tp_setattro slots
    * and tp_init. __init_subclass__ (a classmethod) and signal_for_name are
    * installed straight onto the type here — the C bootstrap's equivalent of the
    * old creation-time overlay install, with no overlay round-trip. */
-  Py_XSETREF (gobject_cb_getattr, Py_NewRef (getattr_fn));
-  Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
-  Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
+  if (getattr_fn != NULL)
+    Py_XSETREF (gobject_cb_getattr, Py_NewRef (getattr_fn));
+  if (setattr_fn != NULL)
+    Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
+  if (finish_fn != NULL)
+    Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
   if (pygi_gobject_type != NULL)
     {
       PyObject *type = (PyObject *)pygi_gobject_type;
-      PyObject *cm = PyClassMethod_New (init_subclass_fn);
-      if (cm == NULL)
-        return NULL;
-      int rc = PyObject_SetAttrString (type, "__init_subclass__", cm);
-      Py_DECREF (cm);
-      if (rc < 0)
-        return NULL;
-      if (PyObject_SetAttrString (type, "signal_for_name", signal_for_name_fn) < 0)
+      if (init_subclass_fn != NULL)
+        {
+          PyObject *cm = PyClassMethod_New (init_subclass_fn);
+          if (cm == NULL)
+            return NULL;
+          int rc = PyObject_SetAttrString (type, "__init_subclass__", cm);
+          Py_DECREF (cm);
+          if (rc < 0)
+            return NULL;
+        }
+      if (signal_for_name_fn != NULL
+          && PyObject_SetAttrString (type, "signal_for_name", signal_for_name_fn) < 0)
         return NULL;
     }
   Py_RETURN_NONE;

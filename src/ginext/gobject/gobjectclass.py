@@ -301,9 +301,9 @@ if not TYPE_CHECKING:
     # onto the C type by register_gobject_callbacks. C never imports this module —
     # the dependency is one-directional — and there is no overlay round-trip.
     private.register_gobject_callbacks(
-        _obj_getattr,
-        _obj_setattr,
-        _finish_construction,
-        _obj_init_subclass,
-        _obj_signal_for_name,
+        getattr=_obj_getattr,
+        setattr=_obj_setattr,
+        finish_construction=_finish_construction,
+        init_subclass=_obj_init_subclass,
+        signal_for_name=_obj_signal_for_name,
     )
