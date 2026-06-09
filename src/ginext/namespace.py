@@ -77,6 +77,9 @@ class Namespace:
         return self._version_tuple
 
     def __repr__(self) -> str:
+        path = private.namespace_get_typelib_path(self._name, self._version)
+        if path is not None:
+            return f"<module '{self.__name__}' from '{path}'>"
         return f"<{self._profile.module_name(self.__name__)} {self._version}>"
 
     def __dir__(self) -> list[str]:
@@ -97,6 +100,12 @@ class Namespace:
 
         if name == "_deprecations":
             return deprecations_proxy_for(self._name)
+
+        if name == "__path__":
+            path = private.namespace_get_typelib_path(self._name, self._version)
+            result: list[str] = [path] if path is not None else []
+            self.__path__ = result
+            return result
 
         if self._name == "GObject" and name == "Signal":
             from .signal.descriptor import SignalDescriptor

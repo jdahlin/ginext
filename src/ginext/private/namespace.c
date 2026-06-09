@@ -528,9 +528,14 @@ py_namespace_dir (PyObject *module G_GNUC_UNUSED, PyObject *args)
   if (list == NULL)
     return NULL;
 
+  Py_ssize_t out_idx = 0;
   for (unsigned int i = 0; i < n_infos; i++)
     {
       g_autoptr (GIBaseInfo) info = gi_repository_get_info (repo, namespace_name, i);
+      /* Skip callback typedef entries — they are not yet wrapped and would
+       * raise AttributeError if accessed via __getattr__. */
+      if (info != NULL && GI_IS_CALLBACK_INFO (info))
+        continue;
       const char *name = info ? gi_base_info_get_name (info) : NULL;
       PyObject *item = PyUnicode_FromString (name ? name : "");
       if (item == NULL)
@@ -538,9 +543,16 @@ py_namespace_dir (PyObject *module G_GNUC_UNUSED, PyObject *args)
           Py_DECREF (list);
           return NULL;
         }
-      PyList_SET_ITEM (list, (Py_ssize_t)i, item);
+      PyList_SET_ITEM (list, out_idx++, item);
     }
-
+  if (PyList_GET_SIZE (list) != out_idx)
+    {
+      if (PyList_SetSlice (list, out_idx, PyList_GET_SIZE (list), NULL) < 0)
+        {
+          Py_DECREF (list);
+          return NULL;
+        }
+    }
   return list;
 }
 
@@ -698,6 +710,32 @@ py_object_info_by_gtype (PyObject *module G_GNUC_UNUSED, PyObject *args)
   if (!PyArg_ParseTuple (args, "K", &gtype_arg))
     return NULL;
   return pygi_object_info_by_gtype ((GType)gtype_arg);
+}
+
+/* namespace_get_typelib_path(namespace, version) -> str | None
+ *
+ * Return the filesystem path of the .typelib for the given namespace, or None
+ * if the namespace is not loaded.
+ */
+PyObject *
+py_namespace_get_typelib_path (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  const char *namespace_name = NULL;
+  const char *version = "";
+  if (!PyArg_ParseTuple (args, "s|s", &namespace_name, &version))
+    return NULL;
+
+  GIRepository *repo = ginext_shared_repository ();
+  if (repo == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
+      return NULL;
+    }
+
+  const char *path = gi_repository_get_typelib_path (repo, namespace_name);
+  if (path == NULL)
+    Py_RETURN_NONE;
+  return PyUnicode_FromString (path);
 }
 
 /* namespace_find_by_gtype(gtype_int) -> (namespace, name) | None
