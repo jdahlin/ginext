@@ -476,24 +476,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
             return signal.detail_signal(detail)
         return signal
 
-    def __repr__(self) -> str:
-        module = (
-            type(self).__module__.removeprefix("ginext.").removeprefix("gi.repository.")
-        )
-        type_name = type(self).gimeta.type_name
-        if not self.is_bound():
-            return (
-                f"<{module}.{type(self).__name__} object at 0x{id(self):x} "
-                f"({type_name} unbound)>"
-            )
-        if features.is_enabled(features.PYGOBJECT_COMPAT):
-            return (
-                f"<{module}.{type(self).__name__} object at 0x{id(self):x} "
-                f"({type_name} at 0x{id(self):x})>"
-            )
-        return (
-            f"<{module}.{type(self).__name__} object at 0x{id(self):x} ({type_name})>"
-        )
 
 
 if TYPE_CHECKING:

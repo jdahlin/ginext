@@ -799,9 +799,84 @@ GObject_dealloc (PyObject *self)
   Py_TYPE (self)->tp_free (self);
 }
 
+static gboolean
+pygobject_compat_is_enabled (void)
+{
+  PyObject *features = PyImport_ImportModule ("ginext.features");
+  if (features == NULL)
+    {
+      PyErr_Clear ();
+      return FALSE;
+    }
+  PyObject *res =
+      PyObject_CallMethod (features, "is_enabled", "s", "pygobject_compat");
+  Py_DECREF (features);
+  if (res == NULL)
+    {
+      PyErr_Clear ();
+      return FALSE;
+    }
+  gboolean enabled = PyObject_IsTrue (res) == 1;
+  Py_DECREF (res);
+  return enabled;
+}
+
+static PyObject *
+GObject_repr (PyObject *self)
+{
+  PyObject *type = (PyObject *)Py_TYPE (self);
+  PyObject *module = NULL, *stripped = NULL, *name = NULL;
+  PyObject *gimeta = NULL, *type_name = NULL, *result = NULL;
+
+  module = PyObject_GetAttrString (type, "__module__");
+  if (module == NULL || !PyUnicode_Check (module))
+    {
+      PyErr_Clear ();
+      Py_XDECREF (module);
+      module = PyUnicode_FromString ("");
+      if (module == NULL)
+        return NULL;
+    }
+  stripped = PyObject_CallMethod (module, "removeprefix", "s", "ginext.");
+  if (stripped == NULL)
+    goto done;
+  Py_SETREF (stripped,
+             PyObject_CallMethod (stripped, "removeprefix", "s", "gi.repository."));
+  if (stripped == NULL)
+    goto done;
+
+  name = PyObject_GetAttrString (type, "__name__");
+  if (name == NULL)
+    goto done;
+  gimeta = PyObject_GetAttrString (type, "gimeta");
+  if (gimeta == NULL)
+    goto done;
+  type_name = PyObject_GetAttrString (gimeta, "type_name");
+  if (type_name == NULL)
+    goto done;
+
+  if (((PyGIGObject *)self)->ptr == NULL)
+    result = PyUnicode_FromFormat ("<%U.%U object at %p (%U unbound)>", stripped,
+                                   name, self, type_name);
+  else if (pygobject_compat_is_enabled ())
+    result = PyUnicode_FromFormat ("<%U.%U object at %p (%U at %p)>", stripped,
+                                   name, self, type_name, self);
+  else
+    result = PyUnicode_FromFormat ("<%U.%U object at %p (%U)>", stripped, name,
+                                   self, type_name);
+done:
+  Py_XDECREF (module);
+  Py_XDECREF (stripped);
+  Py_XDECREF (name);
+  Py_XDECREF (gimeta);
+  Py_XDECREF (type_name);
+  return result;
+}
+
 static PyType_Slot GinextGObject_slots[] = {
   { Py_tp_new, PyType_GenericNew },
   { Py_tp_dealloc, GObject_dealloc },
+  { Py_tp_repr, GObject_repr },
   { Py_tp_traverse, GObject_traverse },
   { Py_tp_clear, GObject_clear },
   { Py_tp_methods, GObject_methods },
