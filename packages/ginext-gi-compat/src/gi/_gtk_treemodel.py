@@ -41,11 +41,18 @@ def strip_boolean_result(
 class TreeModelRow:
     def __init__(self, model: Any, iter_or_path: Any) -> None:
         self.model = model
-        import ginext
-        _Gtk = ginext._load_namespace("Gtk", "3.0")
+        import gi.repository
+        _Gtk = getattr(gi.repository, "Gtk", None)
+        if _Gtk is None:
+            import gi
+            from gi.repository import Gtk as _Gtk
         TreeIterType = _Gtk.TreeIter
         TreePathType = _Gtk.TreePath
 
+        if not hasattr(model, "get_iter"):
+            raise TypeError(
+                f"expected Gtk.TreeModel, got {type(model).__name__}"
+            )
         if isinstance(iter_or_path, TreePathType):
             self.iter = model.get_iter(iter_or_path)
         elif isinstance(iter_or_path, TreeIterType) or type(iter_or_path).__name__ == "TreeIter":
@@ -104,13 +111,21 @@ class TreeModelRow:
             return [self[k] for k in key]
         raise TypeError(f"indices must be integers, slice or tuple, not {type(key).__name__}")
 
+    def _set_value(self, col: int, value: Any) -> None:
+        model = self.model
+        iter_ = self.iter
+        if not hasattr(model, "set_value") and hasattr(model, "convert_iter_to_child_iter"):
+            iter_ = model.convert_iter_to_child_iter(iter_)
+            model = model.get_model()
+        model.set_value(iter_, col, value)
+
     def __setitem__(self, key: Any, value: Any) -> None:
         if isinstance(key, int):
             if key >= self.model.get_n_columns():
                 raise IndexError(f"column index is out of bounds: {key:d}")
             if key < 0:
                 key = self._convert_negative_index(key)
-            self.model.set_value(self.iter, key, value)
+            self._set_value(key, value)
         elif isinstance(key, slice):
             start, stop, step = key.indices(self.model.get_n_columns())
             index_list = range(start, stop, step)
@@ -119,7 +134,7 @@ class TreeModelRow:
                     f"attempt to assign sequence of size {len(value):d} to slice of size {len(index_list):d}"
                 )
             for i, v in enumerate(index_list):
-                self.model.set_value(self.iter, v, value[i])
+                self._set_value(v, value[i])
         elif isinstance(key, tuple):
             if len(key) != len(value):
                 raise ValueError(
