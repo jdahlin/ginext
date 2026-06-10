@@ -194,12 +194,26 @@ def get_properties(self: Any, *names: str) -> tuple[object, ...]:
 class _ParamSpecWrapper:
     """Wraps a ginext ParamSpec, adding flags_class / enum_class for compat."""
 
-    __slots__ = ("_pspec",)
+    __slots__ = ("_pspec", "_owner_cls")
 
-    def __init__(self, pspec: object) -> None:
+    @property
+    def __class__(self) -> type:
+        try:
+            from gi.repository import GObject as _GObj
+            return _GObj.ParamSpec
+        except Exception:
+            return type(self._pspec)
+
+    def __init__(self, pspec: object, owner_cls: object = None) -> None:
         object.__setattr__(self, "_pspec", pspec)
+        object.__setattr__(self, "_owner_cls", owner_cls)
 
     def __getattr__(self, name: str) -> object:
+        if name == "owner_type":
+            owner = object.__getattribute__(self, "_owner_cls")
+            if owner is not None and hasattr(owner, "__gtype__"):
+                return owner.__gtype__
+            raise AttributeError("owner_type")
         if name == "flags_class":
             vtype = getattr(self._pspec, "value_type", None)
             if vtype is not None:
@@ -235,7 +249,7 @@ def find_property(cls: Any, name: str) -> object:
     pspec = cls.gimeta.param_spec(prop_name)
     if pspec is None:
         raise AttributeError(f"no property '{name}'")
-    return _ParamSpecWrapper(pspec)
+    return _ParamSpecWrapper(pspec, owner_cls=cls)
 
 
 @overlay.method("Object")
