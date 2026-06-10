@@ -208,12 +208,47 @@ class _ParamSpecWrapper:
         object.__setattr__(self, "_pspec", pspec)
         object.__setattr__(self, "_owner_cls", owner_cls)
 
+    def _get_pspec_pointer(self) -> int:
+        import ctypes
+        pspec = object.__getattribute__(self, "_pspec")
+        return ctypes.c_ulong.from_address(id(pspec) + 32).value
+
+    def _get_numeric_info(self) -> "dict | None":
+        try:
+            from ginext import private
+            ptr = self._get_pspec_pointer()
+            if ptr:
+                return private.param_spec_numeric_info(ptr)
+        except Exception:
+            pass
+        return None
+
     def __getattr__(self, name: str) -> object:
         if name == "owner_type":
             owner = object.__getattribute__(self, "_owner_cls")
             if owner is not None and hasattr(owner, "__gtype__"):
                 return owner.__gtype__
             raise AttributeError("owner_type")
+        if name in ("minimum", "maximum", "default_value"):
+            info = self._get_numeric_info()
+            if info is not None and name in info:
+                return info[name]
+            raise AttributeError(name)
+        if name == "flags":
+            try:
+                from ginext import private
+                ptr = self._get_pspec_pointer()
+                if ptr:
+                    ps_info = private.param_spec_info(ptr)
+                    raw_flags = ps_info.get("flags", 0)
+                    try:
+                        from gi.repository import GObject as _GO
+                        return _GO.ParamFlags(raw_flags)
+                    except Exception:
+                        return raw_flags
+            except Exception:
+                pass
+            raise AttributeError("flags")
         if name == "flags_class":
             vtype = getattr(self._pspec, "value_type", None)
             if vtype is not None:
