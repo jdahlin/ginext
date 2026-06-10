@@ -516,6 +516,25 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
 
     _make_compat_bind_property(gobject_cls)
 
+    # Wrap __init__ to coerce str/bytes kwargs for gchar/guchar C properties
+    # before they reach the C tp_init (which can't handle str/bytes for char types).
+    _orig_gobject_init = gobject_cls.__init__
+
+    def _gobject_init_compat(self: Any, **kwargs: Any) -> None:
+        if kwargs:
+            from gi._gobject_compat_methods import _coerce_char_value, _get_pspec_numeric_info
+            coerced: dict[str, Any] = {}
+            for k, v in kwargs.items():
+                if isinstance(v, (str, bytes, bytearray)):
+                    pspec_info = _get_pspec_numeric_info(type(self), k.replace("_", "-"))
+                    if pspec_info is not None:
+                        v = _coerce_char_value(v, pspec_info)
+                coerced[k] = v
+            kwargs = coerced
+        _orig_gobject_init(self, **kwargs)
+
+    gobject_cls.__init__ = _gobject_init_compat
+
 
 def _install_gobject_props(gobject_cls: Any) -> None:
     """Install the pygobject `obj.props` property bag onto the GObject class."""
