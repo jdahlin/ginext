@@ -80,8 +80,6 @@ _XFAIL_BY_NODE = {
     "test_ossig.py::TestSigintFallback::test_no_replace_if_set_by_glib": "missing pygobject compat attribute",
     "test_overrides_gdk.py::TestGdk::test_file_list": "TypeError under ginext pygobject compat",
     "test_overrides_gdk.py::TestGdk::test_paintable_flags": "missing pygobject compat attribute",
-    "test_overrides_gdk.py::TestGdk::test_rgba": "missing pygobject compat attribute",
-    "test_overrides_gdk.py::TestGdk::test_rgba_representations": "TypeError under ginext pygobject compat",
     "test_overrides_gio.py::test_types_init_warn": "test relies on missing compat path",
     "test_overrides_gtk.py::TestBuilder::test_add_from_string": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestBuilder::test_builder": "missing pygobject compat attribute",
