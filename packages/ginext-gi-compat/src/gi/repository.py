@@ -505,6 +505,12 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
 
     install_class_overlay(gobject_cls, "GObject", "Object")
 
+    # The ginext overlay registers bind_property first and the overlay system
+    # won't overwrite it, so patch it directly after overlays are installed.
+    from ._gobject_compat_methods import _make_compat_bind_property
+
+    _make_compat_bind_property(gobject_cls)
+
 
 def _install_gobject_props(gobject_cls: Any) -> None:
     """Install the pygobject `obj.props` property bag onto the GObject class."""

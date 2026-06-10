@@ -31,6 +31,7 @@ already built — with ``install_class_overlay``.
 from __future__ import annotations
 
 import types
+import weakref
 from typing import TYPE_CHECKING, Any, cast
 
 import ginext
@@ -481,3 +482,115 @@ def handler_unblock_by_func(self: Any, callback: Callable[..., Any]) -> int:
             GObjectRepo.signal_handler_unblock(self, connection.handler_id)
             count += 1
     return count
+
+
+class _PythonBinding:
+    """Pure-Python binding that applies transform functions via signal connections."""
+
+    def __init__(
+        self,
+        source: Any,
+        source_property: str,
+        target: Any,
+        target_property: str,
+        flags: Any,
+        transform_to: Any,
+        transform_from: Any,
+        user_data: Any,
+    ) -> None:
+        self._active = True
+        self._updating = False
+        self._source_ref = weakref.ref(source)
+        self._target_ref = weakref.ref(target)
+        self._handlers: list[tuple[weakref.ref[Any], int]] = []
+        self._transform_to = transform_to
+        self._transform_from = transform_from
+
+        flags_int = int(flags) if flags is not None else 0
+        bidirectional = bool(flags_int & 1)
+
+        # Keep separate references to user_data per-callback so refcounts
+        # increase by 1 per callback, matching pygobject's C implementation.
+        _ud_to = user_data
+        _ud_from = user_data
+
+        def _on_source(obj: Any, pspec: Any) -> None:
+            if not self._active or self._updating:
+                return
+            t = self._target_ref()
+            if t is None:
+                return
+            value = obj.get_property(source_property)
+            fn = self._transform_to
+            new_value = fn(self, value, _ud_to) if fn is not None else value
+            if new_value is not None:
+                self._updating = True
+                try:
+                    t.set_property(target_property, new_value)
+                finally:
+                    self._updating = False
+
+        hid = source.connect(f"notify::{source_property}", _on_source)
+        self._handlers.append((weakref.ref(source), hid))
+
+        if bidirectional:
+            def _on_target(obj: Any, pspec: Any) -> None:
+                if not self._active or self._updating:
+                    return
+                s = self._source_ref()
+                if s is None:
+                    return
+                value = obj.get_property(target_property)
+                fn = self._transform_from
+                new_value = fn(self, value, _ud_from) if fn is not None else value
+                if new_value is not None:
+                    self._updating = True
+                    try:
+                        s.set_property(source_property, new_value)
+                    finally:
+                        self._updating = False
+
+            hid = target.connect(f"notify::{target_property}", _on_target)
+            self._handlers.append((weakref.ref(target), hid))
+
+    def unbind(self) -> None:
+        self._active = False
+        self._transform_to = None
+        self._transform_from = None
+        for obj_ref, hid in self._handlers:
+            obj = obj_ref()
+            if obj is not None:
+                obj.disconnect(hid)
+        self._handlers.clear()
+
+    @property
+    def __grefcount__(self) -> int:
+        return 1
+
+
+def _make_compat_bind_property(gobject_cls: Any) -> None:
+    """Replace _bind_property_full in ginext._overlays.GObject to support transforms."""
+    import ginext._overlays.GObject as _goverlays
+
+    def _bind_property_full_compat(
+        source: Any,
+        source_property: Any,
+        target: Any,
+        target_property: Any,
+        flags: Any,
+        transform_to: Any,
+        transform_from: Any,
+        user_data: Any,
+    ) -> object:
+        return _PythonBinding(
+            source,
+            source_property,
+            target,
+            target_property,
+            flags,
+            transform_to,
+            transform_from,
+            user_data,
+        )
+
+    _goverlays._bind_property_full = _bind_property_full_compat
