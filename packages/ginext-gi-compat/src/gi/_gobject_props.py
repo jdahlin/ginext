@@ -27,10 +27,45 @@ pygobject-compat layer is active.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     from ginext.gobject.gobjectclass import GObject
+
+
+def _list_properties(cls: type) -> list[Any]:
+    try:
+        return cls.list_properties()  # type: ignore[attr-defined]
+    except Exception:
+        return []
+
+
+class ClassPropsProxy:
+    """Class-level props accessor: provides hasattr, iteration, and raises TypeError on set."""
+
+    __slots__ = ("_cls",)
+
+    def __init__(self, cls: type) -> None:
+        object.__setattr__(self, "_cls", cls)
+
+    def __getattr__(self, name: str) -> Any:
+        canon = name.replace("_", "-")
+        for pspec in _list_properties(self._cls):
+            if pspec.name == canon or pspec.name.replace("-", "_") == name:
+                return pspec
+        raise AttributeError(f"{self._cls.__name__} has no property {name!r}")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise TypeError(
+            f"cannot set property {name!r} on class {self._cls.__name__!r}; "
+            "use an instance"
+        )
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(_list_properties(self._cls))
+
+    def __dir__(self) -> list[str]:
+        return sorted(p.name.replace("-", "_") for p in _list_properties(self._cls))
 
 
 class PropsProxy:
@@ -46,14 +81,22 @@ class PropsProxy:
     def __setattr__(self, name: str, value: object) -> None:
         self._obj.set_property(name, value)
 
+    def __iter__(self) -> Iterator[Any]:
+        return iter(_list_properties(type(self._obj)))
+
     def __dir__(self) -> list[str]:
         pspecs = type(self._obj).gimeta.pspecs
         return sorted(name.replace("-", "_") for name in pspecs)
 
 
-def _props(self: "GObject") -> PropsProxy:
-    return PropsProxy(self)
+class PropsDescriptor:
+    """Descriptor that returns ClassPropsProxy for class access and PropsProxy for instances."""
+
+    def __get__(self, obj: Any, objtype: type | None = None) -> Any:
+        if obj is None:
+            return ClassPropsProxy(objtype)  # type: ignore[arg-type]
+        return PropsProxy(obj)
 
 
 def install_props(gobject_cls: type) -> None:
-    gobject_cls.props = property(_props)  # type: ignore[attr-defined]
+    gobject_cls.props = PropsDescriptor()  # type: ignore[attr-defined]
