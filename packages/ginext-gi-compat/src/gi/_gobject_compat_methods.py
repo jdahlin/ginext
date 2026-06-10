@@ -117,7 +117,7 @@ def connect(
 
         setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
         kwargs.setdefault("owner", static_owner)
-    signal = self.signal_for_name(signal_name)
+    signal = self._compat_signal_for_name(signal_name)
     kwargs.setdefault("_weak_callback_record", True)
     connection = signal.connect(callback, **cast("Any", kwargs))
     self._compat_remember_connection(connection)
