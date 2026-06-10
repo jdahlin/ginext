@@ -132,6 +132,20 @@ class _CompatProperty(Generic[T]):
             return getattr(self.fget, "__doc__", None)
         return None
 
+    def __repr__(self) -> str:
+        _PY_TO_GTYPE = {
+            int: "gint", str: "gchararray", float: "gdouble",
+            bool: "gboolean", object: "gpointer", bytes: "gchararray",
+        }
+        if self.type is not None:
+            type_name = _PY_TO_GTYPE.get(self.type) or gimeta_type_name(self.type) or repr(self.type)
+        else:
+            type_name = "unknown"
+        name = getattr(self, "name", None)
+        if name is None:
+            return f"<GObject Property (uninitialized) ({type_name})>"
+        return f"<GObject Property {name!r} ({type_name})>"
+
     def __set_name__(self, owner: type, name: str) -> None:
         self.name = name
         # Inject the type into __annotations__ so register_gobject_subclass

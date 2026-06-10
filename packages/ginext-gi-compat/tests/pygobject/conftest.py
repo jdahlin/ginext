@@ -125,7 +125,6 @@ _XFAIL_BY_NODE = {
     "test_properties.py::TestPropertyObject::test_int_to_str": "TypeError under ginext pygobject compat",
     "test_properties.py::TestPropertyObject::test_interface": "no GValue conversion for GFile interface property",
     "test_properties.py::TestPropertyObject::test_range": "Property.{int,...} descriptor accessors not implemented",
-    "test_properties.py::TestPropertyObject::test_repr": "behaviour mismatch under ginext pygobject compat",
     "test_properties.py::TestPropertyObject::test_strings": "marshalling not implemented",
     "test_properties.py::TestPropertyObject::test_utf8_lone_surrogate": "string handling differs under ginext",
     "test_properties.py::test_get_function_property": "function-typed Property not implemented",
