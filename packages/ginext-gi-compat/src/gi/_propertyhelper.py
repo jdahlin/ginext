@@ -117,6 +117,9 @@ class _CompatProperty(Generic[T]):
         self.blurb = blurb
         self.readonly = readonly
         self.construct_only = construct_only
+        # Apply pygobject-compatible defaults for common types when not set explicitly
+        if default is _unset_sentinel and value_type is str and fget is None:
+            default = ""
         self.default = default
         self.maximum = maximum
         self.minimum = minimum
