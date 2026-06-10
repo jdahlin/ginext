@@ -842,6 +842,7 @@ def _install_glib_variant_compat(namespace: Namespace) -> None:
 def _install_gtk_compat(namespace: Namespace) -> object:
     from . import PyGIDeprecationWarning
     from . import _gtktemplate
+    from ._gtk_treemodel import install_tree_compat
     from ginext import record
     from ginext.overlay.callbacks import bind_callback_types
     from ginext.overlay import callback_types
@@ -955,6 +956,8 @@ def _install_gtk_compat(namespace: Namespace) -> object:
 
         adj_cls.__init__ = _adj_init
         adj_cls._pygobject_compat_adjustment = True
+
+    install_tree_compat(namespace)
 
     for _store_name in ("ListStore", "TreeStore"):
         _store_cls = getattr(namespace, _store_name, None)
