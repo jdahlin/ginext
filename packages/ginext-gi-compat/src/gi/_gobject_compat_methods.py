@@ -108,6 +108,8 @@ def connect(
 ) -> SignalConnection:
     if not features.is_enabled(features.OLD_SIGNAL_API):
         raise TypeError("GObject.connect() is disabled by old_signal_api")
+    if not isinstance(signal_name, str):
+        raise TypeError(f"signal name must be a str, not {type(signal_name).__name__}")
     if user_data:
         original_callback = callback
         signal_arg_limit = _accepted_signal_arg_count(original_callback, len(user_data))

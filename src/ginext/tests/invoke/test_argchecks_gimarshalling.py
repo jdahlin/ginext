@@ -232,7 +232,7 @@ def test_object_arg_type_error_uses_expected_type_and_instance_repr(gim: Any) ->
         TypeError,
         match=(
             r"self: expected GIMarshallingTests\.Object, but got "
-            r"<GObject\.Object object at 0x"
+            r"<(?:gi\.overrides\.)?GObject\.Object object at 0x"
         ),
     ):
         gim.Object.none_in(wrong)
