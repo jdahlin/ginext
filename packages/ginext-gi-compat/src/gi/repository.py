@@ -534,6 +534,17 @@ def _gtype_for_name(name: str) -> type:
 
 def _gobject_new(gtype_or_cls: object, **properties: object) -> object:
     if isinstance(gtype_or_cls, type):
+        # Coerce property values to match declared property types (pygobject compat)
+        if properties:
+            from gi._propertyhelper import _CompatProperty
+            coerced = {}
+            for k, v in properties.items():
+                desc = getattr(gtype_or_cls, k, None)
+                if isinstance(desc, _CompatProperty) and desc.type is str and not isinstance(v, str):
+                    coerced[k] = str(v)
+                else:
+                    coerced[k] = v
+            properties = coerced
         return gtype_or_cls(**properties)
     raise TypeError("GObject.new requires a GObject class")
 

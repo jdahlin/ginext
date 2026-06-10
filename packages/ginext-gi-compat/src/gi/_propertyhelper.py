@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, overload
 
+import struct
+
 from ginext.gobject.properties import (
     _Property,
     RangeValue,
@@ -26,6 +28,30 @@ from ginext.gobject.properties import (
     own_annotations_dict,
     unset,
 )
+
+
+def _gtype_inherent_bounds(type_obj: object) -> "tuple[int | float, int | float] | None":
+    """Return (min, max) inherent bounds for a numeric GType, or None."""
+    def _max(c: str) -> int:
+        return 2 ** ((8 * struct.calcsize(c)) - 1) - 1
+    def _umax(c: str) -> int:
+        return 2 ** (8 * struct.calcsize(c)) - 1
+    _BOUNDS: dict[str, tuple[int | float, int | float]] = {
+        "gchar":   (-128, 127),
+        "guchar":  (0, 255),
+        "gint":    (-_max("i") - 1, _max("i")),
+        "guint":   (0, _umax("I")),
+        "glong":   (-_max("l") - 1, _max("l")),
+        "gulong":  (0, _umax("L")),
+        "gint64":  (-_max("q") - 1, _max("q")),
+        "guint64": (0, _umax("Q")),
+        "gfloat":  (-3.4028234663852886e+38, 3.4028234663852886e+38),
+        "gdouble": (-1.7976931348623157e+308, 1.7976931348623157e+308),
+    }
+    name = gimeta_type_name(type_obj)
+    if name is None:
+        return None
+    return _BOUNDS.get(name)
 
 T = TypeVar("T")
 
@@ -94,6 +120,15 @@ class _CompatProperty(Generic[T]):
         if flags is not None:
             readonly = readonly or not bool(flags & 2)
             construct_only = construct_only or bool(flags & 8)
+        # Validate enum/flags default values
+        if value_type is not None and default is not _unset_sentinel:
+            from enum import Flag, Enum
+            if isinstance(value_type, type) and issubclass(value_type, (Flag, Enum)):
+                if not isinstance(default, (value_type, int)):
+                    raise TypeError(
+                        f"enum/flags default must be an instance of {value_type.__name__!r}"
+                        f" or int, not {type(default).__name__!r}"
+                    )
         _UNSUPPORTED_TYPES = (complex,)
         if value_type in _UNSUPPORTED_TYPES:
             raise TypeError(f"GObject.Property type {value_type!r} is not supported")
@@ -123,6 +158,20 @@ class _CompatProperty(Generic[T]):
         self.default = default
         self.maximum = maximum
         self.minimum = minimum
+        if value_type is not None and (minimum is not None or maximum is not None):
+            bounds = _gtype_inherent_bounds(value_type)
+            if bounds is not None:
+                inherent_min, inherent_max = bounds
+                if minimum is not None and minimum < inherent_min:
+                    raise TypeError(
+                        f"Minimum value {minimum!r} is below the inherent minimum"
+                        f" {inherent_min!r} of the type"
+                    )
+                if maximum is not None and maximum > inherent_max:
+                    raise TypeError(
+                        f"Maximum value {maximum!r} exceeds the inherent maximum"
+                        f" {inherent_max!r} of the type"
+                    )
         self.fget = fget
         self.fset = setter
         self._infer_type_from_getter()
@@ -224,7 +273,18 @@ class _CompatProperty(Generic[T]):
             return
         if self.fget is not None:
             raise TypeError(f"property {self.name!r} is not writable")
-        type(obj).gimeta.set_property(obj, self.name, value)  # type: ignore[attr-defined]
+        # Coerce non-string values to str for string properties (pygobject compat)
+        if self.type is str and not isinstance(value, str):
+            value = str(value)
+        # Silently ignore out-of-range values (GObject behaviour)
+        if self.minimum is not None and value < self.minimum:  # type: ignore[operator]
+            return
+        if self.maximum is not None and value > self.maximum:  # type: ignore[operator]
+            return
+        try:
+            type(obj).gimeta.set_property(obj, self.name, value)  # type: ignore[attr-defined]
+        except AttributeError as exc:
+            raise TypeError(str(exc)) from None
         call_notify_override(obj, self.name.replace("_", "-"))
 
 
