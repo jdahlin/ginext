@@ -43,6 +43,84 @@ from ginext.signal.descriptor import SignalDescriptor
 __path__: list[str] = []
 
 _GFLOAT_MAX = 3.4028234663852886e38
+
+_CTYPES_IMPORTED = False
+_CTYPES_GOBLIB: Any = None
+_CTYPES_C_SIZE_T: Any = None
+_CTYPES_C_VOID_P: Any = None
+
+
+def _gtype_from_pspec_ctypes(pspec: Any) -> "type[GType]":
+    """Extract the GType of a GParamSpec by reading the C struct pointer chain."""
+    global _CTYPES_IMPORTED, _CTYPES_GOBLIB, _CTYPES_C_SIZE_T, _CTYPES_C_VOID_P
+    if not _CTYPES_IMPORTED:
+        import ctypes
+        _CTYPES_GOBLIB = ctypes.cdll.LoadLibrary("libgobject-2.0.so.0")
+        _CTYPES_GOBLIB.g_type_name.restype = ctypes.c_char_p
+        _CTYPES_GOBLIB.g_type_name.argtypes = [ctypes.c_size_t]
+        _CTYPES_C_SIZE_T = ctypes.c_size_t
+        _CTYPES_C_VOID_P = ctypes.c_void_p
+        _CTYPES_IMPORTED = True
+
+    import re
+    m = re.search(r"at 0x([0-9a-fA-F]+)", repr(pspec))
+    if not m:
+        raise TypeError(f"Cannot extract GType from {pspec!r}")
+    addr = int(m.group(1), 16)
+    klass_ptr = _CTYPES_C_VOID_P.from_address(addr).value
+    if not klass_ptr:
+        raise TypeError(f"Cannot extract GType from {pspec!r}: null class pointer")
+    raw_gtype = int(_CTYPES_C_SIZE_T.from_address(klass_ptr).value)
+    type_name_bytes = _CTYPES_GOBLIB.g_type_name(raw_gtype)
+    type_name = type_name_bytes.decode() if type_name_bytes else f"GType_{raw_gtype}"
+    return compat_gtype_from_raw(raw_gtype, type_name)
+
+
+class _GTypeCompatMeta(type):
+    def __instancecheck__(cls, instance: Any) -> bool:
+        from ginext.gobject.gtype import GTypeMeta
+
+        if isinstance(instance, GTypeMeta):
+            return True
+        return type.__instancecheck__(cls, instance)
+
+    def __subclasscheck__(cls, subclass: Any) -> bool:
+        from ginext.gobject.gtype import GTypeMeta
+
+        if isinstance(subclass, GTypeMeta):
+            return True
+        return type.__subclasscheck__(cls, subclass)
+
+
+class GTypeCompat(metaclass=_GTypeCompatMeta):
+    """Compat GType factory: GType(obj) extracts the GType of obj."""
+
+    def __new__(cls, obj: Any = None) -> Any:  # type: ignore[misc]
+        if obj is None:
+            raise TypeError("GType() requires an argument")
+        return _compat_gtype_from_object(obj)
+
+
+def _compat_gtype_from_object(obj: Any) -> "type[GType]":
+    """Extract GType from various object types for pygobject compat."""
+    import ginext.private as _priv
+
+    if isinstance(obj, int) and not isinstance(obj, bool):
+        raw = obj
+        name_bytes = _CTYPES_GOBLIB if False else None  # not used
+        import ginext as _ginext
+        type_name = _ginext.GObject.type_name(raw)
+        return compat_gtype_from_raw(raw, type_name)
+    # GParamSpec from ginext.private
+    if hasattr(_priv, "ParamSpec") and isinstance(obj, _priv.ParamSpec):
+        return _gtype_from_pspec_ctypes(obj)
+    repr_str = repr(obj)
+    if "at 0x" in repr_str:
+        return _gtype_from_pspec_ctypes(obj)
+    gimeta = getattr(type(obj), "gimeta", None) or getattr(obj, "gimeta", None)
+    if gimeta is not None:
+        return compat_gtype_from_raw(int(gimeta.gtype), getattr(gimeta, "type_name", ""))
+    raise TypeError(f"Cannot convert {type(obj).__name__!r} to GType")
 _GULONG_MAX = (1 << (struct.calcsize("L") * 8)) - 1
 _MISSING = object()
 _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
@@ -340,8 +418,8 @@ def _install_gobject_compat(namespace: Namespace) -> object:
     namespace.Property = Property
     namespace.Signal = Signal
     namespace.SignalOverride = SignalOverride
-    namespace.GType = GType
-    namespace.Type = GType
+    namespace.GType = GTypeCompat
+    namespace.Type = GTypeCompat
     namespace.new = _gobject_new
     _gobject_cls: Any = namespace.GObject
     _gobject_cls.newv = classmethod(_gobject_newv)
@@ -646,6 +724,7 @@ def _install_glib_compat(namespace: Namespace) -> object:
 
         filename_from_utf8.__dict__["_pygobject_compat_shape"] = True
         namespace.filename_from_utf8 = filename_from_utf8
+    _install_glib_spawn_async_compat(namespace)
     _install_glib_mainloop_compat(namespace)
     _install_glib_variant_compat(namespace)
     return namespace
@@ -659,6 +738,66 @@ def _install_gio_compat(namespace: Namespace) -> object:
     if not hasattr(list_store, "__class_getitem__"):
         list_store.__class_getitem__ = classmethod(lambda cls, _item: cls)
     return namespace
+
+
+def _install_glib_spawn_async_compat(namespace: Namespace) -> None:
+    if getattr(namespace.spawn_async, "_pygobject_compat_spawn", False):
+        return
+    import os
+
+    raw_spawn_async_with_pipes = namespace.spawn_async_with_pipes
+
+    class GPid(int):
+        def close(self) -> None:
+            namespace.spawn_close_pid(int(self))
+
+    def spawn_async(
+        argv: list[str],
+        envp: list[str] | None = None,
+        working_directory: str | None = None,
+        flags: int = 0,
+        child_setup: Callable[..., Any] | None = None,
+        user_data: Any = None,
+        standard_input: bool = False,
+        standard_output: bool = False,
+        standard_error: bool = False,
+    ) -> tuple[Any, Any, Any, Any]:
+        setup: Callable[[], None] | None = None
+        if child_setup is not None:
+            _func = child_setup
+            _data = user_data
+            if user_data is not None:
+                def setup() -> None:
+                    _func(_data)
+            else:
+                def setup() -> None:
+                    _func()
+        ok, raw_pid, stdin_fd, stdout_fd, stderr_fd = raw_spawn_async_with_pipes(
+            working_directory=working_directory,
+            argv=argv,
+            envp=envp,
+            flags=flags,
+            child_setup=setup,
+        )
+        if not ok:
+            raise OSError("spawn_async failed")
+        pid = GPid(raw_pid)
+        if not standard_input:
+            if stdin_fd != -1 and stdin_fd is not None:
+                os.close(stdin_fd)
+            stdin_fd = None
+        if not standard_output:
+            if stdout_fd != -1 and stdout_fd is not None:
+                os.close(stdout_fd)
+            stdout_fd = None
+        if not standard_error:
+            if stderr_fd != -1 and stderr_fd is not None:
+                os.close(stderr_fd)
+            stderr_fd = None
+        return pid, stdin_fd, stdout_fd, stderr_fd
+
+    spawn_async.__dict__["_pygobject_compat_spawn"] = True
+    namespace.spawn_async = spawn_async
 
 
 def _install_glib_variant_compat(namespace: Namespace) -> None:
