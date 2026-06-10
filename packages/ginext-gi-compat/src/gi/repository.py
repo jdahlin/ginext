@@ -422,6 +422,7 @@ def _install_gobject_compat(namespace: Namespace) -> object:
     namespace.Type = GTypeCompat
     namespace.new = _gobject_new
     _gobject_cls: Any = namespace.GObject
+    _gobject_cls.__module__ = "gi.overrides.GObject"
     _gobject_cls.newv = classmethod(_gobject_newv)
     _install_gobject_signal_methods(_gobject_cls)
     _install_gobject_props(_gobject_cls)
@@ -1318,7 +1319,31 @@ def __getattr__(name: str) -> Any:
         _install_gio_compat(namespace)
     elif name == "Gtk":
         _install_gtk_compat(namespace)
+    _apply_overrides(name, namespace)
     return namespace
+
+
+def _apply_overrides(name: str, namespace: Any) -> None:
+    """Load gi/overrides/<name>.py and apply exported symbols to namespace."""
+    import importlib
+    try:
+        override_mod = importlib.import_module(f"gi.overrides.{name}")
+    except ImportError:
+        return
+    all_names = getattr(override_mod, "__all__", [])
+    for attr in all_names:
+        val = getattr(override_mod, attr, None)
+        if val is not None:
+            setattr(namespace, attr, val)
+    # Apply override classes: replace namespace entries with subclass versions
+    for attr in dir(override_mod):
+        val = getattr(override_mod, attr, None)
+        if val is None or attr.startswith("_") or attr in all_names:
+            continue
+        orig = getattr(namespace, attr, None)
+        if orig is not None and isinstance(val, type) and isinstance(orig, type):
+            if issubclass(val, orig):
+                setattr(namespace, attr, val)
 
 
 def __dir__() -> list[str]:
