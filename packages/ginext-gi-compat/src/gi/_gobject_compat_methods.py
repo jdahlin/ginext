@@ -226,6 +226,15 @@ class _ParamSpecWrapper:
             raise AttributeError("enum_class")
         return getattr(self._pspec, name)
 
+    def __dir__(self) -> list:
+        base = dir(type(self)) + [
+            "owner_type", "flags_class", "enum_class",
+            "flags", "name", "nick", "blurb", "value_type",
+            "default_value", "minimum", "maximum",
+        ]
+        base += dir(object.__getattribute__(self, "_pspec"))
+        return sorted(set(base))
+
     def _gtype_to_class(self, gtype: object) -> object:
         from ginext import private
         import ginext

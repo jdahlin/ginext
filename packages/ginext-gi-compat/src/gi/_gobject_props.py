@@ -49,10 +49,11 @@ class ClassPropsProxy:
         object.__setattr__(self, "_cls", cls)
 
     def __getattr__(self, name: str) -> Any:
+        from gi._gobject_compat_methods import _ParamSpecWrapper
         canon = name.replace("_", "-")
         for pspec in _list_properties(self._cls):
             if pspec.name == canon or pspec.name.replace("-", "_") == name:
-                return pspec
+                return _ParamSpecWrapper(pspec, owner_cls=self._cls)
         raise AttributeError(f"{self._cls.__name__} has no property {name!r}")
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -94,8 +95,7 @@ class PropsProxy:
         return iter(_list_properties(type(self._obj)))
 
     def __dir__(self) -> list[str]:
-        pspecs = type(self._obj).gimeta.pspecs
-        return sorted(name.replace("-", "_") for name in pspecs)
+        return sorted(p.name.replace("-", "_") for p in _list_properties(type(self._obj)))
 
 
 class PropsDescriptor:

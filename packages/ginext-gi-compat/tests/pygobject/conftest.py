@@ -111,8 +111,6 @@ _XFAIL_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_boxed_glist_ctor": "boxed-glist Property from list ctor not implemented",
     "test_properties.py::TestCPropsAccessor::test_boxed_struct": "boxed-struct Property accessor not implemented",
     "test_properties.py::TestCPropsAccessor::test_char": "Property overflow validation not implemented",
-    "test_properties.py::TestCPropsAccessor::test_param_spec_dir": "Property dir() lookup not implemented",
-    "test_properties.py::TestCPropsAccessor::test_props_accessor_dir": "props accessor dir() not implemented",
     "test_properties.py::TestCPropsAccessor::test_uchar": "Property overflow validation not implemented",
     "test_properties.py::TestCPropsAccessor::test_unichar": "unichar Property accessor not implemented",
     "test_properties.py::TestProperty::test_min_max": "Property min/max enforcement not implemented",
