@@ -75,7 +75,7 @@ _XFAIL_BY_NODE = {
     "test_object_lifecycle.py::test_subclass_with_slots_raises_warning": "test relies on missing compat path",
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_full_with_held_floating": "behaviour mismatch under ginext pygobject compat",
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_none_with_held_floating": "behaviour mismatch under ginext pygobject compat",
-    "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "mainloop does not wake on SIGALRM under ginext pygobject compat",
+    "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "flaky timing-sensitive SIGALRM test",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_gio_application": "TypeError under ginext pygobject compat",
     "test_ossig.py::TestSigintFallback::test_no_replace_if_set_by_glib": "missing pygobject compat attribute",
     "test_overrides_gdk.py::TestGdk::test_file_list": "TypeError under ginext pygobject compat",
@@ -155,36 +155,23 @@ _XFAIL_BY_NODE = {
 
 _SKIP_BY_NODE = {
     "test_gi.py::TestGFlags::test_flags": "flaky GFlags inheritance assertion",
+    "test_iochannel.py::IOChannel::test_fd_read": "IOChannel non-blocking pipe read returns empty bytes",
+    "test_iochannel.py::IOChannel::test_file_read_chars": "IOChannel read_chars with count not supported in ginext",
+    "test_iochannel.py::IOChannel::test_seek": "IOChannel seek with partial read not supported",
 }
 
 
 _XFAIL_NOT_RUN_BY_NODE = {
     "test_callback.py::test_async_callback": "can hang in the compat package run; disable until async callback scheduling is understood",
-    "test_iochannel.py::IOChannel::test_add_watch_no_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_add_watch_with_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_add_watch_with_multi_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_backwards_compat_flags": "unsafe while IOChannel marshalling is crash-prone",
-    "test_iochannel.py::IOChannel::test_buffering": "crashes in IOChannel binary encoding marshalling",
-    "test_iochannel.py::IOChannel::test_deprecated_add_watch_no_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_deprecated_add_watch_with_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_data_priority": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_no_data": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_fd_read": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_fd_write": "crashes in IOChannel file descriptor marshalling",
-    "test_iochannel.py::IOChannel::test_file_iter": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_read": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_read_chars": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_readline_latin1": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_readline_utf8": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_readlines": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_write": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_file_writelines": "crashes in IOChannel encoding marshalling",
-    "test_iochannel.py::IOChannel::test_seek": "crashes in IOChannel encoding marshalling",
+    "test_iochannel.py::IOChannel::test_add_watch_no_data": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_add_watch_with_data": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_add_watch_with_multi_data": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_deprecated_add_watch_no_data": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_deprecated_add_watch_with_data": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_data_priority": "IOChannel non-blocking pipe read hangs mainloop",
+    "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_no_data": "IOChannel non-blocking pipe read hangs mainloop",
     "test_overrides_gdkpixbuf.py::test_new_from_data": "crashes in GdkPixbuf pixel data marshalling",
     "test_overrides_gdkpixbuf.py::test_new_from_data_deprecated_args": "unsafe while GdkPixbuf pixel data marshalling is crash-prone",
-    "test_overrides_glib.py::test_io_add_watch_get_args": "crashes in IOChannel constructor not implemented",
-    "test_overrides_glib.py::test_iochannel": "unsafe while IOChannel marshalling is crash-prone",
-    "test_overrides_glib.py::test_iochannel_write": "crashes in IOChannel shutdown marshalling",
 }
 
 
