@@ -135,6 +135,26 @@ class _CompatProperty(Generic[T]):
             return getattr(self.fget, "__doc__", None)
         return None
 
+    def _type_from_python(self, python_type: type) -> object:
+        """Map a Python type to its corresponding GObject GType."""
+        from gi.repository import GObject as _GObj
+        _PY_TO_GTYPE = {
+            int: _GObj.TYPE_INT,
+            bool: _GObj.TYPE_BOOLEAN,
+            float: _GObj.TYPE_DOUBLE,
+            str: _GObj.TYPE_STRING,
+            object: _GObj.TYPE_PYOBJECT,
+        }
+        if python_type in _PY_TO_GTYPE:
+            return _PY_TO_GTYPE[python_type]
+        # If it's a GObject class with __gtype__, return that
+        if hasattr(python_type, "__gtype__"):
+            return python_type.__gtype__
+        # If it's already a GType (has is_a method), return it
+        if hasattr(python_type, "is_a"):
+            return python_type
+        raise TypeError(f"Cannot convert {python_type!r} to GType")
+
     def __repr__(self) -> str:
         _PY_TO_GTYPE = {
             int: "gint", str: "gchararray", float: "gdouble",

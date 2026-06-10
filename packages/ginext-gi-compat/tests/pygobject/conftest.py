@@ -96,7 +96,6 @@ _XFAIL_BY_NODE = {
     "test_overrides_gtk.py::TestTreeModel::test_tree_store": "missing pygobject compat attribute",
     "test_overrides_gtk.py::TestTreeModel::test_tree_store_insert_after": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTreeModel::test_tree_store_insert_before": "TypeError under ginext pygobject compat",
-    "test_overrides_gtk.py::TestTreeModel::test_tree_store_signals": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTreeModelRow::test_tree_model_row": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestWidget::test_translate_coordinates": "behaviour mismatch under ginext pygobject compat",
     "test_properties.py::TestCGetPropertyMethod::test_annotated_glist": "get_property() arity mismatch",
