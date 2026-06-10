@@ -552,6 +552,57 @@ def _maybe_async_callable(
     )
 
 
+def _old_signal_api_connect(
+    self: object, *args: object, after: bool = False, **kwargs: object
+) -> object:
+    """Implement OLD_SIGNAL_API ``connect(signal_name, callback, *user_data)``."""
+    from ginext.signal.scoped import static_owner
+    from ginext.signal.bound import _accepted_signal_arg_count, _SIGNAL_ARG_LIMIT_ATTR
+
+    if not args:
+        raise TypeError("connect() requires a signal name and a handler")
+    signal_name = args[0]
+    if not isinstance(signal_name, str):
+        raise TypeError(f"signal name must be a str, not {type(signal_name).__name__}")
+    if len(args) < 2:
+        raise TypeError("connect() requires a handler as second argument")
+    callback = args[1]
+    if not callable(callback):
+        raise TypeError(f"connect() handler must be callable, got {type(callback).__name__}")
+    user_data = args[2:]
+    signal = self.signal_for_name(signal_name)  # type: ignore[attr-defined]
+    if user_data:
+        original_cb = callback
+        signal_arg_limit = _accepted_signal_arg_count(original_cb, len(user_data))
+
+        def _cb(*signal_args: object) -> object:
+            return cast("Any", original_cb)(*signal_args, *user_data)
+
+        setattr(_cb, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
+        callback = _cb
+        kwargs.setdefault("owner", static_owner)
+    return signal.connect(callback, after=after, **cast("Any", kwargs))
+
+
+def _wrap_connect_for_old_signal_api(original_connect: object) -> object:
+    """Wrap a GObject-subclass connect() so OLD_SIGNAL_API is honoured at call time.
+
+    When OLD_SIGNAL_API is enabled, ``obj.connect(signal_name, callback, *user_data)``
+    routes through ``obj.signal_for_name(signal_name).connect(callback)`` instead of
+    calling the introspected connect (e.g. g_cancellable_connect).
+    """
+    import functools
+    from ginext import features
+
+    @functools.wraps(cast("Any", original_connect))  # type: ignore[arg-type]
+    def _connect(self: object, *args: object, **kwargs: object) -> object:
+        if features.is_enabled(features.OLD_SIGNAL_API):
+            return _old_signal_api_connect(self, *args, **kwargs)
+        return cast("Any", original_connect)(self, *args, **kwargs)
+
+    return _connect
+
+
 def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None:
     for owner in cls.__mro__:
         gimeta = own_gimeta(owner)
@@ -582,8 +633,13 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
             setattr(owner, name, async_wrapped)
             return async_wrapped, has_self
         attach_owner_metadata(method, owner)
-        setattr(owner, name, method if has_self else staticmethod(method))
-        return method, has_self
+        final_method: object
+        if name == "connect" and has_self:
+            final_method = _wrap_connect_for_old_signal_api(method)
+        else:
+            final_method = method
+        setattr(owner, name, final_method if has_self else staticmethod(final_method))
+        return final_method, has_self
     # For user-defined GObject subclasses that inherit only from the Python root
     # GObject (which has no method_infos), fall back to the typelib GObject.Object.
     if issubclass(cls, GObject):
