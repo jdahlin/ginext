@@ -149,6 +149,11 @@ def emit(self: Any, signal_name: str, *args: object) -> object:
 @overlay.method("Object")
 def get_property(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-")
+    attr_name = prop_name.replace("-", "_")
+    # Check for Python-backed descriptor (e.g. @GObject.Property decorator)
+    descriptor = type(self).__dict__.get(attr_name)
+    if descriptor is not None and hasattr(type(descriptor), "__get__") and hasattr(descriptor, "fget") and descriptor.fget is not None:
+        return type(descriptor).__get__(descriptor, self, type(self))
     try:
         return type(self).gimeta.get_property(self, prop_name)
     except AttributeError:
@@ -158,6 +163,15 @@ def get_property(self: Any, name: str) -> object:
 @overlay.method("Object")
 def set_property(self: Any, name: str, value: object) -> None:
     prop_name = name.replace("_", "-")
+    attr_name = prop_name.replace("-", "_")
+    # Check for Python-backed descriptor with setter
+    descriptor = type(self).__dict__.get(attr_name)
+    if descriptor is not None and hasattr(type(descriptor), "__set__") and (
+        getattr(descriptor, "fset", None) is not None or getattr(descriptor, "fget", None) is not None
+    ):
+        type(descriptor).__set__(descriptor, self, value)
+        call_notify_override(self, prop_name)
+        return
     try:
         type(self).gimeta.set_property(self, prop_name, value)
     except AttributeError:
