@@ -109,7 +109,6 @@ _XFAIL_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_unichar": "unichar Property accessor not implemented",
     "test_properties.py::TestProperty::test_object_property": "flaky: GObject wrapper hash unstable across del+recreate in parallel",
     "test_properties.py::TestProperty::test_property_subclass_custom_setter_error": "Property setter error propagation not implemented",
-    "test_properties.py::TestProperty::test_python_to_glib_type_mapping": "Property._type_from_python helper not implemented",
     "test_properties.py::TestPropertyObject::test_enum": "marshalling not implemented",
     "test_properties.py::TestPropertyObject::test_range": "Property.{int,...} descriptor accessors not implemented",
     "test_properties.py::TestPropertyObject::test_strings": "marshalling not implemented",

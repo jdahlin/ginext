@@ -187,6 +187,13 @@ class _CompatProperty(Generic[T]):
     def _type_from_python(self, python_type: type) -> object:
         """Map a Python type to its corresponding GObject GType."""
         from gi.repository import GObject as _GObj
+        # Check for GTypeMeta (GType constants like TYPE_INT, TYPE_NONE) first
+        try:
+            from ginext.gobject.gtype import GTypeMeta
+            if isinstance(python_type, GTypeMeta):
+                return python_type
+        except ImportError:
+            pass
         _PY_TO_GTYPE = {
             int: _GObj.TYPE_INT,
             bool: _GObj.TYPE_BOOLEAN,
@@ -196,6 +203,13 @@ class _CompatProperty(Generic[T]):
         }
         if python_type in _PY_TO_GTYPE:
             return _PY_TO_GTYPE[python_type]
+        # Special-case the compat GObject base classes that lack __gtype__
+        try:
+            import ginext.private as _gp
+            if python_type is _gp.GBoxed:
+                return _GObj.TYPE_BOXED
+        except (ImportError, AttributeError):
+            pass
         # If it's a GObject class with __gtype__, return that
         if hasattr(python_type, "__gtype__"):
             return python_type.__gtype__
