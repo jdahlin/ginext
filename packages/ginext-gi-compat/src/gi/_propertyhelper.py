@@ -176,6 +176,8 @@ class _CompatProperty(Generic[T]):
             return self
         if self.fget is not None:
             return self.fget(obj)
+        if self.fset is not None:
+            raise TypeError(f"property {self.name!r} is not readable")
         return type(obj).gimeta.get_property(obj, self.name)  # type: ignore[attr-defined]
 
     def __set__(self, obj: object, value: object) -> None:
