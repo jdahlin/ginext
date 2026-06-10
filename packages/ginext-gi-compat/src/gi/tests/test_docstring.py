@@ -44,7 +44,6 @@ class Test(unittest.TestCase):
             "full_inout(object:GIMarshallingTests.Object) -> object:GIMarshallingTests.Object",
         )
 
-    @docstring_compat_xfail
     def test_overridden_doc_is_not_clobbered(self):
         self.assertEqual(
             GIMarshallingTests.OverridesObject.method.__doc__, "Overridden doc string."

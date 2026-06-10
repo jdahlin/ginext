@@ -186,9 +186,10 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/module.py',           'gi'],
   ['../packages/ginext-gi-compat/src/gi/repository.py',       'gi'],
   ['../packages/ginext-gi-compat/src/gi/types.py',            'gi'],
-  ['../packages/ginext-gi-compat/src/gi/overrides/__init__.py', 'gi/overrides'],
-  ['../packages/ginext-gi-compat/src/gi/overrides/Gio.py',    'gi/overrides'],
-  ['../packages/ginext-gi-compat/src/gi/overrides/Gtk.py',    'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/__init__.py',            'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/Gio.py',                'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/Gtk.py',                'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/GIMarshallingTests.py', 'gi/overrides'],
 ]
 
 foreach pair : gi_files

@@ -7,7 +7,23 @@ __all__: list[str] = []
 OVERRIDES_CONSTANT = 7
 __all__.append("OVERRIDES_CONSTANT")
 
-# Patch the method to return value/7 as the override does.
+
+def _remove_from_method_infos(cls: type, name: str) -> None:
+    """Remove a method from ginext's lazy-install list so our patch isn't overwritten."""
+    try:
+        from ginext.gobject.resolve import own_gimeta
+        for owner in cls.__mro__:
+            gimeta = own_gimeta(owner)
+            if gimeta is None:
+                continue
+            method_infos = getattr(gimeta, "method_infos", {})
+            if name in method_infos:
+                del method_infos[name]
+    except Exception:
+        pass
+
+
+# Patch OverridesStruct.method to return value/7 as the override does.
 _orig_struct_method = _GIMarshallingTests.OverridesStruct.method
 
 
@@ -16,6 +32,7 @@ def _struct_method(self):
 
 
 _GIMarshallingTests.OverridesStruct.method = _struct_method
+_remove_from_method_infos(_GIMarshallingTests.OverridesStruct, "method")
 _GIMarshallingTests.OverridesStruct.__module__ = "gi.overrides.GIMarshallingTests"
 
 OverridesStruct = _GIMarshallingTests.OverridesStruct
@@ -44,6 +61,7 @@ def _obj_new(long_=None):
 _GIMarshallingTests.OverridesObject.method = _obj_method
 _GIMarshallingTests.OverridesObject.__init__ = _obj_init
 _GIMarshallingTests.OverridesObject.new = staticmethod(_obj_new)
+_remove_from_method_infos(_GIMarshallingTests.OverridesObject, "method")
 _GIMarshallingTests.OverridesObject.__module__ = "gi.overrides.GIMarshallingTests"
 
 OverridesObject = _GIMarshallingTests.OverridesObject
