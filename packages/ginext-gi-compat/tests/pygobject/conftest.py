@@ -182,9 +182,6 @@ _XFAIL_NOT_RUN_BY_NODE = {
 _WIN32_SKIP_NODES = {
     "test_async.py::TestAsync::test_no_running_loop",
     "test_async.py::TestAsync::test_wrong_default_context",
-    "test_gdbus.py::TestGDBusClient::test_native_calls_async",
-    "test_gdbus.py::TestGDBusClient::test_native_calls_sync",
-    "test_gdbus.py::TestGDBusClient::test_native_calls_sync_errors",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_basic",
     "test_overrides_glib.py::test_io_add_watch_get_args_win32_socket",
     "test_overrides_glib.py::test_iochannel_win32",
