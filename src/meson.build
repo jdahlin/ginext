@@ -177,6 +177,7 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/_gobject_compat_methods.py', 'gi'],
   ['../packages/ginext-gi-compat/src/gi/_gobject_props.py',  'gi'],
   ['../packages/ginext-gi-compat/src/gi/_gtktemplate.py',     'gi'],
+  ['../packages/ginext-gi-compat/src/gi/_gtk_treemodel.py',  'gi'],
   ['../packages/ginext-gi-compat/src/gi/_ossighelper.py',     'gi'],
   ['../packages/ginext-gi-compat/src/gi/_propertyhelper.py',  'gi'],
   ['../packages/ginext-gi-compat/src/gi/_signalhelper.py',    'gi'],

@@ -4,6 +4,10 @@ from typing import Any
 
 from gi.repository import Gtk
 
+
+class PyGTKDeprecationWarning(DeprecationWarning):
+    pass
+
 Action: Any = getattr(Gtk, "Action", None)
 ActionGroup: Any = getattr(Gtk, "ActionGroup", None)
 Builder = Gtk.Builder
@@ -28,6 +32,7 @@ if getattr(Gtk, "_version", "") != "4.0":
     RecentChooserDialog: Any = getattr(Gtk, "RecentChooserDialog", None)
 
 __all__ = [
+    "PyGTKDeprecationWarning",
     "Action",
     "ActionGroup",
     "Builder",
