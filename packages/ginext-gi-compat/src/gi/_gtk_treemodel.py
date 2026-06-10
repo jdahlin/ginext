@@ -663,6 +663,118 @@ def _install_treepath_compat(tree_path_cls: Any) -> None:
     tree_path_cls._pygobject_compat_treepath = True
 
 
+def _install_treeviewcolumn_compat(tvc_cls: Any) -> None:
+    if getattr(tvc_cls, "_pygobject_compat_tvc", False):
+        return
+
+    _raw_tvc_init = tvc_cls.__init__
+
+    def _tvc_init(self: Any, title: str = "", cell_renderer: Any = None, **attributes: Any) -> None:
+        _raw_tvc_init(self, title=title)
+        if cell_renderer is not None:
+            self.pack_start(cell_renderer, True)
+            for name, value in attributes.items():
+                self.add_attribute(cell_renderer, name, value)
+
+    _raw_cell_get_position = tvc_cls.cell_get_position
+    tvc_cls.cell_get_position = strip_boolean_result(_raw_cell_get_position)
+
+    _raw_set_cell_data_func = tvc_cls.set_cell_data_func
+
+    def _set_cell_data_func(self: Any, cell_renderer: Any, func: Any, func_data: Any = None) -> None:
+        _raw_set_cell_data_func(self, cell_renderer, func, func_data)
+
+    def _set_attributes(self: Any, cell_renderer: Any, **attributes: Any) -> None:
+        import ginext
+        Gtk = ginext._load_namespace("Gtk", "3.0")
+        Gtk.CellLayout.clear_attributes(self, cell_renderer)
+        for name, value in attributes.items():
+            Gtk.CellLayout.add_attribute(self, cell_renderer, name, value)
+
+    tvc_cls.__init__ = _tvc_init
+    tvc_cls.set_cell_data_func = _set_cell_data_func
+    tvc_cls.set_attributes = _set_attributes
+    tvc_cls._pygobject_compat_tvc = True
+
+
+def _install_treeview_compat(tv_cls: Any) -> None:
+    if getattr(tv_cls, "_pygobject_compat_treeview", False):
+        return
+
+    _raw_set_cursor = tv_cls.set_cursor
+    _raw_insert_column_with_attributes = getattr(tv_cls, "insert_column_with_attributes", None)
+
+    def _set_cursor(self: Any, path: Any, column: Any = None, start_editing: bool = False) -> None:
+        _raw_set_cursor(self, path, column, start_editing)
+
+    _raw_scroll_to_cell = tv_cls.scroll_to_cell
+
+    def _scroll_to_cell(
+        self: Any,
+        path: Any,
+        column: Any = None,
+        use_align: bool = False,
+        row_align: float = 0.0,
+        col_align: float = 0.0,
+    ) -> None:
+        _raw_scroll_to_cell(self, path, column, use_align, row_align, col_align)
+
+    def _insert_column_with_attributes(
+        self: Any, position: int, title: str, cell: Any, **attributes: Any
+    ) -> Any:
+        import ginext
+        Gtk = ginext._load_namespace("Gtk", "3.0")
+        tv_col = Gtk.TreeViewColumn()
+        tv_col.set_title(title)
+        tv_col.pack_start(cell, True)
+        for name, value in attributes.items():
+            tv_col.add_attribute(cell, name, value)
+        return self.insert_column(tv_col, position)
+
+    tv_cls.set_cursor = _set_cursor
+    tv_cls.scroll_to_cell = _scroll_to_cell
+    tv_cls.insert_column_with_attributes = _insert_column_with_attributes
+    tv_cls._pygobject_compat_treeview = True
+
+
+def _install_treeselection_compat(sel_cls: Any) -> None:
+    if getattr(sel_cls, "_pygobject_compat_treeselection", False):
+        return
+
+    _raw_get_selected = sel_cls.get_selected
+
+    def _get_selected(self: Any) -> Any:
+        ok, model, aiter = _raw_get_selected(self)
+        if ok:
+            return model, aiter
+        return None, None
+
+    _raw_get_selected_rows = sel_cls.get_selected_rows
+
+    def _get_selected_rows(self: Any) -> Any:
+        rows, model = _raw_get_selected_rows(self)
+        return model, rows
+
+    _raw_select_path = sel_cls.select_path
+
+    def _select_path(self: Any, path: Any) -> None:
+        if not type(path).__name__ == "TreePath":
+            import ginext
+            Gtk = ginext._load_namespace("Gtk", "3.0")
+            if isinstance(path, int):
+                path = Gtk.TreePath.new_from_string(str(path))
+            elif isinstance(path, str):
+                path = Gtk.TreePath.new_from_string(path)
+            elif isinstance(path, (tuple, list)):
+                path = Gtk.TreePath.new_from_string(":".join(str(v) for v in path))
+        _raw_select_path(self, path)
+
+    sel_cls.get_selected = _get_selected
+    sel_cls.get_selected_rows = _get_selected_rows
+    sel_cls.select_path = _select_path
+    sel_cls._pygobject_compat_treeselection = True
+
+
 def install_tree_compat(namespace: Any) -> None:
     """Install all tree compat methods on Gtk namespace classes."""
     tree_path_cls = getattr(namespace, "TreePath", None)
@@ -684,6 +796,18 @@ def install_tree_compat(namespace: Any) -> None:
     sortable_cls = getattr(namespace, "TreeSortable", None)
     if sortable_cls is not None:
         _install_tree_sortable_compat(sortable_cls)
+
+    tvc_cls = getattr(namespace, "TreeViewColumn", None)
+    if tvc_cls is not None:
+        _install_treeviewcolumn_compat(tvc_cls)
+
+    tv_cls = getattr(namespace, "TreeView", None)
+    if tv_cls is not None:
+        _install_treeview_compat(tv_cls)
+
+    sel_cls = getattr(namespace, "TreeSelection", None)
+    if sel_cls is not None:
+        _install_treeselection_compat(sel_cls)
 
     # Expose helpers in the namespace for tests that import them
     namespace.TreeModelRow = TreeModelRow
