@@ -161,6 +161,71 @@ def get_property(self: Any, name: str) -> object:
         return self.get_property_by_name(prop_name)
 
 
+def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
+    """Coerce and validate a value for a gchar/guchar property pspec.
+
+    Returns the coerced value, or raises OverflowError/TypeError on bad input.
+    """
+    if pspec_info is None:
+        return value
+    minimum = pspec_info.get("minimum")
+    maximum = pspec_info.get("maximum")
+    if minimum is None and maximum is None:
+        return value
+
+    # bytes → int
+    if isinstance(value, (bytes, bytearray)):
+        if len(value) != 1:
+            raise TypeError(
+                f"cannot marshal bytes of length {len(value)!r} as gchar"
+            )
+        b = value[0]
+        # For signed char: bytes values ≥128 are interpreted as negative
+        value = b if (minimum is None or minimum >= 0) else (b if b < 128 else b - 256)
+        return value
+
+    # str → int (single ASCII char only: 0x00..0x7F)
+    if isinstance(value, str):
+        if len(value) != 1:
+            raise TypeError(
+                f"cannot marshal {value!r} as gchar: expected a single character"
+            )
+        c = ord(value[0])
+        if c > 127:
+            raise TypeError(
+                f"cannot marshal {value!r} as gchar: character out of ASCII range"
+            )
+        return c
+
+    # Numeric range check → OverflowError
+    if isinstance(value, int) and not isinstance(value, bool):
+        if minimum is not None and value < minimum:
+            raise OverflowError(
+                f"value {value!r} is out of bounds [{minimum}, {maximum}]"
+            )
+        if maximum is not None and value > maximum:
+            raise OverflowError(
+                f"value {value!r} is out of bounds [{minimum}, {maximum}]"
+            )
+    return value
+
+
+def _get_pspec_numeric_info(cls: Any, prop_name: str) -> "dict | None":
+    """Return numeric pspec info (min/max/default) for a C property, or None."""
+    try:
+        import ctypes
+        from ginext import private
+        pspec = cls.gimeta.param_spec(prop_name)
+        if pspec is None:
+            return None
+        ptr = ctypes.c_ulong.from_address(id(pspec) + 32).value
+        if ptr:
+            return private.param_spec_numeric_info(ptr)
+    except Exception:
+        pass
+    return None
+
+
 @overlay.method("Object")
 def set_property(self: Any, name: str, value: object) -> None:
     prop_name = name.replace("_", "-")
@@ -173,6 +238,11 @@ def set_property(self: Any, name: str, value: object) -> None:
         type(descriptor).__set__(descriptor, self, value)
         call_notify_override(self, prop_name)
         return
+    # For C properties, validate/coerce numeric values (char overflow, bytes/str coercion)
+    if not hasattr(type(self).__dict__.get(attr_name, None), "gimeta"):
+        pspec_info = _get_pspec_numeric_info(type(self), prop_name)
+        if pspec_info is not None:
+            value = _coerce_char_value(value, pspec_info)
     try:
         type(self).gimeta.set_property(self, prop_name, value)
     except AttributeError as exc:
