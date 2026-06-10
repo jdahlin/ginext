@@ -151,10 +151,13 @@ def emit(self: Any, signal_name: str, *args: object) -> object:
 def get_property(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-")
     attr_name = prop_name.replace("-", "_")
-    # Check for Python-backed descriptor (e.g. @GObject.Property decorator)
+    # Only delegate to _CompatProperty getters (not generic Python property objects)
+    # so that get_property() always reads GObject native storage for plain properties.
     descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(type(descriptor), "__get__") and hasattr(descriptor, "fget") and descriptor.fget is not None:
-        return type(descriptor).__get__(descriptor, self, type(self))
+    if descriptor is not None and hasattr(descriptor, "fget") and descriptor.fget is not None:
+        from gi._propertyhelper import _CompatProperty
+        if isinstance(descriptor, _CompatProperty):
+            return descriptor.fget(self)
     try:
         return type(self).gimeta.get_property(self, prop_name)
     except AttributeError:
@@ -420,10 +423,14 @@ def _compat_forget_handler_id(self: Any, handler_id: int) -> None:
 
 @overlay.method("Object")
 def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
+    # Try hyphenated form (pygobject uses "my-signal" while ginext stores "my_signal")
+    hyphen_name = name.replace("_", "-")
     try:
-        return cast("_BoundSignal", self.signal_for_name(name))
+        return cast("_BoundSignal", self.signal_for_name(hyphen_name))
     except AttributeError:
-        return _BoundSignal(self, name.replace("_", "-"), None, None)
+        # Unknown signal: raise AttributeError so callers get the same error
+        # as accessing an unknown signal attribute on a GObject.
+        raise AttributeError(hyphen_name.replace("-", "_")) from None
 
 
 @overlay.property("Object")
