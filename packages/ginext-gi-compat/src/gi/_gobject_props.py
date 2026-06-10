@@ -76,9 +76,18 @@ class PropsProxy:
         super().__setattr__("_obj", obj)
 
     def __getattr__(self, name: str) -> object:
+        # Check for Python descriptor (e.g. @GObject.Property decorated getter)
+        descriptor = type(self._obj).__dict__.get(name)
+        if descriptor is not None and hasattr(type(descriptor), "__get__"):
+            return type(descriptor).__get__(descriptor, self._obj, type(self._obj))
         return self._obj.get_property(name)
 
     def __setattr__(self, name: str, value: object) -> None:
+        # Check for Python descriptor with setter
+        descriptor = type(self._obj).__dict__.get(name)
+        if descriptor is not None and hasattr(type(descriptor), "__set__"):
+            type(descriptor).__set__(descriptor, self._obj, value)
+            return
         self._obj.set_property(name, value)
 
     def __iter__(self) -> Iterator[Any]:
