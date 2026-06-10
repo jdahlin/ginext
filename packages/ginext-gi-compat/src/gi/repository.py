@@ -936,6 +936,54 @@ def _install_gtk_compat(namespace: Namespace) -> object:
         except AttributeError, RuntimeError, TypeError:
             ok = False
         namespace._ginext_display_available = bool(ok)
+
+    adj_cls = getattr(namespace, "Adjustment", None)
+    if adj_cls is not None and not getattr(adj_cls, "_pygobject_compat_adjustment", False):
+        raw_adj_init = adj_cls.__init__
+
+        def _adj_init(
+            self: object,
+            value: float = 0.0,
+            lower: float = 0.0,
+            upper: float = 0.0,
+            step_increment: float = 0.0,
+            page_increment: float = 0.0,
+            page_size: float = 0.0,
+        ) -> None:
+            raw_adj_init(self)
+            self.configure(value, lower, upper, step_increment, page_increment, page_size)  # type: ignore[attr-defined]
+
+        adj_cls.__init__ = _adj_init
+        adj_cls._pygobject_compat_adjustment = True
+
+    for _store_name in ("ListStore", "TreeStore"):
+        _store_cls = getattr(namespace, _store_name, None)
+        if _store_cls is None or getattr(_store_cls, "_pygobject_compat_store", False):
+            continue
+        _raw_store_new = _store_cls.new
+
+        def _make_store_new(raw_new: object, cls_: type) -> object:
+            def _store_new(cls: type, *column_types: object) -> object:
+                resolved = []
+                for ct in column_types:
+                    if isinstance(ct, str):
+                        gtype = int(ginext.GObject.type_from_name(ct))
+                        if gtype == 0:
+                            raise TypeError(f"Unknown GType name: {ct!r}")
+                        resolved.append(gtype)
+                    else:
+                        resolved.append(ct)
+                return raw_new(resolved)  # type: ignore[operator]
+
+            return staticmethod(_store_new)
+
+        def _store_init(self: object, *column_types: object) -> None:
+            pass  # construction is done in __new__
+
+        _store_cls.__new__ = _make_store_new(_raw_store_new, _store_cls)  # type: ignore[method-assign]
+        _store_cls.__init__ = _store_init  # type: ignore[method-assign]
+        _store_cls._pygobject_compat_store = True
+
     return namespace
 
 
