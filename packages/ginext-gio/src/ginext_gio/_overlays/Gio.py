@@ -302,9 +302,17 @@ def action_group_contains(self: Any, action_name: object) -> bool:
 def __delitem__(self: Any, key: Any) -> None:
     length = _n_items(self)
     if isinstance(key, slice):
-        # Reverse so positions stay valid as we remove.
-        for i in sorted(range(*key.indices(length)), reverse=True):
-            self.remove(i)
+        start, stop, step = key.indices(length)
+        indices = range(start, stop, step)
+        if not indices:
+            return
+        if step == 1:
+            self.splice(start, len(indices), [])
+        elif step == -1:
+            self.splice(stop + 1, len(indices), [])
+        else:
+            for i in sorted(indices, reverse=True):
+                self.remove(i)
         return
     if isinstance(key, int):
         self.remove(_normalize_index(key, length))
@@ -314,16 +322,86 @@ def __delitem__(self: Any, key: Any) -> None:
     )
 
 
+def _validate_list_store_item(store: Any, item: Any) -> None:
+    from ginext import GObject as _GObjectNS
+
+    if not isinstance(item, private.GObject):
+        raise TypeError(
+            f"Expected a GObject, got {type(item).__name__!r}"
+        )
+    item_type = store.get_item_type()
+    item_gtype = getattr(getattr(type(item), "gimeta", None), "gtype", None)
+    if item_gtype is None or not _GObjectNS.type_is_a(item_gtype, item_type):
+        raise TypeError(
+            f"Expected a {_GObjectNS.type_name(item_type)!r}, got {type(item).__name__!r}"
+        )
+
+
 @overlay.method("ListStore")
 def __setitem__(self: Any, key: Any, value: Any) -> None:
     if isinstance(key, slice):
-        raise NotImplementedError("slice assignment on ListStore is not supported")
+        length = _n_items(self)
+        indices = range(*key.indices(length))
+        items = list(value)
+        if key.step is None or key.step == 1:
+            for item in items:
+                _validate_list_store_item(self, item)
+            pos = indices.start
+            n_remove = len(indices)
+            self.splice(pos, n_remove, items)
+        else:
+            if len(items) != len(indices):
+                raise ValueError(
+                    f"attempt to assign sequence of size {len(items)} "
+                    f"to extended slice of size {len(indices)}"
+                )
+            for item in items:
+                _validate_list_store_item(self, item)
+            for idx, item in zip(indices, items):
+                self.splice(idx, 1, [item])
+        return
     if not isinstance(key, int):
         raise TypeError(
             f"list store indices must be integers, not {type(key).__name__}"
         )
     length = _n_items(self)
+    _validate_list_store_item(self, value)
     self.splice(_normalize_index(key, length), 1, [value])
+
+
+@overlay.method("ListStore")
+def sort(self: Any, compare_func: Any, *user_data: Any) -> None:
+    import functools
+
+    items = list(self)
+
+    def _key(item: Any) -> Any:
+        return functools.cmp_to_key(lambda a, b: compare_func(a, b, *user_data))(item)
+
+    items.sort(key=_key)
+    self.splice(0, _n_items(self), items)
+
+
+@overlay.method("ListStore")
+def insert_sorted(self: Any, item: Any, compare_func: Any, *user_data: Any) -> int:
+    import bisect
+    import functools
+
+    items = list(self)
+    key_fn = functools.cmp_to_key(lambda a, b: compare_func(a, b, *user_data))
+    keys = [key_fn(x) for x in items]
+    item_key = key_fn(item)
+    position = bisect.bisect_right(keys, item_key)
+    self.splice(position, 0, [item])
+    return position
+
+
+@overlay.method("ListStore")
+def find_with_equal_func(self: Any, item: Any, equal_func: Any, *user_data: Any) -> tuple[bool, int]:
+    for i, stored in enumerate(self):
+        if equal_func(stored, item, *user_data):
+            return True, i
+    return False, 2**32 - 1
 
 
 _OMITTED = object()
