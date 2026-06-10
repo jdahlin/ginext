@@ -118,7 +118,6 @@ _XFAIL_BY_NODE = {
     "test_properties.py::TestProperty::test_property_subclass_custom_setter_error": "Property setter error propagation not implemented",
     "test_properties.py::TestProperty::test_python_to_glib_type_mapping": "Property._type_from_python helper not implemented",
     "test_properties.py::TestProperty::test_range": "Property descriptor name lookup not implemented",
-    "test_properties.py::TestProperty::test_simple": "Property default not surfaced",
     "test_properties.py::TestPropertyObject::test_construct_only": "behaviour mismatch under ginext pygobject compat",
     "test_properties.py::TestPropertyObject::test_enum": "marshalling not implemented",
     "test_properties.py::TestPropertyObject::test_flags": "behaviour mismatch under ginext pygobject compat",
