@@ -201,12 +201,17 @@ def test_list_store_setitem_negative_index(
     assert list_store[:] == [replacement]
 
 
-def test_list_store_setitem_slice_unsupported(
+def test_list_store_setitem_slice(
     list_store: Any, list_store_item: Any
 ) -> None:
-    list_store.append(list_store_item())
-    with pytest.raises(NotImplementedError):
-        list_store[0:1] = [list_store_item()]
+    a = list_store_item()
+    b = list_store_item()
+    list_store.append(a)
+    replacement = list_store_item()
+    list_store[0:1] = [replacement]
+    assert list_store[:] == [replacement]
+    list_store[:] = [a, b]
+    assert list_store[:] == [a, b]
 
 
 def test_list_store_setitem_rejects_bad_key_type(
