@@ -358,7 +358,10 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
 
 @overlay.property("Object")
 def __grefcount__(self: Any) -> int:
-    return int(self.ref_count())
+    try:
+        return int(self.ref_count())
+    except ValueError as exc:
+        raise TypeError(str(exc)) from None
 
 
 @overlay.method("Object")

@@ -52,7 +52,6 @@ _XFAIL_BY_NODE = {
     "test_gobject.py::TestReferenceCounting::test_owned_by_library_out_of_scope": "missing pygobject compat attribute",
     "test_gobject.py::TestReferenceCounting::test_owned_by_library_out_of_scope_using_gobject_new": "missing pygobject compat attribute",
     "test_gobject.py::TestReferenceCounting::test_owned_by_library_using_gobject_new": "missing pygobject compat attribute",
-    "test_gobject.py::TestReferenceCounting::test_uninitialized_object": "missing pygobject compat attribute",
     "test_gobject.py::test_custom_class_update": "missing pygobject compat attribute",
     "test_import_machinery.py::TestImporter::test_invalid_repository_module_name": "behaviour mismatch under ginext pygobject compat",
     "test_import_machinery.py::TestModule::test_static_binding_protection": "module not exposed by ginext compat",
