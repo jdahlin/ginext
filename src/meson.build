@@ -191,6 +191,8 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/overrides/Gtk.py',                'gi/overrides'],
   ['../packages/ginext-gi-compat/src/gi/overrides/GIMarshallingTests.py', 'gi/overrides'],
   ['../packages/ginext-gi-compat/src/gi/overrides/GLib.py',              'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/GObject.py',           'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/Gdk.py',               'gi/overrides'],
 ]
 
 foreach pair : gi_files

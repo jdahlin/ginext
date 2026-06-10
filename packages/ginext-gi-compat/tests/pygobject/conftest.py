@@ -145,9 +145,6 @@ _XFAIL_BY_NODE = {
     "test_signature.py::Test::test_object_virtual_method": "vfunc signatures need pygobject classmethod-shaped binding; ginext binds the instance via PyMethod_New",
     "test_source.py::TestSource::test_extra_init_args": "GLib.Source subclass __init__ args not forwarded",
     "test_source.py::TestSource::test_python_unref_during_dispatch": "GLib.Source.new() positional ctor not implemented",
-    "test_typeclass.py::TestCoercion::test_coerce_from_class": "GObjectMeta/ObjectClass coercion not implemented",
-    "test_typeclass.py::TestCoercion::test_coerce_from_gtype": "PropertiesObject.__gtype__ not implemented",
-    "test_typeclass.py::TestCoercion::test_coerce_from_instance": "GObjectMeta/ObjectClass coercion not implemented",
 }
 
 
