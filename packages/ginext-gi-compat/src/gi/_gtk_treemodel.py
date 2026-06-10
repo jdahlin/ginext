@@ -377,20 +377,33 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
         return
 
     _raw_insert_with_valuesv = getattr(list_store_cls, "insert_with_valuesv", None)
+    _raw_insert_with_values_c = getattr(list_store_cls, "insert_with_values", None)
     _raw_append = list_store_cls.append
     _raw_insert = list_store_cls.insert
     _raw_insert_before = list_store_cls.insert_before
     _raw_insert_after = list_store_cls.insert_after
     _raw_set_value_c = list_store_cls.set_value
 
+    def _ls_insert_with_values_compat(self: Any, position: int, columns: Any, values: Any) -> Any:
+        """pygobject-compatible insert_with_values(pos, columns, values) with raw Python values.
+
+        Inserts atomically without emitting row-changed (only row-inserted).
+        """
+        import ginext as _gi
+        _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
+        _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
+        _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+        try:
+            treeiter = _raw_insert(self, position)
+            for col, val in zip(columns, values):
+                _raw_set_value_c(self, treeiter, col, self._convert_value(col, val))
+        finally:
+            _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+        return treeiter
+
     def _ls_insert_with_values(self: Any, position: int, row: Any) -> Any:
         row_vals, columns = self._convert_row(row)
-        if _raw_insert_with_valuesv is not None:
-            return _raw_insert_with_valuesv(self, position, columns, row_vals)
-        treeiter = _raw_insert(self, position)
-        for col, val in zip(columns, row_vals):
-            _raw_set_value_c(self, treeiter, col, val)
-        return treeiter
+        return _ls_insert_with_values_compat(self, position, list(columns), row_vals)
 
     def _ls_do_insert(self: Any, position: int, row: Any) -> Any:
         if row is not None:
@@ -431,25 +444,45 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
         _raw_set_value_c(self, treeiter, column, value)
 
     def _ls_set(self: Any, treeiter: Any, *args: Any) -> None:
+        import ginext as _gi
+        _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
+        _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
+
         def _set_lists(cols: Any, vals: Any) -> None:
             if len(cols) != len(vals):
                 raise TypeError("The number of columns do not match the number of values")
             for col_num, value in zip(cols, vals):
                 if not isinstance(col_num, int):
                     raise TypeError("Expected integer argument for column.")
-                self.set_value(treeiter, col_num, value)
+                if not isinstance(col_num, int):
+                    raise TypeError("Expected integer argument for column.")
+                _raw_set_value_c(self, treeiter, col_num, self._convert_value(col_num, value))
 
         if args:
             if isinstance(args[0], int):
-                _set_lists(args[::2], args[1::2])
+                if len(args) % 2 != 0:
+                    raise TypeError("Expected even number of arguments (column, value, ...)")
+                pairs = list(zip(args[::2], args[1::2]))
             elif isinstance(args[0], (tuple, list)):
                 if len(args) != 2:
                     raise TypeError("Too many arguments")
-                _set_lists(args[0], args[1])
+                pairs = list(zip(args[0], args[1]))
             elif isinstance(args[0], dict):
-                _set_lists(list(args[0].keys()), list(args[0].values()))
+                pairs = list(args[0].items())
             else:
                 raise TypeError("Argument list must be in the form of (column, value, ...), ((columns,...), (values, ...)) or {column: value}.")
+            # Block row-changed during multi-column set, then emit once
+            _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            try:
+                for col_num, value in pairs:
+                    _raw_set_value_c(self, treeiter, col_num, self._convert_value(col_num, value))
+            finally:
+                _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            # Emit row-changed once after all values are set
+            if pairs:
+                path = self.get_path(treeiter)
+                if path is not None:
+                    self.row_changed.emit(path, treeiter)
 
     list_store_cls.append = _ls_append
     list_store_cls.prepend = _ls_prepend
@@ -459,9 +492,9 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
     list_store_cls.set_value = _ls_set_value
     list_store_cls.set = _ls_set
 
-    # pygobject compat alias: insert_with_values = insert_with_valuesv
-    if _raw_insert_with_valuesv is not None and not hasattr(list_store_cls, "insert_with_values"):
-        list_store_cls.insert_with_values = _raw_insert_with_valuesv
+    # pygobject compat: install insert_with_values with raw-Python-value support
+    list_store_cls.insert_with_values = _ls_insert_with_values_compat
+    list_store_cls.insert_with_valuesv = _ls_insert_with_values_compat
 
     list_store_cls._pygobject_compat_liststore_methods = True
 
