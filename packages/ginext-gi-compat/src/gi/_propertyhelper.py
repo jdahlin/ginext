@@ -83,6 +83,10 @@ class _CompatProperty(Generic[T]):
             fget = None
         if value_type is not None and not isinstance(value_type, type):
             raise TypeError("GObject.Property type must be a type")
+        if nick is not None and not isinstance(nick, str):
+            raise TypeError("GObject.Property nick must be a string")
+        if blurb is not None and not isinstance(blurb, str):
+            raise TypeError("GObject.Property blurb must be a string")
         if fget is not None and not callable(fget):
             raise TypeError("GObject.Property getter must be callable")
         if setter is not None and not callable(setter):
@@ -90,8 +94,17 @@ class _CompatProperty(Generic[T]):
         if flags is not None:
             readonly = readonly or not bool(flags & 2)
             construct_only = construct_only or bool(flags & 8)
+        _UNSUPPORTED_TYPES = (complex,)
+        if value_type in _UNSUPPORTED_TYPES:
+            raise TypeError(f"GObject.Property type {value_type!r} is not supported")
         if gimeta_type_name(value_type) == "GType" and default is not _unset_sentinel:
             raise TypeError("GType properties do not support defaults")
+        if value_type is bool and default is _unset_sentinel and fget is None and setter is None and not kwargs.get("getter"):
+            raise TypeError("GObject.Property of type bool requires an explicit default value")
+        if value_type is bool and default is not _unset_sentinel and not isinstance(default, (bool, int)):
+            raise TypeError(f"GObject.Property bool default must be bool or int, got {type(default).__name__!r}")
+        if value_type is object and default is not _unset_sentinel and default is not None:
+            raise TypeError("GObject.Property type=object does not support non-None defaults")
         if (
             gimeta_type_name(value_type) == "GVariant"
             and default is not _unset_sentinel
@@ -111,6 +124,14 @@ class _CompatProperty(Generic[T]):
         self.fset = setter
         self._infer_type_from_getter()
 
+    @property
+    def __doc__(self) -> str | None:  # type: ignore[override]
+        if self.blurb is not None:
+            return self.blurb
+        if self.fget is not None:
+            return getattr(self.fget, "__doc__", None)
+        return None
+
     def __set_name__(self, owner: type, name: str) -> None:
         self.name = name
         # Inject the type into __annotations__ so register_gobject_subclass
@@ -123,11 +144,16 @@ class _CompatProperty(Generic[T]):
             coerce_property_default(self.type, self)  # type: ignore[arg-type]
 
     def _infer_type_from_getter(self) -> None:
-        if self.type is not None or self.fget is None:
+        if self.fget is None:
             return
-        return_type = getattr(self.fget, "__annotations__", {}).get("return")
-        if isinstance(return_type, type):
-            self.type = return_type
+        if self.type is None:
+            return_type = getattr(self.fget, "__annotations__", {}).get("return")
+            if isinstance(return_type, type):
+                self.type = return_type
+        if self.blurb is None:
+            doc = getattr(self.fget, "__doc__", None)
+            if doc:
+                self.blurb = doc
 
     def __call__(self, getter: object) -> "_CompatProperty[T]":
         if not callable(getter):
