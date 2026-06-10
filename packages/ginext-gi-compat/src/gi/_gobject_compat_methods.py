@@ -175,7 +175,10 @@ def set_property(self: Any, name: str, value: object) -> None:
         return
     try:
         type(self).gimeta.set_property(self, prop_name, value)
-    except AttributeError:
+    except AttributeError as exc:
+        msg = str(exc)
+        if "construct-only" in msg or "construct_only" in msg:
+            raise TypeError(msg) from None
         self.set_property_by_name(prop_name, value)
     call_notify_override(self, prop_name)
 
