@@ -67,3 +67,13 @@ for _name in ("__repr__", "__iter__", "__eq__", "__ne__", "__hash__"):
 
 RGBA = _RGBA
 __all__.append("RGBA")
+
+# PaintableFlags aliases: SIZE -> STATIC_SIZE, CONTENTS -> STATIC_CONTENTS
+try:
+    _PaintableFlags = _Gdk.PaintableFlags
+    if not hasattr(_PaintableFlags, "SIZE") and hasattr(_PaintableFlags, "STATIC_SIZE"):
+        _PaintableFlags.SIZE = _PaintableFlags.STATIC_SIZE
+    if not hasattr(_PaintableFlags, "CONTENTS") and hasattr(_PaintableFlags, "STATIC_CONTENTS"):
+        _PaintableFlags.CONTENTS = _PaintableFlags.STATIC_CONTENTS
+except AttributeError:
+    pass
