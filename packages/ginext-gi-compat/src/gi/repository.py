@@ -233,6 +233,9 @@ def _value_gtype_info(namespace: Namespace, g_type: object) -> tuple[Any, str | 
         )
         if g_type is getattr(ginext.GLib, "Error", None):
             return int(ginext.private.gerror_get_type()), "GError"
+        # Prefer gimeta.gtype (own GType) over __gtype__ which may be inherited
+        if gimeta is not None and hasattr(gimeta, "gtype"):
+            return gimeta.gtype, type_name
         return getattr(g_type, "__gtype__", g_type), type_name
     if gimeta is not None and hasattr(gimeta, "gtype"):
         return gimeta.gtype, getattr(gimeta, "type_name", None)
@@ -409,6 +412,7 @@ def _install_gobject_compat(namespace: Namespace) -> object:
 
     GEnum.__gtype__ = _gtype_for_name("GEnum")
     GFlags.__gtype__ = _gtype_for_name("GFlags")
+    ginext.private.GBoxed.__gtype__ = GType.BOXED  # type: ignore[attr-defined]
     namespace.GObject = _GObject
     namespace.GInterface = _GInterface
     namespace.GEnum = GEnum
@@ -448,7 +452,7 @@ def _install_gobject_compat(namespace: Namespace) -> object:
         int(ginext.private.gvalue_get_type()), "GValue"
     )
     namespace.TYPE_OBJECT = GType.OBJECT
-    namespace.TYPE_INTERFACE = object
+    namespace.TYPE_INTERFACE = compat_gtype_from_raw(8, "GInterface")
     namespace.TYPE_BOXED = GType.BOXED
     namespace.TYPE_ENUM = namespace.GEnum.__gtype__
     namespace.TYPE_FLAGS = namespace.GFlags.__gtype__
