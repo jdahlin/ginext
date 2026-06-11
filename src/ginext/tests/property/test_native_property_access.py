@@ -57,7 +57,7 @@ def test_introspected_property_writes_as_attribute(Gio: Any) -> None:
     action = Gio.SimpleAction.new("act", None)
     action.enabled = False
     assert action.enabled is False
-    assert action.get_property("enabled") is False
+    assert action.get_property_by_name("enabled") is False
 
 
 def test_dashed_property_name_uses_underscore_attribute(Gio: Any) -> None:

@@ -75,7 +75,7 @@ def test_property_assignment_form_round_trip(GObject: Any, Property: Any) -> Non
     f = Foo()
     f.title = "world"
     assert f.title == "world"
-    assert f.get_property("title") == "world"
+    assert f.get_property_by_name("title") == "world"
 
 
 def test_plain_property_uses_native_storage_not_instance_dict(
@@ -90,9 +90,9 @@ def test_plain_property_uses_native_storage_not_instance_dict(
     f.count = 7
 
     assert f.title == "world"
-    assert f.get_property("title") == "world"
+    assert f.get_property_by_name("title") == "world"
     assert f.count == 7
-    assert f.get_property("count") == 7
+    assert f.get_property_by_name("count") == 7
     assert "title" not in f.__dict__
     assert "count" not in f.__dict__
 
@@ -112,16 +112,16 @@ def test_native_property_cache_ignores_replaced_class_attribute(
     cast("Any", Foo).value = "class-value"
 
     assert f.value == "class-value"  # type: ignore[comparison-overlap]
-    assert f.get_property("value") == 1
+    assert f.get_property_by_name("value") == 1
 
-    f.set_property("value", 2)
-    assert f.get_property("value") == 2
+    f.set_property_by_name("value", 2)
+    assert f.get_property_by_name("value") == 2
     assert f.value == "class-value"  # type: ignore[comparison-overlap]
 
     f.value = 7
     assert f.value == 7
     assert f.__dict__["value"] == 7
-    assert f.get_property("value") == 2
+    assert f.get_property_by_name("value") == 2
 
 
 @pytest.mark.xfail(reason="Property class-attribute cache form pending", strict=False)
@@ -139,10 +139,9 @@ def test_native_property_cache_ignores_deleted_class_attribute(
 
     with pytest.raises(AttributeError):
         _ = f.value
-    assert f.get_property("value") == 5
+    assert f.get_property_by_name("value") == 5
 
 
-@pytest.mark.xfail(reason="obj.get_property(name) instance method not yet implemented", strict=True)
 def test_native_property_cache_uses_replacement_data_descriptor(
     GObject: Any, Property: Any
 ) -> None:
@@ -165,11 +164,11 @@ def test_native_property_cache_uses_replacement_data_descriptor(
     assert f.value == "descriptor-value"  # type: ignore[comparison-overlap]
     f.value = 9
     assert seen == [9]
-    assert f.get_property("value") == 1
+    assert f.get_property_by_name("value") == 1
 
-    f.set_property("value", 4)
+    f.set_property_by_name("value", 4)
     assert f.value == "descriptor-value"  # type: ignore[comparison-overlap]
-    assert f.get_property("value") == 4
+    assert f.get_property_by_name("value") == 4
 
 
 def test_native_property_cache_respects_subclass_plain_override(
@@ -186,12 +185,12 @@ def test_native_property_cache_respects_subclass_plain_override(
 
     child = Child()
     assert child.value == "child-value"
-    assert child.get_property("value") == 1
+    assert child.get_property_by_name("value") == 1
 
     cast("Any", child).value = 12
     assert child.value == 12  # type: ignore[comparison-overlap]
     assert child.__dict__["value"] == 12
-    assert child.get_property("value") == 1
+    assert child.get_property_by_name("value") == 1
     assert base.value == 1
 
 
@@ -213,8 +212,8 @@ def test_native_property_cache_respects_parent_descriptor_replacement(
 
     assert base.value == "parent-class-value"  # type: ignore[comparison-overlap]
     assert child.value == "parent-class-value"  # type: ignore[comparison-overlap]
-    assert base.get_property("value") == 1
-    assert child.get_property("value") == 1
+    assert base.get_property_by_name("value") == 1
+    assert child.get_property_by_name("value") == 1
 
 
 def test_native_property_cache_keeps_unrelated_class_mutation_fast_path_valid(
@@ -230,7 +229,7 @@ def test_native_property_cache_keeps_unrelated_class_mutation_fast_path_valid(
 
     f.value = 8
     assert f.value == 8
-    assert f.get_property("value") == 8
+    assert f.get_property_by_name("value") == 8
     assert Foo.unrelated == "new class attr"
 
 
@@ -312,12 +311,12 @@ def test_property_survives_liststore_round_trip(GObject: Any, Property: Any) -> 
     back = store[0]
 
     # back is freshly wrapped from the store, so read through the property
-    # system (get_property) which falls back to the C accessor — the plain
-    # _Property descriptor's fast path isn't populated on a bare re-wrap.
-    assert back.get_property("payload") is not None, (
+    # system (get_property_by_name) which falls back to the C accessor — the
+    # plain _Property descriptor's fast path isn't populated on a bare re-wrap.
+    assert back.get_property_by_name("payload") is not None, (
         "wrapper round-trip lost the Property value"
     )
-    assert isinstance(back.get_property("payload"), Inner)
+    assert isinstance(back.get_property_by_name("payload"), Inner)
 
 
 def test_quoted_optional_object_property_annotation(

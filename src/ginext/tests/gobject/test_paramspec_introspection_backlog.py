@@ -355,20 +355,20 @@ def test_strv_property_round_trip(GIM: Namespace) -> None:
     Reads come back as a list of str. None clears the value."""
     obj = GIM.PropertiesObject()
 
-    obj.set_property("some-strv", ["alice", "bob"])
-    assert obj.get_property("some-strv") == ["alice", "bob"]
+    obj.set_property_by_name("some-strv", ["alice", "bob"])
+    assert obj.get_property_by_name("some-strv") == ["alice", "bob"]
 
     # Tuples and other sequences are accepted.
-    obj.set_property("some-strv", ("carol", "dave"))
-    assert obj.get_property("some-strv") == ["carol", "dave"]
+    obj.set_property_by_name("some-strv", ("carol", "dave"))
+    assert obj.get_property_by_name("some-strv") == ["carol", "dave"]
 
     # None clears.
-    obj.set_property("some-strv", None)
-    assert obj.get_property("some-strv") is None
+    obj.set_property_by_name("some-strv", None)
+    assert obj.get_property_by_name("some-strv") is None
 
     # Non-str items are rejected with a clear TypeError.
     with pytest.raises(TypeError, match="not a str"):
-        obj.set_property("some-strv", [1, 2])
+        obj.set_property_by_name("some-strv", [1, 2])
 
 
 # ---------------------------------------------------------------------------

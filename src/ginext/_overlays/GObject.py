@@ -246,6 +246,18 @@ def force_floating(self: Any) -> None:
     raise RuntimeError("This method is currently unsupported.")
 
 
+def get_property(self: Any, name: str) -> Any:
+    raise AttributeError(
+        "get_property is removed; use get_property_by_name or direct attribute access"
+    )
+
+
+def set_property(self: Any, name: str, value: Any) -> None:
+    raise AttributeError(
+        "set_property is removed; use set_property_by_name or direct attribute assignment"
+    )
+
+
 @overlay.method("Object")
 def bind_property(
     fn: Any,
@@ -386,6 +398,8 @@ _root.bind_property = _root_bind_property  # type: ignore[attr-defined]
 _root.weak_ref = weak_ref  # type: ignore[attr-defined]
 _root.get_data = get_data  # type: ignore[attr-defined]
 _root.force_floating = force_floating  # type: ignore[attr-defined]
+_root.get_property = get_property  # type: ignore[attr-defined]
+_root.set_property = set_property  # type: ignore[attr-defined]
 
 
 # GObject.list_properties(type_or_instance) — pygobject compat function.

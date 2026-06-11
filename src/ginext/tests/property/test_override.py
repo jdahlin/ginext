@@ -108,7 +108,7 @@ def test_subclass_property_override_can_change_python_base_type(
     assert child.value == "hello"
     child.value = "updated"
     assert child.value == "updated"
-    assert child.get_property("value") == "updated"
+    assert child.get_property_by_name("value") == "updated"
     assert base.value == 1
 
 
@@ -130,4 +130,4 @@ def test_subclass_property_override_can_replace_inherited_native_property(
     assert child.enabled == "yes"
     child.enabled = "no"
     assert child.enabled == "no"
-    assert child.get_property("enabled") == "no"
+    assert child.get_property_by_name("enabled") == "no"
