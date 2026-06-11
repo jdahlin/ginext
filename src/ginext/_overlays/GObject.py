@@ -30,6 +30,7 @@ from .. import features
 from ..gobject import gobjectclass as _gobject_root
 from .. import private
 from ..gobject.gtype import GTypeMeta
+from ..gobject.properties import PropertyInfo
 from ..signal.bound import Signal as _BoundSignal
 from ..signal.scoped import ScopedCallable
 from ginext import GLib, GObject
@@ -413,25 +414,6 @@ _G_TYPE_OBJECT = 80
 _list_props_cache: dict[int, list[Any]] = {}
 
 
-class _ParamSpec:
-    __slots__ = ("name", "value_type")
-
-    def __init__(self, name: str, value_type: int) -> None:
-        self.name = name
-        self.value_type = value_type
-
-    def __repr__(self) -> str:
-        return f"<GParam name={self.name!r}>"
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, _ParamSpec):
-            return self.name == other.name and self.value_type == other.value_type
-        return NotImplemented
-
-    def __hash__(self) -> int:
-        return hash((self.name, self.value_type))
-
-
 @overlay.add("Object.new_with_properties")  # type: ignore[arg-type, untyped-decorator]
 def new_with_properties(
     fn: Any, type_or_gtype: object, properties: dict[str, Any]
@@ -444,11 +426,11 @@ def interface_list_properties(fn: Any, type_or_gtype: object) -> list[Any]:
     return fn(type_or_gtype)  # type: ignore[no-any-return]
 
 
-def _interface_list_properties(gtype: int) -> list[_ParamSpec]:
-    result: list[_ParamSpec] = []
-    raw: list[tuple[str, int]] = interface_list_properties(gtype)  # type: ignore[arg-type]
-    for name, value_type in raw:
-        result.append(_ParamSpec(name, value_type))
+def _interface_list_properties(gtype: int) -> list[PropertyInfo]:
+    result: list[PropertyInfo] = []
+    raw: list[Any] = interface_list_properties(gtype)  # type: ignore[arg-type]
+    for pspec in raw:
+        result.append(PropertyInfo(pspec))
     return result
 
 
@@ -533,3 +515,27 @@ def list_properties(type_or_instance: object) -> list[Any]:
 
     _list_props_cache[gtype] = result
     return result
+
+
+def apply_to_namespace(ns: Any) -> None:
+    """Install PropertyInfo-returning list_properties classmethod on GObject.Object.
+
+    The class-struct list_properties is lazily installed per-class (MRO miss →
+    meta_cb_getattr → install_class_struct_method_for_class). Pre-installing here
+    on GObject.Object stops the lazy path: MRO lookup finds it on Object first,
+    so every subclass gets PropertyInfo without needing per-class patching.
+    """
+
+    def _list_properties_impl(cls: type) -> list[PropertyInfo]:
+        gimeta = cls.gimeta  # type: ignore[attr-defined]
+        result = []
+        for name in gimeta.list_property_names():
+            pspec = gimeta.param_spec(name)
+            if pspec is not None:
+                result.append(PropertyInfo(pspec))
+        return result
+
+    _list_properties_impl.__qualname__ = "Object.list_properties"
+    GObject.Object.list_properties = classmethod(
+        _list_properties_impl
+    )
