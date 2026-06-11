@@ -247,18 +247,6 @@ def force_floating(self: Any) -> None:
     raise RuntimeError("This method is currently unsupported.")
 
 
-def get_property(self: Any, name: str) -> Any:
-    raise AttributeError(
-        "get_property is removed; use get_property_by_name or direct attribute access"
-    )
-
-
-def set_property(self: Any, name: str, value: Any) -> None:
-    raise AttributeError(
-        "set_property is removed; use set_property_by_name or direct attribute assignment"
-    )
-
-
 @overlay.method("Object")
 def bind_property(
     fn: Any,
