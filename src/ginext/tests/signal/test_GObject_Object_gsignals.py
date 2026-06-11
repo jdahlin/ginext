@@ -38,24 +38,14 @@ from typing import ClassVar
 import pytest
 
 
-@pytest.mark.xfail(
-    reason="__gsignals__ dict signal registration requires PYGOBJECT_COMPAT",
-    strict=False,
-)
-def test_gsignals_dict_registers_signal() -> None:
+def test_gsignals_dict_raises_in_native_mode() -> None:
     from ginext import GObject
 
-    class Pinger(GObject.Object, type_name="GoiTestPinger_GSignalsDict"):
-        __gsignals__ = {
-            "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
-        }
-
-    p = Pinger()
-    fired = []
-    conn = p.ping.connect(lambda *_a: fired.append(True), owner=p)
-    p.ping.emit()
-    conn.disconnect()
-    assert fired == [True]
+    with pytest.raises(TypeError, match="__gsignals__ dict is not supported"):
+        class Pinger(GObject.Object, type_name="GoiTestPinger_GSignalsDict"):
+            __gsignals__ = {
+                "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
+            }
 
 
 def test_gobject_signal_descriptor_still_works() -> None:

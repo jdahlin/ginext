@@ -524,6 +524,16 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
 
     _make_compat_bind_property(gobject_cls)
 
+    # The ginext native overlay sets get_property/set_property to killers on
+    # _GObject (the Python root) so they're absent from native ginext. Restore
+    # the compat versions here so user-defined GObject subclasses get the full
+    # PyGObject-compatible API. GObject.Object already has the compat version
+    # from the overlay; push it up to _GObject so it takes precedence in MRO.
+    for _prop_method in ("get_property", "set_property"):
+        _compat_version = gobject_cls.__dict__.get(_prop_method)
+        if _compat_version is not None:
+            setattr(_GObject, _prop_method, _compat_version)
+
     # Wrap connect/connect_after so OLD_SIGNAL_API string-based calls work.
     # Do this after install_class_overlay so we wrap the final installed method.
     from ginext.classbuild import install_method_for_class

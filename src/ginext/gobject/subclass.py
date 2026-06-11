@@ -96,9 +96,15 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
     # registration entirely.
     already_built = "gimeta" in cls.__dict__
 
-    if not already_built and features.is_enabled(features.PYGOBJECT_COMPAT):
-        _install_pygobject_signal_metadata(cls)
-        validate_pygobject_property_metadata(cls)
+    if not already_built:
+        if features.is_enabled(features.PYGOBJECT_COMPAT):
+            _install_pygobject_signal_metadata(cls)
+            validate_pygobject_property_metadata(cls)
+        elif "__gsignals__" in cls.__dict__:
+            raise TypeError(
+                "__gsignals__ dict is not supported in native ginext; "
+                "use Signal() descriptors instead"
+            )
 
     annotations = resolve_annotations(_own_annotations(cls))
     declared_properties = {
