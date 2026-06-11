@@ -265,6 +265,101 @@ class _PspecProperty:
         call_notify_override(obj, prop_name)
 
 
+_NUMERIC_UNSET: Any = object()
+
+
+class PropertyInfo:
+    """Read-only introspection view of a GObject property, built from a GParamSpec.
+
+    Returned by list_properties(). Presents the same attribute names as
+    Property so callers can treat both uniformly.
+    """
+
+    __slots__ = ("_pspec", "_info_cache", "_numeric_cache")
+
+    def __init__(self, pspec: object) -> None:
+        self._pspec = pspec
+        self._info_cache: dict[str, Any] | None = None
+        self._numeric_cache: Any = _NUMERIC_UNSET
+
+    def _info(self) -> dict[str, Any]:
+        if self._info_cache is None:
+            self._info_cache = cast(
+                "dict[str, Any]", private.param_spec_info(self._pspec)
+            )
+        return self._info_cache
+
+    def _numeric(self) -> dict[str, Any] | None:
+        if self._numeric_cache is _NUMERIC_UNSET:
+            self._numeric_cache = private.param_spec_numeric_info(self._pspec)
+        return cast("dict[str, Any] | None", self._numeric_cache)
+
+    @property
+    def name(self) -> str:
+        return cast("str", self._pspec.name)  # type: ignore[attr-defined]
+
+    @property
+    def nick(self) -> str | None:
+        return cast("str | None", self._pspec.nick)  # type: ignore[attr-defined]
+
+    @property
+    def blurb(self) -> str | None:
+        return cast("str | None", self._pspec.blurb)  # type: ignore[attr-defined]
+
+    @property
+    def value_type(self) -> int:
+        return cast("int", self._pspec.value_type)  # type: ignore[attr-defined]
+
+    @property
+    def flags(self) -> int:
+        return cast("int", self._info()["flags"])
+
+    @property
+    def owner_type(self) -> int:
+        return cast("int", self._info()["owner_type"])
+
+    @property
+    def default(self) -> object:
+        return private.param_spec_default_value(self._pspec)
+
+    @property
+    def default_value(self) -> object:
+        return self.default
+
+    @property
+    def minimum(self) -> int | float | None:
+        info = self._numeric()
+        return cast("int | float", info["minimum"]) if info is not None else None
+
+    @property
+    def maximum(self) -> int | float | None:
+        info = self._numeric()
+        return cast("int | float", info["maximum"]) if info is not None else None
+
+    def get_name(self) -> str:
+        return self.name
+
+    def get_nick(self) -> str | None:
+        return self.nick
+
+    def get_blurb(self) -> str | None:
+        return self.blurb
+
+    def get_default_value(self) -> object:
+        return self.default
+
+    def __repr__(self) -> str:
+        return f"<PropertyInfo name={self.name!r}>"
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, PropertyInfo):
+            return self.name == other.name and self.value_type == other.value_type
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.value_type))
+
+
 def validate_pygobject_property_metadata(cls: type) -> None:
     if "__gproperties__" not in cls.__dict__:
         return

@@ -39,14 +39,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ginext.namespace import Namespace
+from ginext.gobject.properties import PropertyInfo
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ginext.namespace import Namespace
 from ginext.tests.typelib.support import (
     assert_gobject_class_mro,
     open_namespace_for_test,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
 
 
 # list_properties() no longer segfaults (the GParamSpec array-element
@@ -65,21 +67,6 @@ typed_paramspec_pending = pytest.mark.xfail(
 )
 
 
-@pytest.fixture
-def old_signal_api() -> Generator[None, None, None]:
-    """Enable the pygobject-style string `.connect()` API for tests that use
-    it. OLD_SIGNAL_API is off by default (native ginext uses the new signal
-    API), so a test driving `obj.connect("notify::...", ...)` must opt in
-    explicitly rather than relying on another test having left it on."""
-    from ginext import features
-
-    features.set_enabled(features.OLD_SIGNAL_API, True)
-    try:
-        yield
-    finally:
-        features.set_enabled(features.OLD_SIGNAL_API, False)
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -96,12 +83,12 @@ def GIM(call_mode: str) -> Namespace:
 
 
 @pytest.fixture
-def simple_action_specs(Gio: Namespace) -> list[object]:
+def simple_action_specs(Gio: Namespace) -> list[PropertyInfo]:
     return Gio.SimpleAction.list_properties()  # type: ignore[no-any-return]
 
 
 @pytest.fixture
-def props_object_specs(GIM: Namespace) -> list[object]:
+def props_object_specs(GIM: Namespace) -> list[PropertyInfo]:
     return GIM.PropertiesObject.list_properties()  # type: ignore[no-any-return]
 
 
@@ -109,9 +96,9 @@ def test_properties_object_mro_uses_live_gobject_object(GIM: Namespace) -> None:
     assert_gobject_class_mro(GIM.PropertiesObject)
 
 
-def find(specs: list[object], name: str) -> object:
+def find(specs: Sequence[object], name: str) -> PropertyInfo:
     for s in specs:
-        if getattr(s, "name") == name:
+        if isinstance(s, PropertyInfo) and s.name == name:
             return s
     raise AssertionError(f"no property named {name!r}")
 
@@ -121,20 +108,22 @@ def find(specs: list[object], name: str) -> object:
 # ---------------------------------------------------------------------------
 
 
-def test_list_properties_returns_list(simple_action_specs: list[object]) -> None:
+def test_list_properties_returns_list(simple_action_specs: list[PropertyInfo]) -> None:
     assert isinstance(simple_action_specs, list)
     assert len(simple_action_specs) > 0
 
 
-def test_list_properties_names_match_known_set(simple_action_specs: list[object]) -> None:
+def test_list_properties_names_match_known_set(
+    simple_action_specs: list[PropertyInfo],
+) -> None:
     """Gio.SimpleAction's introspected properties — a stable set we can pin."""
-    names = sorted(getattr(s, "name") for s in simple_action_specs)
+    names = sorted(s.name for s in simple_action_specs)
     assert names == sorted(["enabled", "name", "parameter-type", "state", "state-type"])
 
 
 @typed_paramspec_pending
 def test_returned_objects_are_paramspec_subclasses(
-    Gio: Namespace, simple_action_specs: list[object]
+    Gio: Namespace, simple_action_specs: list[PropertyInfo]
 ) -> None:
     """Every entry should be an instance of GObject.ParamSpec — auto-bound
     by goi's wrap path looking up the runtime GType in the registry."""
@@ -148,53 +137,85 @@ def test_returned_objects_are_paramspec_subclasses(
 # ---------------------------------------------------------------------------
 
 
-@typed_paramspec_pending
 @pytest.mark.parametrize("attr", ["name", "nick", "blurb"])
 def test_string_method_accessor_returns_str_or_none(
-    simple_action_specs: list[object], attr: str
+    simple_action_specs: list[PropertyInfo], attr: str
 ) -> None:
     spec = simple_action_specs[0]
-    fn = getattr(spec, f"get_{attr}")
+    fn = getattr(spec, f"get_{attr}")  # parametric method name, getattr intentional
     val = fn()
     assert val is None or isinstance(val, str)
 
 
-@typed_paramspec_pending
-def test_field_name_matches_get_name(simple_action_specs: list[object]) -> None:
-    """`.name` (field) and `.get_name()` (method) must agree — both come
-    from GIR, so this catches a class-builder regression where one path
-    silently breaks."""
+def test_field_name_matches_get_name(simple_action_specs: list[PropertyInfo]) -> None:
+    """`.name` (field) and `.get_name()` (method) must agree."""
     for s in simple_action_specs:
-        assert getattr(s, "name") == getattr(s, "get_name")()
+        assert s.name == s.get_name()
 
 
-@typed_paramspec_pending
-def test_value_type_is_gtype_wrapper(simple_action_specs: list[object]) -> None:
+def test_value_type_is_int(simple_action_specs: list[PropertyInfo]) -> None:
+    """value_type is a raw GType integer — GType wrapper is a higher-level concern."""
     enabled = find(simple_action_specs, "enabled")
-    # value_type should be a GType wrapper (not a raw int) — hits the
-    # GTYPE-tag field path.
-    assert hasattr(getattr(enabled, "value_type"), "name")
-    assert getattr(getattr(enabled, "value_type"), "name") == "gboolean"
+    assert isinstance(enabled.value_type, int)
+    assert enabled.value_type > 0
 
 
 @typed_paramspec_pending
-def test_owner_type_points_to_declaring_class(simple_action_specs: list[object]) -> None:
+def test_value_type_is_gtype_wrapper(simple_action_specs: list[PropertyInfo]) -> None:
     enabled = find(simple_action_specs, "enabled")
-    assert getattr(getattr(enabled, "owner_type"), "name") == "GSimpleAction"
+    # value_type should be a GType wrapper (not a raw int) — pending typed wrappers.
+    assert hasattr(enabled.value_type, "name")
+    assert enabled.value_type.name == "gboolean"
+
+
+def test_owner_type_is_int(
+    simple_action_specs: list[PropertyInfo], Gio: Namespace
+) -> None:
+    """owner_type is a raw GType integer matching the declaring class."""
+    enabled = find(simple_action_specs, "enabled")
+    assert isinstance(enabled.owner_type, int)
+    assert enabled.owner_type == int(Gio.SimpleAction.gimeta.gtype)
 
 
 @typed_paramspec_pending
-def test_flags_is_int_bitmask(simple_action_specs: list[object]) -> None:
-    """`.flags` is exposed as a `<type name="ParamFlags">` (interface
-    tag) in GIR — hits the field-lookup interface/flags branch."""
+def test_owner_type_points_to_declaring_class(
+    simple_action_specs: list[PropertyInfo],
+) -> None:
+    enabled = find(simple_action_specs, "enabled")
+    assert enabled.owner_type.name == "GSimpleAction"  # type: ignore[attr-defined]
+
+
+def test_flags_is_int_bitmask(simple_action_specs: list[PropertyInfo]) -> None:
+    """.flags is an int bitmask from GParamFlags."""
     spec = simple_action_specs[0]
-    assert isinstance(getattr(spec, "flags"), int)
-    assert getattr(spec, "flags") > 0
+    assert isinstance(spec.flags, int)
+    assert spec.flags > 0
 
 
 # ---------------------------------------------------------------------------
 # Numeric subclass fields (ParamSpecInt etc.) — minimum/maximum/default_value
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name, expected_min, expected_max",
+    [
+        ("some-int", -(2**31), 2**31 - 1),
+        ("some-uint", 0, 2**32 - 1),
+        ("some-int64", -(2**63), 2**63 - 1),
+        ("some-uint64", 0, 2**64 - 1),
+    ],
+)
+def test_integer_min_max_match_c_limits(
+    props_object_specs: list[PropertyInfo],
+    name: str,
+    expected_min: int,
+    expected_max: int,
+) -> None:
+    spec = find(props_object_specs, name)
+    assert spec.minimum == expected_min
+    assert spec.maximum == expected_max
+    assert spec.default_value == 0
 
 
 @typed_paramspec_pending
@@ -208,7 +229,7 @@ def test_flags_is_int_bitmask(simple_action_specs: list[object]) -> None:
     ],
 )
 def test_integer_subclass_min_max_match_c_limits(
-    props_object_specs: list[object],
+    props_object_specs: list[PropertyInfo],
     name: str,
     expected_class: str,
     expected_min: int,
@@ -216,9 +237,20 @@ def test_integer_subclass_min_max_match_c_limits(
 ) -> None:
     spec = find(props_object_specs, name)
     assert type(spec).__name__ == expected_class
-    assert getattr(spec, "minimum") == expected_min
-    assert getattr(spec, "maximum") == expected_max
-    assert getattr(spec, "default_value") == 0
+    assert spec.minimum == expected_min
+    assert spec.maximum == expected_max
+    assert spec.default_value == 0
+
+
+@pytest.mark.parametrize("name", ["some-float", "some-double"])
+def test_float_min_max_are_floats(
+    props_object_specs: list[PropertyInfo], name: str
+) -> None:
+    spec = find(props_object_specs, name)
+    assert isinstance(spec.minimum, float)
+    assert isinstance(spec.maximum, float)
+    assert spec.minimum < 0 < spec.maximum
+    assert spec.default_value == 0.0
 
 
 @typed_paramspec_pending
@@ -226,23 +258,31 @@ def test_integer_subclass_min_max_match_c_limits(
     "name, cls", [("some-float", "ParamSpecFloat"), ("some-double", "ParamSpecDouble")]
 )
 def test_float_subclass_min_max_are_floats(
-    props_object_specs: list[object], name: str, cls: str
+    props_object_specs: list[PropertyInfo], name: str, cls: str
 ) -> None:
     spec = find(props_object_specs, name)
     assert type(spec).__name__ == cls
-    assert isinstance(getattr(spec, "minimum"), float)
-    assert isinstance(getattr(spec, "maximum"), float)
-    assert getattr(spec, "minimum") < 0 < getattr(spec, "maximum")
-    assert getattr(spec, "default_value") == 0.0
+    assert isinstance(spec.minimum, float)
+    assert isinstance(spec.maximum, float)
+    assert spec.minimum < 0 < spec.maximum
+    assert spec.default_value == 0.0
+
+
+def test_string_default_value_is_none_or_str(
+    props_object_specs: list[PropertyInfo],
+) -> None:
+    spec = find(props_object_specs, "some-string")
+    dv = spec.get_default_value()
+    assert dv is None or isinstance(dv, str)
 
 
 @typed_paramspec_pending
 def test_string_subclass_default_value_is_none_or_str(
-    props_object_specs: list[object],
+    props_object_specs: list[PropertyInfo],
 ) -> None:
     spec = find(props_object_specs, "some-string")
     assert type(spec).__name__ == "ParamSpecString"
-    dv = getattr(spec, "get_default_value")()
+    dv = spec.get_default_value()
     assert dv is None or isinstance(dv, str)
 
 
@@ -253,7 +293,7 @@ def test_string_subclass_default_value_is_none_or_str(
 
 @typed_paramspec_pending
 def test_paramspec_subclass_mro_includes_paramspec(
-    props_object_specs: list[object],
+    props_object_specs: list[PropertyInfo],
 ) -> None:
     GObject = open_namespace_for_test("auto", "GObject", "2.0")
     int_spec = find(props_object_specs, "some-int")
@@ -267,7 +307,9 @@ def test_classmethod_dispatch_does_not_require_instance(Gio: Namespace) -> None:
     assert specs  # non-empty
 
 
-def test_interface_methods_are_found_on_implementing_object_instances(Gio: Namespace) -> None:
+def test_interface_methods_are_found_on_implementing_object_instances(
+    Gio: Namespace,
+) -> None:
     group = Gio.SimpleActionGroup()
     action = Gio.SimpleAction.new("demo", None)
 
@@ -278,10 +320,6 @@ def test_interface_methods_are_found_on_implementing_object_instances(Gio: Names
     assert looked_up.get_name() == "demo"
 
 
-@pytest.mark.xfail(
-    reason="interface methods are callable but not yet listed in __dir__",
-    strict=False,
-)
 def test_dir_includes_interface_methods(Gio: Namespace) -> None:
     names = set(dir(Gio.SimpleActionGroup()))
     assert "add_action" in names
@@ -314,9 +352,7 @@ def test_notify_signal_marshals_object_and_paramspec_args(
     "--version option is never seen",
     strict=True,
 )
-def test_command_line_options_dict_returns_variant_dict(
-    Gio: Namespace, old_signal_api: None
-) -> None:
+def test_command_line_options_dict_returns_variant_dict(Gio: Namespace) -> None:
     seen: dict[str, object] = {}
     # Per-worker-unique app id: xdist runs tests in parallel processes
     # that share the user's DBus session bus. A fixed name (e.g.
@@ -334,12 +370,12 @@ def test_command_line_options_dict_returns_variant_dict(
     app.add_main_option("version", ord("v"), 0, 0, "version", None)
 
     def on_cli(_app: object, cmd: object) -> int:
-        options = getattr(cmd, "get_options_dict")()
+        options = cmd.get_options_dict()  # type: ignore[attr-defined]
         seen["type"] = type(options).__name__
-        seen["has_version"] = getattr(options, "contains")("version")
+        seen["has_version"] = options.contains("version")
         return 0
 
-    app.connect("command-line", on_cli, owner=app)
+    app.signal_for_name("command-line").connect(on_cli, owner=app)
     assert app.run(["prog", "--version"]) == 0
     assert seen["type"] == "VariantDict"
     assert seen["has_version"] is True
@@ -386,7 +422,11 @@ def test_subclass_inherits_superclass_properties(Gio: Namespace) -> None:
     instead — every spec we see comes from a class-struct-walk that
     libgobject populates from g_object_class_install_property up the
     chain."""
-    impl = {getattr(p, "name") for p in Gio.SimpleAction.list_properties()}
+    impl = {
+        p.name
+        for p in Gio.SimpleAction.list_properties()
+        if isinstance(p, PropertyInfo)
+    }
     assert "enabled" in impl
     assert "name" in impl
 
@@ -398,9 +438,9 @@ def test_property_value_type_points_to_other_gir_class(Gio: Namespace) -> None:
     objects by name (the wrapper's __eq__ semantics are out of scope)."""
     spec = find(Gio.FileIcon.list_properties(), "file")
     assert (
-        getattr(getattr(spec, "value_type"), "name") == Gio.File.__goi_gtype_name__
+        spec.value_type.name == Gio.File.__goi_gtype_name__  # type: ignore[attr-defined]
         if hasattr(Gio.File, "__goi_gtype_name__")
-        else getattr(getattr(spec, "value_type"), "name") == "GFile"
+        else spec.value_type.name == "GFile"  # type: ignore[attr-defined]
     )
 
 
@@ -410,8 +450,9 @@ def test_property_value_type_points_to_other_gir_class(Gio: Namespace) -> None:
 # ---------------------------------------------------------------------------
 
 
-@typed_paramspec_pending
-def test_dir_lists_common_paramspec_attrs(props_object_specs: list[object]) -> None:
+def test_dir_lists_common_paramspec_attrs(
+    props_object_specs: list[PropertyInfo],
+) -> None:
     spec = find(props_object_specs, "some-float")
     attrs = set(dir(spec))
     expected = {

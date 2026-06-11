@@ -4250,9 +4250,7 @@ py_interface_list_properties (PyObject *m G_GNUC_UNUSED, PyObject *args)
 
   for (guint i = 0; i < n_props; i++)
     {
-      PyObject *item = Py_BuildValue ("sK",
-                                      g_param_spec_get_name (props[i]),
-                                      (unsigned long long)props[i]->value_type);
+      PyObject *item = pygi_param_spec_new (props[i]);
       if (item == NULL)
         {
           Py_DECREF (result);
@@ -4272,6 +4270,16 @@ py_interface_list_properties (PyObject *m G_GNUC_UNUSED, PyObject *args)
 static GParamSpec *
 param_spec_from_pointer_arg (PyObject *obj)
 {
+  if (PyObject_TypeCheck (obj, &param_spec_type))
+    {
+      PyGIParamSpec *ps = (PyGIParamSpec *)obj;
+      if (ps->pspec == NULL)
+        {
+          PyErr_SetString (PyExc_ValueError, "pspec pointer is NULL");
+          return NULL;
+        }
+      return ps->pspec;
+    }
   unsigned long long raw = PyLong_AsUnsignedLongLong (obj);
   if (raw == (unsigned long long)-1 && PyErr_Occurred ())
     return NULL;
