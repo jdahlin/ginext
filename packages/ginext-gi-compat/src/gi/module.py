@@ -73,11 +73,20 @@ repository = Repository.get_default()
 
 
 def get_introspection_module(namespace: str) -> Any:
+    import sys
     cached = _introspection_modules.get(namespace)
     if cached is not None:
         return cached
+    # Trigger namespace loading via the proxy (which populates sys.modules with
+    # the raw namespace).  We then return the raw namespace, not the proxy, so
+    # callers like gi.overrides.load_overrides() see the typelib values.
     from gi import repository as gi_repository
-
+    getattr(gi_repository, namespace)
+    raw = sys.modules.get(f"gi.repository.{namespace}")
+    if raw is not None:
+        _introspection_modules[namespace] = raw
+        return raw
+    # Fallback (should not normally happen)
     module = getattr(gi_repository, namespace)
     _introspection_modules[namespace] = module
     return module

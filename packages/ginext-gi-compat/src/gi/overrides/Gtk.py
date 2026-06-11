@@ -71,6 +71,38 @@ if _Editable is not None:
     _Editable.insert_text = _editable_insert_text
     _remove_from_method_infos(_Editable, "insert_text")
 
+_Widget = Gtk.Widget
+if _Widget is not None:
+    _raw_translate_coordinates = _Widget.translate_coordinates
+
+    def _translate_coordinates(self, dest_widget, src_x, src_y):
+        result = _raw_translate_coordinates(self, dest_widget, src_x, src_y)
+        # ginext returns a ResultTuple: (ret_bool, dest_x, dest_y)
+        try:
+            ret = result[0]
+        except (TypeError, IndexError):
+            return result
+        if not ret:
+            return None
+        return (result[1], result[2])
+
+    _Widget.translate_coordinates = _translate_coordinates
+    _remove_from_method_infos(_Widget, "translate_coordinates")
+
+_Window = getattr(Gtk, "Window", None)
+if _Window is not None:
+    _raw_get_default_size = _Window.get_default_size
+
+    def _get_default_size(self):
+        result = _raw_get_default_size(self)
+        # ginext returns a SimpleNamespace with .width and .height
+        if hasattr(result, "width") and hasattr(result, "height"):
+            return (result.width, result.height)
+        return result
+
+    _Window.get_default_size = _get_default_size
+    _remove_from_method_infos(_Window, "get_default_size")
+
 _Dialog = Gtk.Dialog
 if _Dialog is not None:
     def _dialog_add_buttons(self, *args):

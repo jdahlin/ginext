@@ -68,6 +68,25 @@ for _name in ("__repr__", "__iter__", "__eq__", "__ne__", "__hash__"):
 RGBA = _RGBA
 __all__.append("RGBA")
 
+# FileList: add __len__ and __getitem__ using get_files()
+_FileList = getattr(_Gdk, "FileList", None)
+if _FileList is not None:
+    def _filelist_len(self) -> int:
+        return len(self.get_files())
+
+    def _filelist_getitem(self, index: int) -> object:
+        return self.get_files()[index]
+
+    _FileList.__len__ = _filelist_len  # type: ignore[attr-defined]
+    _FileList.__getitem__ = _filelist_getitem  # type: ignore[attr-defined]
+    for _name in ("__len__", "__getitem__"):
+        _remove_from_method_infos(_FileList, _name)
+
+    FileList = _FileList
+    __all__.append("FileList")
+    del _name
+
+
 # PaintableFlags aliases: SIZE -> STATIC_SIZE, CONTENTS -> STATIC_CONTENTS
 try:
     _PaintableFlags = _Gdk.PaintableFlags

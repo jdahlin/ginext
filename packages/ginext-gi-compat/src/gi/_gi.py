@@ -734,7 +734,7 @@ class Repository:
     def is_registered(self, namespace: str, version: str | None = None) -> bool:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        return _private.namespace_is_registered(namespace, version)
+        return _private._gobject.namespace_is_registered(namespace, version)
 
     def require(
         self, namespace: str, version: str | None = None, flags: int = 0
@@ -753,14 +753,14 @@ class Repository:
     def get_dependencies(self, namespace: str, version: str | None = None) -> list[str]:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        return _private.namespace_get_dependencies(namespace)
+        return _private._gobject.namespace_get_dependencies(namespace)
 
     def get_immediate_dependencies(
         self, namespace: str, version: str | None = None
     ) -> list[str]:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        return _private.namespace_get_immediate_dependencies(namespace)
+        return _private._gobject.namespace_get_immediate_dependencies(namespace)
 
     def get_version(self, namespace: str) -> str:
         resolved = ginext.defaults.resolve_namespace_name(namespace)
@@ -771,7 +771,7 @@ class Repository:
 
     def get_typelib_path(self, namespace: str) -> str:
         try:
-            return _private.namespace_get_typelib_path(namespace)
+            return _private._gobject.namespace_get_typelib_path(namespace)
         except (AttributeError, RuntimeError):
             return ""
 

@@ -121,13 +121,18 @@ class _CompatProperty(Generic[T]):
             readonly = readonly or not bool(flags & 2)
             construct_only = construct_only or bool(flags & 8)
         # Validate enum/flags default values
-        if value_type is not None and default is not _unset_sentinel:
+        if value_type is not None:
             from enum import Flag, Enum
             if isinstance(value_type, type) and issubclass(value_type, (Flag, Enum)):
-                if not isinstance(default, (value_type, int)):
+                if default is _unset_sentinel and fget is None:
                     raise TypeError(
-                        f"enum/flags default must be an instance of {value_type.__name__!r}"
-                        f" or int, not {type(default).__name__!r}"
+                        f"GObject.Property of enum/flags type {value_type.__name__!r}"
+                        f" requires an explicit default value"
+                    )
+                if default is not _unset_sentinel and not isinstance(default, value_type):
+                    raise TypeError(
+                        f"enum/flags default must be an instance of {value_type.__name__!r},"
+                        f" not {type(default).__name__!r}"
                     )
         _UNSUPPORTED_TYPES = (complex,)
         if value_type in _UNSUPPORTED_TYPES:
@@ -147,6 +152,23 @@ class _CompatProperty(Generic[T]):
             and gimeta_type_name(type(default)) != "GVariant"
         ):
             raise TypeError("GVariant property default must be GLib.Variant or None")
+        _vtype_name = gimeta_type_name(value_type) or getattr(value_type, "gtype_name", None)
+        if (
+            _vtype_name == "GStrv"
+            and default is not _unset_sentinel
+            and default is not None
+        ):
+            if isinstance(default, str) or not hasattr(default, "__iter__"):
+                raise TypeError(
+                    f"GStrv property default must be a list of strings or None,"
+                    f" not {type(default).__name__!r}"
+                )
+            for i, item in enumerate(default):
+                if not isinstance(item, str):
+                    raise TypeError(
+                        f"GStrv property default item {i} must be a str,"
+                        f" not {type(item).__name__!r}"
+                    )
         self.type: type | None = value_type
         self.nick = nick
         self.blurb = blurb
@@ -234,6 +256,13 @@ class _CompatProperty(Generic[T]):
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.name = name
+        # install_properties is not auto-called for GObject subclasses (install_metaclass is a stub),
+        # so raise the conflict error here instead — but only for GObject subclasses.
+        if (
+            any(hasattr(b, "__gtype__") for b in owner.__mro__)
+            and ("do_get_property" in owner.__dict__ or "do_set_property" in owner.__dict__)
+        ):
+            raise TypeError("GObject.Property conflicts with property vfuncs")
         # Inject the type into __annotations__ so register_gobject_subclass
         # picks it up via its annotation-iteration path.
         if self.type is not None:
@@ -297,7 +326,7 @@ class _CompatProperty(Generic[T]):
             return
         try:
             type(obj).gimeta.set_property(obj, self.name, value)  # type: ignore[attr-defined]
-        except AttributeError as exc:
+        except (AttributeError, ValueError) as exc:
             raise TypeError(str(exc)) from None
         call_notify_override(obj, self.name.replace("_", "-"))
 

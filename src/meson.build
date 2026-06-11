@@ -175,6 +175,7 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/__init__.py',         'gi'],
   ['../packages/ginext-gi-compat/src/gi/_constants.py',       'gi'],
   ['../packages/ginext-gi-compat/src/gi/_error.py',           'gi'],
+  ['../packages/ginext-gi-compat/src/gi/_compat_namespace.py', 'gi'],
   ['../packages/ginext-gi-compat/src/gi/_gi.py',              'gi'],
   ['../packages/ginext-gi-compat/src/gi/_gobject_compat_methods.py', 'gi'],
   ['../packages/ginext-gi-compat/src/gi/_gobject_props.py',  'gi'],

@@ -213,16 +213,6 @@ def _obj_getattr(self: Any, name: str) -> Any:
         dispose_state = _compat_dispose_state.get(id(self))
         if dispose_state is not None and name in dispose_state:
             return dispose_state[name]
-    if name in ("connect", "connect_after") and features.is_enabled(features.OLD_SIGNAL_API):
-        import functools
-        from ginext.classbuild import _old_signal_api_connect
-        _after = name == "connect_after"
-
-        @functools.wraps(_old_signal_api_connect)
-        def _connect_compat(*args: object, **kwargs: object) -> object:
-            return _old_signal_api_connect(self, *args, after=_after, **kwargs)
-
-        return _connect_compat
     method = classbuild_module().method_for_instance(self, name)
     if method is not None:
         return method
