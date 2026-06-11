@@ -27,6 +27,7 @@ from ginext import PyGIWarning
 if not features.is_enabled(features.PYGOBJECT_COMPAT):
     raise ModuleNotFoundError("No module named 'gi'")
 
+from . import _gtype_compat as _gtype_compat  # noqa: F401 — patches GTypeMeta at load time
 from . import importer as importer
 
 

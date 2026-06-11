@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import enum
+import functools
 import math
 import struct
 import sys
@@ -36,6 +37,7 @@ from ginext.enum import (
     register_enum_base_hook as _register_enum_base_hook,
 )
 from ginext.namespace import Namespace
+from gi._compat_namespace import CompatNamespace
 from ginext.signal.connection import SignalConnection
 from ginext.signal.descriptor import SignalDescriptor
 
@@ -99,6 +101,12 @@ class GTypeCompat(metaclass=_GTypeCompatMeta):
         if obj is None:
             raise TypeError("GType() requires an argument")
         return _compat_gtype_from_object(obj)
+
+    @classmethod
+    def from_name(cls, name: str) -> Any:
+        from ginext.gobject.gtype import GType
+
+        return GType.from_name(name)  # type: ignore[attr-defined]
 
 
 def _compat_gtype_from_object(obj: Any) -> "type[GType]":
@@ -516,6 +524,16 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
 
     _make_compat_bind_property(gobject_cls)
 
+    # Wrap connect/connect_after so OLD_SIGNAL_API string-based calls work.
+    # Do this after install_class_overlay so we wrap the final installed method.
+    from ginext.classbuild import install_method_for_class
+
+    for _method_name, _after in (("connect", False), ("connect_after", True)):
+        result = install_method_for_class(gobject_cls, _method_name)
+        if result is not None:
+            _native, _ = result
+            setattr(gobject_cls, _method_name, _wrap_connect_for_old_signal_api(_native, after=_after))
+
     # Wrap __init__ to coerce str/bytes kwargs for gchar/guchar C properties
     # before they reach the C tp_init (which can't handle str/bytes for char types).
     _orig_gobject_init = gobject_cls.__init__
@@ -587,6 +605,59 @@ def _register_pyobject_gtype() -> int:
 
 
 _PYOBJECT_GTYPE: int = _register_pyobject_gtype()
+
+
+def _old_signal_api_connect(
+    self: object, *args: object, after: bool = False, **kwargs: object
+) -> object:
+    """Implement OLD_SIGNAL_API ``connect(signal_name, callback, *user_data)``."""
+    from ginext.signal.scoped import static_owner
+    from ginext.signal.bound import _accepted_signal_arg_count, _SIGNAL_ARG_LIMIT_ATTR
+
+    if not args:
+        raise TypeError("connect() requires a signal name and a handler")
+    signal_name = args[0]
+    if not isinstance(signal_name, str):
+        raise TypeError(f"signal name must be a str, not {type(signal_name).__name__}")
+    if len(args) < 2:
+        raise TypeError("connect() requires a handler as second argument")
+    callback = args[1]
+    if not callable(callback):
+        raise TypeError(f"connect() handler must be callable, got {type(callback).__name__}")
+    user_data = args[2:]
+    signal = cast("Any", self).signal_for_name(signal_name)
+    if user_data:
+        original_cb = callback
+        signal_arg_limit = _accepted_signal_arg_count(original_cb, len(user_data))
+
+        def _cb(*signal_args: object) -> object:
+            return cast("Any", original_cb)(*signal_args, *user_data)
+
+        setattr(_cb, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
+        callback = _cb
+        kwargs.setdefault("owner", static_owner)
+    return signal.connect(callback, after=after, **cast("Any", kwargs))
+
+
+def _wrap_connect_for_old_signal_api(
+    original_connect: object, *, after: bool = False
+) -> object:
+    """Wrap a GObject connect() so OLD_SIGNAL_API is honoured at call time."""
+    import functools
+    from ginext import features
+
+    @functools.wraps(cast("Any", original_connect))
+    def _connect(self: object, *args: object, **kwargs: object) -> object:
+        if features.is_enabled(features.OLD_SIGNAL_API):
+            return _old_signal_api_connect(self, *args, after=after, **kwargs)
+        if args and isinstance(args[0], str):
+            raise TypeError(
+                f"connect() called with a signal-name string but the "
+                f"old_signal_api feature is not enabled"
+            )
+        return cast("Any", original_connect)(self, *args, **kwargs)
+
+    return _connect
 
 
 def _resolve_gtype_for_compat(arg: object) -> int:
@@ -1335,14 +1406,25 @@ def _signal_new(
 
 
 def __getattr__(name: str) -> Any:
+    if name.startswith("__") and name.endswith("__"):
+        raise AttributeError(name)
     resolved = ginext.defaults.resolve_namespace_name(name)
     if resolved is None:
-        raise AttributeError(name)
+        raise ImportError(
+            f"cannot import name {name!r} from 'gi.repository' "
+            f"(no introspection typelib found for {name!r})"
+        )
     namespace = ginext._load_namespace(*resolved, profile=ginext.abi.PYGOBJECT)
+    namespace.__class__ = CompatNamespace
     namespace._module_owner = sys.modules[__name__]
     # PyGObject compat alias — PyGObject's Namespace exposes ``_namespace``
     # as the introspection namespace name.
     namespace._namespace = namespace.__name__
+    # Register the raw namespace in sys.modules early so that ginext's internal
+    # _load_namespace cache and __module__ stamping on built classes both work.
+    # The proxy lives only in globals() for user-facing attribute access via
+    # `from gi.repository import X`; we must NOT put it in sys.modules because
+    # ginext's classbuild internals look up sys.modules to find the real namespace.
     globals()[name] = namespace
     sys.modules[f"{__name__}.{name}"] = cast("Any", namespace)
     if name == "GObject":
@@ -1353,23 +1435,129 @@ def __getattr__(name: str) -> Any:
         _install_gio_compat(namespace)
     elif name == "Gtk":
         _install_gtk_compat(namespace)
-    _apply_overrides(name, namespace)
-    return namespace
+    extra_attrs, deprecated = _apply_overrides(name, namespace)
+    proxy = _NamespaceModuleProxy(namespace, extra_attrs, deprecated)
+    # Replace the globals entry with the proxy so attribute access goes through
+    # the proxy (types.ModuleType subclass, optional deprecation warnings).
+    # sys.modules keeps the raw namespace so ginext internals still find it.
+    globals()[name] = proxy
+    return proxy
 
 
-def _apply_overrides(name: str, namespace: Any) -> None:
-    """Load gi/overrides/<name>.py and apply exported symbols to namespace."""
+import types as _types
+
+
+class _NamespaceModuleProxy(_types.ModuleType):
+    """Wraps a ginext namespace as a types.ModuleType so isinstance checks pass.
+
+    Optionally intercepts deprecated attribute names (from override modules that
+    define ``_DEPRECATED_ATTRS``) to emit PyGIDeprecationWarning.
+
+    When there are no deprecated attrs, ``__getattr__`` is stored as
+    ``functools.partial(getattr, ns)`` in the instance dict.  Python's module
+    C-level machinery calls it without adding a Python frame, so existing
+    ``stacklevel`` values in ginext overlay warnings remain correct.  When
+    deprecated attrs are present a Python closure is used instead (the
+    GLibUnix deprecation tests do not check ``w.filename``).
+    """
+
+    def __init__(
+        self,
+        ns: Any,
+        extra_attrs: "dict[str, Any] | None" = None,
+        deprecated: "dict[str, tuple[Any, str]] | None" = None,
+    ) -> None:
+        _types.ModuleType.__init__(self, ns.__name__)
+        self.__dict__["_ns"] = ns
+        self.__dict__["_extra_attrs"] = extra_attrs or {}
+        self.__dict__["_deprecated"] = deprecated or {}
+
+        if extra_attrs or deprecated:
+            _extra = extra_attrs or {}
+            _deprecated = deprecated or {}
+            _ns = ns
+            _ns_name = ns.__name__
+
+            def _getattr_with_overrides(name: str) -> Any:
+                if name in _extra:
+                    return _extra[name]
+                if name in _deprecated:
+                    value, replacement = _deprecated[name]
+                    warnings.warn(
+                        f"{_ns_name}.{name} is deprecated; use {_ns_name}.{replacement} instead",
+                        PyGIDeprecationWarning,
+                        stacklevel=2,
+                    )
+                    return value
+                return getattr(_ns, name)
+
+            self.__dict__["__getattr__"] = _getattr_with_overrides
+        else:
+            # Use functools.partial so the C-level call has zero extra Python
+            # frames — ginext's own stacklevel=3 warnings stay correctly sourced.
+            self.__dict__["__getattr__"] = functools.partial(getattr, ns)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("_ns", "_deprecated"):
+            self.__dict__[name] = value
+            return
+        ns = self.__dict__.get("_ns")
+        if ns is not None:
+            setattr(ns, name, value)
+        else:
+            _types.ModuleType.__setattr__(self, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        ns = self.__dict__.get("_ns")
+        if ns is not None:
+            delattr(ns, name)
+        else:
+            _types.ModuleType.__delattr__(self, name)
+
+    def __dir__(self) -> list[str]:
+        ns = self.__dict__.get("_ns")
+        extra_attrs: dict[str, Any] = self.__dict__.get("_extra_attrs", {})
+        deprecated: dict[str, tuple[Any, str]] = self.__dict__.get("_deprecated", {})
+        return sorted(
+            set(dir(ns) if ns is not None else [])
+            | set(extra_attrs.keys())
+            | set(deprecated.keys())
+        )
+
+    def __repr__(self) -> str:
+        ns = self.__dict__.get("_ns")
+        return repr(ns) if ns is not None else _types.ModuleType.__repr__(self)
+
+
+def _apply_overrides(
+    name: str, namespace: Any
+) -> "tuple[dict[str, Any], dict[str, tuple[Any, str]]]":
+    """Load gi/overrides/<name>.py and apply exported symbols to namespace.
+
+    Returns (extra_attrs, deprecated):
+    - extra_attrs: __all__ items from the override that the proxy should expose
+      directly (non-type constants are NOT written to the raw namespace so the
+      typelib value remains accessible via get_introspection_module()).
+    - deprecated: mapping of deprecated attr names to (value, replacement) pairs.
+    """
     import importlib
     try:
         override_mod = importlib.import_module(f"gi.overrides.{name}")
     except ImportError:
-        return
+        return {}, {}
+    extra_attrs: dict[str, Any] = {}
     all_names = getattr(override_mod, "__all__", [])
     for attr in all_names:
         val = getattr(override_mod, attr, None)
-        if val is not None:
+        if val is None:
+            continue
+        extra_attrs[attr] = val
+        if isinstance(val, type):
+            # Write override classes to the namespace so GType and method
+            # resolution pick them up; constants must stay on the proxy only
+            # so the raw introspection module remains at its typelib value.
             setattr(namespace, attr, val)
-    # Apply override classes: replace namespace entries with subclass versions
+    # Apply non-__all__ override classes: replace namespace entries with subclasses
     for attr in dir(override_mod):
         val = getattr(override_mod, attr, None)
         if val is None or attr.startswith("_") or attr in all_names:
@@ -1378,6 +1566,15 @@ def _apply_overrides(name: str, namespace: Any) -> None:
         if orig is not None and isinstance(val, type) and isinstance(orig, type):
             if issubclass(val, orig):
                 setattr(namespace, attr, val)
+    deprecated_map: dict[str, str] = getattr(override_mod, "_DEPRECATED_ATTRS", {})
+    deprecated: dict[str, tuple[Any, str]] = {}
+    for attr, replacement in deprecated_map.items():
+        try:
+            value = getattr(namespace, replacement)
+        except AttributeError:
+            continue
+        deprecated[attr] = (value, replacement)
+    return extra_attrs, deprecated
 
 
 def __dir__() -> list[str]:

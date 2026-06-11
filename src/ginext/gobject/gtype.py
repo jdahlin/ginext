@@ -82,14 +82,6 @@ class GTypeMeta(type):
         return f"<GType {cls.gtype_name} ({int(cls)})>"
 
     @property
-    def parent(cls) -> "type[GType] | None":
-        GObject = gobject_repo()
-        raw = int(GObject.type_parent(int(cls)))
-        if raw == 0:
-            return None
-        return compat_gtype_from_raw(raw, GObject.type_name(raw))
-
-    @property
     def children(cls) -> list[type[GType]]:
         GObject = gobject_repo()
         return [
@@ -122,21 +114,6 @@ class GTypeMeta(type):
         profile = gimeta.profile if gimeta is not None else abi.NATIVE
         return classes.get((profile.name, int(cls)))
 
-    @pytype.setter
-    def pytype(cls, value: type | None) -> None:
-        classbuild = classbuild_module()
-        classes: dict[tuple[str, int], type] = classbuild._classes_by_gtype
-        if features.is_enabled(features.PYGOBJECT_COMPAT):
-            key = (abi.PYGOBJECT.name, int(cls))
-        else:
-            gimeta = vars(cls).get("gimeta")
-            profile = gimeta.profile if gimeta is not None else abi.NATIVE
-            key = (profile.name, int(cls))
-        if value is None:
-            classes.pop(key, None)
-        else:
-            classes[key] = value
-
     def has_value_table(cls) -> bool:
         return private.type_has_value_table(int(cls))
 
@@ -168,36 +145,14 @@ class GTypeMeta(type):
         GObject = gobject_repo()
         return bool(GObject.type_test_flags(int(cls), GObject.TypeFlags.VALUE_ABSTRACT))
 
-    def is_instantiatable(cls) -> bool:
-        GObject = gobject_repo()
-        return bool(
-            GObject.type_test_flags(int(cls), GObject.TypeFundamentalFlags.INSTANTIATABLE)
-        )
-
     def is_value_type(cls) -> bool:
         return bool(gobject_repo().type_check_is_value_type(int(cls)))
-
-    @property
-    def fundamental(cls) -> "type[GType]":
-        GObject = gobject_repo()
-        raw = int(GObject.type_fundamental(int(cls)))
-        return compat_gtype_from_raw(raw, GObject.type_name(raw))
-
-    def from_name(cls, name: str) -> "type[GType]":
-        if not name:
-            return cls.INVALID  # type: ignore[attr-defined]
-        GObject = gobject_repo()
-        raw = int(GObject.type_from_name(name))
-        if raw == 0:
-            return cls.INVALID  # type: ignore[attr-defined]
-        return compat_gtype_from_raw(raw, name)
 
 
 class GType(metaclass=GTypeMeta):
     gimeta: ClassVar[private.GIMeta]
     gtype_name: ClassVar[str]
 
-    INVALID: ClassVar[type[GType]]
     NONE: ClassVar[type[GType]]
     BOOLEAN: ClassVar[type[GType]]
     CHAR: ClassVar[type[GType]]
@@ -296,20 +251,6 @@ def _gtype_constant_from_value(name: str, gtype: int) -> type[GType]:
     return cls
 
 
-def _gtype_invalid() -> type[GType]:
-    cls = type(
-        "TYPE_INVALID",
-        (GType,),
-        {
-            "__module__": __name__,
-            "gimeta": types.SimpleNamespace(gtype=0, profile=abi.NATIVE),
-            "gtype_name": "",
-        },
-    )
-    return cast("Type[GType]", cls)
-
-
-GType.INVALID = _gtype_invalid()
 GType.NONE = _gtype_constant("void")
 GType.BOOLEAN = _gtype_constant("gboolean")
 GType.CHAR = _gtype_constant("gchar")

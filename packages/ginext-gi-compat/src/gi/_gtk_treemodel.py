@@ -383,6 +383,50 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
     tree_model_cls.set_row = _tm_set_row
     tree_model_cls.sort_new_with_model = _tm_sort_new_with_model
 
+    def _coerce_path(path: Any) -> Any:
+        from ginext import Gtk as _Gtk
+        if isinstance(path, _Gtk.TreePath):
+            return path
+        if isinstance(path, int):
+            return _Gtk.TreePath.new_from_string(str(path))
+        if isinstance(path, str):
+            return _Gtk.TreePath.new_from_string(path)
+        try:
+            return _Gtk.TreePath.new_from_string(":".join(str(v) for v in path))
+        except Exception:
+            raise TypeError(f"could not convert {path!r} to a Gtk.TreePath") from None
+
+    # Override row_* signal-emitter methods to coerce string/list paths to
+    # Gtk.TreePath.  Before overriding, save the original SignalDescriptors so
+    # _compat_signal_for_name can still find them for connect() lookups.
+    _saved_sds: dict = {}
+    for _sname in ("row_changed", "row_deleted", "row_has_child_toggled", "row_inserted"):
+        _sd = tree_model_cls.__dict__.get(_sname)
+        if _sd is not None:
+            _saved_sds[_sname] = _sd
+
+    if _saved_sds:
+        _existing = getattr(tree_model_cls, "_compat_signal_descriptors", {})
+        _existing.update(_saved_sds)
+        tree_model_cls._compat_signal_descriptors = _existing
+
+    def _tm_row_changed(self: Any, path: Any, treeiter: Any) -> None:
+        self.emit("row-changed", _coerce_path(path), treeiter)
+
+    def _tm_row_deleted(self: Any, path: Any) -> None:
+        self.emit("row-deleted", _coerce_path(path))
+
+    def _tm_row_has_child_toggled(self: Any, path: Any, treeiter: Any) -> None:
+        self.emit("row-has-child-toggled", _coerce_path(path), treeiter)
+
+    def _tm_row_inserted(self: Any, path: Any, treeiter: Any) -> None:
+        self.emit("row-inserted", _coerce_path(path), treeiter)
+
+    tree_model_cls.row_changed = _tm_row_changed
+    tree_model_cls.row_deleted = _tm_row_deleted
+    tree_model_cls.row_has_child_toggled = _tm_row_has_child_toggled
+    tree_model_cls.row_inserted = _tm_row_inserted
+
     tree_model_cls._pygobject_compat_treemodel = True
 
 
@@ -497,7 +541,7 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
             if pairs:
                 path = self.get_path(treeiter)
                 if path is not None:
-                    self.row_changed.emit(path, treeiter)
+                    self.emit("row-changed", path, treeiter)
 
     list_store_cls.append = _ls_append
     list_store_cls.prepend = _ls_prepend
@@ -614,7 +658,7 @@ def _install_tree_store_compat(tree_store_cls: Any) -> None:
             if pairs:
                 path = self.get_path(treeiter)
                 if path is not None:
-                    self.row_changed.emit(path, treeiter)
+                    self.emit("row-changed", path, treeiter)
 
     tree_store_cls.append = _ts_append
     tree_store_cls.prepend = _ts_prepend

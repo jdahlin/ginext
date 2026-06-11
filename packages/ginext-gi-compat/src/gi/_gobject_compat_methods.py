@@ -255,6 +255,8 @@ def set_property(self: Any, name: str, value: object) -> None:
         if "construct-only" in msg or "construct_only" in msg:
             raise TypeError(msg) from None
         self.set_property_by_name(prop_name, value)
+    except UnicodeEncodeError as exc:
+        raise TypeError(str(exc)) from None
     call_notify_override(self, prop_name)
 
 
@@ -349,11 +351,11 @@ class _ParamSpecWrapper:
         return sorted(set(base))
 
     def _gtype_to_class(self, gtype: object) -> object:
-        from ginext import private
+        from ginext.private import _gobject as _ginext_gobject
         import ginext
         import sys
 
-        result = private.namespace_find_by_gtype(int(gtype))
+        result = _ginext_gobject.namespace_find_by_gtype(int(gtype))
         if result is None:
             raise AttributeError(f"cannot find class for gtype {gtype!r}")
         namespace_name, class_name = result
@@ -427,12 +429,48 @@ def _compat_forget_handler_id(self: Any, handler_id: int) -> None:
 def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
     # Try hyphenated form (pygobject uses "my-signal" while ginext stores "my_signal")
     hyphen_name = name.replace("_", "-")
+    underscore_name = hyphen_name.replace("-", "_")
     try:
         return cast("_BoundSignal", self.signal_for_name(hyphen_name))
     except AttributeError:
-        # Unknown signal: raise AttributeError so callers get the same error
-        # as accessing an unknown signal attribute on a GObject.
-        raise AttributeError(hyphen_name.replace("-", "_")) from None
+        pass
+    # signal_for_name searches only registered signals on the concrete GType.
+    # For signals defined on GInterfaces implemented by a Python subclass (e.g. a
+    # Python class that implements Gtk.TreeModel), the signal isn't found via
+    # signal_for_name. Search:
+    # 1. _compat_signal_descriptors: saved SignalDescriptors before compat overrides
+    # 2. The MRO class dicts for a SignalDescriptor
+    try:
+        import ginext.signal.descriptor as _sig_desc
+        import ginext.signal.bound as _sig_bound
+
+        cls = type(self)
+
+        # Check the saved signal descriptors map first (populated by compat overrides
+        # that replaced signal attributes with plain functions)
+        for base in cls.__mro__:
+            saved = base.__dict__.get("_compat_signal_descriptors")
+            if saved and underscore_name in saved:
+                sd = saved[underscore_name]
+                bound = sd.__get__(self, cls)
+                if isinstance(bound, _sig_bound.Signal):
+                    return cast("_BoundSignal", bound)
+                break
+
+        # Fall back to searching the MRO class dicts for still-intact SignalDescriptors
+        for base in cls.__mro__:
+            val = base.__dict__.get(underscore_name)
+            if val is None:
+                continue
+            if isinstance(val, _sig_desc.SignalDescriptor):
+                bound = val.__get__(self, cls)
+                if isinstance(bound, _sig_bound.Signal):
+                    return cast("_BoundSignal", bound)
+            elif isinstance(val, _sig_bound.Signal):
+                return cast("_BoundSignal", val)
+    except Exception:
+        pass
+    raise AttributeError(underscore_name) from None
 
 
 @overlay.property("Object")
