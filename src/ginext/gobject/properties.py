@@ -188,10 +188,45 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
 
 if TYPE_CHECKING:
     @overload
-    def Property(value_type: type[T], /, **kwargs: object) -> T: ...
+    def Property(
+        value_type: type[T],
+        /,
+        *,
+        nick: str | None = ...,
+        blurb: str | None = ...,
+        flags: int | None = ...,
+        readonly: bool = ...,
+        construct_only: bool = ...,
+        maximum: RangeValue | None = ...,
+        minimum: RangeValue | None = ...,
+        default: T = ...,
+    ) -> T: ...
     @overload
-    def Property(**kwargs: object) -> "PropertyBase[object]": ...
-    def Property(*args: object, **kwargs: object) -> "PropertyBase[object]": ...
+    def Property(
+        value_type: None = ...,
+        /,
+        *,
+        nick: str | None = ...,
+        blurb: str | None = ...,
+        flags: int | None = ...,
+        readonly: bool = ...,
+        construct_only: bool = ...,
+        maximum: RangeValue | None = ...,
+        minimum: RangeValue | None = ...,
+        default: T,
+    ) -> T: ...
+    @overload
+    def Property(
+        *,
+        nick: str | None = ...,
+        blurb: str | None = ...,
+        flags: int | None = ...,
+        readonly: bool = ...,
+        construct_only: bool = ...,
+        maximum: RangeValue | None = ...,
+        minimum: RangeValue | None = ...,
+    ) -> "PropertyBase[object]": ...
+    def Property(*args: object, **kwargs: object) -> Any: ...
 else:
     Property = PropertyBase
 

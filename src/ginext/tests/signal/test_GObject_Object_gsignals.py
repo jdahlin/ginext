@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
+# mypy: disable-error-code="type-arg"
+
 """__gsignals__ dict and GObject.Signal descriptor registration tests.
 
 PyGObject's long-standing public API for declaring signals on a Python
@@ -33,10 +35,7 @@ The dict form is only processed when PYGOBJECT_COMPAT is enabled.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
-
-if TYPE_CHECKING:
-    from ginext.GObject import _Signal
+from typing import ClassVar
 
 import pytest
 
@@ -58,7 +57,7 @@ def test_gobject_signal_descriptor_still_works() -> None:
     from ginext import GObject
 
     class Pinger(GObject.Object, type_name="GoiTestPinger_SignalDescriptor"):
-        ping: ClassVar[_Signal[Any, Any, Any]] = GObject.Signal()
+        ping: ClassVar[GObject.Signal] = GObject.Signal()
 
     p = Pinger()
     fired = []
