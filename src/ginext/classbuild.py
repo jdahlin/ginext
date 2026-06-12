@@ -713,7 +713,7 @@ def method_for_instance(obj: object, name: str) -> object | None:
     if descriptor_get is not None:
         try:
             bound = descriptor_get(method, obj, type(obj))
-        except AttributeError, TypeError, SystemError:
+        except (AttributeError, TypeError, SystemError):
             bound = None
         if bound is not None:
             return cast("object", bound)
