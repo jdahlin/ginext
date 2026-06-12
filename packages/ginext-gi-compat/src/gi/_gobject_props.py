@@ -35,7 +35,11 @@ if TYPE_CHECKING:
 
 def _list_properties(cls: type) -> list[Any]:
     try:
-        return cls.list_properties()  # type: ignore[attr-defined]
+        from ginext.gobject.properties import PropertyInfo
+        result = cls.list_properties()  # type: ignore[attr-defined]
+        # list_properties now returns PropertyInfo wrappers; unwrap to raw pspecs
+        # so compat code that calls GType(pspec) or reads pspec.value_type directly works.
+        return [p._pspec if isinstance(p, PropertyInfo) else p for p in result]
     except Exception:
         return []
 
