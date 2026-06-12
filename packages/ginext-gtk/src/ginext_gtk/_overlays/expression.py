@@ -63,12 +63,12 @@ def _is_param_spec_like(value: object) -> bool:
     return hasattr(value, "value_type") and hasattr(value, "name")
 
 
-_Property: Any = _gobject_root.Property
+_PropertyCls: Any = _gobject_root.Property
 _ParamSpec: Any = GObject.ParamSpec
 
 
 def _is_property_descriptor(value: object) -> bool:
-    if isinstance(value, _Property):
+    if isinstance(value, _PropertyCls):
         return True
     pspec = getattr(value, "pspec", None)
     return hasattr(value, "name") and _is_param_spec_like(pspec)

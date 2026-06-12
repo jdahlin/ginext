@@ -21,7 +21,7 @@
 
 """GObject property machinery: the value-backed `Property` descriptor.
 
-`_Property` is the descriptor users declare with `name: int = Property(...)`;
+`Property` is the descriptor users declare with `name: int = Property(...)`;
 `Property` is its dataclass_transform field-specifier alias (a typing stub under
 TYPE_CHECKING, the class itself at runtime). The module-level helpers (annotation
 resolution, GVariant default coercion, the `do_notify` override dispatch) are
@@ -70,7 +70,7 @@ unset: Any = object()
 T = TypeVar("T", bound=ValueType)
 
 
-class _PropertyMeta(type):
+class PropertyMeta(type):
     def __instancecheck__(cls, instance: object) -> bool:
         try:
             if isinstance(instance, private.DeclaredProperty):
@@ -80,7 +80,7 @@ class _PropertyMeta(type):
         return super().__instancecheck__(instance)
 
 
-class _Property(Generic[T], metaclass=_PropertyMeta):
+class Property(Generic[T], metaclass=PropertyMeta):
     """A value-backed GObject property descriptor.
 
     The value is stored on the GObject itself, so reads and writes go
@@ -218,16 +218,13 @@ if TYPE_CHECKING:
         construct_only: bool = False,
         maximum: RangeValue | None = None,
         minimum: RangeValue | None = None,
-    ) -> "_Property[Any]": ...
+    ) -> "Property[Any]": ...
 
     def Property(
         value_type: _builtins.type[T] | None = None,
         /,
         **kw: object,
     ) -> Any: ...
-
-else:
-    Property = _Property
 
 
 class _PspecProperty:
@@ -396,7 +393,7 @@ def _is_gtype_value_type(value_type: object) -> bool:
         return False
 
 
-def coerce_property_default(value_type: object, prop: "_Property[object]") -> None:
+def coerce_property_default(value_type: object, prop: "Property[object]") -> None:
     default = prop.default
     if gimeta_type_name(value_type) == "GVariant" and isinstance(default, str):
         prop.default = ginext_root().GLib.Variant.parse(None, default, None, None)

@@ -97,12 +97,12 @@ class Signal:
         return 0
 
     def _detail_signal(self, detail: object) -> "Signal":
-        from ..gobject.properties import _Property
+        from ..gobject.properties import Property
 
         self._source_ptr()
         if isinstance(detail, str):
             detail_str = detail.replace("_", "-")
-        elif isinstance(detail, _Property) or hasattr(detail, "pspec"):
+        elif isinstance(detail, Property) or hasattr(detail, "pspec"):
             detail_str = str(cast("Any", detail).name).replace("_", "-")
         else:
             raise TypeError(

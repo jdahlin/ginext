@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, overload
 import struct
 
 from ginext.gobject.properties import (
-    _Property,
+    Property,
     RangeValue,
     call_notify_override,
     coerce_property_default,
@@ -385,7 +385,7 @@ def install_properties(cls: type) -> None:
     properties = {
         name: attr
         for name, attr in cls.__dict__.items()
-        if isinstance(attr, (_Property, _CompatProperty))
+        if isinstance(attr, (Property, _CompatProperty))
     }
     if not properties:
         return
