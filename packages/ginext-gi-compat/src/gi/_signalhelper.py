@@ -153,10 +153,9 @@ def get_signal_annotations(func: object) -> tuple[object, tuple[object, ...]]:
 
 def install_signals(cls: type) -> None:
     gsignals = cls.__dict__.get("__gsignals__", {})
-    if gsignals is not None and not isinstance(gsignals, dict):
+    if not isinstance(gsignals, dict):
         raise TypeError(f"__gsignals__ must be a dict, not {type(gsignals).__name__!r}")
-    if gsignals is None:
-        gsignals = {}
+
     newsignals = {}
     for name, signal in cls.__dict__.items():
         if not isinstance(signal, Signal):
@@ -220,7 +219,12 @@ def iter_pygobject_signal_descriptors(
 ) -> list[tuple[str, SignalDescriptor]]:
     from ginext.gobject.resolve import own_gimeta
 
-    gsignals = cls.__dict__.get("__gsignals__")
+    _missing = object()
+    gsignals = cls.__dict__.get("__gsignals__", _missing)
+    if gsignals is _missing:
+        return []
+    if not isinstance(gsignals, dict):
+        raise TypeError(f"__gsignals__ must be a dict, not {type(gsignals).__name__!r}")
     if not gsignals:
         return []
 
