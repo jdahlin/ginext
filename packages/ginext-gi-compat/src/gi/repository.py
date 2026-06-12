@@ -687,7 +687,7 @@ def _resolve_gtype_for_compat(arg: object) -> int:
         if gtype_attr is not None:
             try:
                 return int(gtype_attr)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 pass
         return -1
     cls = type(arg)
@@ -1056,7 +1056,7 @@ def _install_gtk_compat(namespace: Namespace) -> object:
             )
             if isinstance(ok, tuple):
                 ok = ok[0]
-        except AttributeError, RuntimeError, TypeError:
+        except (AttributeError, RuntimeError, TypeError):
             ok = False
         namespace._ginext_display_available = bool(ok)
 

@@ -387,8 +387,6 @@ _root.bind_property = _root_bind_property  # type: ignore[attr-defined]
 _root.weak_ref = weak_ref  # type: ignore[attr-defined]
 _root.get_data = get_data  # type: ignore[attr-defined]
 _root.force_floating = force_floating  # type: ignore[attr-defined]
-_root.get_property = get_property  # type: ignore[attr-defined]
-_root.set_property = set_property  # type: ignore[attr-defined]
 
 
 # GObject.list_properties(type_or_instance) — pygobject compat function.
@@ -503,27 +501,3 @@ def list_properties(type_or_instance: object) -> list[Any]:
 
     _list_props_cache[gtype] = result
     return result
-
-
-def apply_to_namespace(ns: Any) -> None:
-    """Install PropertyInfo-returning list_properties classmethod on GObject.Object.
-
-    The class-struct list_properties is lazily installed per-class (MRO miss →
-    meta_cb_getattr → install_class_struct_method_for_class). Pre-installing here
-    on GObject.Object stops the lazy path: MRO lookup finds it on Object first,
-    so every subclass gets PropertyInfo without needing per-class patching.
-    """
-
-    def _list_properties_impl(cls: type) -> list[PropertyInfo]:
-        gimeta = cls.gimeta  # type: ignore[attr-defined]
-        result = []
-        for name in gimeta.list_property_names():
-            pspec = gimeta.param_spec(name)
-            if pspec is not None:
-                result.append(PropertyInfo(pspec))
-        return result
-
-    _list_properties_impl.__qualname__ = "Object.list_properties"
-    GObject.Object.list_properties = classmethod(
-        _list_properties_impl
-    )
