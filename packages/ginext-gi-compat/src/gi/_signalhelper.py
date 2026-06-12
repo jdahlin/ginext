@@ -153,6 +153,10 @@ def get_signal_annotations(func: object) -> tuple[object, tuple[object, ...]]:
 
 def install_signals(cls: type) -> None:
     gsignals = cls.__dict__.get("__gsignals__", {})
+    if gsignals is not None and not isinstance(gsignals, dict):
+        raise TypeError(f"__gsignals__ must be a dict, not {type(gsignals).__name__!r}")
+    if gsignals is None:
+        gsignals = {}
     newsignals = {}
     for name, signal in cls.__dict__.items():
         if not isinstance(signal, Signal):
