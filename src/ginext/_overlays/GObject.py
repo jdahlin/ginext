@@ -310,6 +310,11 @@ def __call__(self: Any) -> Any:
 
 
 @overlay.method("Object")
+def __dir__(self: Any) -> list[str]:
+    return list(set(dir(type(self))) | set(object.__dir__(self)))
+
+
+@overlay.method("Object")
 def weak_ref(self: Any, callback: object = None, *args: object) -> object:
     if callback is None:
         return _weakref.ref(self)
