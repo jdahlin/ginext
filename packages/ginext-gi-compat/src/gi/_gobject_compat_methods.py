@@ -455,6 +455,9 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 break
 
         # Fall back to searching the MRO class dicts for still-intact SignalDescriptors
+        # or PyGObject-compat Signal (str subclass with __get__)
+        from gi._signalhelper import Signal as _PyGObjSignal
+
         for base in cls.__mro__:
             val = base.__dict__.get(underscore_name)
             if val is None:
@@ -465,6 +468,44 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     return cast("_BoundSignal", bound)
             elif isinstance(val, _sig_bound.Signal):
                 return cast("_BoundSignal", val)
+            elif isinstance(val, _PyGObjSignal):
+                # PyGObject Signal (str subclass descriptor).  A ginext
+                # _CompatSignalDescriptor was registered in gimeta.signal_infos
+                # during class building (from __gsignals__) — check there first.
+                # If missing (Signal defined directly as class attr, not via
+                # __gsignals__), register it now as a _CompatSignalDescriptor.
+                from gi._signalhelper import _CompatSignalDescriptor, _compat_signal_type
+
+                gimeta = getattr(base, "gimeta", None)
+                if gimeta is None:
+                    continue
+                sd = gimeta.signal_infos.get(underscore_name)
+                if sd is None:
+                    # Not yet registered — create and register lazily.
+                    if not str(val):
+                        val = val.copy(underscore_name)
+                        setattr(base, underscore_name, val)
+                    signal_name = underscore_name.replace("_", "-")
+                    resolved_args = tuple(
+                        cast("type", _compat_signal_type(t)) for t in val.arg_types
+                    )
+                    resolved_ret = cast(
+                        "type | None", _compat_signal_type(val.return_type)
+                    )
+                    sd = _CompatSignalDescriptor(
+                        *resolved_args,
+                        name=signal_name,
+                        return_type=resolved_ret,
+                        flags=int(cast("Any", val.flags)),
+                        accumulator=val.accumulator,
+                        accu_data=val.accu_data,
+                    )
+                    sd.__set_name__(base, underscore_name)
+                    sd._register(gimeta)
+                    gimeta.signal_infos[underscore_name] = sd
+                bound = sd.__get__(self, cls)
+                if isinstance(bound, _sig_bound.Signal):
+                    return cast("_BoundSignal", bound)
     except Exception:
         pass
     raise AttributeError(underscore_name) from None
