@@ -59,22 +59,6 @@ def _own_annotations(cls: type) -> dict[str, object]:
     return annotationlib.get_annotations(cls)
 
 
-def _install_pygobject_signal_metadata(cls: type) -> None:
-    try:
-        from gi import _signalhelper
-    except ModuleNotFoundError:
-        return
-
-    _signalhelper.install_signals(cls)
-    gsignals = cls.__dict__.get("__gsignals__")
-    if gsignals is None:
-        if "__gsignals__" in cls.__dict__:
-            raise TypeError("__gsignals__ must be a dict")
-        return
-    if not isinstance(gsignals, dict):
-        raise TypeError("__gsignals__ must be a dict")
-
-
 def _install_extension_metadata(cls: type) -> None:
     gtk_actions: list[object] = []
     for attr in cls.__dict__.values():
@@ -98,13 +82,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
 
     if not already_built:
         if features.is_enabled(features.PYGOBJECT_COMPAT):
-            _install_pygobject_signal_metadata(cls)
             validate_pygobject_property_metadata(cls)
-        elif "__gsignals__" in cls.__dict__:
-            raise TypeError(
-                "__gsignals__ dict is not supported in native ginext; "
-                "use Signal() descriptors instead"
-            )
 
     annotations = resolve_annotations(_own_annotations(cls))
     declared_properties = {

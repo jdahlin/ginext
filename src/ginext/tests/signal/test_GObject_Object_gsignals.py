@@ -38,14 +38,16 @@ from typing import ClassVar
 import pytest
 
 
-def test_gsignals_dict_raises_in_native_mode() -> None:
+def test_gsignals_dict_ignored_in_native_mode() -> None:
     from ginext import GObject
 
-    with pytest.raises(TypeError, match="__gsignals__ dict is not supported"):
-        class Pinger(GObject.Object, type_name="GoiTestPinger_GSignalsDict"):
-            __gsignals__ = {
-                "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
-            }
+    # __gsignals__ is a compat-only feature; native ginext ignores it silently
+    class Pinger(GObject.Object, type_name="GoiTestPinger_GSignalsDict"):
+        __gsignals__ = {
+            "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        }
+
+    assert "ping" not in Pinger.gimeta.signal_infos
 
 
 def test_gobject_signal_descriptor_still_works() -> None:
