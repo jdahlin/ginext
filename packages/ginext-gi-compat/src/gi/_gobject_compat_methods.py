@@ -218,14 +218,11 @@ def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
 def _get_pspec_numeric_info(cls: Any, prop_name: str) -> "dict | None":
     """Return numeric pspec info (min/max/default) for a C property, or None."""
     try:
-        import ctypes
         from ginext import private
         pspec = cls.gimeta.param_spec(prop_name)
         if pspec is None:
             return None
-        ptr = ctypes.c_ulong.from_address(id(pspec) + 32).value
-        if ptr:
-            return private.param_spec_numeric_info(ptr)
+        return private.param_spec_numeric_info(pspec)
     except Exception:
         pass
     return None
