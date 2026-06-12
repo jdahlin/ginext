@@ -90,6 +90,13 @@ class Property(Generic[T], metaclass=PropertyMeta):
     compatibility feature and lives in ``gi._propertyhelper``.
     """
 
+    @overload
+    def __new__(cls, value_type: type[T], /, **kwargs: object) -> T: ...
+    @overload
+    def __new__(cls, /, **kwargs: object) -> "Property[object]": ...
+    def __new__(cls, *args: object, **kwargs: object) -> Any:
+        return object.__new__(cls)
+
     name: str
     nick: str | None
     blurb: str | None
