@@ -97,7 +97,7 @@ class Signal:
         return 0
 
     def _detail_signal(self, detail: object) -> "Signal":
-        from ..gobject.properties import Property
+        from ..gobject.properties import PropertyBase as Property
 
         self._source_ptr()
         if isinstance(detail, str):

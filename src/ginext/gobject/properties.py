@@ -71,13 +71,6 @@ T = TypeVar("T", bound=ValueType)
 
 
 class PropertyMeta(type):
-    @overload
-    def __call__(cls, value_type: type[T], /, **kwargs: object) -> T: ...
-    @overload
-    def __call__(cls, /, **kwargs: object) -> "Property[object]": ...
-    def __call__(cls, *args: object, **kwargs: object) -> object:
-        return super().__call__(*args, **kwargs)
-
     def __instancecheck__(cls, instance: object) -> bool:
         try:
             if isinstance(instance, private.DeclaredProperty):
@@ -87,7 +80,7 @@ class PropertyMeta(type):
         return super().__instancecheck__(instance)
 
 
-class Property(Generic[T], metaclass=PropertyMeta):
+class PropertyBase(Generic[T], metaclass=PropertyMeta):
     """A value-backed GObject property descriptor.
 
     The value is stored on the GObject itself, so reads and writes go
@@ -192,6 +185,15 @@ class Property(Generic[T], metaclass=PropertyMeta):
         self.owner.gimeta.set_property(obj, self.name, value)
         call_notify_override(obj, self.name.replace("_", "-"))
 
+
+if TYPE_CHECKING:
+    @overload
+    def Property(value_type: type[T], /, **kwargs: object) -> T: ...
+    @overload
+    def Property(**kwargs: object) -> "PropertyBase[object]": ...
+    def Property(*args: object, **kwargs: object) -> "PropertyBase[object]": ...
+else:
+    Property = PropertyBase
 
 
 class _PspecProperty:
@@ -360,7 +362,7 @@ def _is_gtype_value_type(value_type: object) -> bool:
         return False
 
 
-def coerce_property_default(value_type: object, prop: "Property[object]") -> None:
+def coerce_property_default(value_type: object, prop: "PropertyBase[object]") -> None:
     default = prop.default
     if gimeta_type_name(value_type) == "GVariant" and isinstance(default, str):
         prop.default = ginext_root().GLib.Variant.parse(None, default, None, None)

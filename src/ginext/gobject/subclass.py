@@ -43,6 +43,7 @@ from .. import abi, features, private
 from ..signal.descriptor import SignalDescriptor as Signal
 from .properties import (
     Property,
+    PropertyBase,
     _is_gtype_value_type,
     coerce_property_default,
     property_value_type,
@@ -88,7 +89,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
     declared_properties = {
         attr_name: attr
         for attr_name, attr in cls.__dict__.items()
-        if isinstance(attr, Property)
+        if isinstance(attr, PropertyBase)
     }
     if not already_built:
         for attr_name, attr in declared_properties.items():
