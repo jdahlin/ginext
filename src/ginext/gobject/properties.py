@@ -71,6 +71,13 @@ T = TypeVar("T", bound=ValueType)
 
 
 class PropertyMeta(type):
+    @overload
+    def __call__(cls, value_type: type[T], /, **kwargs: object) -> T: ...
+    @overload
+    def __call__(cls, /, **kwargs: object) -> "Property[object]": ...
+    def __call__(cls, *args: object, **kwargs: object) -> object:
+        return super().__call__(*args, **kwargs)
+
     def __instancecheck__(cls, instance: object) -> bool:
         try:
             if isinstance(instance, private.DeclaredProperty):
@@ -89,13 +96,6 @@ class Property(Generic[T], metaclass=PropertyMeta):
     plain Python ``@property``; the getter/setter form is a PyGObject
     compatibility feature and lives in ``gi._propertyhelper``.
     """
-
-    @overload
-    def __new__(cls, value_type: type[T], /, **kwargs: object) -> T: ...
-    @overload
-    def __new__(cls, /, **kwargs: object) -> "Property[object]": ...
-    def __new__(cls, *args: object, **kwargs: object) -> Any:
-        return object.__new__(cls)
 
     name: str
     nick: str | None
