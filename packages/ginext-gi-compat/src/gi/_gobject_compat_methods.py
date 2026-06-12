@@ -455,8 +455,10 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 break
 
         # Fall back to searching the MRO class dicts for still-intact SignalDescriptors
-        # or PyGObject-compat Signal (str subclass with __get__)
-        from gi._signalhelper import Signal as _PyGObjSignal
+        # or PyGObject-compat Signal (str subclass with get_signal_args).
+        # Use duck-typing rather than isinstance(val, gi._signalhelper.Signal) so
+        # that test fixtures which pop gi._signalhelper from sys.modules don't
+        # break class-identity checks on pre-existing Signal instances.
 
         for base in cls.__mro__:
             val = base.__dict__.get(underscore_name)
@@ -468,12 +470,21 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     return cast("_BoundSignal", bound)
             elif isinstance(val, _sig_bound.Signal):
                 return cast("_BoundSignal", val)
-            elif isinstance(val, _PyGObjSignal):
+            elif (
+                isinstance(val, str)
+                and type(val) is not str
+                and hasattr(val, "arg_types")
+                and hasattr(val, "get_signal_args")
+            ):
                 # PyGObject Signal (str subclass descriptor).  A ginext
                 # _CompatSignalDescriptor was registered in gimeta.signal_infos
                 # during class building (from __gsignals__) — check there first.
                 # If missing (Signal defined directly as class attr, not via
                 # __gsignals__), register it now as a _CompatSignalDescriptor.
+                # Use duck-typing instead of isinstance(val, Signal) so that
+                # module reloads (e.g. test fixtures that pop gi._signalhelper
+                # from sys.modules) don't break class identity checks on
+                # existing Signal instances.
                 from gi._signalhelper import _CompatSignalDescriptor, _compat_signal_type
 
                 gimeta = getattr(base, "gimeta", None)

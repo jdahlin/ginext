@@ -174,7 +174,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
     if not already_built and features.is_enabled(features.PYGOBJECT_COMPAT):
         try:
             from gi._signalhelper import iter_pygobject_signal_descriptors
-        except ModuleNotFoundError:
+        except ImportError:
             pass
         else:
             for attr_name, sd in iter_pygobject_signal_descriptors(cls):
