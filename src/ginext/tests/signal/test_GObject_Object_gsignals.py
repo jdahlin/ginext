@@ -33,6 +33,10 @@ The dict form is only processed when PYGOBJECT_COMPAT is enabled.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from ginext.GObject import _Signal
 
 import pytest
 
@@ -54,7 +58,7 @@ def test_gobject_signal_descriptor_still_works() -> None:
     from ginext import GObject
 
     class Pinger(GObject.Object, type_name="GoiTestPinger_SignalDescriptor"):
-        ping = GObject.Signal()
+        ping: ClassVar[_Signal[Any, Any, Any]] = GObject.Signal()
 
     p = Pinger()
     fired = []

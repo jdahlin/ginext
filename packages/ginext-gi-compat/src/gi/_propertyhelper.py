@@ -21,6 +21,7 @@ import struct
 
 from ginext.gobject.properties import (
     Property,
+    PropertyBase,
     RangeValue,
     call_notify_override,
     coerce_property_default,
@@ -385,7 +386,7 @@ def install_properties(cls: type) -> None:
     properties = {
         name: attr
         for name, attr in cls.__dict__.items()
-        if isinstance(attr, (Property, _CompatProperty))
+        if isinstance(attr, (PropertyBase, _CompatProperty))
     }
     if not properties:
         return
