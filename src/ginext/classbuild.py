@@ -680,10 +680,11 @@ def install_class_struct_method_for_class(cls: type, name: str) -> object | None
             finally:
                 del self_obj
 
+        class_method: Callable[..., Any]
         if name == "list_properties":
             from .gobject.properties import PropertyInfo
 
-            def class_method(
+            def _list_props_method(
                 inner_cls: type,
                 /,
                 *args: object,
@@ -692,6 +693,8 @@ def install_class_struct_method_for_class(cls: type, name: str) -> object | None
             ) -> list[PropertyInfo]:
                 raw = _raw(inner_cls, *args, **kwargs)
                 return [PropertyInfo(p) for p in cast("list[object]", raw)]
+
+            class_method = _list_props_method
         else:
             class_method = _raw_class_method
 
