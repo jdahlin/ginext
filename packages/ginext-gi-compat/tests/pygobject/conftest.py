@@ -150,6 +150,11 @@ _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
     "test_overrides_gtk.py::TestTreeModel::test_tree_model": "crashes xdist worker in debug Python builds",
 }
 
+# Tests that crash with a Windows access violation (C-level) on all Python builds.
+_XFAIL_NOT_RUN_WIN32_BY_NODE = {
+    "test_overrides_gdk.py::TestGdk::test_file_list": "crashes with access violation in record.py wrapper on Windows",
+}
+
 
 # Windows-unported features (not ginext bugs: the capability is POSIX-only or
 # unavailable on Windows): the GLib-backed asyncio EventLoop and its default-
@@ -189,6 +194,10 @@ def pytest_collection_modifyitems(
             item.add_marker(marker)
         if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
             reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
+            continue
+        if is_win32 and relative_nodeid in _XFAIL_NOT_RUN_WIN32_BY_NODE:
+            reason = _XFAIL_NOT_RUN_WIN32_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if is_win32 and relative_nodeid in _WIN32_SKIP_NODES:
