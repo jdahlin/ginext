@@ -25,6 +25,14 @@ from ginext import GObject as _GObject_namespace
 from ginext.gobject.gobjectclass import GObject
 from ginext.gobject.gtype import GType as GType, compat_gtype_from_raw as _compat_gtype_from_raw
 
+# Ensure GTypeMeta/GType compat patches (including GType.INVALID) are applied
+# before we access them below. This is done here rather than in gi/__init__.py
+# to avoid a circular-import race: gi is partially initialized when __init__.py
+# runs, but by the time _gi.py is first imported, gi is fully initialized.
+from gi._gtype_compat import ensure_installed as _ensure_gi_compat
+_ensure_gi_compat()
+del _ensure_gi_compat
+
 # Enum/flags types re-exported from GIRepository
 Direction = _GIRepo.Direction
 Transfer = _GIRepo.Transfer
