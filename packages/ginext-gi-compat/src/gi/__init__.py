@@ -29,13 +29,6 @@ if not features.is_enabled(features.PYGOBJECT_COMPAT):
 
 from . import importer as importer
 
-# _gtype_compat patches GTypeMeta/GType. It is applied lazily on first
-# attribute access (see __getattr__ below) rather than at import time to
-# avoid a circular-import race: gi.__init__ is partially initialised when
-# Python first executes this module, so any re-entry into "from gi import ..."
-# from inside _gtype_compat._install() would see the partial module and fail.
-_gtype_compat: object = None  # populated by __getattr__ on first access
-
 
 __version__ = "3.52.0"
 version_info = (3, 52, 0)
@@ -75,6 +68,7 @@ def __getattr__(name: str) -> Any:
         "repository",
         "module",
         "_gi",
+        "_gtype_compat",
         "_ossighelper",
         "_propertyhelper",
         "_signalhelper",
@@ -84,13 +78,6 @@ def __getattr__(name: str) -> Any:
         "overrides",
         "types",
     }:
-        # Apply GTypeMeta/GType compat patches before any submodule is loaded.
-        # This is deferred from module-level to avoid circular-import issues
-        # while gi.__init__ is partially initialised.
-        if globals().get("_gtype_compat") is None:
-            from . import _gtype_compat as _gtc
-            _gtc.ensure_installed()
-            globals()["_gtype_compat"] = _gtc
         module = importlib.import_module(f"{__name__}.{name}")
         globals()[name] = module
         return module
