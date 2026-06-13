@@ -122,6 +122,11 @@ overlay.deprecated("G_MININT64", -(2**63), "GLib.MININT64")
 overlay.deprecated("G_MAXUINT64", GLib.MAXUINT64, "GLib.MAXUINT64")
 overlay.constant("Property", _gobject_root.Property)
 
+from ginext.enum import GEnum as _GEnum, GFlags as _GFlags
+
+overlay.constant("GEnum", _GEnum)
+overlay.constant("GFlags", _GFlags)
+
 
 class _FreezeNotifyContext:
     __slots__ = ("_obj",)
