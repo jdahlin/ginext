@@ -1420,7 +1420,12 @@ def __getattr__(name: str) -> Any:
         raise AttributeError(name)
     resolved = ginext.defaults.resolve_namespace_name(name)
     if resolved is None:
-        raise ImportError(
+        # Raise AttributeError so that getattr(gi.repository, name, default)
+        # returns the default when a namespace is unavailable on this platform.
+        # Python's import machinery converts AttributeError → ImportError for
+        # "from gi.repository import X" syntax, so user-visible behaviour is
+        # identical to pygobject.
+        raise AttributeError(
             f"cannot import name {name!r} from 'gi.repository' "
             f"(no introspection typelib found for {name!r})"
         )

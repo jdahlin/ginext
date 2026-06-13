@@ -153,6 +153,7 @@ _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
 # Tests that crash with a Windows access violation (C-level) on all Python builds.
 _XFAIL_NOT_RUN_WIN32_BY_NODE = {
     "test_overrides_gdk.py::TestGdk::test_file_list": "crashes with access violation in record.py wrapper on Windows",
+    "test_properties.py::TestPropertyObject::test_iteration": "dlopen(libgobject-2.0.so.0) fails on Windows; library uses .dll naming",
 }
 
 
@@ -170,6 +171,9 @@ _DARWIN_XFAIL_BY_NODE = {
 _WIN32_SKIP_NODES = {
     "test_async.py::TestAsync::test_no_running_loop",
     "test_async.py::TestAsync::test_wrong_default_context",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_async",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_sync",
+    "test_gdbus.py::TestGDBusClient::test_native_calls_sync_errors",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_basic",
     "test_overrides_glib.py::test_io_add_watch_get_args_win32_socket",
     "test_overrides_glib.py::test_iochannel_win32",
