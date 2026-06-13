@@ -89,6 +89,10 @@ class Signal(str):
         self.accumulator = accumulator
         self.accu_data = accu_data
 
+    def __set_name__(self, owner: type, name: str) -> None:
+        if not str(self):
+            setattr(owner, name, self.copy(name))
+
     def __get__(self, instance: object, owner: type | None = None) -> object:
         if instance is None:
             return self
