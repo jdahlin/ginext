@@ -373,6 +373,7 @@ ignore-names = [
 # goi.tests.conftest / ginext.tests.conftest and fail).
 addopts = "-p no:benchmark --dist=loadgroup --import-mode=importlib -m 'not gtk3'"
 timeout = 60
+timeout_method = "thread"
 faulthandler_timeout = 30
 testpaths = [
     "src/ginext/tests",
