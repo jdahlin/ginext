@@ -157,6 +157,14 @@ _XFAIL_NOT_RUN_WIN32_BY_NODE = {
 }
 
 
+# Tests that hang on Python 3.15+ with the GIL enabled.  The child_setup
+# callback passed to GLib.spawn_async() deadlocks in g_spawn_async() during
+# fork/exec on Python 3.15b2 (GIL build) — a CPython 3.15 beta regression that
+# does not affect the free-threaded build (3.15b2t) or Python 3.14.
+_PY315_GIL_XFAIL_BY_NODE = {
+    "test_subprocess.py::test_spawn_async_fds_with_child_setup": "hangs in g_spawn_async() child_setup on Python 3.15 GIL build (CPython 3.15b2 regression)",
+}
+
 # macOS-specific failures: tests that rely on Linux .so.0 library naming which
 # doesn't exist on macOS (libraries use .dylib there).
 _DARWIN_XFAIL_BY_NODE = {
@@ -187,6 +195,9 @@ def pytest_collection_modifyitems(
     is_debug_python = hasattr(sys, "gettotalrefcount")
     is_win32 = sys.platform == "win32"
     is_darwin = sys.platform == "darwin"
+    is_py315_gil = sys.version_info >= (3, 15) and getattr(
+        sys, "_is_gil_enabled", lambda: True
+    )()
     compat_warning_filters = (
         pytest.mark.filterwarnings(
             "ignore:connecting .* without an owner:ginext.signal.connection.UnownedSignalHandlerWarning"
@@ -204,6 +215,10 @@ def pytest_collection_modifyitems(
             continue
         for marker in compat_warning_filters:
             item.add_marker(marker)
+        if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_BY_NODE:
+            reason = _PY315_GIL_XFAIL_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
+            continue
         if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
             reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
