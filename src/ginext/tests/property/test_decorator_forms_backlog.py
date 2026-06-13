@@ -261,7 +261,7 @@ def test_property_typed_round_trip(
 
 
 @pytest.mark.xfail(
-    reason="flaky under xdist (process-global boxed/gtype state); passes serially",
+    reason="Property(default=None) with Any annotation cannot infer boxed GType at class creation time",
     strict=False,
 )
 def test_property_boxed_type_round_trip(GObject: Any, Property: Any) -> None:
