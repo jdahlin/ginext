@@ -142,6 +142,15 @@ _XFAIL_NOT_RUN_BY_NODE = {
 }
 
 
+# Tests that crash the xdist worker process in debug/asan/ubsan Python builds.
+# These are C-level crashes (not Python exceptions), so xfail(run=False) is the
+# only way to prevent the crash from failing the test run.
+_XFAIL_NOT_RUN_DEBUG_BY_NODE = {
+    "test_properties.py::TestProperty::test_range": "crashes xdist worker in debug/asan/ubsan Python builds",
+    "test_overrides_gtk.py::TestTreeModel::test_tree_model": "crashes xdist worker in debug Python builds",
+}
+
+
 # Windows-unported features (not ginext bugs: the capability is POSIX-only or
 # unavailable on Windows): the GLib-backed asyncio EventLoop and its default-
 # context / running-loop assertions, GDBus native calls (need a session bus),
@@ -178,6 +187,10 @@ def pytest_collection_modifyitems(
             continue
         for marker in compat_warning_filters:
             item.add_marker(marker)
+        if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
+            reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
+            continue
         if is_win32 and relative_nodeid in _WIN32_SKIP_NODES:
             item.add_marker(
                 pytest.mark.skip(reason="win32: feature unported/unavailable")
