@@ -21,6 +21,8 @@
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import enum
 import types
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
@@ -36,6 +38,184 @@ _ENUM_PICKLE_REGISTRY: dict[int, Any] = {}
 _enum_classes_by_key: dict[tuple[str, str, str, str], type[Any]] = {}
 _EnumT = TypeVar("_EnumT")
 _enum_base_hook: Callable[[type], type] | None = None
+
+# ctypes bindings for GObject enum/flags registration
+_libgobject: ctypes.CDLL | None = None
+
+
+def _get_libgobject() -> ctypes.CDLL:
+    global _libgobject
+    if _libgobject is None:
+        lib = ctypes.util.find_library("gobject-2.0")
+        _libgobject = ctypes.CDLL(lib)
+    return _libgobject
+
+
+class _GEnumValue(ctypes.Structure):
+    _fields_ = [
+        ("value", ctypes.c_int),
+        ("value_name", ctypes.c_char_p),
+        ("value_nick", ctypes.c_char_p),
+    ]
+
+
+class _GFlagsValue(ctypes.Structure):
+    _fields_ = [
+        ("value", ctypes.c_uint),
+        ("value_name", ctypes.c_char_p),
+        ("value_nick", ctypes.c_char_p),
+    ]
+
+
+def _register_genum(type_name: str, members: dict[str, int]) -> int:
+    go = _get_libgobject()
+    go.g_enum_register_static.restype = ctypes.c_size_t
+    go.g_enum_register_static.argtypes = [ctypes.c_char_p, ctypes.POINTER(_GEnumValue)]
+    n = len(members)
+    values = (_GEnumValue * (n + 1))()
+    for i, (name, value) in enumerate(members.items()):
+        nick = name.lower().replace("_", "-")
+        values[i].value = value
+        values[i].value_name = name.encode()
+        values[i].value_nick = nick.encode()
+    values[n].value = 0
+    values[n].value_name = None
+    values[n].value_nick = None
+    return cast("int", go.g_enum_register_static(type_name.encode(), values))
+
+
+def _register_gflags(type_name: str, members: dict[str, int]) -> int:
+    go = _get_libgobject()
+    go.g_flags_register_static.restype = ctypes.c_size_t
+    go.g_flags_register_static.argtypes = [ctypes.c_char_p, ctypes.POINTER(_GFlagsValue)]
+    n = len(members)
+    values = (_GFlagsValue * (n + 1))()
+    for i, (name, value) in enumerate(members.items()):
+        nick = name.lower().replace("_", "-")
+        values[i].value = value
+        values[i].value_name = name.encode()
+        values[i].value_nick = nick.encode()
+    values[n].value = 0
+    values[n].value_name = None
+    values[n].value_nick = None
+    return cast("int", go.g_flags_register_static(type_name.encode(), values))
+
+
+def _make_user_gtype(gtype_int: int) -> Any:
+    from .gobject.gtype import compat_gtype_from_raw
+    from .gobject import gobjectclass as _gobjectclass_mod
+
+    GObject = _gobjectclass_mod.gobject_repo()
+    name = GObject.type_name(gtype_int)
+    return compat_gtype_from_raw(gtype_int, name)
+
+
+class _GEnumMeta(enum.EnumType):
+    # G_TYPE_ENUM = 48 (fundamental type index 12 << 2)
+    _G_TYPE_ENUM: int = 48
+
+    def __new__(
+        mcs: type[_GEnumMeta],
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        **kwargs: Any,
+    ) -> _GEnumMeta:
+        cls = cast("_GEnumMeta", super().__new__(mcs, name, bases, namespace, **kwargs))  # type: ignore[arg-type]
+        if not any(getattr(b, "__genum_base__", False) for b in bases):
+            return cls
+        type_name = namespace.get("__gtype_name__") or name
+        raw_members: dict[str, Any] = dict(cls.__members__)
+        members: dict[str, int] = {k: int(v) for k, v in raw_members.items()}
+        gtype_int = _register_genum(type_name, members)
+        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
+        # register so __gtype__.pytype works
+        from . import abi, classbuild
+        classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls  # type: ignore[arg-type]
+        return cls
+
+
+class _GFlagsMeta(enum.EnumType):
+    _G_TYPE_FLAGS: int = 52
+
+    def __new__(
+        mcs: type[_GFlagsMeta],
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        **kwargs: Any,
+    ) -> _GFlagsMeta:
+        cls = cast("_GFlagsMeta", super().__new__(mcs, name, bases, namespace, **kwargs))  # type: ignore[arg-type]
+        if not any(getattr(b, "__gflags_base__", False) for b in bases):
+            return cls
+        type_name = namespace.get("__gtype_name__") or name
+        raw_members_f: dict[str, Any] = dict(cls.__members__)
+        members: dict[str, int] = {k: int(v) for k, v in raw_members_f.items()}
+        gtype_int = _register_gflags(type_name, members)
+        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
+        from . import abi, classbuild
+        classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls  # type: ignore[arg-type]
+        return cls
+
+
+class _GTypeLazy:
+    """Descriptor that lazily initialises __gtype__ for GEnum/GFlags base classes."""
+
+    def __init__(self, gtype_int: int) -> None:
+        self._gtype_int = gtype_int
+        self._cached: Any = None
+
+    def __get__(self, obj: Any, objtype: Any = None) -> Any:
+        if self._cached is None:
+            self._cached = _make_user_gtype(self._gtype_int)
+        return self._cached
+
+    def __set_name__(self, owner: Any, name: str) -> None:
+        pass
+
+
+class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
+    """Base class for Python-defined GObject enum types.
+
+    Subclass this and define integer members; the metaclass registers the
+    type with the GObject type system via g_enum_register_static.
+    """
+
+    __genum_base__ = True
+    # G_TYPE_ENUM = 48 — lazy so GObject namespace isn't loaded at import time
+    __gtype__ = _GTypeLazy(48)  # type: ignore[assignment]
+
+    @property
+    def value_name(self) -> str:
+        return str(self.name)
+
+    @property
+    def value_nick(self) -> str:
+        return str(self.name).lower().replace("_", "-")
+
+
+class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
+    """Base class for Python-defined GObject flags types.
+
+    Subclass this and define integer members; the metaclass registers the
+    type with the GObject type system via g_flags_register_static.
+    """
+
+    __gflags_base__ = True
+    # G_TYPE_FLAGS = 52
+    __gtype__ = _GTypeLazy(52)  # type: ignore[assignment]
+
+    @property
+    def value_names(self) -> list[str]:
+        result = []
+        for member in type(self):
+            if member.value != 0 and (int(self) & int(member)) == int(member):
+                result.append(str(member.name))
+        return result
+
+    @property
+    def value_nicks(self) -> list[str]:
+        return [n.lower().replace("_", "-") for n in self.value_names]
 
 
 def register_enum_base_hook(hook: Callable[[type], type]) -> None:
