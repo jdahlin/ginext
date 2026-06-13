@@ -138,6 +138,7 @@ _XFAIL_NOT_RUN_BY_NODE = {
     "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_data_priority": "IOChannel non-blocking pipe read hangs mainloop",
     "test_iochannel.py::IOChannel::test_deprecated_method_add_watch_no_data": "IOChannel non-blocking pipe read hangs mainloop",
     "test_overrides_gdkpixbuf.py::test_new_from_data": "crashes in GdkPixbuf pixel data marshalling",
+    "test_overrides_gdk.py::TestGdk::test_file_list": "crashes xdist worker across platforms (access violation in record.py wrapper)",
     "test_overrides_gdkpixbuf.py::test_new_from_data_deprecated_args": "unsafe while GdkPixbuf pixel data marshalling is crash-prone",
     "test_properties.py::TestProperty::test_range": "crashes xdist worker on all Python builds; numeric property range info not fully implemented",
 }
@@ -152,7 +153,6 @@ _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
 
 # Tests that crash with a Windows access violation (C-level) on all Python builds.
 _XFAIL_NOT_RUN_WIN32_BY_NODE = {
-    "test_overrides_gdk.py::TestGdk::test_file_list": "crashes with access violation in record.py wrapper on Windows",
     "test_properties.py::TestPropertyObject::test_iteration": "dlopen(libgobject-2.0.so.0) fails on Windows; library uses .dll naming",
 }
 
