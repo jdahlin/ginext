@@ -47,6 +47,7 @@ extend = "../../pyproject.toml"
 
 [tool.pytest.ini_options]
 addopts = "-p no:benchmark --dist=loadgroup --import-mode=importlib"
+timeout = 60
 testpaths = ["tests"]
 # Repo root, so conftests can import the shared dbus_fixtures module.
 pythonpath = ["../.."]
