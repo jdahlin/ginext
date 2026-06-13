@@ -195,5 +195,8 @@ def _install_record_compat() -> None:
     RecordMeta._gi_compat_installed = True  # type: ignore[attr-defined]
 
 
-_install()
-_install_record_compat()
+def ensure_installed() -> None:
+    """Apply all compat patches; idempotent and safe to call at any point
+    after the gi package is fully initialized."""
+    _install()
+    _install_record_compat()
