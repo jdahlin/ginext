@@ -497,7 +497,7 @@ def list_properties(type_or_instance: object) -> list[Any]:
             raise TypeError(f"could not find GObject class for gtype {gtype}") from exc
         ns = sys.modules["ginext"]._load_namespace(data["namespace"], data["version"])
         cls = getattr(ns, data["name"])
-        result = list(cls.list_properties())
+        result = [PropertyInfo(p) for p in cls.list_properties()]
     else:
         raise TypeError(
             f"argument must be a GObject type or interface, "

@@ -84,12 +84,14 @@ def GIM(call_mode: str) -> Namespace:
 
 @pytest.fixture
 def simple_action_specs(Gio: Namespace) -> list[PropertyInfo]:
-    return Gio.SimpleAction.list_properties()  # type: ignore[no-any-return]
+    import ginext
+    return ginext.GObject.list_properties(Gio.SimpleAction)  # type: ignore[no-any-return]
 
 
 @pytest.fixture
 def props_object_specs(GIM: Namespace) -> list[PropertyInfo]:
-    return GIM.PropertiesObject.list_properties()  # type: ignore[no-any-return]
+    import ginext
+    return ginext.GObject.list_properties(GIM.PropertiesObject)  # type: ignore[no-any-return]
 
 
 def test_properties_object_mro_uses_live_gobject_object(GIM: Namespace) -> None:
@@ -422,11 +424,9 @@ def test_subclass_inherits_superclass_properties(Gio: Namespace) -> None:
     instead — every spec we see comes from a class-struct-walk that
     libgobject populates from g_object_class_install_property up the
     chain."""
-    impl = {
-        p.name
-        for p in Gio.SimpleAction.list_properties()
-        if isinstance(p, PropertyInfo)
-    }
+    import ginext
+
+    impl = {p.name for p in ginext.GObject.list_properties(Gio.SimpleAction)}
     assert "enabled" in impl
     assert "name" in impl
 
@@ -436,7 +436,9 @@ def test_property_value_type_points_to_other_gir_class(Gio: Namespace) -> None:
     """Gio.FileIcon's `file` property should have value_type = Gio.File's
     GType. Both sides come from introspection, so we compare GType
     objects by name (the wrapper's __eq__ semantics are out of scope)."""
-    spec = find(Gio.FileIcon.list_properties(), "file")
+    import ginext
+
+    spec = find(ginext.GObject.list_properties(Gio.FileIcon), "file")
     assert (
         spec.value_type.name == Gio.File.__goi_gtype_name__  # type: ignore[attr-defined]
         if hasattr(Gio.File, "__goi_gtype_name__")
