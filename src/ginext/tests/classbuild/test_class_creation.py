@@ -103,7 +103,10 @@ def test_native_wrap_does_not_fall_back_to_compat_profile_for_gio_objects() -> N
     # DesktopAppInfo is a Linux-only GioUnix API: the GioUnix namespace itself is
     # absent on Windows (accessing it raises AttributeError) and present-but-
     # without-DesktopAppInfo on macOS.
-    gio_unix = getattr(gi_repository, "GioUnix", None)
+    try:
+        gio_unix = getattr(gi_repository, "GioUnix", None)
+    except ImportError:
+        gio_unix = None
     if gio_unix is None or not hasattr(gio_unix, "DesktopAppInfo"):
         pytest.skip("GioUnix.DesktopAppInfo not available on this platform")
 
