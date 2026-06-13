@@ -29,9 +29,22 @@ from ginext.gobject.gtype import GType as GType, compat_gtype_from_raw as _compa
 # before we access them below. This is done here rather than in gi/__init__.py
 # to avoid a circular-import race: gi is partially initialized when __init__.py
 # runs, but by the time _gi.py is first imported, gi is fully initialized.
-from gi._gtype_compat import ensure_installed as _ensure_gi_compat
-_ensure_gi_compat()
-del _ensure_gi_compat
+# Use a relative import so this works in subprocess environments where gi may
+# be found at a different sys.path location than the parent process.
+try:
+    from ._gtype_compat import ensure_installed as _ensure_gi_compat
+    _ensure_gi_compat()
+except ImportError:
+    # Stale build: ensure_installed not yet present — call _install directly.
+    try:
+        from ._gtype_compat import _install as _ensure_gi_compat  # type: ignore[assignment]
+        _ensure_gi_compat()
+    except ImportError:
+        pass
+try:
+    del _ensure_gi_compat
+except NameError:
+    pass
 
 # Enum/flags types re-exported from GIRepository
 Direction = _GIRepo.Direction
