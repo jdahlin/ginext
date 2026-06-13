@@ -46,6 +46,25 @@ try:
 except NameError:
     pass
 
+# Last-resort fallback: if _install() was skipped or returned early without
+# setting INVALID (e.g. stale build cache with mismatched _gi_compat_installed
+# state), create the constant directly so the rest of _gi.py can load.
+if not hasattr(GType, "INVALID"):
+    import types as _types
+    from ginext import abi as _abi
+
+    _invalid_cls = type(
+        "TYPE_INVALID",
+        (GType,),
+        {
+            "__module__": "ginext.gobject.gtype",
+            "gimeta": _types.SimpleNamespace(gtype=0, profile=_abi.NATIVE),
+            "gtype_name": "",
+        },
+    )
+    GType.INVALID = _invalid_cls  # type: ignore[attr-defined]
+    del _types, _abi, _invalid_cls
+
 # Enum/flags types re-exported from GIRepository
 Direction = _GIRepo.Direction
 Transfer = _GIRepo.Transfer
