@@ -100,13 +100,6 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
     return sorted(names)
 
 
-# Wire the metatype slots to the bodies above (partial registration is allowed).
-private.register_gobject_callbacks(
-    meta_getattr=_gobjectmeta_getattr,
-    meta_dir=_gobjectmeta_dir,
-)
-
-
 if TYPE_CHECKING:
     # The runtime metaclass is the C metatype; this stub carries the
     # dataclass-transform typing view for `class Foo(GObject.Object)`. __getattr__

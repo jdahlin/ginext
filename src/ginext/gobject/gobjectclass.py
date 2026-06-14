@@ -296,15 +296,10 @@ GObject.Signal = Signal
 GObject.gimeta = private.GIMeta.from_type_name("GObject")
 
 if not TYPE_CHECKING:
-    # Hand every foundational instance hook to C at bootstrap. __getattr__ and
-    # __setattr__ back the tp_getattro/tp_setattro slots and _finish_construction
-    # backs tp_init; __init_subclass__ and signal_for_name are installed straight
-    # onto the C type by register_gobject_callbacks. C never imports this module —
-    # the dependency is one-directional — and there is no overlay round-trip.
-    private.register_gobject_callbacks(
-        getattr=_obj_getattr,
-        setattr=_obj_setattr,
-        finish_construction=_finish_construction,
-        init_subclass=_obj_init_subclass,
-        signal_for_name=_obj_signal_for_name,
-    )
+    # The instance attribute/construction hooks (_obj_getattr, _obj_setattr,
+    # _finish_construction) back the tp_getattro/tp_setattro/tp_init slots; C looks
+    # them up by name in this module via sys.modules on demand, so they only need
+    # to exist at module scope (above). __init_subclass__ and signal_for_name are
+    # installed straight onto the C GObject type here.
+    GObject.__init_subclass__ = classmethod(_obj_init_subclass)
+    GObject.signal_for_name = _obj_signal_for_name

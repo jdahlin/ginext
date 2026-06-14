@@ -19,15 +19,57 @@
 #include "GObject/Fundamental.h"
 #include "GObject/Object.h"
 #include "GObject/ObjectMeta.h"
+#include "GObject/GIMeta.h"
 #include "marshal/conversion.h"
 #include "marshal/enum.h"
 #include "runtime/class-registry.h"
 
 #include <weakrefobject.h>
 
-static PyObject *gobject_wrapper_factory = NULL;
-static PyObject *preallocated_gobject_wrapper_factory = NULL;
 static Py_tss_t construction_depth_key = Py_tss_NEEDS_INIT;
+
+/* GType -> PyTypeObject* registry. Populated by classbuild as each ginext class
+ * is built; lets pygi_gobject_to_py_as_gtype find the wrapper class without a
+ * Python factory dispatch on the hot path. Values are borrowed (the class is kept
+ * alive by classbuild's own _classes_by_gtype dict). */
+static GHashTable *pygi_gtype_to_pytype = NULL;
+
+void
+pygi_register_gtype_pytype (GType gtype, PyTypeObject *type)
+{
+  if (gtype == 0)
+    return;
+  if (pygi_gtype_to_pytype == NULL)
+    pygi_gtype_to_pytype = g_hash_table_new (g_direct_hash, g_direct_equal);
+  g_hash_table_replace (pygi_gtype_to_pytype,
+                        (gpointer)(guintptr)gtype,
+                        (gpointer)type);
+}
+
+PyTypeObject *
+pygi_lookup_gtype_pytype (GType gtype)
+{
+  if (pygi_gtype_to_pytype == NULL || gtype == 0)
+    return NULL;
+  return (PyTypeObject *)g_hash_table_lookup (pygi_gtype_to_pytype,
+                                              (gpointer)(guintptr)gtype);
+}
+
+PyObject *
+py_register_gtype_pytype (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  unsigned long long gtype_arg = 0;
+  PyObject *type = NULL;
+  if (!PyArg_ParseTuple (args, "KO", &gtype_arg, &type))
+    return NULL;
+  if (!PyType_Check (type))
+    {
+      PyErr_SetString (PyExc_TypeError, "register_gtype_pytype: expected a type");
+      return NULL;
+    }
+  pygi_register_gtype_pytype ((GType)gtype_arg, (PyTypeObject *)type);
+  Py_RETURN_NONE;
+}
 
 
 static PyObject *
@@ -36,29 +78,37 @@ pygi_wrap_gobject_with_factory (GObject *object, GType wrapper_gtype, PyObject *
 /* Defined alongside tp_init below; new_bound_from_c runs post-construct hooks. */
 static int
 gobject_type_has_post_construct_hooks (PyObject *self);
-static PyObject *
-gobject_finish_construction_attr (void);
 static int
 gobject_run_post_construct_hooks (PyObject *self);
 
-/* The wrapper factories (classbuild.wrap_object_from_c /
- * wrap_preallocated_object_from_c) are registered into C by classbuild at import
- * via register_gobject_callbacks, so C never imports classbuild to fetch them. */
+/* The wrapper factories live in ginext.classbuild; C looks them up via
+ * sys.modules on demand (classbuild is imported well before any GObject is
+ * wrapped from C). Returns a new reference to the factory callable, or NULL
+ * with an exception set. */
+static PyObject *
+pygi_lookup_classbuild_factory (const char *attr)
+{
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *classbuild
+      = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
+  if (classbuild == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "classbuild not loaded");
+      return NULL;
+    }
+  return PyObject_GetAttrString (classbuild, attr);
+}
+
 static PyObject *
 pygi_gobject_wrapper_factory (void)
 {
-  if (gobject_wrapper_factory == NULL)
-    PyErr_SetString (PyExc_RuntimeError, "GObject wrapper factory not registered");
-  return gobject_wrapper_factory;
+  return pygi_lookup_classbuild_factory ("wrap_object_from_c");
 }
 
 static PyObject *
 pygi_preallocated_gobject_wrapper_factory (void)
 {
-  if (preallocated_gobject_wrapper_factory == NULL)
-    PyErr_SetString (PyExc_RuntimeError,
-                     "preallocated GObject wrapper factory not registered");
-  return preallocated_gobject_wrapper_factory;
+  return pygi_lookup_classbuild_factory ("wrap_preallocated_object_from_c");
 }
 
 static int
@@ -259,13 +309,21 @@ wrap_preallocated_gobject_from_source (PyObject *source)
   if (object == NULL)
     Py_RETURN_NONE;
   if (!G_IS_OBJECT (object))
-    return pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, pygi_gobject_wrapper_factory ());
+    {
+      PyObject *fnd_factory = pygi_gobject_wrapper_factory ();
+      if (fnd_factory == NULL)
+        return NULL;
+      PyObject *fnd = pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, fnd_factory);
+      Py_DECREF (fnd_factory);
+      return fnd;
+    }
   PyObject *factory = pygi_preallocated_gobject_wrapper_factory ();
   if (factory == NULL)
     return NULL;
   g_object_ref (object);
   PyObject *wrapper = pygi_wrap_gobject_with_factory (object, G_OBJECT_TYPE (object), factory);
   g_object_unref (object);
+  Py_DECREF (factory);
   return wrapper;
 }
 
@@ -795,7 +853,10 @@ GObject_repr (PyObject *self)
   gimeta = PyObject_GetAttrString (type, "gimeta");
   if (gimeta == NULL)
     goto done;
-  type_name = PyObject_GetAttrString (gimeta, "type_name");
+  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+    type_name = Py_XNewRef (((GIMetaObject *)gimeta)->type_name);
+  else
+    type_name = PyObject_GetAttrString (gimeta, "type_name");
   if (type_name == NULL)
     goto done;
 
@@ -844,93 +905,8 @@ GObject_finalize (PyObject *self)
  * post-construct hooks (Gtk.Template) and on_* handler wiring (difflib hints +
  * inspect arg counting), kept in Python. Only called when there are handlers or
  * the type has post-construct hooks. */
-/* Foundational GObject.Object instance hooks whose bodies live in
- * ginext.gobject.gobjectclass. Python registers them into C at bootstrap (see
- * pygi_register_gobject_callbacks) instead of C importing the module — the
- * dependency stays one-directional and slots never call PyImport_ImportModule. */
-static PyObject *gobject_cb_getattr = NULL;
-static PyObject *gobject_cb_setattr = NULL;
-static PyObject *gobject_cb_finish_construction = NULL;
-
-PyObject *
-pygi_register_gobject_callbacks (PyObject *self G_GNUC_UNUSED,
-                                 PyObject *args,
-                                 PyObject *kwargs)
-{
-  static char *kwlist[] = { "getattr",
-                            "setattr",
-                            "finish_construction",
-                            "init_subclass",
-                            "signal_for_name",
-                            "wrap_object",
-                            "wrap_preallocated",
-                            "meta_getattr",
-                            "meta_dir",
-                            NULL };
-  PyObject *getattr_fn = NULL, *setattr_fn = NULL, *finish_fn = NULL;
-  PyObject *init_subclass_fn = NULL, *signal_for_name_fn = NULL;
-  PyObject *wrap_object_fn = NULL, *wrap_preallocated_fn = NULL;
-  PyObject *meta_getattr_fn = NULL, *meta_dir_fn = NULL;
-  /* All keyword-only and optional, so new hooks can be added without breaking
-   * callers and partial (re-)registration is allowed (gobjectclass registers the
-   * instance hooks; classbuild registers the wrapper factories). */
-  if (!PyArg_ParseTupleAndKeywords (args,
-                                    kwargs,
-                                    "|$OOOOOOOOO:register_gobject_callbacks",
-                                    kwlist,
-                                    &getattr_fn,
-                                    &setattr_fn,
-                                    &finish_fn,
-                                    &init_subclass_fn,
-                                    &signal_for_name_fn,
-                                    &wrap_object_fn,
-                                    &wrap_preallocated_fn,
-                                    &meta_getattr_fn,
-                                    &meta_dir_fn))
-    return NULL;
-  if (meta_getattr_fn != NULL || meta_dir_fn != NULL)
-    pygi_gobjectmeta_set_hooks (meta_getattr_fn, meta_dir_fn);
-  /* getattr/setattr/finish are consumed by the tp_getattro/tp_setattro slots
-   * and tp_init. __init_subclass__ (a classmethod) and signal_for_name are
-   * installed straight onto the type here — the C bootstrap's equivalent of the
-   * old creation-time overlay install, with no overlay round-trip. */
-  if (getattr_fn != NULL)
-    Py_XSETREF (gobject_cb_getattr, Py_NewRef (getattr_fn));
-  if (setattr_fn != NULL)
-    Py_XSETREF (gobject_cb_setattr, Py_NewRef (setattr_fn));
-  if (finish_fn != NULL)
-    Py_XSETREF (gobject_cb_finish_construction, Py_NewRef (finish_fn));
-  if (wrap_object_fn != NULL)
-    Py_XSETREF (gobject_wrapper_factory, Py_NewRef (wrap_object_fn));
-  if (wrap_preallocated_fn != NULL)
-    Py_XSETREF (preallocated_gobject_wrapper_factory, Py_NewRef (wrap_preallocated_fn));
-  if (pygi_gobject_type != NULL)
-    {
-      PyObject *type = (PyObject *)pygi_gobject_type;
-      if (init_subclass_fn != NULL)
-        {
-          PyObject *cm = PyClassMethod_New (init_subclass_fn);
-          if (cm == NULL)
-            return NULL;
-          int rc = PyObject_SetAttrString (type, "__init_subclass__", cm);
-          Py_DECREF (cm);
-          if (rc < 0)
-            return NULL;
-        }
-      if (signal_for_name_fn != NULL
-          && PyObject_SetAttrString (type, "signal_for_name", signal_for_name_fn) < 0)
-        return NULL;
-    }
-  Py_RETURN_NONE;
-}
-
-static PyObject *
-gobject_finish_construction_attr (void)
-{
-  if (gobject_cb_finish_construction == NULL)
-    PyErr_SetString (PyExc_RuntimeError, "GObject callbacks not registered");
-  return gobject_cb_finish_construction;
-}
+/* Foundational GObject.Object instance hooks live in
+ * ginext.gobject.gobjectclass; C looks them up via sys.modules on demand. */
 
 /* Split construction kwargs into (properties, handlers): keys "on_<signal>"
  * become handler entries (on_ prefix stripped); the rest are properties with
@@ -989,7 +965,11 @@ gobject_type_has_post_construct_hooks (PyObject *self)
       PyErr_Clear ();
       return 0;
     }
-  PyObject *extensions = PyObject_GetAttrString (gimeta, "extensions");
+  PyObject *extensions;
+  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+    extensions = Py_XNewRef (((GIMetaObject *)gimeta)->extensions);
+  else
+    extensions = PyObject_GetAttrString (gimeta, "extensions");
   Py_DECREF (gimeta);
   if (extensions == NULL)
     {
@@ -1011,6 +991,22 @@ gobject_type_has_post_construct_hooks (PyObject *self)
   return result;
 }
 
+/* Look up gobjectclass._finish_construction via sys.modules. Returns a new
+ * reference, or NULL with an exception set. */
+static PyObject *
+gobject_finish_construction_attr (void)
+{
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *gobjectclass
+      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+  if (gobjectclass == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "gobjectclass not loaded");
+      return NULL;
+    }
+  return PyObject_GetAttrString (gobjectclass, "_finish_construction");
+}
+
 /* Run the type's post-construct hooks (Gtk.Template) via _finish_construction
  * with no handlers. No-op (no Python call) when the type has no hooks. */
 static int
@@ -1026,6 +1022,7 @@ gobject_run_post_construct_hooks (PyObject *self)
     return -1;
   PyObject *r = PyObject_CallFunctionObjArgs (finish, self, empty, NULL);
   Py_DECREF (empty);
+  Py_DECREF (finish);
   if (r == NULL)
     return -1;
   Py_DECREF (r);
@@ -1103,6 +1100,7 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
       if (finish == NULL)
         goto done;
       PyObject *r = PyObject_CallFunctionObjArgs (finish, self, finish_handlers, NULL);
+      Py_DECREF (finish);
       if (r == NULL)
         goto done;
       Py_DECREF (r);
@@ -1125,10 +1123,16 @@ GObject_getattro (PyObject *self, PyObject *name)
   PyObject *result = PyObject_GenericGetAttr (self, name);
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;
-  if (gobject_cb_getattr == NULL)
-    return NULL; /* keep the AttributeError */
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *gobjectclass
+      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+  if (gobjectclass == NULL)
+    {
+      PyErr_SetObject (PyExc_AttributeError, name);
+      return NULL;
+    }
   PyErr_Clear ();
-  return PyObject_CallFunctionObjArgs (gobject_cb_getattr, self, name, NULL);
+  return PyObject_CallMethod (gobjectclass, "_obj_getattr", "OO", self, name);
 }
 
 /* tp_setattro: route writes through the registered __setattr__ body (which
@@ -1137,10 +1141,14 @@ GObject_getattro (PyObject *self, PyObject *name)
 static int
 GObject_setattro (PyObject *self, PyObject *name, PyObject *value)
 {
-  if (value == NULL || gobject_cb_setattr == NULL)
+  if (value == NULL)
     return PyObject_GenericSetAttr (self, name, value);
-  PyObject *r
-      = PyObject_CallFunctionObjArgs (gobject_cb_setattr, self, name, value, NULL);
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *gobjectclass
+      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+  if (gobjectclass == NULL)
+    return PyObject_GenericSetAttr (self, name, value);
+  PyObject *r = PyObject_CallMethod (gobjectclass, "_obj_setattr", "OOO", self, name, value);
   if (r == NULL)
     return -1;
   Py_DECREF (r);
@@ -1732,7 +1740,14 @@ pygi_gobject_to_py_as_gtype (GObject *object, GType wrapper_gtype, GITransfer tr
     return Py_NewRef (Py_None);
 
   if (!G_IS_OBJECT (object))
-    return pygi_fundamental_to_py (object, transfer, pygi_gobject_wrapper_factory ());
+    {
+      PyObject *fnd_factory = pygi_gobject_wrapper_factory ();
+      if (fnd_factory == NULL)
+        return NULL;
+      PyObject *fnd = pygi_fundamental_to_py (object, transfer, fnd_factory);
+      Py_DECREF (fnd_factory);
+      return fnd;
+    }
 
   PyObject *cached_wrapper = pygi_gobject_wrapper_ref (object);
   if (cached_wrapper != NULL)
@@ -1754,7 +1769,30 @@ pygi_gobject_to_py_as_gtype (GObject *object, GType wrapper_gtype, GITransfer tr
   if (transfer == GI_TRANSFER_NOTHING)
     g_object_ref (object);
 
-  PyObject *factory = pygi_gobject_wrapper_factory ();
+  PyObject *factory = NULL;
+
+  /* Fast path: when the requested wrapper gtype matches the object's actual
+   * gtype and the registry has a plain GObject subclass for it, bind directly
+   * via type.new_bound_from_c(ptr) — no Python wrapper-factory dispatch. */
+  if (wrapper_gtype == G_OBJECT_TYPE (object) && pygi_gobject_type != NULL
+      && pygi_namespace_context () == Py_None)
+    {
+      PyTypeObject *py_type = pygi_lookup_gtype_pytype (wrapper_gtype);
+      if (py_type != NULL && PyType_IsSubtype (py_type, pygi_gobject_type))
+        {
+          PyObject *ptr_obj = PyLong_FromVoidPtr (object);
+          if (ptr_obj == NULL)
+            goto error;
+          PyObject *direct = PyObject_CallMethod ((PyObject *)py_type,
+                                                  "new_bound_from_c", "O", ptr_obj);
+          Py_DECREF (ptr_obj);
+          if (direct != NULL)
+            return direct;
+          goto error; /* ref released in error path */
+        }
+    }
+
+  factory = pygi_gobject_wrapper_factory ();
   if (factory == NULL)
     goto error;
 
@@ -1783,6 +1821,7 @@ pygi_gobject_to_py_as_gtype (GObject *object, GType wrapper_gtype, GITransfer tr
       if (actual_wrapper != NULL)
         {
           Py_DECREF (ptr);
+          Py_DECREF (factory);
           return actual_wrapper;
         }
       PyErr_Clear ();
@@ -1805,11 +1844,16 @@ pygi_gobject_to_py_as_gtype (GObject *object, GType wrapper_gtype, GITransfer tr
   PyObject *wrapper = PyObject_CallFunctionObjArgs (factory, ptr, gtype, context, NULL);
   Py_DECREF (ptr);
   Py_DECREF (gtype);
+  Py_DECREF (factory);
   if (wrapper == NULL)
-    goto error;
+    {
+      g_object_unref (object);
+      return NULL;
+    }
   return wrapper;
 
 error:
+  Py_XDECREF (factory);
   g_object_unref (object);
   return NULL;
 }
@@ -1828,11 +1872,20 @@ pygi_wrap_preallocated_gobject (GObject *object, GType wrapper_gtype)
   if (object == NULL)
     return Py_NewRef (Py_None);
   if (!G_IS_OBJECT (object))
-    return pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, pygi_gobject_wrapper_factory ());
+    {
+      PyObject *fnd_factory = pygi_gobject_wrapper_factory ();
+      if (fnd_factory == NULL)
+        return NULL;
+      PyObject *fnd = pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, fnd_factory);
+      Py_DECREF (fnd_factory);
+      return fnd;
+    }
   PyObject *factory = pygi_preallocated_gobject_wrapper_factory ();
   if (factory == NULL)
     return NULL;
-  return pygi_wrap_gobject_with_factory (object, wrapper_gtype, factory);
+  PyObject *result = pygi_wrap_gobject_with_factory (object, wrapper_gtype, factory);
+  Py_DECREF (factory);
+  return result;
 }
 
 PyObject *

@@ -85,6 +85,8 @@ py_record_field_names (PyObject *m, PyObject *args);
 extern PyObject *
 py_register_boxed_class (PyObject *m, PyObject *args);
 extern PyObject *
+py_register_gtype_pytype (PyObject *m, PyObject *args);
+extern PyObject *
 py_reset_invoke_stats (PyObject *m, PyObject *args);
 extern PyObject *
 py_invoke_stats (PyObject *m, PyObject *args);
@@ -275,10 +277,6 @@ static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
   { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
-  { "register_gobject_callbacks",
-    (PyCFunction)(void (*) (void))pygi_register_gobject_callbacks,
-    METH_VARARGS | METH_KEYWORDS,
-    NULL },
   { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
   { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
   { "getargs_h", py_getargs_h, METH_VARARGS, NULL },
@@ -316,6 +314,7 @@ static PyMethodDef methods[] = {
   { "record_install_field_descriptors", py_record_install_field_descriptors, METH_VARARGS, NULL },
   { "record_field_names", py_record_field_names, METH_VARARGS, NULL },
   { "register_boxed_class", py_register_boxed_class, METH_VARARGS, NULL },
+  { "register_gtype_pytype", py_register_gtype_pytype, METH_VARARGS, NULL },
   { "reset_invoke_stats", py_reset_invoke_stats, METH_NOARGS, NULL },
   { "invoke_stats", py_invoke_stats, METH_NOARGS, NULL },
   { "build_callable_descriptor", py_build_callable_descriptor, METH_VARARGS, NULL },

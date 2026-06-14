@@ -312,6 +312,8 @@ class ClassBuilder:
             gimeta.install_native_vfunc_attrs(cls, info)
         if data["gtype"]:
             _classes_by_gtype[(profile.name, data["gtype"])] = cls
+            if profile.name == abi.NATIVE.name:
+                private.register_gtype_pytype(int(data["gtype"]), cls)
         install_class_overlay(cls, self._context.name, name)
         return cls
 
@@ -408,6 +410,8 @@ def register_class_for_gtype(cls: type) -> None:
     if gtype:
         profile = gimeta.profile if gimeta is not None else abi.NATIVE
         _classes_by_gtype[(profile.name, gtype)] = cls
+        if profile.name == abi.NATIVE.name:
+            private.register_gtype_pytype(int(gtype), cls)
 
 
 def _cached_class_for_gtype(profile_name: str, gtype: int) -> type[Any] | None:
@@ -708,11 +712,3 @@ def method_for_instance(obj: object, name: str) -> object | None:
             return cast("object", bound)
     return types.MethodType(cast("Any", method), obj)
 
-
-# Hand the wrapper factories to C so it never imports this module to fetch them
-# (the inverse of the old PyImport_ImportModule("ginext.classbuild")). Registered
-# at import — before any GObject is wrapped from C.
-private.register_gobject_callbacks(
-    wrap_object=wrap_object_from_c,
-    wrap_preallocated=wrap_preallocated_object_from_c,
-)
