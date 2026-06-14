@@ -15,9 +15,18 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-# Ratchet: residual explicit Any not yet removed (adopting --disallow-any-explicit
-# incrementally). Remove this line once the file is Any-clean.
-# mypy: disable-error-code="explicit-any"
+"""Python-side companion to the C PyGIFundamental type.
+
+The actual base class for all fundamental (non-GObject GTypeInstance) wrappers
+is ``private.Fundamental`` — a ``PyTypeObject`` defined in Fundamental.c.  This
+module contributes:
+
+* ``FundamentalMeta`` — a Python metaclass used for all Python subclasses of
+  ``private.Fundamental`` so that class-level attribute misses trigger lazy
+  method installation from the GIR (same pattern as GObjectMeta).
+* ``_init_hooks`` — called once at import time to register the Python
+  ``__getattr__`` callback into the C type.
+"""
 
 from __future__ import annotations
 
@@ -26,9 +35,20 @@ from typing import Any
 
 from . import private
 
+# Re-export the C base type under its traditional name so that
+# ``from ginext.fundamental import Fundamental`` still works in classbuild.py.
+Fundamental = private.Fundamental
+
 
 class FundamentalMeta(type):
-    __prepare__ = type.__prepare__
+    """Metaclass for Python subclasses of ``private.Fundamental``.
+
+    Handles class-level attribute misses by delegating to
+    ``classbuild.install_method_for_class``, which lazily installs GIR-derived
+    methods on the class and caches them so subsequent accesses are O(1).
+    """
+
+    __prepare__ = type.__prepare__  # type: ignore[assignment]
 
     def __getattr__(cls, name: str) -> object:
         found = sys.modules["ginext.classbuild"].install_method_for_class(cls, name)
@@ -46,30 +66,25 @@ class FundamentalMeta(type):
         return sorted(names)
 
 
-class Fundamental(metaclass=FundamentalMeta):
-    _pointer: int
+def _fundamental_getattr(self: Any, name: str) -> Any:
+    """Instance __getattr__ registered into the C type at bootstrap.
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        raise TypeError(f"{type(self).__name__} constructor is not available")
+    Called by ``Fundamental_getattro`` after field access fails, to perform
+    lazy method installation and return a bound method.
+    """
+    method = sys.modules["ginext.classbuild"].method_for_instance(self, name)
+    if method is not None:
+        return method
+    raise AttributeError(name)
 
-    @classmethod
-    def _from_gobject_pointer(cls, ptr: int) -> "Fundamental":
-        obj = object.__new__(cls)
-        object.__setattr__(obj, "_pointer", ptr)
-        return obj
 
-    def __getattr__(self, name: str) -> Any:
-        method = sys.modules["ginext.classbuild"].method_for_instance(self, name)
-        if method is not None:
-            return method
-        raise AttributeError(name)
+def _init_hooks() -> None:
+    """Register Python callbacks into the C PyGIFundamental_Type.
 
-    def __del__(self) -> None:
-        try:
-            ptr = self._pointer
-        except AttributeError:
-            return
-        if ptr is None or ptr == 0:
-            return
-        self._pointer = 0
-        private.instantiatable_unref(ptr)
+    Must be called once, early in the ginext import sequence, before any
+    fundamental wrapper is created.
+    """
+    private.fundamental_init_hooks(_fundamental_getattr)
+
+
+_init_hooks()

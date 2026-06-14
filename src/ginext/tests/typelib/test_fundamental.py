@@ -149,10 +149,6 @@ def test_array_of_fundamental_objects_out(regress: Namespace) -> None:
 
 
 @pytest.mark.parametrize("attr", ["data", "refcount"])
-@pytest.mark.xfail(
-    reason="object/fundamental field access is not exposed yet",
-    strict=False,
-)
 def test_attribute_access(sub_obj: object, attr: str) -> None:
     assert getattr(sub_obj, attr) is not None
 

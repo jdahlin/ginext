@@ -1639,23 +1639,6 @@ pygi_gtype_value_to_py (GType gtype)
   return PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
 }
 
-static gpointer
-pygi_fundamental_wrapper_pointer (PyObject *wrapper)
-{
-  PyObject **dict_ptr = _PyObject_GetDictPtr (wrapper);
-  if (dict_ptr == NULL || *dict_ptr == NULL)
-    return NULL;
-
-  PyObject *ptr = PyDict_GetItemString (*dict_ptr, "_pointer");
-  if (ptr == NULL)
-    return NULL;
-
-  gpointer instance = (gpointer)PyLong_AsVoidPtr (ptr);
-  if (PyErr_Occurred ())
-    return NULL;
-  return instance;
-}
-
 GObject *
 pygi_gobject_get (PyObject *wrapper)
 {
@@ -1665,11 +1648,8 @@ pygi_gobject_get (PyObject *wrapper)
   if (PyErr_Occurred ())
     return NULL;
 
-  object = (GObject *)pygi_fundamental_wrapper_pointer (wrapper);
-  if (object != NULL)
-    return object;
-  if (PyErr_Occurred ())
-    return NULL;
+  if (pygi_fundamental_check (wrapper))
+    return (GObject *)pygi_fundamental_get_instance (wrapper);
 
   PyErr_SetString (PyExc_AttributeError, "wrapper is not bound");
   return NULL;

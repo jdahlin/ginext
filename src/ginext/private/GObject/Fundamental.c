@@ -19,6 +19,7 @@
 #include "common.h"
 #include "marshal/enum.h"
 
+
 typedef struct
 {
   PyGIRefFunc ref_func;
@@ -38,6 +39,7 @@ pygi_register_lifecycle_funcs (GType gtype, PyGIRefFunc ref_func, PyGIUnrefFunc 
   funcs->unref_func = unref_func;
   g_hash_table_insert (lifecycle_table, GSIZE_TO_POINTER (gtype), funcs);
 }
+
 
 static GIObjectInfo *
 object_info_for_gtype (GType gtype)
@@ -119,6 +121,7 @@ object_info_for_lifecycle_func (GType actual_gtype,
     gi_base_info_unref ((GIBaseInfo *)info);
   return NULL;
 }
+
 
 int
 pygi_instantiatable_ref (gpointer instance, GType gtype, gpointer *out_instance)
@@ -222,6 +225,247 @@ pygi_instantiatable_unref (gpointer instance, GType gtype)
   return 0;
 }
 
+
+static PyObject *fundamental_cb_getattr = NULL;
+
+void
+pygi_fundamental_set_getattr_hook (PyObject *hook)
+{
+  Py_XSETREF (fundamental_cb_getattr, hook != Py_None ? Py_NewRef (hook) : NULL);
+}
+
+static GIFieldInfo *
+fundamental_lookup_field (GIObjectInfo *info, const char *name)
+{
+  GIObjectInfo *cur = (GIObjectInfo *)gi_base_info_ref ((GIBaseInfo *)info);
+  while (cur != NULL)
+    {
+      unsigned int n = gi_object_info_get_n_fields (cur);
+      for (unsigned int fi = 0; fi < n; fi++)
+        {
+          GIFieldInfo *field = gi_object_info_get_field (cur, fi);
+          if (field == NULL)
+            continue;
+          const char *candidate = gi_base_info_get_name ((GIBaseInfo *)field);
+          if (candidate != NULL && strcmp (candidate, name) == 0)
+            {
+              gi_base_info_unref ((GIBaseInfo *)cur);
+              return field;
+            }
+          gi_base_info_unref ((GIBaseInfo *)field);
+        }
+      GIObjectInfo *parent = gi_object_info_get_parent (cur);
+      gi_base_info_unref ((GIBaseInfo *)cur);
+      cur = parent;
+    }
+  return NULL;
+}
+
+static PyObject *
+fundamental_get_field (PyGIFundamental *self, const char *name)
+{
+  g_autoptr (GIObjectInfo) info = object_info_for_gtype (self->gtype);
+  if (info == NULL)
+    return NULL;
+
+  GIFieldInfo *field = fundamental_lookup_field (info, name);
+  if (field == NULL)
+    return NULL;
+
+  if (!(gi_field_info_get_flags (field) & GI_FIELD_IS_READABLE))
+    {
+      gi_base_info_unref ((GIBaseInfo *)field);
+      return NULL;
+    }
+
+  g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
+  size_t offset = (size_t)gi_field_info_get_offset (field);
+  gi_base_info_unref ((GIBaseInfo *)field);
+
+  char *base = (char *)self->instance;
+  GITypeTag tag = gi_type_info_get_tag (fti);
+
+  switch (tag)
+    {
+    case GI_TYPE_TAG_INT8:
+      return PyLong_FromLong (*(gint8 *)(base + offset));
+    case GI_TYPE_TAG_UINT8:
+      return PyLong_FromUnsignedLong (*(guint8 *)(base + offset));
+    case GI_TYPE_TAG_INT16:
+      return PyLong_FromLong (*(gint16 *)(base + offset));
+    case GI_TYPE_TAG_UINT16:
+      return PyLong_FromUnsignedLong (*(guint16 *)(base + offset));
+    case GI_TYPE_TAG_INT32:
+      return PyLong_FromLong (*(gint32 *)(base + offset));
+    case GI_TYPE_TAG_UINT32:
+      return PyLong_FromUnsignedLong (*(guint32 *)(base + offset));
+    case GI_TYPE_TAG_INT64:
+      return PyLong_FromLongLong (*(gint64 *)(base + offset));
+    case GI_TYPE_TAG_UINT64:
+      return PyLong_FromUnsignedLongLong (*(guint64 *)(base + offset));
+    case GI_TYPE_TAG_FLOAT:
+      return PyFloat_FromDouble (*(gfloat *)(base + offset));
+    case GI_TYPE_TAG_DOUBLE:
+      return PyFloat_FromDouble (*(gdouble *)(base + offset));
+    case GI_TYPE_TAG_BOOLEAN:
+      return PyBool_FromLong (*(gboolean *)(base + offset));
+    case GI_TYPE_TAG_GTYPE:
+      return PyLong_FromUnsignedLongLong (*(GType *)(base + offset));
+    case GI_TYPE_TAG_UTF8:
+    case GI_TYPE_TAG_FILENAME:
+      {
+        const char *str = *(const char **)(base + offset);
+        if (str == NULL)
+          Py_RETURN_NONE;
+        return PyUnicode_FromString (str);
+      }
+    case GI_TYPE_TAG_VOID:
+      {
+        gpointer ptr = *(gpointer *)(base + offset);
+        if (ptr == NULL)
+          Py_RETURN_NONE;
+        return PyLong_FromVoidPtr (ptr);
+      }
+    default:
+      return NULL;
+    }
+}
+
+static void
+Fundamental_dealloc (PyObject *self)
+{
+  PyGIFundamental *f = (PyGIFundamental *)self;
+  gpointer instance = f->instance;
+  GType gtype = f->gtype;
+  f->instance = NULL;
+  f->gtype = 0;
+  PyTypeObject *tp = Py_TYPE (self);
+  if (tp->tp_weaklistoffset)
+    PyObject_ClearWeakRefs (self);
+  tp->tp_free (self);
+  if (instance != NULL)
+    pygi_instantiatable_unref (instance, gtype);
+  Py_DECREF (tp);
+}
+
+static PyObject *
+Fundamental_repr (PyObject *self)
+{
+  PyGIFundamental *f = (PyGIFundamental *)self;
+  const char *type_name = g_type_name (f->gtype);
+  if (type_name == NULL)
+    type_name = Py_TYPE (self)->tp_name;
+  return PyUnicode_FromFormat ("<%s at 0x%zx>", type_name,
+                               (Py_ssize_t)(uintptr_t)f->instance);
+}
+
+static PyObject *
+Fundamental_richcompare (PyObject *self, PyObject *other, int op)
+{
+  if (op != Py_EQ && op != Py_NE)
+    Py_RETURN_NOTIMPLEMENTED;
+  if (!pygi_fundamental_check (other))
+    Py_RETURN_NOTIMPLEMENTED;
+  int eq = ((PyGIFundamental *)self)->instance == ((PyGIFundamental *)other)->instance;
+  return PyBool_FromLong (op == Py_EQ ? eq : !eq);
+}
+
+static Py_hash_t
+Fundamental_hash (PyObject *self)
+{
+  return (Py_hash_t)(uintptr_t)((PyGIFundamental *)self)->instance;
+}
+
+static PyObject *
+Fundamental_getattro (PyObject *self, PyObject *name)
+{
+  PyObject *res = PyObject_GenericGetAttr (self, name);
+  if (res != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
+    return res;
+  PyErr_Clear ();
+
+  const char *name_str = PyUnicode_AsUTF8 (name);
+  if (name_str == NULL)
+    return NULL;
+  if (name_str[0] != '_')
+    {
+      PyGIFundamental *f = (PyGIFundamental *)self;
+      if (f->instance != NULL)
+        {
+          PyObject *field_val = fundamental_get_field (f, name_str);
+          if (field_val != NULL)
+            return field_val;
+          if (PyErr_Occurred ())
+            return NULL;
+        }
+    }
+
+  if (fundamental_cb_getattr != NULL)
+    return PyObject_CallFunctionObjArgs (fundamental_cb_getattr, self, name, NULL);
+
+  PyErr_SetObject (PyExc_AttributeError, name);
+  return NULL;
+}
+
+static PyObject *
+Fundamental_new (PyTypeObject *type, PyObject *args G_GNUC_UNUSED, PyObject *kwargs G_GNUC_UNUSED)
+{
+  PyErr_Format (PyExc_TypeError,
+                "%s cannot be instantiated directly; use the type's factory method",
+                type->tp_name);
+  return NULL;
+}
+
+static PyMemberDef Fundamental_members[] = {
+  { "__instance_ptr__", Py_T_ULONGLONG, offsetof (PyGIFundamental, instance), Py_READONLY, NULL },
+  { "__gtype__", Py_T_ULONGLONG, offsetof (PyGIFundamental, gtype), Py_READONLY, NULL },
+  { NULL }
+};
+
+static PyType_Slot Fundamental_slots[] = {
+  { Py_tp_new, Fundamental_new },
+  { Py_tp_dealloc, Fundamental_dealloc },
+  { Py_tp_repr, Fundamental_repr },
+  { Py_tp_richcompare, Fundamental_richcompare },
+  { Py_tp_hash, Fundamental_hash },
+  { Py_tp_getattro, Fundamental_getattro },
+  { Py_tp_members, Fundamental_members },
+  { 0, NULL },
+};
+
+static PyType_Spec Fundamental_spec = {
+  .name = "ginext._gobject.Fundamental",
+  .basicsize = sizeof (PyGIFundamental),
+  .itemsize = 0,
+  .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE),
+  .slots = Fundamental_slots,
+};
+
+PyTypeObject *PyGIFundamental_Type = NULL;
+
+int
+pygi_fundamental_type_init (void)
+{
+  PyObject *type = PyType_FromSpec (&Fundamental_spec);
+  if (type == NULL)
+    return -1;
+  PyGIFundamental_Type = (PyTypeObject *)type;
+  return 0;
+}
+
+
+PyObject *
+pygi_fundamental_new (PyTypeObject *type, gpointer instance, GType gtype)
+{
+  PyGIFundamental *self = (PyGIFundamental *)type->tp_alloc (type, 0);
+  if (self == NULL)
+    return NULL;
+  self->instance = instance;
+  self->gtype = gtype;
+  return (PyObject *)self;
+}
+
+
 PyObject *
 pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_factory)
 {
@@ -278,6 +522,7 @@ pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrappe
   return wrapper;
 }
 
+
 PyObject *
 py_instantiatable_unref (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
@@ -290,5 +535,41 @@ py_instantiatable_unref (PyObject *module G_GNUC_UNUSED, PyObject *args)
     return NULL;
   if (pygi_instantiatable_unref (instance, G_TYPE_INVALID) != 0)
     return NULL;
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_fundamental_from_pointer (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *type_obj = NULL;
+  PyObject *ptr_obj = NULL;
+  unsigned long long gtype_val = 0;
+  if (!PyArg_ParseTuple (args, "OOK", &type_obj, &ptr_obj, &gtype_val))
+    return NULL;
+  if (!PyType_Check (type_obj))
+    {
+      PyErr_SetString (PyExc_TypeError, "first argument must be a type");
+      return NULL;
+    }
+  PyTypeObject *type = (PyTypeObject *)type_obj;
+  if (!PyType_IsSubtype (type, PyGIFundamental_Type))
+    {
+      PyErr_Format (PyExc_TypeError, "%s is not a subtype of Fundamental", type->tp_name);
+      return NULL;
+    }
+  gpointer instance = PyLong_AsVoidPtr (ptr_obj);
+  if (PyErr_Occurred ())
+    return NULL;
+  return pygi_fundamental_new (type, instance, (GType)gtype_val);
+}
+
+PyObject *
+py_fundamental_init_hooks (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *getattr_fn = NULL;
+  if (!PyArg_ParseTuple (args, "|O", &getattr_fn))
+    return NULL;
+  if (getattr_fn != NULL)
+    pygi_fundamental_set_getattr_hook (getattr_fn);
   Py_RETURN_NONE;
 }

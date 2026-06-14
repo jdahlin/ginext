@@ -10,7 +10,7 @@ win32_deps = host_is_windows ? [cc.find_library('psapi')] : []
 # so taking their address in static initializers is a compile-time constant.
 win32_cargs = host_is_windows ? ['/FIwin32-compat.h', '-DFFI_STATIC_BUILD'] : []
 
-py.extension_module(
+_gobject_ext = py.extension_module(
   '_gobject',
   win32_sources,
   files(
@@ -98,6 +98,14 @@ py.install_sources(
 )
 
 copy_into = files(meson.project_source_root() / 'tools/meson/copy_into.py')
+
+custom_target(
+  'ginext_private__gobject_so',
+  output : 'ginext_private__gobject_so.stamp',
+  input : _gobject_ext,
+  command : [py, copy_into, '@INPUT@', '@OUTDIR@/ginext/private', '@OUTPUT@'],
+  build_by_default : true,
+)
 
 custom_target(
   'ginext_private___init___py',
