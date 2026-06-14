@@ -121,7 +121,6 @@ build_callable_descriptor = _gobject.build_callable_descriptor
 invoke = _gobject.invoke
 class_struct_wrapper = _gobject.class_struct_wrapper
 installed_versions = _gobject.installed_versions
-preload_shared_library = _gobject.preload_shared_library
 invoke_callable_descriptor = _gobject.invoke_callable_descriptor
 invoke_stats = _gobject.invoke_stats
 namespace_dir = _gobject.namespace_dir

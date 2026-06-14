@@ -59,16 +59,49 @@ ginext_shared_repository (void)
 }
 
 static void
-prepend_env_typelib_paths (GIRepository *repo)
+prepend_env_repository_paths (GIRepository *repo)
 {
   const char *path = g_getenv ("GI_TYPELIB_PATH");
+  if (path != NULL && path[0] != '\0')
+    {
+      g_auto (GStrv) parts = g_strsplit (path, G_SEARCHPATH_SEPARATOR_S, -1);
+      for (gsize i = 0; parts != NULL && parts[i] != NULL; i++)
+        {
+          if (parts[i][0] != '\0')
+            {
+              gi_repository_prepend_search_path (repo, parts[i]);
+              gi_repository_prepend_library_path (repo, parts[i]);
+            }
+        }
+    }
+
+  path = g_getenv ("LD_LIBRARY_PATH");
   if (path == NULL || path[0] == '\0')
     return;
   g_auto (GStrv) parts = g_strsplit (path, G_SEARCHPATH_SEPARATOR_S, -1);
   for (gsize i = 0; parts != NULL && parts[i] != NULL; i++)
     {
       if (parts[i][0] != '\0')
-        gi_repository_prepend_search_path (repo, parts[i]);
+        gi_repository_prepend_library_path (repo, parts[i]);
+    }
+}
+
+static void
+dlopen_typelib_library (GIRepository *repo, const char *soname)
+{
+  if (soname == NULL || soname[0] == '\0')
+    return;
+
+  if (dlopen (soname, RTLD_LAZY | RTLD_GLOBAL) != NULL || g_path_is_absolute (soname))
+    return;
+
+  size_t n_paths = 0;
+  const char *const *paths = gi_repository_get_library_path (repo, &n_paths);
+  for (size_t i = 0; paths != NULL && i < n_paths; i++)
+    {
+      g_autofree char *path = g_build_filename (paths[i], soname, NULL);
+      if (dlopen (path, RTLD_LAZY | RTLD_GLOBAL) != NULL)
+        return;
     }
 }
 
@@ -260,7 +293,7 @@ py_require_namespace (PyObject *module G_GNUC_UNUSED, PyObject *args)
       PyErr_SetString (PyExc_RuntimeError, "gi_repository_new failed");
       return NULL;
     }
-  prepend_env_typelib_paths (repo);
+  prepend_env_repository_paths (repo);
 
   g_autoptr (GError) error = NULL;
   if (gi_repository_require (repo, name, version, GI_REPOSITORY_LOAD_FLAG_NONE, &error) == NULL)
@@ -278,6 +311,7 @@ py_require_namespace (PyObject *module G_GNUC_UNUSED, PyObject *args)
   const char *const *libs = NULL;
   if (lookup_repo != NULL)
     {
+      prepend_env_repository_paths (lookup_repo);
       g_autoptr (GError) lookup_error = NULL;
       if (gi_repository_require (lookup_repo,
                                  name,
@@ -301,7 +335,7 @@ py_require_namespace (PyObject *module G_GNUC_UNUSED, PyObject *args)
                 {
                   memcpy (soname, p, len);
                   soname[len] = '\0';
-                  dlopen (soname, RTLD_LAZY | RTLD_GLOBAL);
+                  dlopen_typelib_library (lookup_repo, soname);
                 }
               p += len;
               if (q)

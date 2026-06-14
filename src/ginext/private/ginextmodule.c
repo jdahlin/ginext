@@ -149,29 +149,6 @@ py_param_spec_numeric_info (PyObject *m, PyObject *args);
 extern PyType_Spec PyGIGLibBoxed_spec;
 extern PyTypeObject *pygi_gboxed_base_type;
 
-/* Test-infra: pre-loads a shared library by absolute path via g_module_open so
- * that GLib's own g_module_open("libfoo.so") later finds it already resident in
- * the dynamic-linker cache. This is needed because LD_LIBRARY_PATH changes made
- * in Python (os.environ) are not seen by dlopen — the linker reads it once at
- * process start. Calling g_module_open with an absolute path here causes the
- * linker to register the loaded handle so a subsequent open("libfoo.so") hits
- * the cache.
- */
-static PyObject *
-py_preload_shared_library (PyObject *m, PyObject *args)
-{
-  const char *path;
-  if (!PyArg_ParseTuple (args, "s", &path))
-    return NULL;
-  GModule *mod = g_module_open (path, G_MODULE_BIND_LAZY);
-  if (mod == NULL)
-    {
-      PyErr_SetString (PyExc_OSError, g_module_error ());
-      return NULL;
-    }
-  Py_RETURN_NONE;
-}
-
 static PyObject *
 py_init_gobject (PyObject *m, PyObject *args)
 {
@@ -314,7 +291,6 @@ py_register_hook (PyObject *m G_GNUC_UNUSED, PyObject *args)
 
 static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
-  { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
   { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
   { "require_namespace", py_require_namespace, METH_VARARGS, NULL },
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
