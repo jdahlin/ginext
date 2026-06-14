@@ -34,7 +34,7 @@
 #include "marshal/enum.h"
 #include "GLib/HashTable.h"
 #include "GLib/List.h"
-#include "GLib/Regex.h"
+#include "GObject/coercions.h"
 #include "GLib/DateTime.h"
 #include "marshal/gvalue.h"
 #include "GObject/Object-info.h"
@@ -290,10 +290,9 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
                                                    view);
       return 0;
     }
-  /* GLib.Regex from a Python re.Pattern: compile a GRegex on demand. The
-   * callee gets an owned ref (refcount 1 from g_regex_new, or a fresh ref off
-   * an existing wrapper); the caller registers an unref cleanup, mirroring the
-   * GBytes precedent above. */
+  /* GLib.Regex: existing wrapper gets a fresh ref; unknown Python objects go
+   * through a registered coercion (e.g. re.Pattern → GLib.Regex).  The callee
+   * gets an owned ref; the caller registers an unref cleanup. */
   if (gi_base_info_is_named (iface, "GLib", "Regex"))
     {
       PyObject *obj = (PyObject *)(h);
@@ -309,10 +308,29 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
           return 0;
         }
       PyErr_Clear ();
-      GRegex *regex = pygi_gregex_from_py_pattern (obj);
-      if (regex == NULL)
-        return -1;
-      out->v_pointer = regex;
+      GType regex_gtype = g_regex_get_type ();
+      PyObject *coerced = pygi_call_coercion (regex_gtype, obj);
+      if (coerced == NULL)
+        {
+          if (!PyErr_Occurred ())
+            PyErr_Format (PyExc_TypeError,
+                          "no coercion registered for GLib.Regex; "
+                          "cannot convert %.200s",
+                          Py_TYPE (obj)->tp_name);
+          return -1;
+        }
+      boxed_ptr = NULL;
+      pygi_boxed_get (coerced, &boxed_ptr);
+      if (boxed_ptr == NULL)
+        {
+          Py_DECREF (coerced);
+          if (!PyErr_Occurred ())
+            PyErr_SetString (PyExc_TypeError,
+                             "GLib.Regex coercion did not return a boxed wrapper");
+          return -1;
+        }
+      out->v_pointer = g_regex_ref ((GRegex *)boxed_ptr);
+      Py_DECREF (coerced);
       return 0;
     }
   /* GLib.DateTime/Date/TimeZone: accept the matching stdlib datetime object,

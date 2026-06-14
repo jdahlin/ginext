@@ -15,6 +15,7 @@
  */
 
 #include "common.h"
+#include "GObject/Object-info.h"
 #include "Value.h"
 #include "gimeta-helpers.h"
 #include "marshal/gvalue.h"
@@ -190,11 +191,5 @@ py_construct_gobject (PyObject *module G_GNUC_UNUSED, PyObject *args)
   GObject *obj = pygi_construct_gobject_object (gtype, kwargs);
   if (obj == NULL)
     return NULL;
-  PyObject *ptr_obj = PyLong_FromVoidPtr (obj);
-  if (ptr_obj == NULL)
-    {
-      g_object_unref (obj);
-      return NULL;
-    }
-  return ptr_obj;
+  return pygi_gobject_to_py_as_gtype (obj, gtype, GI_TRANSFER_EVERYTHING);
 }

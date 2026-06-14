@@ -64,11 +64,9 @@ PyObject *
 pygi_fundamental_new (PyTypeObject *type, gpointer instance, GType gtype);
 
 PyObject *
-pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_factory);
+pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_type);
 
 PyObject *
 py_instantiatable_unref (PyObject *module, PyObject *args);
-PyObject *
-py_fundamental_from_pointer (PyObject *module, PyObject *args);
 int
 pygi_fundamental_type_init (void);

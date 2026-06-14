@@ -289,3 +289,7 @@ def callable_signature(gimeta: Any) -> inspect.Signature:
             keyword_only_after=getattr(gimeta, "keyword_only_after", None),
         )
     return cast("inspect.Signature", gimeta.signature)
+
+
+from ginext import private as _private_hooks
+_private_hooks.register_hook("callable_signature", callable_signature)

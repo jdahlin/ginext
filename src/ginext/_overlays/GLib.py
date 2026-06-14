@@ -967,3 +967,27 @@ def apply_to_namespace(namespace: Any) -> None:
 
 
 apply_to_namespace(GLib)
+
+
+def _regex_from_py(obj: object) -> Any:
+    import re as _re
+
+    if not isinstance(obj, _re.Pattern):
+        raise TypeError(f"expected re.Pattern, not {type(obj).__name__!r}")
+    pattern_str = obj.pattern
+    if not isinstance(pattern_str, str):
+        raise TypeError("only str (not bytes) re.Pattern objects map to GLib.Regex")
+    flags = obj.flags
+    compile_flags = 0
+    if flags & _re.IGNORECASE:
+        compile_flags |= int(GLib.RegexCompileFlags.CASELESS)
+    if flags & _re.MULTILINE:
+        compile_flags |= int(GLib.RegexCompileFlags.MULTILINE)
+    if flags & _re.DOTALL:
+        compile_flags |= int(GLib.RegexCompileFlags.DOTALL)
+    if flags & _re.VERBOSE:
+        compile_flags |= int(GLib.RegexCompileFlags.EXTENDED)
+    return GLib.Regex.new(pattern_str, compile_flags, 0)
+
+
+private.register_coercion(GLib.Regex, _regex_from_py)

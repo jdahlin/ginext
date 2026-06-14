@@ -15,6 +15,7 @@ _gobject_ext = py.extension_module(
   win32_sources,
   files(
     'ginext/private/GObject/Object-class.c',
+    'ginext/private/GObject/hooks.c',
     'ginext/private/GObject/Fundamental.c',
     'ginext/private/GObject/Type.c',
     'ginext/private/GObject/Value.c',
@@ -41,7 +42,7 @@ _gobject_ext = py.extension_module(
     'ginext/private/GLib/DateTime.c',
     'ginext/private/GLib/HashTable.c',
     'ginext/private/GLib/List.c',
-    'ginext/private/GLib/Regex.c',
+    'ginext/private/GObject/coercions.c',
     'ginext/private/GLib/Variant.c',
     'ginext/private/GIRepository/Info.c',
     'ginext/private/GIRepository/BaseInfo.c',

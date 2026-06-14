@@ -21,6 +21,9 @@
  * to the methods table.
  */
 #include "common.h"
+#include "GObject/hooks.h"
+#include "GObject/coercions.h"
+#include "marshal/conversion.h"
 #include "GObject/Closure.h"
 #include "GObject/DeclaredProperty.h"
 #include "GObject/Fundamental.h"
@@ -64,8 +67,6 @@ extern PyObject *
 py_record_field_get (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_field_set (PyObject *m, PyObject *args);
-extern PyObject *
-py_fundamental_from_pointer (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_ensure_size (PyObject *m, PyObject *args);
 extern PyObject *
@@ -273,6 +274,93 @@ py_getargs_s (PyObject *m, PyObject *args)
   return PyUnicode_FromString (val);
 }
 
+
+/* Sorted by name — must stay in strcmp order for bsearch. */
+typedef struct
+{
+  const char *name;
+  PyGIHookID  id;
+} HookEntry;
+
+static const HookEntry hook_table[] = {
+  { "Fundamental.getattr",           PYGI_HOOK_FUNDAMENTAL_GETATTR      },
+  { "Object.getattr",                PYGI_HOOK_OBJECT_GETATTR           },
+  { "Object.post_init",              PYGI_HOOK_OBJECT_POST_INIT         },
+  { "Object.setattr",                PYGI_HOOK_OBJECT_SETATTR           },
+  { "Object.wrap",                   PYGI_HOOK_OBJECT_WRAP              },
+  { "ObjectClass.dir",               PYGI_HOOK_OBJECTCLASS_DIR          },
+  { "ObjectClass.getattr",           PYGI_HOOK_OBJECTCLASS_GETATTR      },
+  { "callable_signature",            PYGI_HOOK_CALLABLE_SIGNATURE       },
+  { "class_from_namespace_profile",  PYGI_HOOK_CLASS_FROM_NS_PROFILE    },
+  { "exception_from_gerror",         PYGI_HOOK_EXCEPTION_FROM_GERROR    },
+  { "load_namespace",                PYGI_HOOK_LOAD_NAMESPACE           },
+  { "packed_user_data_type",         PYGI_HOOK_PACKED_USER_DATA_TYPE    },
+  { "result_tuple_new_type",         PYGI_HOOK_RESULT_TUPLE_NEW_TYPE    },
+};
+
+static int
+hook_entry_cmp (const void *key, const void *entry)
+{
+  return strcmp ((const char *)key, ((const HookEntry *)entry)->name);
+}
+
+/* private.register_coercion(gtype, callable) — register a Python→GLib coercion for a GType.
+ * gtype may be an int (raw GType), a GObject/GBoxed class, or an instance. */
+static PyObject *
+py_register_coercion (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj;
+  PyObject *fn;
+  if (!PyArg_ParseTuple (args, "OO:register_coercion", &gtype_obj, &fn))
+    return NULL;
+  if (!PyCallable_Check (fn))
+    {
+      PyErr_SetString (PyExc_TypeError, "register_coercion: fn must be callable");
+      return NULL;
+    }
+  GType gtype = 0;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+  if (pygi_coercion_register (gtype, fn) < 0)
+    return NULL;
+  Py_RETURN_NONE;
+}
+
+/* private.register_hook(name, callable) — append a callable to the named hook list. */
+static PyObject *
+py_register_hook (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  const char *name;
+  PyObject *fn;
+  if (!PyArg_ParseTuple (args, "sO", &name, &fn))
+    return NULL;
+  if (!PyCallable_Check (fn))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected callable");
+      return NULL;
+    }
+
+  const HookEntry *entry = bsearch (name, hook_table,
+                                     G_N_ELEMENTS (hook_table),
+                                     sizeof (HookEntry), hook_entry_cmp);
+  if (entry == NULL)
+    {
+      PyErr_Format (PyExc_ValueError, "unknown hook name: '%s'", name);
+      return NULL;
+    }
+  PyObject **slot = &pygi_hooks[entry->id];
+
+  if (*slot == NULL)
+    {
+      *slot = PyList_New (0);
+      if (*slot == NULL)
+        return NULL;
+    }
+  if (PyList_Append (*slot, fn) < 0)
+    return NULL;
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
@@ -304,7 +392,6 @@ static PyMethodDef methods[] = {
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
   { "record_field_set", py_record_field_set, METH_VARARGS, NULL },
-  { "fundamental_from_pointer", py_fundamental_from_pointer, METH_VARARGS, NULL },
   { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
   { "record_memory_get", py_record_memory_get, METH_VARARGS, NULL },
   { "record_memory_set", py_record_memory_set, METH_VARARGS, NULL },
@@ -353,6 +440,8 @@ static PyMethodDef methods[] = {
   { "param_spec_default_value", py_param_spec_default_value, METH_VARARGS, NULL },
   { "param_spec_numeric_info", py_param_spec_numeric_info, METH_VARARGS, NULL },
   { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
+  { "register_hook", py_register_hook, METH_VARARGS, NULL },
+  { "register_coercion", py_register_coercion, METH_VARARGS, NULL },
   { NULL }
 };
 
@@ -482,6 +571,12 @@ PyInit__gobject (void)
   if (PyModule_AddObject (m, "Fundamental", (PyObject *)PyGIFundamental_Type) < 0)
     {
       Py_DECREF ((PyObject *)PyGIFundamental_Type);
+      Py_DECREF (m);
+      return NULL;
+    }
+
+  if (pygi_coercions_init () < 0)
+    {
       Py_DECREF (m);
       return NULL;
     }

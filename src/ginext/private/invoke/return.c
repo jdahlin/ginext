@@ -17,6 +17,7 @@
 /* invoke/return.c - shape the return value + OUT params of a finished GI
  * invocation into a single Python value (or tuple). */
 #include "invoke/return.h"
+#include "GObject/hooks.h"
 
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
@@ -70,20 +71,11 @@ build_named_pair_namespace (const char *name0,
 static PyObject *
 build_result_tuple_type (PyObject *names)
 {
-  static PyObject *new_type = NULL;
+  PyObject *new_type = pygi_hook_last (pygi_hook_result_tuple_new_type);
   if (new_type == NULL)
     {
-      PyObject *mod = PyImport_ImportModule ("ginext.runtime");
-      if (mod == NULL)
-        return NULL;
-      PyObject *base = PyObject_GetAttrString (mod, "ResultTuple");
-      Py_DECREF (mod);
-      if (base == NULL)
-        return NULL;
-      new_type = PyObject_GetAttrString (base, "_new_type");
-      Py_DECREF (base);
-      if (new_type == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "result_tuple_new_type hook not registered");
+      return NULL;
     }
   return PyObject_CallOneArg (new_type, names);
 }

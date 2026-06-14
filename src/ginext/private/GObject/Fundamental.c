@@ -17,6 +17,7 @@
 #include "GObject/Fundamental.h"
 
 #include "common.h"
+#include "hooks.h"
 #include "marshal/conversion.h"
 #include "marshal/enum.h"
 
@@ -351,23 +352,25 @@ Fundamental_getattro (PyObject *self, PyObject *name)
         }
     }
 
-  static PyObject *method_for_instance_fn = NULL;
-  if (method_for_instance_fn == NULL)
+  if (pygi_hook_method_for_instance != NULL)
     {
-      PyObject *modules = PySys_GetObject ("modules");
-      PyObject *classbuild
-          = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
-      if (classbuild != NULL)
-        method_for_instance_fn = PyObject_GetAttrString (classbuild, "method_for_instance");
-    }
-  if (method_for_instance_fn != NULL)
-    {
-      PyObject *method = PyObject_CallFunctionObjArgs (method_for_instance_fn, self, name, NULL);
-      if (method == NULL)
+      PyObject *call_args = PyTuple_Pack (2, self, name);
+      if (call_args == NULL)
         return NULL;
-      if (method != Py_None)
-        return method;
-      Py_DECREF (method);
+      PyObject *method = pygi_hook_call_first (pygi_hook_method_for_instance, call_args);
+      Py_DECREF (call_args);
+      if (method == NULL)
+        {
+          if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+            return NULL;
+          PyErr_Clear ();
+        }
+      else
+        {
+          if (method != Py_None)
+            return method;
+          Py_DECREF (method);
+        }
     }
 
   PyErr_SetObject (PyExc_AttributeError, name);
@@ -434,7 +437,7 @@ pygi_fundamental_new (PyTypeObject *type, gpointer instance, GType gtype)
 
 
 PyObject *
-pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_factory)
+pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_type)
 {
   if (instance == NULL)
     return Py_NewRef (Py_None);
@@ -453,40 +456,19 @@ pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrappe
         return NULL;
       instance = owned;
     }
-  if (wrapper_factory == NULL)
+  if (wrapper_type == NULL)
     {
-      PyErr_SetString (PyExc_RuntimeError, "GObject wrapper factory is not registered");
+      PyErr_SetString (PyExc_RuntimeError, "GObject wrapper type is not registered");
       pygi_instantiatable_unref (instance, actual_gtype);
       return NULL;
     }
-
-  PyObject *ptr = PyLong_FromVoidPtr (instance);
-  if (ptr == NULL)
+  if (!PyType_Check (wrapper_type) || !PyType_IsSubtype ((PyTypeObject *)wrapper_type, PyGIFundamental_Type))
     {
+      PyErr_SetString (PyExc_TypeError, "expected Fundamental subclass for fundamental wrapper");
       pygi_instantiatable_unref (instance, actual_gtype);
       return NULL;
     }
-  PyObject *actual = PyLong_FromUnsignedLongLong ((unsigned long long)actual_gtype);
-  if (actual == NULL)
-    {
-      Py_DECREF (ptr);
-      pygi_instantiatable_unref (instance, actual_gtype);
-      return NULL;
-    }
-  PyObject *context = pygi_namespace_context ();
-  if (context == NULL)
-    {
-      Py_DECREF (actual);
-      Py_DECREF (ptr);
-      pygi_instantiatable_unref (instance, actual_gtype);
-      return NULL;
-    }
-  PyObject *wrapper = PyObject_CallFunctionObjArgs (wrapper_factory, ptr, actual, context, NULL);
-  Py_DECREF (actual);
-  Py_DECREF (ptr);
-  if (wrapper == NULL)
-    pygi_instantiatable_unref (instance, actual_gtype);
-  return wrapper;
+  return pygi_fundamental_new ((PyTypeObject *)wrapper_type, instance, actual_gtype);
 }
 
 
@@ -504,29 +486,3 @@ py_instantiatable_unref (PyObject *module G_GNUC_UNUSED, PyObject *args)
     return NULL;
   Py_RETURN_NONE;
 }
-
-PyObject *
-py_fundamental_from_pointer (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *type_obj = NULL;
-  PyObject *ptr_obj = NULL;
-  unsigned long long gtype_val = 0;
-  if (!PyArg_ParseTuple (args, "OOK", &type_obj, &ptr_obj, &gtype_val))
-    return NULL;
-  if (!PyType_Check (type_obj))
-    {
-      PyErr_SetString (PyExc_TypeError, "first argument must be a type");
-      return NULL;
-    }
-  PyTypeObject *type = (PyTypeObject *)type_obj;
-  if (!PyType_IsSubtype (type, PyGIFundamental_Type))
-    {
-      PyErr_Format (PyExc_TypeError, "%s is not a subtype of Fundamental", type->tp_name);
-      return NULL;
-    }
-  gpointer instance = PyLong_AsVoidPtr (ptr_obj);
-  if (PyErr_Occurred ())
-    return NULL;
-  return pygi_fundamental_new (type, instance, (GType)gtype_val);
-}
-

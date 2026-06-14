@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "GObject/ObjectMeta.h"
+#include "GObject/hooks.h"
 
 /* `Signal` is exposed only on the root GObject.Object (which carries
  * "_gobject_is_root" in its own __dict__); subclasses must use GObject.Signal.
@@ -48,21 +49,22 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;
   PyErr_Clear ();
-  static PyObject *getattr_fn = NULL;
-  if (getattr_fn == NULL)
-    {
-      PyObject *modules = PySys_GetObject ("modules");
-      PyObject *mod
-          = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
-      if (mod != NULL)
-        getattr_fn = PyObject_GetAttrString (mod, "_gobjectmeta_getattr");
-    }
-  if (getattr_fn == NULL)
+  if (pygi_hook_gobjectmeta_getattr == NULL)
     {
       PyErr_SetObject (PyExc_AttributeError, name);
       return NULL;
     }
-  return PyObject_CallFunctionObjArgs (getattr_fn, cls, name, NULL);
+  PyObject *call_args = PyTuple_Pack (2, cls, name);
+  if (call_args == NULL)
+    return NULL;
+  PyObject *hook_result = pygi_hook_call_first (pygi_hook_gobjectmeta_getattr, call_args);
+  Py_DECREF (call_args);
+  if (hook_result == NULL && PyErr_ExceptionMatches (PyExc_AttributeError))
+    {
+      PyErr_Clear ();
+      PyErr_SetObject (PyExc_AttributeError, name);
+    }
+  return hook_result;
 }
 
 /* __dir__: delegate to the registered body (which augments type.__dir__ with the
@@ -71,17 +73,21 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
 static PyObject *
 gobjectmeta_dir (PyObject *cls, PyObject *Py_UNUSED (ignored))
 {
-  static PyObject *dir_fn = NULL;
-  if (dir_fn == NULL)
+  if (pygi_hook_gobjectmeta_dir != NULL
+      && PyList_Check (pygi_hook_gobjectmeta_dir)
+      && PyList_GET_SIZE (pygi_hook_gobjectmeta_dir) > 0)
     {
-      PyObject *modules = PySys_GetObject ("modules");
-      PyObject *mod
-          = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
-      if (mod != NULL)
-        dir_fn = PyObject_GetAttrString (mod, "_gobjectmeta_dir");
+      PyObject *call_args = PyTuple_Pack (1, cls);
+      if (call_args == NULL)
+        return NULL;
+      PyObject *result = pygi_hook_call_first (pygi_hook_gobjectmeta_dir, call_args);
+      Py_DECREF (call_args);
+      if (result != NULL)
+        return result;
+      if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+        return NULL;
+      PyErr_Clear ();
     }
-  if (dir_fn != NULL)
-    return PyObject_CallOneArg (dir_fn, cls);
   PyObject *type_dir = PyObject_GetAttrString ((PyObject *)&PyType_Type, "__dir__");
   if (type_dir == NULL)
     return NULL;

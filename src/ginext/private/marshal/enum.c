@@ -22,6 +22,7 @@
 #include "marshal/enum.h"
 
 #include <Python.h>
+#include "GObject/hooks.h"
 
 static Py_tss_t enum_namespace_context_key = Py_tss_NEEDS_INIT;
 
@@ -86,16 +87,11 @@ enum_class_from_type_info (GITypeInfo *ti)
   if (context == NULL)
     return NULL;
 
-  static PyObject *resolver = NULL;
+  PyObject *resolver = pygi_hook_last (pygi_hook_class_from_namespace_profile);
   if (resolver == NULL)
     {
-      PyObject *ginext = PyImport_ImportModule ("ginext");
-      if (ginext == NULL)
-        return NULL;
-      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-      Py_DECREF (ginext);
-      if (resolver == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "class_from_namespace_profile hook not registered");
+      return NULL;
     }
   return PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
 }

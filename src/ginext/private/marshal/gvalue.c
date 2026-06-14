@@ -16,6 +16,7 @@
 
 /* gvalue.c - GObject GValue marshaling (Python <-> GValue). */
 #include "marshal/gvalue.h"
+#include "GObject/hooks.h"
 #include "cairo/foreign.h"
 #include "marshal/enum.h"
 #include "marshal/pygi-value.h"
@@ -32,7 +33,7 @@
 #include "runtime/type-info.h"
 #include "GLib/Variant.h"
 #include "GLib/Error.h"
-#include "GLib/Regex.h"
+#include "GObject/coercions.h"
 #include "GLib/DateTime.h"
 #include "gimeta-helpers.h"
 
@@ -171,16 +172,11 @@ pygi_gerror_to_py (GError *err)
   if (err == NULL)
     Py_RETURN_NONE;
 
-  static PyObject *factory = NULL;
+  PyObject *factory = pygi_hook_last (pygi_hook_exception_from_gerror);
   if (factory == NULL)
     {
-      PyObject *module = PyImport_ImportModule ("ginext.errors");
-      if (module == NULL)
-        return NULL;
-      factory = PyObject_GetAttrString (module, "_exception_from_gerror");
-      Py_DECREF (module);
-      if (factory == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "exception_from_gerror hook not registered");
+      return NULL;
     }
   return PyObject_CallFunction (factory,
                                 "kis",
@@ -819,17 +815,31 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
           g_value_set_boxed (value, NULL);
           return 0;
         }
-      /* GLib.Regex: accept a Python re.Pattern, compiling a GRegex on
-       * demand. A real GLib.Regex wrapper still flows through the generic
-       * boxed path below. */
-      if (type == g_regex_get_type () && pygi_is_re_pattern (obj))
-        {
-          GRegex *regex = pygi_gregex_from_py_pattern (obj);
-          if (regex == NULL)
+      /* Registered coercion: try to convert a Python object to the expected
+       * boxed type (e.g. re.Pattern → GLib.Regex).  Real GLib wrappers
+       * flow through the generic boxed path below and never reach this. */
+      {
+        PyObject *coerced = pygi_call_coercion (type, obj);
+        if (coerced != NULL)
+          {
+            gpointer boxed_ptr = NULL;
+            pygi_boxed_get (coerced, &boxed_ptr);
+            if (boxed_ptr != NULL)
+              {
+                g_value_set_boxed (value, boxed_ptr);
+                Py_DECREF (coerced);
+                return 0;
+              }
+            Py_DECREF (coerced);
+            if (!PyErr_Occurred ())
+              PyErr_SetString (PyExc_TypeError,
+                               "coercion did not return a boxed wrapper");
             return -1;
-          g_value_take_boxed (value, regex);
-          return 0;
-        }
+          }
+        if (PyErr_Occurred ())
+          return -1;
+        /* No coercion registered — fall through to the generic boxed path. */
+      }
       /* GLib.DateTime/Date/TimeZone: accept the matching stdlib datetime
        * object. Real GLib wrappers flow through the generic boxed path below. */
       if (type == G_TYPE_DATE_TIME && pygi_py_datetime_check (obj))
