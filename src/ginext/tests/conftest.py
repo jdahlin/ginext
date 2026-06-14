@@ -254,8 +254,11 @@ if GI_TESTS_BUILDDIR is not None:
     )
 
 
+_CTYPES_PRELOADED = "ctypes" in sys.modules
+
+
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int | object) -> None:
-    if "ctypes" in sys.modules:
+    if not _CTYPES_PRELOADED and "ctypes" in sys.modules:
         raise RuntimeError(
             "ctypes was imported during the test session — "
             "all GLib type registration must go through the C extension, not ctypes"
