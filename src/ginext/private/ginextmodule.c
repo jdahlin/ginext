@@ -175,6 +175,20 @@ py_init_gobject (PyObject *m, PyObject *args)
   if (PyObject_SetAttrString (gobject, "_gobject_is_root", Py_True) < 0)
     goto error;
 
+  {
+    PyObject *gimeta_cls = PyObject_GetAttrString (m, "GIMeta");
+    if (gimeta_cls == NULL)
+      goto error;
+    PyObject *gimeta = PyObject_CallMethod (gimeta_cls, "from_type_name", "(s)", "GObject");
+    Py_DECREF (gimeta_cls);
+    if (gimeta == NULL)
+      goto error;
+    int rc = PyObject_SetAttrString (gobject, "gimeta", gimeta);
+    Py_DECREF (gimeta);
+    if (rc < 0)
+      goto error;
+  }
+
   if (PyModule_AddObjectRef (m, "GObject", gobject) < 0)
     goto error;
   return gobject;
