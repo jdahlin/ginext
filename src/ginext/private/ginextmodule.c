@@ -226,47 +226,6 @@ error:
   return NULL;
 }
 
-/* Test-infra: thin wrappers around PyArg_ParseTuple for each numeric/string
- * format code.  Used by test_pyargs_oracle.py to verify that ginext's type
- * error messages match what CPython's argument parser produces.  These are
- * equivalent to _testcapi.getargs_<fmt> but live here so the oracle tests
- * run on release builds (no Py_DEBUG required).
- */
-#define GINEXT_GETARGS_INT(name, fmt, ctype, converter)                                            \
-  static PyObject *py_getargs_##name (PyObject *m, PyObject *args)                                 \
-  {                                                                                                \
-    ctype val;                                                                                     \
-    if (!PyArg_ParseTuple (args, fmt, &val))                                                       \
-      return NULL;                                                                                 \
-    return converter (val);                                                                        \
-  }
-
-GINEXT_GETARGS_INT (b, "b", signed char, PyLong_FromLong)
-GINEXT_GETARGS_INT (B, "B", unsigned char, PyLong_FromUnsignedLong)
-GINEXT_GETARGS_INT (h, "h", short, PyLong_FromLong)
-GINEXT_GETARGS_INT (H, "H", unsigned short, PyLong_FromUnsignedLong)
-GINEXT_GETARGS_INT (i, "i", int, PyLong_FromLong)
-GINEXT_GETARGS_INT (I, "I", unsigned int, PyLong_FromUnsignedLong)
-GINEXT_GETARGS_INT (l, "l", long, PyLong_FromLong)
-GINEXT_GETARGS_INT (L, "L", unsigned long long, PyLong_FromUnsignedLongLong)
-GINEXT_GETARGS_INT (n, "n", Py_ssize_t, PyLong_FromSsize_t)
-GINEXT_GETARGS_INT (k, "k", unsigned long, PyLong_FromUnsignedLong)
-GINEXT_GETARGS_INT (K, "K", unsigned long long, PyLong_FromUnsignedLongLong)
-GINEXT_GETARGS_INT (f, "f", float, PyFloat_FromDouble)
-GINEXT_GETARGS_INT (d, "d", double, PyFloat_FromDouble)
-
-#undef GINEXT_GETARGS_INT
-
-static PyObject *
-py_getargs_s (PyObject *m, PyObject *args)
-{
-  const char *val;
-  if (!PyArg_ParseTuple (args, "s", &val))
-    return NULL;
-  return PyUnicode_FromString (val);
-}
-
-
 /* Sorted by name — must stay in strcmp order for bsearch. */
 typedef struct
 {
@@ -357,20 +316,6 @@ static PyMethodDef methods[] = {
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
   { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
-  { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
-  { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
-  { "getargs_h", py_getargs_h, METH_VARARGS, NULL },
-  { "getargs_H", py_getargs_H, METH_VARARGS, NULL },
-  { "getargs_i", py_getargs_i, METH_VARARGS, NULL },
-  { "getargs_I", py_getargs_I, METH_VARARGS, NULL },
-  { "getargs_l", py_getargs_l, METH_VARARGS, NULL },
-  { "getargs_L", py_getargs_L, METH_VARARGS, NULL },
-  { "getargs_n", py_getargs_n, METH_VARARGS, NULL },
-  { "getargs_k", py_getargs_k, METH_VARARGS, NULL },
-  { "getargs_K", py_getargs_K, METH_VARARGS, NULL },
-  { "getargs_f", py_getargs_f, METH_VARARGS, NULL },
-  { "getargs_d", py_getargs_d, METH_VARARGS, NULL },
-  { "getargs_s", py_getargs_s, METH_VARARGS, NULL },
   { "require_namespace", py_require_namespace, METH_VARARGS, NULL },
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
