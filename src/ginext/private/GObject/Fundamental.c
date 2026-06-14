@@ -470,19 +470,3 @@ pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrappe
     }
   return pygi_fundamental_new ((PyTypeObject *)wrapper_type, instance, actual_gtype);
 }
-
-
-PyObject *
-py_instantiatable_unref (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *ptr_obj = NULL;
-  if (!PyArg_ParseTuple (args, "O", &ptr_obj))
-    return NULL;
-
-  gpointer instance = PyLong_AsVoidPtr (ptr_obj);
-  if (PyErr_Occurred ())
-    return NULL;
-  if (pygi_instantiatable_unref (instance, G_TYPE_INVALID) != 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
