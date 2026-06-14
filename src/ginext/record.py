@@ -112,26 +112,7 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
         _ensure_anonymous_union_storage(cls, obj)
         return cast("Self", obj)
 
-    def __eq__(self, other: object) -> bool:
-        if self.__class__ is not other.__class__:
-            return NotImplemented
-        return private.record_pointer_equal(self, other)
-
-    def __hash__(self) -> int:
-        return hash(private.record_pointer_value(self))
-
-    def __repr__(self) -> str:
-        module = (
-            type(self).__module__.removeprefix("ginext.").removeprefix("gi.repository.")
-        )
-        return (
-            f"<{module}.{type(self).__name__} object at 0x{id(self):x} "
-            f"({type(self).gimeta.type_name} at 0x{private.record_pointer_value(self):x})>"
-        )
-
     def __getattr__(self, name: str) -> object:
-        if name == "copy":
-            return types.MethodType(_record_copy, self)
         if name in type(self).gimeta.method_infos:
             found = install_method_for_record_class(type(self), name)
             if found is not None:
@@ -263,10 +244,6 @@ def _checked_instance_method(
         wrapper.__name__ = cls.__name__
         wrapper.__qualname__ = wrapper.__name__
     return wrapper
-
-
-def _record_copy(self: RecordBase) -> object:
-    return private.record_copy(self)
 
 
 def _ensure_anonymous_union_storage(cls: type[RecordBase], obj: object) -> None:
