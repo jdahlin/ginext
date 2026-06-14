@@ -30,13 +30,13 @@ are promoted to ``CompatNamespace`` get the extra attributes.
 from __future__ import annotations
 
 from ginext.namespace import Namespace
-from ginext.private import _gobject as _ginext_gobject
+from . import _repository_helpers
 
 
 class CompatNamespace(Namespace):
     def __repr__(self) -> str:
         try:
-            path = _ginext_gobject.namespace_get_typelib_path(self._name, self._version)
+            path = _repository_helpers.typelib_path(self._name, self._version)
             if path is not None:
                 return f"<module '{self.__name__}' from '{path}'>"
         except Exception:
@@ -46,7 +46,7 @@ class CompatNamespace(Namespace):
     @property  # type: ignore[override]
     def __path__(self) -> list[str]:
         try:
-            path = _ginext_gobject.namespace_get_typelib_path(self._name, self._version)
+            path = _repository_helpers.typelib_path(self._name, self._version)
             return [path] if path is not None else []
         except Exception:
             return []
