@@ -377,7 +377,7 @@ def test_command_line_options_dict_returns_variant_dict(Gio: Namespace) -> None:
         seen["has_version"] = options.contains("version")
         return 0
 
-    app.signal_for_name("command-line").connect(on_cli, owner=app)
+    app.command_line.connect(on_cli, owner=app)
     assert app.run(["prog", "--version"]) == 0
     assert seen["type"] == "VariantDict"
     assert seen["has_version"] is True

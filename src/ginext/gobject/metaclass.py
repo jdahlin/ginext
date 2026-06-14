@@ -53,6 +53,9 @@ def _gobjectmeta_getattr(cls: "GObjectMeta", name: str) -> object:
         if gimeta is not None:
             type_name = gimeta.type_name
             return compat_gtype_from_raw(int(gimeta.gtype), type_name)
+    if name == "Signal" and _is_root_gobject_class(cls):
+        from ..signal.descriptor import SignalDescriptor
+        return SignalDescriptor
     found = classbuild_module().install_method_for_class(cls, name)
     if found is not None:
         method, has_self = found

@@ -174,12 +174,9 @@ class _NotifyCompatProxy:
 
 
 def _notify_bound_signal(source: _gobject_root.GObject) -> _BoundSignal:
-    try:
-        return source.signal_for_name("notify")
-    except AttributeError:
-        info = GObject.Object.gimeta.signal_infos["notify"]
-        method = GObject.Object.gimeta.signal_method_backings.get("notify")
-        return _BoundSignal(source, "notify", cast("Any", info), method)
+    info = GObject.Object.gimeta.signal_infos["notify"]
+    method = GObject.Object.gimeta.signal_method_backings.get("notify")
+    return _BoundSignal(source, "notify", cast("Any", info), method)
 
 
 @overlay.method("Object")
