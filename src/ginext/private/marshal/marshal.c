@@ -1066,15 +1066,7 @@ struct_snapshot_field_to_py (GITypeInfo *fti, char *base, size_t offset)
 static PyObject *
 struct_snapshot_to_py (GIBaseInfo *iface, GIArgument *arg)
 {
-  PyObject *types_mod = PyImport_ImportModule ("types");
-  if (types_mod == NULL)
-    return NULL;
-  PyObject *sns_cls = PyObject_GetAttrString (types_mod, "SimpleNamespace");
-  Py_DECREF (types_mod);
-  if (sns_cls == NULL)
-    return NULL;
-  PyObject *wrapper = PyObject_CallObject (sns_cls, NULL);
-  Py_DECREF (sns_cls);
+  PyObject *wrapper = PyDict_New ();
   if (wrapper == NULL)
     return NULL;
 
@@ -1100,7 +1092,7 @@ struct_snapshot_to_py (GIBaseInfo *iface, GIArgument *arg)
             }
           continue;
         }
-      if (PyObject_SetAttrString (wrapper, fname, val) < 0)
+      if (PyDict_SetItemString (wrapper, fname, val) < 0)
         {
           Py_DECREF (val);
           Py_DECREF (wrapper);

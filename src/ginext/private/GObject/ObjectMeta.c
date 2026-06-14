@@ -13,19 +13,6 @@
 #include "common.h"
 #include "GObject/ObjectMeta.h"
 
-/* Python bodies the slots delegate to, registered at bootstrap. */
-static PyObject *meta_cb_getattr = NULL;
-static PyObject *meta_cb_dir = NULL;
-
-void
-pygi_gobjectmeta_set_hooks (PyObject *meta_getattr, PyObject *meta_dir)
-{
-  if (meta_getattr != NULL)
-    Py_XSETREF (meta_cb_getattr, Py_NewRef (meta_getattr));
-  if (meta_dir != NULL)
-    Py_XSETREF (meta_cb_dir, Py_NewRef (meta_dir));
-}
-
 /* `Signal` is exposed only on the root GObject.Object (which carries
  * "_gobject_is_root" in its own __dict__); subclasses must use GObject.Signal.
  * The gate runs before normal lookup because Signal is otherwise inherited. */
@@ -60,10 +47,16 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
   PyObject *result = PyType_Type.tp_getattro (cls, name);
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;
-  if (meta_cb_getattr == NULL)
-    return NULL; /* keep the AttributeError */
   PyErr_Clear ();
-  return PyObject_CallFunctionObjArgs (meta_cb_getattr, cls, name, NULL);
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *metaclass_mod
+      = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
+  if (metaclass_mod == NULL)
+    {
+      PyErr_SetObject (PyExc_AttributeError, name);
+      return NULL;
+    }
+  return PyObject_CallMethod (metaclass_mod, "_gobjectmeta_getattr", "OO", cls, name);
 }
 
 /* __dir__: delegate to the registered body (which augments type.__dir__ with the
@@ -72,8 +65,11 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
 static PyObject *
 gobjectmeta_dir (PyObject *cls, PyObject *Py_UNUSED (ignored))
 {
-  if (meta_cb_dir != NULL)
-    return PyObject_CallFunctionObjArgs (meta_cb_dir, cls, NULL);
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *metaclass_mod
+      = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
+  if (metaclass_mod != NULL)
+    return PyObject_CallMethod (metaclass_mod, "_gobjectmeta_dir", "O", cls);
   PyObject *type_dir = PyObject_GetAttrString ((PyObject *)&PyType_Type, "__dir__");
   if (type_dir == NULL)
     return NULL;

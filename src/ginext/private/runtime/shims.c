@@ -20,6 +20,7 @@
 #include "GLib/List.h"
 #include "GLib/Variant.h"
 #include "GObject/Boxed.h"
+#include "GObject/GIMeta.h"
 #include "GObject/Closure.h"
 #include "GObject/Object.h"
 #include "GObject/Object-class.h"
@@ -196,7 +197,10 @@ profile_name_from_object (PyObject *obj)
         }
       if (gimeta != NULL)
         {
-          profile = PyObject_GetAttrString (gimeta, "profile");
+          if (PyObject_TypeCheck (gimeta, &GIMetaType))
+            profile = Py_XNewRef (((GIMetaObject *)gimeta)->profile);
+          else
+            profile = PyObject_GetAttrString (gimeta, "profile");
           Py_DECREF (gimeta);
         }
       if (profile == NULL)
@@ -2775,89 +2779,65 @@ reverse_callback_new (PyObject *namespace,
 static int
 callback_inspect_arity (PyObject *callable)
 {
-  static PyObject *signature_fn = NULL;
-  static PyObject *pos_only_kind = NULL;
-  static PyObject *pos_or_kw_kind = NULL;
-  static PyObject *var_pos_kind = NULL;
-  if (signature_fn == NULL)
-    {
-      PyObject *mod = PyImport_ImportModule ("inspect");
-      if (mod == NULL)
-        {
-          PyErr_Clear ();
-          return -1;
-        }
-      signature_fn = PyObject_GetAttrString (mod, "signature");
-      PyObject *param_cls = PyObject_GetAttrString (mod, "Parameter");
-      Py_DECREF (mod);
-      if (param_cls != NULL)
-        {
-          pos_only_kind = PyObject_GetAttrString (param_cls, "POSITIONAL_ONLY");
-          pos_or_kw_kind = PyObject_GetAttrString (param_cls, "POSITIONAL_OR_KEYWORD");
-          var_pos_kind = PyObject_GetAttrString (param_cls, "VAR_POSITIONAL");
-          Py_DECREF (param_cls);
-        }
-      if (signature_fn == NULL || pos_only_kind == NULL || pos_or_kw_kind == NULL
-          || var_pos_kind == NULL)
-        {
-          PyErr_Clear ();
-          return -1;
-        }
-    }
-  PyObject *sig = PyObject_CallOneArg (signature_fn, callable);
-  if (sig == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  PyObject *params = PyObject_GetAttrString (sig, "parameters");
-  Py_DECREF (sig);
-  if (params == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  PyObject *values = PyObject_CallMethod (params, "values", NULL);
-  Py_DECREF (params);
-  if (values == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  PyObject *iter = PyObject_GetIter (values);
-  Py_DECREF (values);
-  if (iter == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  int arity = 0;
-  PyObject *item;
-  while ((item = PyIter_Next (iter)))
-    {
-      PyObject *kind = PyObject_GetAttrString (item, "kind");
-      Py_DECREF (item);
-      if (kind == NULL)
-        break;
-      if (kind == var_pos_kind)
-        {
-          Py_DECREF (kind);
-          arity = -1;
-          break;
-        }
-      if (kind == pos_only_kind || kind == pos_or_kw_kind)
-        arity++;
-      Py_DECREF (kind);
-    }
-  Py_DECREF (iter);
-  if (PyErr_Occurred ())
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  return arity;
-}
+  PyObject *func = callable;
+  int is_bound = 0;
 
+  /* Unwrap bound method — self counts as one positional arg. */
+  if (PyMethod_Check (callable))
+    {
+      func = PyMethod_GET_FUNCTION (callable);
+      is_bound = 1;
+    }
+
+  if (!PyFunction_Check (func))
+    {
+      /* Try __wrapped__ for decorated functions. */
+      PyObject *wrapped = PyObject_GetAttrString (func, "__wrapped__");
+      if (wrapped != NULL)
+        {
+          int result = callback_inspect_arity (wrapped);
+          Py_DECREF (wrapped);
+          return result;
+        }
+      PyErr_Clear ();
+      return -1;
+    }
+
+  PyObject *code = PyFunction_GET_CODE (func); /* borrowed */
+  PyObject *argcount_obj = PyObject_GetAttrString (code, "co_argcount");
+  if (argcount_obj == NULL)
+    {
+      PyErr_Clear ();
+      return -1;
+    }
+  long argcount = PyLong_AsLong (argcount_obj);
+  Py_DECREF (argcount_obj);
+  if (argcount < 0)
+    {
+      PyErr_Clear ();
+      return -1;
+    }
+
+  PyObject *flags_obj = PyObject_GetAttrString (code, "co_flags");
+  if (flags_obj == NULL)
+    {
+      PyErr_Clear ();
+      return -1;
+    }
+  long flags = PyLong_AsLong (flags_obj);
+  Py_DECREF (flags_obj);
+  if (flags < 0)
+    {
+      PyErr_Clear ();
+      return -1;
+    }
+
+  /* CO_VARARGS = 0x04 — callable accepts *args, arity is unlimited. */
+  if (flags & 0x04)
+    return -1;
+
+  return (int)(argcount - is_bound);
+}
 static PyObject *
 callback_bound_arg_gtypes_obj (PyObject *callable)
 {

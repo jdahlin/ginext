@@ -15,6 +15,7 @@
  */
 
 #include "marshal/conversion.h"
+#include "GObject/GIMeta.h"
 
 int
 pygi_gtype_from_gimeta_attr (PyObject *obj, GType *out)
@@ -24,6 +25,13 @@ pygi_gtype_from_gimeta_attr (PyObject *obj, GType *out)
   Py_DECREF (type_obj);
   if (gimeta == NULL)
     return -1;
+
+  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+    {
+      *out = ((GIMetaObject *)gimeta)->gtype;
+      Py_DECREF (gimeta);
+      return 0;
+    }
 
   PyObject *gtype_obj = PyObject_GetAttrString (gimeta, "gtype");
   Py_DECREF (gimeta);

@@ -31,45 +31,40 @@ build_named_pair_namespace (const char *name0,
                             const char *name1,
                             PyObject *value1)
 {
-  PyObject *types_mod = PyImport_ImportModule ("types");
-  PyObject *sns_cls;
-  PyObject *args;
-  PyObject *kwargs;
-  PyObject *result;
-
-  if (types_mod == NULL)
-    return NULL;
-  sns_cls = PyObject_GetAttrString (types_mod, "SimpleNamespace");
-  Py_DECREF (types_mod);
+  /* width/height-style results are consumed via attribute access (.height) and
+   * by compat overrides, so they must stay SimpleNamespace instances. The class
+   * is cached on first use to avoid re-importing `types` on the hot path. */
+  static PyObject *sns_cls = NULL;
   if (sns_cls == NULL)
-    return NULL;
+    {
+      PyObject *types_mod = PyImport_ImportModule ("types");
+      if (types_mod == NULL)
+        return NULL;
+      sns_cls = PyObject_GetAttrString (types_mod, "SimpleNamespace");
+      Py_DECREF (types_mod);
+      if (sns_cls == NULL)
+        return NULL;
+    }
 
-  kwargs = PyDict_New ();
+  PyObject *kwargs = PyDict_New ();
   if (kwargs == NULL)
-    {
-      Py_DECREF (sns_cls);
-      return NULL;
-    }
-  if (PyDict_SetItemString (kwargs, name0, (PyObject *)(void *)(value0)) < 0
-      || PyDict_SetItemString (kwargs, name1, (PyObject *)(void *)(value1)) < 0)
+    return NULL;
+  if (PyDict_SetItemString (kwargs, name0, value0) < 0
+      || PyDict_SetItemString (kwargs, name1, value1) < 0)
     {
       Py_DECREF (kwargs);
-      Py_DECREF (sns_cls);
       return NULL;
     }
-
-  args = PyTuple_New (0);
-  if (args == NULL)
+  PyObject *empty = PyTuple_New (0);
+  if (empty == NULL)
     {
       Py_DECREF (kwargs);
-      Py_DECREF (sns_cls);
       return NULL;
     }
-  result = PyObject_Call (sns_cls, args, kwargs);
-  Py_DECREF (args);
+  PyObject *result = PyObject_Call (sns_cls, empty, kwargs);
+  Py_DECREF (empty);
   Py_DECREF (kwargs);
-  Py_DECREF (sns_cls);
-  return result != NULL ? (PyObject *)(result) : NULL;
+  return result;
 }
 
 static PyObject *
