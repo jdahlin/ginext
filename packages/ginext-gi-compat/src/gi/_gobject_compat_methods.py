@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import ginext
 from ginext import features
-from ginext.gobject.gobjectclass import _compat_dispose_state
+from ginext.gobject.gobjectclass import _compat_dispose_state, _obj_signal_for_name
 from ginext.gobject.properties import call_notify_override
 from ginext.overlay.registrar import OverlayRegistrar
 from ginext.signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
@@ -284,17 +284,11 @@ class _ParamSpecWrapper:
         object.__setattr__(self, "_pspec", pspec)
         object.__setattr__(self, "_owner_cls", owner_cls)
 
-    def _get_pspec_pointer(self) -> int:
-        import ctypes
-        pspec = object.__getattribute__(self, "_pspec")
-        return ctypes.c_ulong.from_address(id(pspec) + 32).value
-
     def _get_numeric_info(self) -> "dict | None":
         try:
             from ginext import private
-            ptr = self._get_pspec_pointer()
-            if ptr:
-                return private.param_spec_numeric_info(ptr)
+            pspec = object.__getattribute__(self, "_pspec")
+            return private.param_spec_numeric_info(pspec)
         except Exception:
             pass
         return None
@@ -427,7 +421,6 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
     hyphen_name = name.replace("_", "-")
     underscore_name = hyphen_name.replace("-", "_")
     try:
-        from ginext.gobject.gobjectclass import _obj_signal_for_name
         return cast("_BoundSignal", _obj_signal_for_name(self, hyphen_name))
     except AttributeError:
         pass
