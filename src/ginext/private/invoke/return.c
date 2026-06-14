@@ -70,24 +70,22 @@ build_named_pair_namespace (const char *name0,
 static PyObject *
 build_result_tuple_type (PyObject *names)
 {
-  PyObject *gi_mod = PyImport_ImportModule ("ginext.runtime");
-  PyObject *result_tuple_base;
-  PyObject *new_type;
-  PyObject *result;
-
-  if (gi_mod == NULL)
-    return NULL;
-  result_tuple_base = PyObject_GetAttrString (gi_mod, "ResultTuple");
-  Py_DECREF (gi_mod);
-  if (result_tuple_base == NULL)
-    return NULL;
-  new_type = PyObject_GetAttrString (result_tuple_base, "_new_type");
-  Py_DECREF (result_tuple_base);
+  static PyObject *new_type = NULL;
   if (new_type == NULL)
-    return NULL;
-  result = PyObject_CallOneArg (new_type, names);
-  Py_DECREF (new_type);
-  return result;
+    {
+      PyObject *mod = PyImport_ImportModule ("ginext.runtime");
+      if (mod == NULL)
+        return NULL;
+      PyObject *base = PyObject_GetAttrString (mod, "ResultTuple");
+      Py_DECREF (mod);
+      if (base == NULL)
+        return NULL;
+      new_type = PyObject_GetAttrString (base, "_new_type");
+      Py_DECREF (base);
+      if (new_type == NULL)
+        return NULL;
+    }
+  return PyObject_CallOneArg (new_type, names);
 }
 
 static PyObject *

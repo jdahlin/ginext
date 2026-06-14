@@ -171,20 +171,22 @@ pygi_gerror_to_py (GError *err)
   if (err == NULL)
     Py_RETURN_NONE;
 
-  PyObject *module = PyImport_ImportModule ("ginext.errors");
-  if (module == NULL)
-    return NULL;
-  PyObject *factory = PyObject_GetAttrString (module, "_exception_from_gerror");
-  Py_DECREF (module);
+  static PyObject *factory = NULL;
   if (factory == NULL)
-    return NULL;
-  PyObject *result = PyObject_CallFunction (factory,
-                                            "kis",
-                                            (unsigned long)err->domain,
-                                            (int)err->code,
-                                            err->message);
-  Py_DECREF (factory);
-  return result;
+    {
+      PyObject *module = PyImport_ImportModule ("ginext.errors");
+      if (module == NULL)
+        return NULL;
+      factory = PyObject_GetAttrString (module, "_exception_from_gerror");
+      Py_DECREF (module);
+      if (factory == NULL)
+        return NULL;
+    }
+  return PyObject_CallFunction (factory,
+                                "kis",
+                                (unsigned long)err->domain,
+                                (int)err->code,
+                                err->message);
 }
 
 static PyObject *
