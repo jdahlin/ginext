@@ -48,15 +48,21 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;
   PyErr_Clear ();
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *metaclass_mod
-      = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
-  if (metaclass_mod == NULL)
+  static PyObject *getattr_fn = NULL;
+  if (getattr_fn == NULL)
+    {
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *mod
+          = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
+      if (mod != NULL)
+        getattr_fn = PyObject_GetAttrString (mod, "_gobjectmeta_getattr");
+    }
+  if (getattr_fn == NULL)
     {
       PyErr_SetObject (PyExc_AttributeError, name);
       return NULL;
     }
-  return PyObject_CallMethod (metaclass_mod, "_gobjectmeta_getattr", "OO", cls, name);
+  return PyObject_CallFunctionObjArgs (getattr_fn, cls, name, NULL);
 }
 
 /* __dir__: delegate to the registered body (which augments type.__dir__ with the
@@ -65,11 +71,17 @@ gobjectmeta_getattro (PyObject *cls, PyObject *name)
 static PyObject *
 gobjectmeta_dir (PyObject *cls, PyObject *Py_UNUSED (ignored))
 {
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *metaclass_mod
-      = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
-  if (metaclass_mod != NULL)
-    return PyObject_CallMethod (metaclass_mod, "_gobjectmeta_dir", "O", cls);
+  static PyObject *dir_fn = NULL;
+  if (dir_fn == NULL)
+    {
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *mod
+          = modules ? PyDict_GetItemString (modules, "ginext.gobject.metaclass") : NULL;
+      if (mod != NULL)
+        dir_fn = PyObject_GetAttrString (mod, "_gobjectmeta_dir");
+    }
+  if (dir_fn != NULL)
+    return PyObject_CallOneArg (dir_fn, cls);
   PyObject *type_dir = PyObject_GetAttrString ((PyObject *)&PyType_Type, "__dir__");
   if (type_dir == NULL)
     return NULL;
