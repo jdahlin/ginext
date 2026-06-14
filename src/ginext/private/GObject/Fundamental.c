@@ -17,6 +17,7 @@
 #include "GObject/Fundamental.h"
 
 #include "common.h"
+#include "marshal/conversion.h"
 #include "marshal/enum.h"
 
 
@@ -282,53 +283,11 @@ fundamental_get_field (PyGIFundamental *self, const char *name)
   size_t offset = (size_t)gi_field_info_get_offset (field);
   gi_base_info_unref ((GIBaseInfo *)field);
 
-  char *base = (char *)self->instance;
-  GITypeTag tag = gi_type_info_get_tag (fti);
-
-  switch (tag)
-    {
-    case GI_TYPE_TAG_INT8:
-      return PyLong_FromLong (*(gint8 *)(base + offset));
-    case GI_TYPE_TAG_UINT8:
-      return PyLong_FromUnsignedLong (*(guint8 *)(base + offset));
-    case GI_TYPE_TAG_INT16:
-      return PyLong_FromLong (*(gint16 *)(base + offset));
-    case GI_TYPE_TAG_UINT16:
-      return PyLong_FromUnsignedLong (*(guint16 *)(base + offset));
-    case GI_TYPE_TAG_INT32:
-      return PyLong_FromLong (*(gint32 *)(base + offset));
-    case GI_TYPE_TAG_UINT32:
-      return PyLong_FromUnsignedLong (*(guint32 *)(base + offset));
-    case GI_TYPE_TAG_INT64:
-      return PyLong_FromLongLong (*(gint64 *)(base + offset));
-    case GI_TYPE_TAG_UINT64:
-      return PyLong_FromUnsignedLongLong (*(guint64 *)(base + offset));
-    case GI_TYPE_TAG_FLOAT:
-      return PyFloat_FromDouble (*(gfloat *)(base + offset));
-    case GI_TYPE_TAG_DOUBLE:
-      return PyFloat_FromDouble (*(gdouble *)(base + offset));
-    case GI_TYPE_TAG_BOOLEAN:
-      return PyBool_FromLong (*(gboolean *)(base + offset));
-    case GI_TYPE_TAG_GTYPE:
-      return PyLong_FromUnsignedLongLong (*(GType *)(base + offset));
-    case GI_TYPE_TAG_UTF8:
-    case GI_TYPE_TAG_FILENAME:
-      {
-        const char *str = *(const char **)(base + offset);
-        if (str == NULL)
-          Py_RETURN_NONE;
-        return PyUnicode_FromString (str);
-      }
-    case GI_TYPE_TAG_VOID:
-      {
-        gpointer ptr = *(gpointer *)(base + offset);
-        if (ptr == NULL)
-          Py_RETURN_NONE;
-        return PyLong_FromVoidPtr (ptr);
-      }
-    default:
-      return NULL;
-    }
+  PyGIType type;
+  if (pygi_type_from_gi (fti, &type) != 0)
+    return NULL;
+  PyGIValue val = pygi_value_for_memory (&type, (char *)self->instance + offset);
+  return pygi_value_to_py (&val);
 }
 
 static void
