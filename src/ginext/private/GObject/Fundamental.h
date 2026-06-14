@@ -24,9 +24,34 @@
 typedef gpointer (*PyGIRefFunc) (gpointer instance);
 typedef void (*PyGIUnrefFunc) (gpointer instance);
 
-/* Register custom ref/unref functions for a GType whose lifecycle functions
- * are not annotated in the GIR (e.g. GIBaseInfo). Must be called before any
- * attempt to ref/unref an instance of that type via pygi_instantiatable_ref. */
+typedef struct
+{
+  PyObject_HEAD
+  gpointer instance;
+  GType gtype;
+} PyGIFundamental;
+
+extern PyTypeObject *PyGIFundamental_Type;
+
+static inline int
+pygi_fundamental_check (PyObject *obj)
+{
+  return obj != NULL && PyGIFundamental_Type != NULL
+         && PyObject_TypeCheck (obj, PyGIFundamental_Type);
+}
+
+static inline gpointer
+pygi_fundamental_get_instance (PyObject *obj)
+{
+  return ((PyGIFundamental *)obj)->instance;
+}
+
+static inline GType
+pygi_fundamental_get_gtype (PyObject *obj)
+{
+  return ((PyGIFundamental *)obj)->gtype;
+}
+
 void
 pygi_register_lifecycle_funcs (GType gtype, PyGIRefFunc ref_func, PyGIUnrefFunc unref_func);
 
@@ -34,7 +59,21 @@ int
 pygi_instantiatable_ref (gpointer instance, GType gtype, gpointer *out_instance);
 int
 pygi_instantiatable_unref (gpointer instance, GType gtype);
+
+PyObject *
+pygi_fundamental_new (PyTypeObject *type, gpointer instance, GType gtype);
+
 PyObject *
 pygi_fundamental_to_py (gpointer instance, GITransfer transfer, PyObject *wrapper_factory);
+
+void
+pygi_fundamental_set_getattr_hook (PyObject *hook);
+
 PyObject *
 py_instantiatable_unref (PyObject *module, PyObject *args);
+PyObject *
+py_fundamental_from_pointer (PyObject *module, PyObject *args);
+PyObject *
+py_fundamental_init_hooks (PyObject *module, PyObject *args);
+int
+pygi_fundamental_type_init (void);

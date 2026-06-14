@@ -424,6 +424,20 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
     return pygi_flags_info_from_py (h, out);
   else if (GI_IS_ENUM_INFO (iface))
     return pygi_enum_info_from_py (h, out);
+  /* Unresolved (Vala-emitted class-nested callback in GIR but not typelib):
+     accept None as NULL; any other value cannot be marshalled. */
+  if (GI_IS_UNRESOLVED_INFO (iface))
+    {
+      if (h == Py_None)
+        {
+          out->v_pointer = NULL;
+          return 0;
+        }
+      PyErr_Format (PyExc_TypeError,
+                    "argument type is unresolved (Vala callback not in typelib); "
+                    "only None is accepted");
+      return -1;
+    }
   /* Callback: accept None as NULL, otherwise unsupported. */
   if (GI_IS_CALLBACK_INFO (iface))
     {

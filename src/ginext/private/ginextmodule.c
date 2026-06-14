@@ -23,6 +23,7 @@
 #include "common.h"
 #include "GObject/Closure.h"
 #include "GObject/DeclaredProperty.h"
+#include "GObject/Fundamental.h"
 #include "GObject/Object-info.h"
 #include "GObject/Object-weakref.h"
 #include "GObject/Object.h"
@@ -63,6 +64,10 @@ extern PyObject *
 py_record_field_get (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_field_set (PyObject *m, PyObject *args);
+extern PyObject *
+py_fundamental_from_pointer (PyObject *m, PyObject *args);
+extern PyObject *
+py_fundamental_init_hooks (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_ensure_size (PyObject *m, PyObject *args);
 extern PyObject *
@@ -323,6 +328,10 @@ static PyMethodDef methods[] = {
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
   /* keep: boxed field write marshalling primitive */
   { "record_field_set", py_record_field_set, METH_VARARGS, NULL },
+  /* keep: create a fundamental wrapper from a raw pointer (called from classbuild) */
+  { "fundamental_from_pointer", py_fundamental_from_pointer, METH_VARARGS, NULL },
+  /* keep: register Python-side hooks for the Fundamental C type (bootstrap) */
+  { "fundamental_init_hooks", py_fundamental_init_hooks, METH_VARARGS, NULL },
   /* keep: anonymous-union storage sizing (memory primitive) */
   { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
   /* keep: raw memory read for anonymous unions */
@@ -522,5 +531,19 @@ PyInit__gobject (void)
       Py_DECREF (m);
       return NULL;
     }
+
+  if (pygi_fundamental_type_init () < 0)
+    {
+      Py_DECREF (m);
+      return NULL;
+    }
+  Py_INCREF ((PyObject *)PyGIFundamental_Type);
+  if (PyModule_AddObject (m, "Fundamental", (PyObject *)PyGIFundamental_Type) < 0)
+    {
+      Py_DECREF ((PyObject *)PyGIFundamental_Type);
+      Py_DECREF (m);
+      return NULL;
+    }
+
   return m;
 }

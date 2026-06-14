@@ -686,6 +686,7 @@ type_info_is_supported (GITypeInfo *type_info, gboolean allow_void)
                && (GI_IS_OBJECT_INFO (iface) || GI_IS_INTERFACE_INFO (iface)
                    || GI_IS_ENUM_INFO (iface) || GI_IS_FLAGS_INFO (iface)
                    || GI_IS_STRUCT_INFO (iface) || GI_IS_UNION_INFO (iface)
+                   || GI_IS_UNRESOLVED_INFO (iface)
                    || (GI_IS_CALLBACK_INFO (iface)
                        && callback_info_is_supported ((GICallableInfo *)iface)));
       }

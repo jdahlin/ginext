@@ -4,55 +4,48 @@
     "version": "0.7",
     "qualified": "Folks.Persona.linkable_property_to_links",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Folks.PersonaLinkablePropertyCallback) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Kkc",
     "version": "1.0",
     "qualified": "Kkc.DictionaryList.call",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Kkc.DictionaryListDictionaryCallback) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Unity",
     "version": "7.0",
     "qualified": "Unity.SimpleScope.set_activate_func",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Unity.SimpleScopeActivateFunc) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Unity",
     "version": "7.0",
     "qualified": "Unity.SimpleScope.set_preview_async_func",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Unity.SimpleScopePreviewRunAsyncFunc) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Unity",
     "version": "7.0",
     "qualified": "Unity.SimpleScope.set_preview_func",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Unity.SimpleScopePreviewRunFunc) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Unity",
     "version": "7.0",
     "qualified": "Unity.SimpleScope.set_search_async_func",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Unity.SimpleScopeSearchRunAsyncFunc) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   },
   {
     "namespace": "Unity",
     "version": "7.0",
     "qualified": "Unity.SimpleScope.set_search_func",
     "kind": "object-method",
-    "is_gtk3": false,
-    "skip_reason": "callback type (Unity.SimpleScopeSearchRunFunc) is a class-nested callback emitted by Vala in the GIR XML but not compiled into the .typelib, so libgirepository resolves it to GIUnresolvedInfo and we cannot build an ffi closure for its signature"
+    "is_gtk3": false
   }
 ]
