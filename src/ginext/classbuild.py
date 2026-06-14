@@ -362,7 +362,7 @@ def wrapper_type_for_gtype(gtype: int, context: object | None = None) -> type:
         data["version"],
         profile=profile,
     )
-    cls = getattr(namespace, data["name"])
+    cls: type = getattr(namespace, data["name"])
     if issubclass(cls, GObject):
         return cls
     if issubclass(cls, GInterface):
