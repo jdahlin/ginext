@@ -31,7 +31,7 @@ from ginext.gobject.gobjectclass import GInterface as _GInterface
 from ginext.gobject.gtype import GType
 from ginext.gobject.gtype import compat_gtype_from_raw
 from ginext.gobject.resolve import own_gimeta
-from ginext.enum import GIEnum, GIFlags
+from ginext.enum import GIEnum, GIFlags, GEnum as _GEnum, GFlags as _GFlags
 from ginext.namespace import Namespace
 from gi._compat_namespace import CompatNamespace
 from ginext.signal.connection import SignalConnection
@@ -131,8 +131,6 @@ _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
 
 
 def _install_genum_compat_properties() -> None:
-    from ginext.enum import GEnum as _GEnum, GFlags as _GFlags
-
     def _value_name(self: GIEnum) -> str:
         return getattr(type(self), "_value_names", {}).get(int(self), self.name)
 
@@ -167,15 +165,52 @@ def _install_genum_compat_properties() -> None:
 
     _GEnum.value_name = property(_value_name)  # type: ignore[attr-defined]
     _GEnum.value_nick = property(_value_nick)  # type: ignore[attr-defined]
+    GIEnum.value_name = property(_value_name)  # type: ignore[attr-defined]
+    GIEnum.value_nick = property(_value_nick)  # type: ignore[attr-defined]
     _GFlags.value_names = property(_value_names)  # type: ignore[attr-defined]
     _GFlags.value_nicks = property(_value_nicks)  # type: ignore[attr-defined]
     _GFlags.first_value_name = property(_first_value_name)  # type: ignore[attr-defined]
     _GFlags.first_value_nick = property(_first_value_nick)  # type: ignore[attr-defined]
+    GIFlags.value_names = property(_value_names)  # type: ignore[attr-defined]
+    GIFlags.value_nicks = property(_value_nicks)  # type: ignore[attr-defined]
+    GIFlags.first_value_name = property(_first_value_name)  # type: ignore[attr-defined]
+    GIFlags.first_value_nick = property(_first_value_nick)  # type: ignore[attr-defined]
+
+    # Make ginext.GEnum virtually include GIEnum subclasses so that
+    # issubclass(GIMarshallingTests.GEnum, GObject.GEnum) works even though
+    # introspected GEnum types inherit GIEnum rather than ginext.GEnum.
+    # GIFlags subclasses that lack a GType (e.g. NoTypeFlags) are explicitly
+    # excluded from GFlags so test_flags_has_no_gtype remains green.
+    _GEnumMeta = type(_GEnum)
+    _GFlagsMeta = type(_GFlags)
+
+    def _genum_subclasscheck(self: type, C: type) -> bool:
+        # self is the class being checked against (an instance of _GEnumMeta)
+        if self is _GEnum:
+            try:
+                if type.__subclasscheck__(GIEnum, C):
+                    return True
+            except TypeError:
+                pass
+        return type.__subclasscheck__(self, C)
+
+    def _gflags_subclasscheck(self: type, C: type) -> bool:
+        if self is _GFlags:
+            try:
+                if type.__subclasscheck__(GIFlags, C) and "__gtype__" in vars(C):
+                    return True
+            except TypeError:
+                pass
+        return type.__subclasscheck__(self, C)
+
+    _GEnumMeta.__subclasscheck__ = _genum_subclasscheck  # type: ignore[attr-defined]
+    _GFlagsMeta.__subclasscheck__ = _gflags_subclasscheck  # type: ignore[attr-defined]
 
 
 _install_genum_compat_properties()
-GEnum = GIEnum
-GFlags = GIFlags
+
+GEnum = _GEnum  # type: ignore[assignment]
+GFlags = _GFlags  # type: ignore[assignment]
 
 # Register the pygobject-compat GObject.Object overlays early so they are
 # installed when GObject.Object is built (regardless of whether gi.repository.GObject
