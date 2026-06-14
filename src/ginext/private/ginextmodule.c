@@ -125,8 +125,6 @@ py_gvalue_new_for_gtype (PyObject *m, PyObject *args);
 extern PyObject *
 py_gstrv_get_type (PyObject *m, PyObject *args);
 extern PyObject *
-py_gerror_get_type (PyObject *m, PyObject *args);
-extern PyObject *
 py_ensure_cairo_gobject_types (PyObject *m, PyObject *args);
 extern PyObject *
 py_type_has_value_table (PyObject *m, PyObject *args);
@@ -329,7 +327,6 @@ static PyMethodDef methods[] = {
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },
-  { "gerror_get_type", py_gerror_get_type, METH_VARARGS, NULL },
   { "ensure_cairo_gobject_types", py_ensure_cairo_gobject_types, METH_VARARGS, NULL },
   { "type_has_value_table", py_type_has_value_table, METH_VARARGS, NULL },
   { "register_static", py_register_static, METH_VARARGS, NULL },

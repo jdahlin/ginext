@@ -270,7 +270,9 @@ def _value_gtype_info(namespace: Namespace, g_type: object) -> tuple[Any, str | 
             gimeta, "type_name", None
         )
         if g_type is getattr(ginext.GLib, "Error", None):
-            return int(ginext.private.gerror_get_type()), "GError"
+            from gi import _repository_helpers
+
+            return _repository_helpers.gerror_gtype(), "GError"
         # Prefer gimeta.gtype (own GType) over __gtype__ which may be inherited
         if gimeta is not None and hasattr(gimeta, "gtype"):
             return gimeta.gtype, type_name
@@ -731,7 +733,9 @@ def _resolve_gtype_for_compat(arg: object) -> int:
 
 def _gobject_type_from_name(name: str) -> object:
     if name == "GError":
-        return compat_gtype_from_raw(int(ginext.private.gerror_get_type()), "GError")
+        from gi import _repository_helpers
+
+        return compat_gtype_from_raw(_repository_helpers.gerror_gtype(), "GError")
     result = ginext.GObject.type_from_name(name)
     raw = int(result) if result is not None else 0
     if raw == 0:

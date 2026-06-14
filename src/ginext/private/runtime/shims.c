@@ -562,15 +562,6 @@ py_gstrv_get_type (PyObject *m, PyObject *args)
 }
 
 PyObject *
-py_gerror_get_type (PyObject *m, PyObject *args)
-{
-  (void)m;
-  if (!PyArg_ParseTuple (args, ""))
-    return NULL;
-  return PyLong_FromUnsignedLongLong ((unsigned long long)G_TYPE_ERROR);
-}
-
-PyObject *
 py_ensure_cairo_gobject_types (PyObject *m, PyObject *args)
 {
   (void)m;
