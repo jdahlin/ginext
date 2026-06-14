@@ -18,6 +18,8 @@
 
 #include <Python.h>
 
+#include "GObject/hooks.h"
+
 #include <glib.h>
 
 PyObject *
@@ -36,24 +38,18 @@ pygi_raise_gerror (GError *error)
     }
 
   const char *message = error->message != NULL ? error->message : "";
-  PyObject *module = PyImport_ImportModule ("ginext.errors");
-  if (module != NULL)
+  PyObject *factory = pygi_hook_last (pygi_hook_exception_from_gerror);
+  if (factory != NULL)
     {
-      PyObject *factory = PyObject_GetAttrString (module, "_exception_from_gerror");
-      Py_DECREF (module);
-      if (factory != NULL)
+      PyObject *instance = PyObject_CallFunction (factory,
+                                                  "kis",
+                                                  (unsigned long)error->domain,
+                                                  error->code,
+                                                  message);
+      if (instance != NULL)
         {
-          PyObject *instance = PyObject_CallFunction (factory,
-                                                      "kis",
-                                                      (unsigned long)error->domain,
-                                                      error->code,
-                                                      message);
-          Py_DECREF (factory);
-          if (instance != NULL)
-            {
-              PyErr_SetObject ((PyObject *)Py_TYPE (instance), instance);
-              Py_DECREF (instance);
-            }
+          PyErr_SetObject ((PyObject *)Py_TYPE (instance), instance);
+          Py_DECREF (instance);
         }
     }
 

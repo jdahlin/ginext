@@ -90,7 +90,6 @@ def _compat_finalize_dispose(self: Any) -> None:
     if dispose_state:
         _compat_dispose_state[id(self)] = dispose_state
     try:
-        self.bind_from_c(self)
         base.run_dispose(self)
     except (AttributeError, RuntimeError, TypeError, ValueError):
         pass

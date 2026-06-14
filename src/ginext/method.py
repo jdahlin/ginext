@@ -46,6 +46,10 @@ class _PackedUserData(tuple[object, ...]):
     __slots__ = ()
 
 
+from ginext import private as _private_hooks
+_private_hooks.register_hook("packed_user_data_type", _PackedUserData)
+
+
 def _keyword_only_message(name: str, after: int, given: int) -> str:
     plural = "" if after == 1 else "s"
     return (

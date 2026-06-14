@@ -21,52 +21,37 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-
 class _GTypeCarrier:
     def __init__(self, gtype: object) -> None:
         self.__gtype__ = gtype
 
 
 def test_new_with_properties_accepts_gobject_class() -> None:
-    import ginext
     from ginext import Gio, GObject
 
-    ptr = GObject.new_with_properties(Gio.Cancellable, {})
-    assert isinstance(ptr, int)
-    assert ptr
-    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
+    obj = GObject.new_with_properties(Gio.Cancellable, {})
+    assert isinstance(obj, Gio.Cancellable)
 
 
 def test_new_with_properties_accepts_gtype_object() -> None:
-    import ginext
     from ginext import Gio, GObject
 
-    ptr = GObject.new_with_properties(Gio.Cancellable.gimeta.gtype, {})
-    assert isinstance(ptr, int)
-    assert ptr
-    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
+    obj = GObject.new_with_properties(Gio.Cancellable.gimeta.gtype, {})
+    assert isinstance(obj, Gio.Cancellable)
 
 
 def test_new_with_properties_accepts_object_with_gtype() -> None:
-    import ginext
     from ginext import Gio, GObject
 
-    ptr = GObject.new_with_properties(_GTypeCarrier(Gio.Cancellable.gimeta.gtype), {})
-    assert isinstance(ptr, int)
-    assert ptr
-    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
+    obj = GObject.new_with_properties(_GTypeCarrier(Gio.Cancellable.gimeta.gtype), {})
+    assert isinstance(obj, Gio.Cancellable)
 
 
 def test_new_with_properties_accepts_gobject_instance_as_type() -> None:
-    import ginext
     from ginext import Gio, GObject
 
-    ptr = GObject.new_with_properties(Gio.Cancellable(), {})
-    assert isinstance(ptr, int)
-    assert ptr
-    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
+    obj = GObject.new_with_properties(Gio.Cancellable(), {})
+    assert isinstance(obj, Gio.Cancellable)
 
 
 def test_interface_list_properties_accepts_gtype_object() -> None:

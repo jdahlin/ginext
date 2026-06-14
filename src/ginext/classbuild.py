@@ -345,18 +345,17 @@ def _concrete_impl_for_interface(iface_cls: type[GInterface]) -> type[GObject]:
     return cast("type[GObject]", impl)
 
 
-def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> object:
+def wrapper_type_for_gtype(gtype: int, context: object | None = None) -> type:
     profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
     cached = _cached_class_for_gtype(profile.name, gtype)
     if cached is None:
         cached = _cached_python_defined_class_for_gtype(gtype)
     if cached is not None:
         if issubclass(cached, GObject):
-            return cached.new_bound_from_c(ptr)
+            return cached
         if issubclass(cached, GInterface):
-            impl = _concrete_impl_for_interface(cached)
-            return impl.new_bound_from_c(ptr)
-        return private.fundamental_from_pointer(cached, ptr, gtype)
+            return _concrete_impl_for_interface(cached)
+        return cached
     data = private.GIMeta.info_by_gtype(gtype).object_info()
     namespace = sys.modules["ginext"]._load_namespace(
         data["namespace"],
@@ -365,43 +364,10 @@ def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> o
     )
     cls = getattr(namespace, data["name"])
     if issubclass(cls, GObject):
-        return cls.new_bound_from_c(ptr)
+        return cls
     if issubclass(cls, GInterface):
-        impl = _concrete_impl_for_interface(cls)
-        return impl.new_bound_from_c(ptr)
-    return private.fundamental_from_pointer(cls, ptr, gtype)
-
-
-def wrap_preallocated_object_from_c(
-    ptr: int, gtype: int, context: object | None = None
-) -> object:
-    profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
-    cached = _cached_class_for_gtype(profile.name, gtype)
-    if cached is None:
-        cached = _cached_python_defined_class_for_gtype(gtype)
-    if cached is not None:
-        if issubclass(cached, GObject):
-            gimeta = own_gimeta(cached)
-            if gimeta is not None and getattr(gimeta, "gi_info", None) is None:
-                return cached.new_preallocated_from_c(ptr)
-            return cached.new_bound_from_c(ptr, owns_ref=False)
-        if issubclass(cached, GInterface):
-            impl = _concrete_impl_for_interface(cached)
-            return impl.new_bound_from_c(ptr, owns_ref=False)
-        return private.fundamental_from_pointer(cached, ptr, gtype)
-    data = private.GIMeta.info_by_gtype(gtype).object_info()
-    namespace = sys.modules["ginext"]._load_namespace(
-        data["namespace"],
-        data["version"],
-        profile=profile,
-    )
-    cls = getattr(namespace, data["name"])
-    if issubclass(cls, GObject):
-        return cls.new_bound_from_c(ptr, owns_ref=False)
-    if issubclass(cls, GInterface):
-        impl = _concrete_impl_for_interface(cls)
-        return impl.new_bound_from_c(ptr, owns_ref=False)
-    return private.fundamental_from_pointer(cls, ptr, gtype)
+        return _concrete_impl_for_interface(cls)
+    return cls
 
 
 def register_class_for_gtype(cls: type) -> None:
@@ -712,3 +678,9 @@ def method_for_instance(obj: object, name: str) -> object | None:
             return cast("object", bound)
     return types.MethodType(cast("Any", method), obj)
 
+
+
+from . import private as _private
+_private.register_hook("Fundamental.getattr", method_for_instance)
+_private.register_hook("Object.wrap", wrapper_type_for_gtype)
+del _private

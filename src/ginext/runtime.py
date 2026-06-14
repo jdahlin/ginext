@@ -58,6 +58,9 @@ class ResultTuple(tuple[object, ...]):
         return tuple, (tuple(self),)
 
 
+private.register_hook("result_tuple_new_type", ResultTuple._new_type)
+
+
 def reset_stats() -> None:
     private.reset_invoke_stats()
 

@@ -14,6 +14,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "GObject/hooks.h"
 #include "GLib/Array.h"
 #include "GLib/Error.h"
 #include "GLib/HashTable.h"
@@ -794,16 +795,7 @@ pygi_error_to_py (GIArgument *arg, GITransfer transfer)
   if (err == NULL)
     return Py_XNewRef (Py_None);
 
-  static PyObject *factory = NULL;
-  if (factory == NULL)
-    {
-      PyObject *module = PyImport_ImportModule ("ginext.errors");
-      if (module != NULL)
-        {
-          factory = PyObject_GetAttrString (module, "_exception_from_gerror");
-          Py_DECREF (module);
-        }
-    }
+  PyObject *factory = pygi_hook_last (pygi_hook_exception_from_gerror);
   PyObject *result = NULL;
   if (factory != NULL)
     {
@@ -1200,16 +1192,11 @@ record_build_class_for_info (GIBaseInfo *info, PyObject *context)
   if (namespace_name == NULL || name == NULL)
     Py_RETURN_NONE;
 
-  static PyObject *resolver = NULL;
+  PyObject *resolver = pygi_hook_last (pygi_hook_class_from_namespace_profile);
   if (resolver == NULL)
     {
-      PyObject *ginext = PyImport_ImportModule ("ginext");
-      if (ginext == NULL)
-        return NULL;
-      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-      Py_DECREF (ginext);
-      if (resolver == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "class_from_namespace_profile hook not registered");
+      return NULL;
     }
   PyObject *resolved_context = context != NULL ? context : pygi_namespace_context ();
   if (resolved_context == NULL)
@@ -3624,18 +3611,7 @@ callback_trampoline (ffi_cif *cif, void *ret, void **args, void *user_data)
       /* Subclass-of-tuple: only the private _PackedUserData marker
        * fits the role. Importing the type once is cheap; cache via a
        * static guarded by the closure's first sighting. */
-      static PyObject *packed_type = NULL;
-      if (packed_type == NULL)
-        {
-          PyObject *mod = PyImport_ImportModule ("ginext.method");
-          if (mod != NULL)
-            {
-              packed_type = PyObject_GetAttrString (mod, "_PackedUserData");
-              Py_DECREF (mod);
-            }
-          if (packed_type == NULL)
-            PyErr_Clear ();
-        }
+      PyObject *packed_type = pygi_hook_last (pygi_hook_packed_user_data_type);
       if (packed_type != NULL
           && PyObject_TypeCheck (closure->py_user_data, (PyTypeObject *)packed_type))
         {
@@ -3973,16 +3949,11 @@ pygi_build_struct_class (const char *namespace_name, GIBaseInfo *info)
   if (name == NULL)
     Py_RETURN_NONE;
 
-  static PyObject *resolver = NULL;
+  PyObject *resolver = pygi_hook_last (pygi_hook_class_from_namespace_profile);
   if (resolver == NULL)
     {
-      PyObject *ginext = PyImport_ImportModule ("ginext");
-      if (ginext == NULL)
-        return NULL;
-      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-      Py_DECREF (ginext);
-      if (resolver == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "class_from_namespace_profile hook not registered");
+      return NULL;
     }
   PyObject *context = pygi_namespace_context ();
   if (context == NULL)

@@ -191,6 +191,10 @@ def _exception_from_gerror(domain: int, code: int, message: str | None) -> Error
     return cls(message or "", _domain_to_string(domain), int(code))
 
 
+from ginext import private as _private_hooks
+_private_hooks.register_hook("exception_from_gerror", _exception_from_gerror)
+
+
 def _raise_gerror(domain: int, code: int, message: str | None) -> None:
     raise _exception_from_gerror(domain, code, message)
 

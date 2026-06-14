@@ -34,14 +34,11 @@ like a dataclass) lives in the ``TYPE_CHECKING`` stub.
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING, dataclass_transform
+from typing import TYPE_CHECKING
 
 from .. import features, private
 from .gtype import compat_gtype_from_raw
 from .resolve import classbuild_module, own_gimeta
-
-if TYPE_CHECKING:
-    from .properties import Property
 
 
 def _is_root_gobject_class(cls: type) -> bool:
@@ -100,14 +97,7 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
     return sorted(names)
 
 
-if TYPE_CHECKING:
-    # The runtime metaclass is the C metatype; this stub carries the
-    # dataclass-transform typing view for `class Foo(GObject.Object)`. __getattr__
-    # mirrors the old metaclass's lazy class-method install so attribute access on
-    # GObject classes stays open (e.g. `cls._class_struct_name`).
-    @dataclass_transform(field_specifiers=(Property,))
-    class GObjectMeta(type):
-        gimeta: private.GIMeta
-        def __getattr__(cls, name: str) -> object: ...
-else:
-    GObjectMeta = private.GObjectMeta
+GObjectMeta = private.GObjectMeta
+
+private.register_hook("ObjectClass.getattr", _gobjectmeta_getattr)
+private.register_hook("ObjectClass.dir", _gobjectmeta_dir)

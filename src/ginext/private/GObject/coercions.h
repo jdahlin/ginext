@@ -16,16 +16,19 @@
 
 #pragma once
 
-#include <Python.h>
 #include <glib.h>
+#include <Python.h>
 
-/* True if `obj` is a compiled Python regex (re.Pattern instance). Never
- * raises; clears any transient import error. */
-int
-pygi_is_re_pattern (PyObject *obj);
+/* Initialise the coercions dict.  Returns 0 on success, -1 on error. */
+int pygi_coercions_init (void);
 
-/* Build a fresh GRegex (refcount 1, owned by the caller) from a Python
- * re.Pattern, translating the supported compile flags. Returns NULL and sets a
- * Python exception on failure (bad type, compile error). */
-GRegex *
-pygi_gregex_from_py_pattern (PyObject *pattern);
+/* Register a Python callable as a coercion for a GType.
+ * The callable signature is:  fn(obj: object) -> GLib wrapper
+ * C code then extracts the boxed/object pointer from the returned wrapper.
+ * Returns 0 on success, -1 on error. */
+int pygi_coercion_register (GType gtype, PyObject *fn);
+
+/* Call the coercion registered for @gtype with @obj.
+ * Returns a new Python reference (the GLib wrapper) or NULL with no error set
+ * if no coercion is registered.  A Python exception IS set on call failure. */
+PyObject *pygi_call_coercion (GType gtype, PyObject *obj);

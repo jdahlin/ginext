@@ -26,7 +26,7 @@
 
 #include "GObject/Boxed.h"
 #include "GLib/Variant.h"
-#include "GLib/Regex.h"
+#include "GObject/coercions.h"
 #include "GLib/DateTime.h"
 #include "GObject/Object-info.h"
 #include "marshal/gvalue.h"
@@ -86,24 +86,36 @@ pygi_py_to_gvalue_property (PyObject *py_value, GValue *out)
           g_value_set_boxed (out, NULL);
           return 0;
         }
-      if (pygi_is_re_pattern (py_value))
-        {
-          GRegex *regex = pygi_gregex_from_py_pattern (py_value);
-          if (regex == NULL)
-            return -1;
-          g_value_take_boxed (out, regex);
-          return 0;
-        }
       gpointer boxed_ptr = NULL;
       if (pygi_boxed_get (py_value, &boxed_ptr) == 0 && boxed_ptr != NULL)
         {
           g_value_set_boxed (out, boxed_ptr);
           return 0;
         }
-      PyErr_Format (PyExc_TypeError,
-                    "expected a re.Pattern for GLib.Regex property, not %.200s",
-                    Py_TYPE (py_value)->tp_name);
-      return -1;
+      PyErr_Clear ();
+      PyObject *coerced = pygi_call_coercion (vt, py_value);
+      if (coerced == NULL)
+        {
+          if (!PyErr_Occurred ())
+            PyErr_Format (PyExc_TypeError,
+                          "no coercion registered for GLib.Regex; "
+                          "cannot convert %.200s",
+                          Py_TYPE (py_value)->tp_name);
+          return -1;
+        }
+      boxed_ptr = NULL;
+      pygi_boxed_get (coerced, &boxed_ptr);
+      if (boxed_ptr == NULL)
+        {
+          Py_DECREF (coerced);
+          if (!PyErr_Occurred ())
+            PyErr_SetString (PyExc_TypeError,
+                             "GLib.Regex coercion did not return a boxed wrapper");
+          return -1;
+        }
+      g_value_set_boxed (out, boxed_ptr);
+      Py_DECREF (coerced);
+      return 0;
     }
 
   if (vt == G_TYPE_DATE_TIME || vt == G_TYPE_DATE || vt == G_TYPE_TIME_ZONE)

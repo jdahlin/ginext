@@ -15,6 +15,7 @@
  */
 
 #include "common.h"
+#include "GObject/hooks.h"
 
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
@@ -1434,16 +1435,11 @@ descriptor_bare_name (const PyGIMethodDescriptor *d)
 static PyObject *
 method_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
 {
-  static PyObject *fn = NULL;
+  PyObject *fn = pygi_hook_last (pygi_hook_callable_signature);
   if (fn == NULL)
     {
-      PyObject *mod = PyImport_ImportModule ("ginext.signature");
-      if (mod == NULL)
-        return NULL;
-      fn = PyObject_GetAttrString (mod, "callable_signature");
-      Py_DECREF (mod);
-      if (fn == NULL)
-        return NULL;
+      PyErr_SetString (PyExc_RuntimeError, "callable_signature hook not registered");
+      return NULL;
     }
   PyObject *gimeta = PyObject_GetAttrString (self, "gimeta");
   if (gimeta == NULL)
@@ -2081,15 +2077,9 @@ PyType_Spec GinextMethodDescriptor_spec = {
 static PyObject *
 packed_user_data_type (void)
 {
-  static PyObject *cached = NULL;
-  if (cached != NULL)
-    return cached;
-  PyObject *mod = PyImport_ImportModule ("ginext.method");
-  if (mod == NULL)
-    return NULL;
-  cached = PyObject_GetAttrString (mod, "_PackedUserData");
-  Py_DECREF (mod);
-  return cached;
+  PyObject *type_obj = pygi_hook_last (pygi_hook_packed_user_data_type);
+  /* NULL means not registered yet; caller must check */
+  return type_obj;
 }
 
 /* Resolve the call's (args, kwargs) into the positional tuple that the
@@ -2667,13 +2657,9 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
       return NULL;
     }
 
-  /* Resolve ns to (ns_name, version). Accept either a str or any
-   * object exposing __name__ (i.e. Namespace). The version is read
-   * back from the loaded GIRepository so we don't have to reach
-   * into Python-side attributes — the namespace is guaranteed to
-   * be loaded by the time invoke() runs (either because the caller
-   * passed a Namespace instance, or because we trigger the load via
-   * getattr(ginext, name) below). */
+  /* Resolve ns to (ns_name, version). Accept either a str or any object
+   * exposing __name__ (i.e. Namespace). The load_namespace hook guarantees the
+   * typelib is loaded before the version is read from the shared repository. */
   PyObject *ns_obj = args[0];
   Py_AUTO_DECREF PyObject *name_holder = NULL;
   const char *ns_name;
@@ -2683,16 +2669,6 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
       ns_name = PyUnicode_AsUTF8 (ns_obj);
       if (ns_name == NULL)
         return NULL;
-      /* Trigger the Namespace build (idempotent after first call) so
-       * the typelib is loaded into the shared repository. */
-      PyObject *ginext_mod = PyImport_ImportModule ("ginext");
-      if (ginext_mod == NULL)
-        return NULL;
-      PyObject *namespace = PyObject_GetAttr (ginext_mod, ns_obj);
-      Py_DECREF (ginext_mod);
-      if (namespace == NULL)
-        return NULL;
-      Py_DECREF (namespace);
     }
   else
     {
@@ -2702,19 +2678,18 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
       ns_name = PyUnicode_AsUTF8 (name_holder);
       if (ns_name == NULL)
         return NULL;
-      /* Match the str namespace path: a Namespace instance may exist
-       * before the shared GIRepository has loaded its typelib. Force
-       * the normal ginext attribute access once so version lookup
-       * below is stable on first use. */
-      PyObject *ginext_mod = PyImport_ImportModule ("ginext");
-      if (ginext_mod == NULL)
-        return NULL;
-      PyObject *namespace = PyObject_GetAttr (ginext_mod, name_holder);
-      Py_DECREF (ginext_mod);
-      if (namespace == NULL)
-        return NULL;
-      Py_DECREF (namespace);
     }
+  PyObject *loader = pygi_hook_last (pygi_hook_load_namespace);
+  if (loader == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "load_namespace hook not registered");
+      return NULL;
+    }
+  PyObject *load_arg = PyUnicode_Check (ns_obj) ? ns_obj : name_holder;
+  PyObject *loaded_namespace = PyObject_CallOneArg (loader, load_arg);
+  if (loaded_namespace == NULL)
+    return NULL;
+  Py_DECREF (loaded_namespace);
 
   const char *version = gi_repository_get_version (ginext_shared_repository (), ns_name);
   if (version == NULL)
