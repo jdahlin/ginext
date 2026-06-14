@@ -238,4 +238,4 @@ def test_gvalue_hook_rejects_non_callable() -> None:
     from ginext import private
 
     with pytest.raises(TypeError):
-        private.register_hook("gvalue.to_py", 42)  # type: ignore[arg-type]
+        private.register_hook("gvalue.to_py", 42)  # type: ignore[call-overload]
