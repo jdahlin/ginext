@@ -1434,24 +1434,21 @@ descriptor_bare_name (const PyGIMethodDescriptor *d)
 static PyObject *
 method_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
 {
+  static PyObject *fn = NULL;
+  if (fn == NULL)
+    {
+      PyObject *mod = PyImport_ImportModule ("ginext.signature");
+      if (mod == NULL)
+        return NULL;
+      fn = PyObject_GetAttrString (mod, "callable_signature");
+      Py_DECREF (mod);
+      if (fn == NULL)
+        return NULL;
+    }
   PyObject *gimeta = PyObject_GetAttrString (self, "gimeta");
   if (gimeta == NULL)
     return NULL;
-  PyObject *mod = PyImport_ImportModule ("ginext.signature");
-  if (mod == NULL)
-    {
-      Py_DECREF (gimeta);
-      return NULL;
-    }
-  PyObject *fn = PyObject_GetAttrString (mod, "callable_signature");
-  Py_DECREF (mod);
-  if (fn == NULL)
-    {
-      Py_DECREF (gimeta);
-      return NULL;
-    }
   PyObject *result = PyObject_CallOneArg (fn, gimeta);
-  Py_DECREF (fn);
   Py_DECREF (gimeta);
   return result;
 }

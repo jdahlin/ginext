@@ -86,16 +86,18 @@ enum_class_from_type_info (GITypeInfo *ti)
   if (context == NULL)
     return NULL;
 
-  PyObject *ginext = PyImport_ImportModule ("ginext");
-  if (ginext == NULL)
-    return NULL;
-  PyObject *resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-  Py_DECREF (ginext);
+  static PyObject *resolver = NULL;
   if (resolver == NULL)
-    return NULL;
-  PyObject *cls = PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
-  Py_DECREF (resolver);
-  return cls;
+    {
+      PyObject *ginext = PyImport_ImportModule ("ginext");
+      if (ginext == NULL)
+        return NULL;
+      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
+      Py_DECREF (ginext);
+      if (resolver == NULL)
+        return NULL;
+    }
+  return PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
 }
 
 static PyObject *

@@ -794,21 +794,24 @@ pygi_error_to_py (GIArgument *arg, GITransfer transfer)
   if (err == NULL)
     return Py_XNewRef (Py_None);
 
-  PyObject *result = NULL;
-  PyObject *module = PyImport_ImportModule ("ginext.errors");
-  if (module != NULL)
+  static PyObject *factory = NULL;
+  if (factory == NULL)
     {
-      PyObject *factory = PyObject_GetAttrString (module, "_exception_from_gerror");
-      Py_DECREF (module);
-      if (factory != NULL)
+      PyObject *module = PyImport_ImportModule ("ginext.errors");
+      if (module != NULL)
         {
-          result = PyObject_CallFunction (factory,
-                                          "kis",
-                                          (unsigned long)err->domain,
-                                          err->code,
-                                          err->message ? err->message : "");
-          Py_DECREF (factory);
+          factory = PyObject_GetAttrString (module, "_exception_from_gerror");
+          Py_DECREF (module);
         }
+    }
+  PyObject *result = NULL;
+  if (factory != NULL)
+    {
+      result = PyObject_CallFunction (factory,
+                                      "kis",
+                                      (unsigned long)err->domain,
+                                      err->code,
+                                      err->message ? err->message : "");
     }
   if (result != NULL)
     {
@@ -1197,22 +1200,21 @@ record_build_class_for_info (GIBaseInfo *info, PyObject *context)
   if (namespace_name == NULL || name == NULL)
     Py_RETURN_NONE;
 
-  PyObject *ginext = PyImport_ImportModule ("ginext");
-  if (ginext == NULL)
-    return NULL;
-  PyObject *resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-  Py_DECREF (ginext);
+  static PyObject *resolver = NULL;
   if (resolver == NULL)
-    return NULL;
+    {
+      PyObject *ginext = PyImport_ImportModule ("ginext");
+      if (ginext == NULL)
+        return NULL;
+      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
+      Py_DECREF (ginext);
+      if (resolver == NULL)
+        return NULL;
+    }
   PyObject *resolved_context = context != NULL ? context : pygi_namespace_context ();
   if (resolved_context == NULL)
-    {
-      Py_DECREF (resolver);
-      return NULL;
-    }
-  PyObject *cls = PyObject_CallFunction (resolver, "Oss", resolved_context, namespace_name, name);
-  Py_DECREF (resolver);
-  return cls;
+    return NULL;
+  return PyObject_CallFunction (resolver, "Oss", resolved_context, namespace_name, name);
 }
 
 static PyObject *
@@ -3971,22 +3973,21 @@ pygi_build_struct_class (const char *namespace_name, GIBaseInfo *info)
   if (name == NULL)
     Py_RETURN_NONE;
 
-  PyObject *ginext = PyImport_ImportModule ("ginext");
-  if (ginext == NULL)
-    return NULL;
-  PyObject *resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
-  Py_DECREF (ginext);
+  static PyObject *resolver = NULL;
   if (resolver == NULL)
-    return NULL;
+    {
+      PyObject *ginext = PyImport_ImportModule ("ginext");
+      if (ginext == NULL)
+        return NULL;
+      resolver = PyObject_GetAttrString (ginext, "_class_from_namespace_profile");
+      Py_DECREF (ginext);
+      if (resolver == NULL)
+        return NULL;
+    }
   PyObject *context = pygi_namespace_context ();
   if (context == NULL)
-    {
-      Py_DECREF (resolver);
-      return NULL;
-    }
-  PyObject *cls = PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
-  Py_DECREF (resolver);
-  return cls;
+    return NULL;
+  return PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
 }
 
 typedef struct
