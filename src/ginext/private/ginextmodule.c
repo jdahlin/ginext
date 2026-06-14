@@ -72,12 +72,6 @@ py_record_memory_get (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_memory_set (PyObject *m, PyObject *args);
 extern PyObject *
-py_record_copy (PyObject *m, PyObject *args);
-extern PyObject *
-py_record_pointer_equal (PyObject *m, PyObject *args);
-extern PyObject *
-py_record_pointer_value (PyObject *m, PyObject *args);
-extern PyObject *
 py_record_install_field_descriptors (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_field_names (PyObject *m, PyObject *args);
@@ -392,9 +386,6 @@ static PyMethodDef methods[] = {
   { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
   { "record_memory_get", py_record_memory_get, METH_VARARGS, NULL },
   { "record_memory_set", py_record_memory_set, METH_VARARGS, NULL },
-  { "record_copy", py_record_copy, METH_VARARGS, NULL },
-  { "record_pointer_equal", py_record_pointer_equal, METH_VARARGS, NULL },
-  { "record_pointer_value", py_record_pointer_value, METH_VARARGS, NULL },
   { "record_install_field_descriptors", py_record_install_field_descriptors, METH_VARARGS, NULL },
   { "record_field_names", py_record_field_names, METH_VARARGS, NULL },
   { "register_boxed_class", py_register_boxed_class, METH_VARARGS, NULL },

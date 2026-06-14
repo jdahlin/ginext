@@ -1127,16 +1127,76 @@ GBoxedBase_repr (PyObject *self)
 {
   PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
   if (me->boxed == NULL)
-    return PyUnicode_FromString ("<GLib.Boxed (detached)>");
-  return PyUnicode_FromFormat ("<GLib.Boxed %s at %p>",
+    return PyUnicode_FromFormat ("<%s object at %p (%s detached)>",
+                                 Py_TYPE (self)->tp_name,
+                                 (void *)self,
+                                 me->gtype != 0 ? g_type_name (me->gtype) : "?");
+  return PyUnicode_FromFormat ("<%s object at %p (%s at %p)>",
+                               Py_TYPE (self)->tp_name,
+                               (void *)self,
                                me->gtype != 0 ? g_type_name (me->gtype) : "?",
                                me->boxed);
 }
+
+static PyObject *
+GBoxedBase_copy (PyObject *self, PyObject *Py_UNUSED (ignored))
+{
+  gpointer ptr = NULL;
+  if (pygi_boxed_get (self, &ptr) != 0)
+    return NULL;
+  if (ptr == NULL)
+    Py_RETURN_NONE;
+  PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
+  if (me->gtype == 0)
+    {
+      PyErr_SetString (PyExc_TypeError, "record has no boxed GType");
+      return NULL;
+    }
+  gpointer copy = g_boxed_copy (me->gtype, ptr);
+  if (copy == NULL)
+    Py_RETURN_NONE;
+  return pygi_boxed_new ((PyObject *)Py_TYPE (self), copy, me->gtype, 1);
+}
+
+static PyObject *
+GBoxedBase_richcompare (PyObject *self, PyObject *other, int op)
+{
+  if (op != Py_EQ && op != Py_NE)
+    Py_RETURN_NOTIMPLEMENTED;
+  if (Py_TYPE (self) != Py_TYPE (other))
+    Py_RETURN_NOTIMPLEMENTED;
+  gpointer left_ptr = NULL;
+  gpointer right_ptr = NULL;
+  if (pygi_boxed_get (self, &left_ptr) != 0)
+    return NULL;
+  if (pygi_boxed_get (other, &right_ptr) != 0)
+    return NULL;
+  int equal = left_ptr == right_ptr;
+  return PyBool_FromLong (op == Py_EQ ? equal : !equal);
+}
+
+static Py_hash_t
+GBoxedBase_hash (PyObject *self)
+{
+  gpointer ptr = NULL;
+  if (pygi_boxed_get (self, &ptr) != 0)
+    return -1;
+  Py_hash_t hash = (Py_hash_t)(uintptr_t)ptr;
+  return hash == -1 ? -2 : hash;
+}
+
+static PyMethodDef GBoxedBase_methods[] = {
+  { "copy", GBoxedBase_copy, METH_NOARGS, NULL },
+  { NULL, NULL, 0, NULL },
+};
 
 static PyType_Slot PyGIGLibBoxed_slots[] = {
   { Py_tp_new, GBoxedBase_new },
   { Py_tp_dealloc, GBoxedBase_dealloc },
   { Py_tp_repr, GBoxedBase_repr },
+  { Py_tp_methods, GBoxedBase_methods },
+  { Py_tp_richcompare, GBoxedBase_richcompare },
+  { Py_tp_hash, GBoxedBase_hash },
   { 0, NULL },
 };
 
@@ -1826,62 +1886,6 @@ py_glib_event_source_new (PyObject *module G_GNUC_UNUSED, PyObject *args)
     }
   ((PyGIEventSource *)source)->py_wrapper = self;
   return self;
-}
-
-PyObject *
-py_record_copy (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  (void)module;
-  PyObject *obj = NULL;
-  if (!PyArg_ParseTuple (args, "O", &obj))
-    return NULL;
-  gpointer ptr = NULL;
-  if (pygi_boxed_get (obj, &ptr) != 0)
-    return NULL;
-  if (ptr == NULL)
-    Py_RETURN_NONE;
-  PyGIGLibBoxed *me = (PyGIGLibBoxed *)obj;
-  if (me->gtype == 0)
-    {
-      PyErr_SetString (PyExc_TypeError, "record has no boxed GType");
-      return NULL;
-    }
-  gpointer copy = g_boxed_copy (me->gtype, ptr);
-  if (copy == NULL)
-    Py_RETURN_NONE;
-  return pygi_boxed_new ((PyObject *)Py_TYPE (obj), copy, me->gtype, 1);
-}
-
-PyObject *
-py_record_pointer_equal (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  (void)module;
-  PyObject *left = NULL;
-  PyObject *right = NULL;
-  if (!PyArg_ParseTuple (args, "OO", &left, &right))
-    return NULL;
-  gpointer left_ptr = NULL;
-  gpointer right_ptr = NULL;
-  if (pygi_boxed_get (left, &left_ptr) != 0)
-    return NULL;
-  if (pygi_boxed_get (right, &right_ptr) != 0)
-    return NULL;
-  if (left_ptr == right_ptr)
-    Py_RETURN_TRUE;
-  Py_RETURN_FALSE;
-}
-
-PyObject *
-py_record_pointer_value (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  (void)module;
-  PyObject *obj = NULL;
-  if (!PyArg_ParseTuple (args, "O", &obj))
-    return NULL;
-  gpointer ptr = NULL;
-  if (pygi_boxed_get (obj, &ptr) != 0)
-    return NULL;
-  return PyLong_FromVoidPtr (ptr);
 }
 
 /* ── Fast primitive field descriptors ──────────────────────────────────────
