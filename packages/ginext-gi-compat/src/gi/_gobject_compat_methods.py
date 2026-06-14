@@ -427,7 +427,8 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
     hyphen_name = name.replace("_", "-")
     underscore_name = hyphen_name.replace("-", "_")
     try:
-        return cast("_BoundSignal", self.signal_for_name(hyphen_name))
+        from ginext.gobject.gobjectclass import _obj_signal_for_name
+        return cast("_BoundSignal", _obj_signal_for_name(self, hyphen_name))
     except AttributeError:
         pass
     # signal_for_name searches only registered signals on the concrete GType.

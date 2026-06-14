@@ -492,7 +492,7 @@ class TemplateRuntime:
             )
             if connect_object is not None:
                 setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, None)
-            cast("Any", obj).signal_for_name(signal.signal_name).connect(
+            getattr(obj, signal.signal_name.replace("-", "_")).connect(
                 callback,
                 after=signal.after,
                 owner=instance,
