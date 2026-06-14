@@ -107,14 +107,6 @@ py_gvalue_array_get_nth_type (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_set_value (PyObject *m, PyObject *args);
 extern PyObject *
-py_gvalue_set_to_py_fallback (PyObject *m, PyObject *args);
-extern PyObject *
-py_gvalue_get_to_py_fallback (PyObject *m, PyObject *unused);
-extern PyObject *
-py_gvalue_set_from_py_converter (PyObject *m, PyObject *args);
-extern PyObject *
-py_gvalue_get_from_py_converter (PyObject *m, PyObject *unused);
-extern PyObject *
 py_gvalue_set_data_int (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_set_data_uint64 (PyObject *m, PyObject *args);
@@ -211,6 +203,8 @@ static const HookEntry hook_table[] = {
   { "callable_signature",            PYGI_HOOK_CALLABLE_SIGNATURE       },
   { "class_from_namespace_profile",  PYGI_HOOK_CLASS_FROM_NS_PROFILE    },
   { "exception_from_gerror",         PYGI_HOOK_EXCEPTION_FROM_GERROR    },
+  { "gvalue.from_py",                PYGI_HOOK_GVALUE_FROM_PY           },
+  { "gvalue.to_py",                  PYGI_HOOK_GVALUE_TO_PY             },
   { "load_namespace",                PYGI_HOOK_LOAD_NAMESPACE           },
   { "packed_user_data_type",         PYGI_HOOK_PACKED_USER_DATA_TYPE    },
   { "result_tuple_new_type",         PYGI_HOOK_RESULT_TUPLE_NEW_TYPE    },
@@ -316,10 +310,6 @@ static PyMethodDef methods[] = {
   { "gvalue_get_value", py_gvalue_get_value, METH_VARARGS, NULL },
   { "gvalue_set_value", py_gvalue_set_value, METH_VARARGS, NULL },
   { "gvalue_array_get_nth_type", py_gvalue_array_get_nth_type, METH_VARARGS, NULL },
-  { "gvalue_set_to_py_fallback", py_gvalue_set_to_py_fallback, METH_VARARGS, NULL },
-  { "gvalue_get_to_py_fallback", py_gvalue_get_to_py_fallback, METH_NOARGS, NULL },
-  { "gvalue_set_from_py_converter", py_gvalue_set_from_py_converter, METH_VARARGS, NULL },
-  { "gvalue_get_from_py_converter", py_gvalue_get_from_py_converter, METH_NOARGS, NULL },
   { "gvalue_set_data_int", py_gvalue_set_data_int, METH_VARARGS, NULL },
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
   { "gvalue_new_for_gtype", py_gvalue_new_for_gtype, METH_VARARGS, NULL },

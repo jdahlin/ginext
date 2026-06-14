@@ -496,6 +496,12 @@ pygi_closure_records_set_signal_owner (GObject *instance, gulong handler_id, GOb
   return TRUE;
 }
 
+GObject *
+pygi_closure_record_owner (PyGIClosureRecord *record)
+{
+  return record != NULL ? record->owner : NULL;
+}
+
 gboolean
 pygi_closure_records_disconnect_signal (GObject *instance, gulong handler_id)
 {

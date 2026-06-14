@@ -62,6 +62,9 @@ pygi_closure_record_set_signal_metadata (PyGIClosureRecord *record,
 void
 pygi_closure_record_set_owner (PyGIClosureRecord *record, GObject *owner);
 
+GObject *
+pygi_closure_record_owner (PyGIClosureRecord *record);
+
 gulong
 pygi_closure_record_handler_id (PyGIClosureRecord *record);
 

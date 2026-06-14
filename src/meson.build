@@ -192,6 +192,7 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/_gtk_treemodel.py',  'gi'],
   ['../packages/ginext-gi-compat/src/gi/_ossighelper.py',     'gi'],
   ['../packages/ginext-gi-compat/src/gi/_propertyhelper.py',  'gi'],
+  ['../packages/ginext-gi-compat/src/gi/_repository_helpers.py', 'gi'],
   ['../packages/ginext-gi-compat/src/gi/_signalhelper.py',    'gi'],
   ['../packages/ginext-gi-compat/src/gi/docstring.py',        'gi'],
   ['../packages/ginext-gi-compat/src/gi/events.py',           'gi'],

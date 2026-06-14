@@ -131,7 +131,7 @@ def _bind_typelib_descriptor(owner: type[Any], fn: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# GValue fallback for GStreamer custom-fundamental GTypes
+# GValue hooks for GStreamer custom-fundamental GTypes
 # ---------------------------------------------------------------------------
 # GstFraction, GstBitmask, GstValueArray, GstValueList, GstIntRange,
 # GstInt64Range, GstDoubleRange, GstFractionRange are custom fundamental GTypes
@@ -245,7 +245,7 @@ _VALUE_BUILDERS: dict[str, Any] = {
 }
 
 
-def _install_gvalue_fallback() -> None:
+def _install_gvalue_hooks() -> None:
     from ginext import private as _private
 
     serialize = Gst.value_serialize
@@ -288,7 +288,7 @@ def _install_gvalue_fallback() -> None:
     _private.register_converter(_to_py, _from_py)
 
 
-overlay.on_first_access(_install_gvalue_fallback)
+overlay.on_first_access(_install_gvalue_hooks)
 
 
 # ---------------------------------------------------------------------------
