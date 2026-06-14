@@ -48,15 +48,7 @@ py_namespace_find (PyObject *m, PyObject *args);
 extern PyObject *
 py_namespace_dir (PyObject *m, PyObject *args);
 extern PyObject *
-py_namespace_is_registered (PyObject *m, PyObject *args);
-extern PyObject *
-py_namespace_get_dependencies (PyObject *m, PyObject *args);
-extern PyObject *
-py_namespace_get_immediate_dependencies (PyObject *m, PyObject *args);
-extern PyObject *
 py_namespace_find_by_gtype (PyObject *m, PyObject *args);
-extern PyObject *
-py_namespace_get_typelib_path (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_new (PyObject *m, PyObject *args);
 extern PyObject *
@@ -295,11 +287,7 @@ static PyMethodDef methods[] = {
   { "require_namespace", py_require_namespace, METH_VARARGS, NULL },
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
-  { "namespace_is_registered", py_namespace_is_registered, METH_VARARGS, NULL },
-  { "namespace_get_dependencies", py_namespace_get_dependencies, METH_VARARGS, NULL },
-  { "namespace_get_immediate_dependencies", py_namespace_get_immediate_dependencies, METH_VARARGS, NULL },
   { "namespace_find_by_gtype", py_namespace_find_by_gtype, METH_VARARGS, NULL },
-  { "namespace_get_typelib_path", py_namespace_get_typelib_path, METH_VARARGS, NULL },
   { "record_new", py_record_new, METH_VARARGS, NULL },
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
