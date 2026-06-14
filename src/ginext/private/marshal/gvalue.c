@@ -51,53 +51,101 @@ pyobject_get_pygi_gtype (PyObject *obj, GType *out);
 static PyObject *
 resolve_boxed_pytype_from_context (GType gtype); /* forward decl */
 
-/* Fallback callable (gtype: int, gvalue_ptr: int) -> object | raises.
- * Installed by pygi_gvalue_set_to_py_fallback; called for any GType that
- * none of the built-in branches handle. Returns NULL on error, else a new
- * reference. If the fallback itself raises NotImplementedError the error
- * propagates as-is to the caller. */
-static PyObject *_gvalue_to_py_fallback = NULL;
-
-void
-pygi_gvalue_set_to_py_fallback (PyObject *callback)
+static int
+gvalue_hook_not_handled (void)
 {
-  PyObject *prev = _gvalue_to_py_fallback;
-  _gvalue_to_py_fallback = Py_XNewRef (callback);
-  Py_XDECREF (prev);
+  if (PyErr_ExceptionMatches (PyExc_AttributeError)
+      || PyErr_ExceptionMatches (PyExc_NotImplementedError))
+    {
+      PyErr_Clear ();
+      return 1;
+    }
+  return 0;
 }
 
-/* Return a new reference to the currently-installed fallback, or None. Lets a
- * caller that temporarily swaps the (process-global) fallback restore the
- * previous one instead of clobbering it (e.g. tests that exercise the fallback
- * while the gst overlay's fallback is installed). */
-PyObject *
-pygi_gvalue_get_to_py_fallback (void)
+static PyObject *
+gvalue_call_to_py_hook (GType gtype, GValue *value)
 {
-  if (_gvalue_to_py_fallback == NULL)
-    Py_RETURN_NONE;
-  return Py_NewRef (_gvalue_to_py_fallback);
+  PyObject *list = pygi_hook_gvalue_to_py;
+  if (list == NULL || !PyList_Check (list))
+    {
+      PyErr_SetString (PyExc_AttributeError, "no GValue to-Python hook registered");
+      return NULL;
+    }
+
+  PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
+  PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
+  if (py_gtype == NULL || py_ptr == NULL)
+    {
+      Py_XDECREF (py_gtype);
+      Py_XDECREF (py_ptr);
+      return NULL;
+    }
+
+  Py_ssize_t n = PyList_GET_SIZE (list);
+  for (Py_ssize_t i = n - 1; i >= 0; i--)
+    {
+      PyObject *handler = PyList_GET_ITEM (list, i);
+      PyObject *result = PyObject_CallFunctionObjArgs (handler, py_gtype, py_ptr, NULL);
+      if (result != NULL)
+        {
+          Py_DECREF (py_gtype);
+          Py_DECREF (py_ptr);
+          return result;
+        }
+      if (!gvalue_hook_not_handled ())
+        {
+          Py_DECREF (py_gtype);
+          Py_DECREF (py_ptr);
+          return NULL;
+        }
+    }
+
+  Py_DECREF (py_gtype);
+  Py_DECREF (py_ptr);
+  PyErr_SetString (PyExc_AttributeError, "no GValue to-Python hook handled the type");
+  return NULL;
 }
 
-/* Reverse direction: Python -> GValue. Called (obj, gtype, gvalue_ptr) for any
- * Python object whose target GType none of the built-in branches handle; the
- * converter sets the already-initialised GValue in place. Returns NULL to
- * propagate an error (e.g. NotImplementedError for a type it does not cover). */
-static PyObject *_gvalue_from_py_converter = NULL;
-
-void
-pygi_gvalue_set_from_py_converter (PyObject *callback)
+static int
+gvalue_call_from_py_hook (PyObject *obj, GType type, GValue *value)
 {
-  PyObject *prev = _gvalue_from_py_converter;
-  _gvalue_from_py_converter = Py_XNewRef (callback);
-  Py_XDECREF (prev);
-}
+  PyObject *list = pygi_hook_gvalue_from_py;
+  if (list == NULL || !PyList_Check (list))
+    return 1;
 
-PyObject *
-pygi_gvalue_get_from_py_converter (void)
-{
-  if (_gvalue_from_py_converter == NULL)
-    Py_RETURN_NONE;
-  return Py_NewRef (_gvalue_from_py_converter);
+  PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)type);
+  PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
+  if (py_gtype == NULL || py_ptr == NULL)
+    {
+      Py_XDECREF (py_gtype);
+      Py_XDECREF (py_ptr);
+      return -1;
+    }
+
+  Py_ssize_t n = PyList_GET_SIZE (list);
+  for (Py_ssize_t i = n - 1; i >= 0; i--)
+    {
+      PyObject *handler = PyList_GET_ITEM (list, i);
+      PyObject *result = PyObject_CallFunctionObjArgs (handler, obj, py_gtype, py_ptr, NULL);
+      if (result != NULL)
+        {
+          Py_DECREF (result);
+          Py_DECREF (py_gtype);
+          Py_DECREF (py_ptr);
+          return 0;
+        }
+      if (!gvalue_hook_not_handled ())
+        {
+          Py_DECREF (py_gtype);
+          Py_DECREF (py_ptr);
+          return -1;
+        }
+    }
+
+  Py_DECREF (py_gtype);
+  Py_DECREF (py_ptr);
+  return 1;
 }
 
 /* Allocate a zeroed GValue initialised to gtype and wrap it as a Python
@@ -959,7 +1007,6 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
             int cairo_rc = pygi_foreign_cairo_boxed_from_py (obj, info, value);
             if (cairo_rc <= 0)
               return cairo_rc;
-            return 0;
           }
       }
       break;
@@ -1009,28 +1056,9 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
       return 0;
     }
 
-  /* Last resort: a registered Python->GValue converter (the mirror of the
-   * GValue->Python fallback). Lets an overlay marshal its own fundamental types
-   * (e.g. the gst value types) into a GValue in place. */
-  if (_gvalue_from_py_converter != NULL)
-    {
-      PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)type);
-      PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
-      if (py_gtype == NULL || py_ptr == NULL)
-        {
-          Py_XDECREF (py_gtype);
-          Py_XDECREF (py_ptr);
-          return -1;
-        }
-      PyObject *result = PyObject_CallFunctionObjArgs (
-          _gvalue_from_py_converter, obj, py_gtype, py_ptr, NULL);
-      Py_DECREF (py_gtype);
-      Py_DECREF (py_ptr);
-      if (result == NULL)
-        return -1;
-      Py_DECREF (result);
-      return 0;
-    }
+  int hook_result = gvalue_call_from_py_hook (obj, type, value);
+  if (hook_result <= 0)
+    return hook_result;
 
   PyErr_Format (PyExc_NotImplementedError,
                 "%s has unsupported GType %s",
@@ -1258,23 +1286,12 @@ pygi_gvalue_value_to_py (GValue *value)
       return PyUnicode_FromString (type_name ? type_name : "<boxed>");
     }
 
-  if (_gvalue_to_py_fallback != NULL)
-    {
-      PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
-      if (py_gtype == NULL)
-        return NULL;
-      PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
-      if (py_ptr == NULL)
-        {
-          Py_DECREF (py_gtype);
-          return NULL;
-        }
-      PyObject *result
-          = PyObject_CallFunctionObjArgs (_gvalue_to_py_fallback, py_gtype, py_ptr, NULL);
-      Py_DECREF (py_gtype);
-      Py_DECREF (py_ptr);
-      return result;
-    }
+  PyObject *hook_result = gvalue_call_to_py_hook (gtype, value);
+  if (hook_result != NULL)
+    return hook_result;
+  if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+    return NULL;
+  PyErr_Clear ();
 
   PyErr_Format (PyExc_NotImplementedError,
                 "GValue return conversion: unsupported GType %s (%" G_GSIZE_FORMAT ")",

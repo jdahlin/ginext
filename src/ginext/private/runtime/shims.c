@@ -386,58 +386,6 @@ py_gvalue_set_value (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
-PyObject *
-py_gvalue_set_to_py_fallback (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *callback;
-  if (!PyArg_ParseTuple (args, "O", &callback))
-    return NULL;
-  if (callback == Py_None)
-    callback = NULL;
-  else if (!PyCallable_Check (callback))
-    {
-      PyErr_SetString (PyExc_TypeError, "expected callable or None");
-      return NULL;
-    }
-  pygi_gvalue_set_to_py_fallback (callback);
-  Py_RETURN_NONE;
-}
-
-PyObject *
-py_gvalue_get_to_py_fallback (PyObject *m, PyObject *unused)
-{
-  (void)m;
-  (void)unused;
-  return pygi_gvalue_get_to_py_fallback ();
-}
-
-PyObject *
-py_gvalue_set_from_py_converter (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *callback;
-  if (!PyArg_ParseTuple (args, "O", &callback))
-    return NULL;
-  if (callback == Py_None)
-    callback = NULL;
-  else if (!PyCallable_Check (callback))
-    {
-      PyErr_SetString (PyExc_TypeError, "expected callable or None");
-      return NULL;
-    }
-  pygi_gvalue_set_from_py_converter (callback);
-  Py_RETURN_NONE;
-}
-
-PyObject *
-py_gvalue_get_from_py_converter (PyObject *m, PyObject *unused)
-{
-  (void)m;
-  (void)unused;
-  return pygi_gvalue_get_from_py_converter ();
-}
-
 /* Write a primitive into one of a GValue's two data slots. Generic GValue field
  * access (no GType named): an overlay that knows a fundamental type's storage
  * (e.g. gst stores a fraction's numerator/denominator in data[0]/data[1].v_int)
@@ -1117,16 +1065,57 @@ static PyObject *
 GBoxedBase_repr (PyObject *self)
 {
   PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
+  PyObject *type = (PyObject *)Py_TYPE (self);
+  PyObject *module = NULL;
+  PyObject *stripped = NULL;
+  PyObject *name = NULL;
+  PyObject *qualified = NULL;
+  PyObject *result = NULL;
+
+  module = PyObject_GetAttrString (type, "__module__");
+  if (module == NULL || !PyUnicode_Check (module))
+    {
+      PyErr_Clear ();
+      Py_XDECREF (module);
+      module = PyUnicode_FromString ("");
+      if (module == NULL)
+        return NULL;
+    }
+  stripped = PyObject_CallMethod (module, "removeprefix", "s", "ginext.");
+  if (stripped == NULL)
+    goto done;
+  Py_SETREF (stripped,
+             PyObject_CallMethod (stripped, "removeprefix", "s", "gi.repository."));
+  if (stripped == NULL)
+    goto done;
+  name = PyObject_GetAttrString (type, "__name__");
+  if (name == NULL)
+    goto done;
+  if (PyUnicode_GET_LENGTH (stripped) > 0)
+    qualified = PyUnicode_FromFormat ("%U.%U", stripped, name);
+  else
+    qualified = Py_NewRef (name);
+  if (qualified == NULL)
+    goto done;
+
   if (me->boxed == NULL)
-    return PyUnicode_FromFormat ("<%s object at %p (%s detached)>",
-                                 Py_TYPE (self)->tp_name,
-                                 (void *)self,
-                                 me->gtype != 0 ? g_type_name (me->gtype) : "?");
-  return PyUnicode_FromFormat ("<%s object at %p (%s at %p)>",
-                               Py_TYPE (self)->tp_name,
-                               (void *)self,
-                               me->gtype != 0 ? g_type_name (me->gtype) : "?",
-                               me->boxed);
+    result = PyUnicode_FromFormat ("<%U object at %p (%s detached)>",
+                                   qualified,
+                                   (void *)self,
+                                   me->gtype != 0 ? g_type_name (me->gtype) : "?");
+  else
+    result = PyUnicode_FromFormat ("<%U object at %p (%s at %p)>",
+                                   qualified,
+                                   (void *)self,
+                                   me->gtype != 0 ? g_type_name (me->gtype) : "?",
+                                   me->boxed);
+
+done:
+  Py_XDECREF (module);
+  Py_XDECREF (stripped);
+  Py_XDECREF (name);
+  Py_XDECREF (qualified);
+  return result;
 }
 
 static PyObject *

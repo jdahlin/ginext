@@ -218,6 +218,12 @@ class _WeakBoundCallable:
             return self._func(host, *signal_args)
         return self._func(host, *signal_args[: self._n_args])
 
+    def __pygi_call_with_owner__(self, owner: object, *signal_args: object) -> object:
+        host = self._self_ref() or owner
+        if self._n_args is None:
+            return self._func(host, *signal_args)
+        return self._func(host, *signal_args[: self._n_args])
+
     def __repr__(self) -> str:
         host = self._self_ref()
         func_name = (

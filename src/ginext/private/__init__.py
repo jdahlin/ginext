@@ -147,10 +147,6 @@ gvalue_reset_value = _gobject.gvalue_reset_value
 gvalue_get_value = _gobject.gvalue_get_value
 gvalue_set_value = _gobject.gvalue_set_value
 gvalue_array_get_nth_type = _gobject.gvalue_array_get_nth_type
-gvalue_set_to_py_fallback = _gobject.gvalue_set_to_py_fallback
-gvalue_get_to_py_fallback = _gobject.gvalue_get_to_py_fallback
-gvalue_set_from_py_converter = _gobject.gvalue_set_from_py_converter
-gvalue_get_from_py_converter = _gobject.gvalue_get_from_py_converter
 gvalue_set_data_int = _gobject.gvalue_set_data_int
 gvalue_set_data_uint64 = _gobject.gvalue_set_data_uint64
 gvalue_new_for_gtype = _gobject.gvalue_new_for_gtype
@@ -166,13 +162,10 @@ def register_converter(to_py, from_py):
     from a Python object (raise NotImplementedError for a type it does not
     cover). Either may be None.
     """
-    gvalue_set_to_py_fallback(to_py)
-    gvalue_set_from_py_converter(from_py)
-
-
-def get_converters():
-    """Return the currently-installed ``(to_py, from_py)`` converters."""
-    return gvalue_get_to_py_fallback(), gvalue_get_from_py_converter()
+    if to_py is not None:
+        register_hook("gvalue.to_py", to_py)
+    if from_py is not None:
+        register_hook("gvalue.from_py", from_py)
 gstrv_get_type = _gobject.gstrv_get_type
 ensure_cairo_gobject_types = _gobject.ensure_cairo_gobject_types
 glib_event_source_new = _gobject.glib_event_source_new

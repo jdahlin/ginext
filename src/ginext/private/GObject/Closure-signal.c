@@ -28,6 +28,7 @@
 #include "marshal/c-array.h"
 #include "runtime/class-registry.h"
 #include "GObject/Boxed.h"
+#include "GObject/Object-info.h"
 
 typedef struct
 {
@@ -272,7 +273,47 @@ pyclosure_marshal (GClosure *closure,
         }
     }
   pygi_closure_record_invoke_begin (pc->record);
-  PyObject *result = PyObject_CallObject (pc->callable, args);
+  PyObject *result = NULL;
+  PyObject *call_with_owner = NULL;
+  if (PyObject_GetOptionalAttrString (pc->callable,
+                                      "__pygi_call_with_owner__",
+                                      &call_with_owner)
+      < 0)
+    result = NULL;
+  else if (call_with_owner == NULL)
+    {
+      result = PyObject_CallObject (pc->callable, args);
+    }
+  else
+    {
+      GObject *owner = pygi_closure_record_owner (pc->record);
+      if (owner == NULL || !G_IS_OBJECT (owner))
+        result = PyObject_CallObject (pc->callable, args);
+      else
+        {
+          PyObject *owner_obj = pygi_gobject_to_py (owner, GI_TRANSFER_NOTHING);
+          if (owner_obj != NULL)
+            {
+              Py_ssize_t n = PyTuple_GET_SIZE (args);
+              PyObject *owner_args = PyTuple_New (n + 1);
+              if (owner_args != NULL)
+                {
+                  PyTuple_SET_ITEM (owner_args, 0, owner_obj);
+                  for (Py_ssize_t i = 0; i < n; i++)
+                    {
+                      PyObject *item = PyTuple_GET_ITEM (args, i);
+                      Py_INCREF (item);
+                      PyTuple_SET_ITEM (owner_args, i + 1, item);
+                    }
+                  result = PyObject_CallObject (call_with_owner, owner_args);
+                  Py_DECREF (owner_args);
+                }
+              else
+                Py_DECREF (owner_obj);
+            }
+        }
+      Py_DECREF (call_with_owner);
+    }
   pygi_closure_record_invoke_end (pc->record);
   /* Copy-on-retain: transfer-none boxed args were wrapped as aliases into the
    * GValue memory (freed when this emission returns). If the handler kept one

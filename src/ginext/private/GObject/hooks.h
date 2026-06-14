@@ -10,6 +10,8 @@ typedef enum
   PYGI_HOOK_CLASS_FROM_NS_PROFILE,
   PYGI_HOOK_EXCEPTION_FROM_GERROR,
   PYGI_HOOK_FUNDAMENTAL_GETATTR,
+  PYGI_HOOK_GVALUE_FROM_PY,
+  PYGI_HOOK_GVALUE_TO_PY,
   PYGI_HOOK_LOAD_NAMESPACE,
   PYGI_HOOK_OBJECT_GETATTR,
   PYGI_HOOK_OBJECT_POST_INIT,
@@ -29,6 +31,8 @@ extern PyObject *pygi_hooks[PYGI_HOOK_COUNT];
 #define pygi_hook_callable_signature           pygi_hooks[PYGI_HOOK_CALLABLE_SIGNATURE]
 #define pygi_hook_class_from_namespace_profile pygi_hooks[PYGI_HOOK_CLASS_FROM_NS_PROFILE]
 #define pygi_hook_exception_from_gerror        pygi_hooks[PYGI_HOOK_EXCEPTION_FROM_GERROR]
+#define pygi_hook_gvalue_from_py               pygi_hooks[PYGI_HOOK_GVALUE_FROM_PY]
+#define pygi_hook_gvalue_to_py                 pygi_hooks[PYGI_HOOK_GVALUE_TO_PY]
 #define pygi_hook_load_namespace               pygi_hooks[PYGI_HOOK_LOAD_NAMESPACE]
 #define pygi_hook_method_for_instance          pygi_hooks[PYGI_HOOK_FUNDAMENTAL_GETATTR]
 #define pygi_hook_finish_construction          pygi_hooks[PYGI_HOOK_OBJECT_POST_INIT]

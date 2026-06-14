@@ -40,7 +40,6 @@ from __future__ import annotations
 import pytest
 
 import gc
-from collections.abc import Iterator
 
 from ginext.namespace import Namespace
 from .support import open_namespace_for_test
@@ -49,21 +48,6 @@ from .support import open_namespace_for_test
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-def _restore_gvalue_fallback() -> Iterator[None]:
-    # Tests below install or clear the GValue->Python fallback, which is
-    # process-global. Under xdist a worker that also runs the gst suite would
-    # otherwise be left without gst's fallback and fail (NotImplementedError on a
-    # GstFraction value). Snapshot and restore it around every test here.
-    from ginext import private
-
-    saved = private.gvalue_get_to_py_fallback()
-    try:
-        yield
-    finally:
-        private.gvalue_set_to_py_fallback(saved)
 
 
 @pytest.fixture
@@ -193,10 +177,10 @@ def test_primitive_fundamental_bitmask(regress: Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# GValue fallback for custom-fundamental GTypes (pygi_gvalue_set_to_py_fallback)
+# GValue hooks for custom-fundamental GTypes
 # ---------------------------------------------------------------------------
 # Regress.Bitmask is a self-fundamental, non-instantiatable, non-boxed GType
-# that has a value table — the ideal vehicle to exercise the fallback path.
+# that has a value table — the ideal vehicle to exercise the hook path.
 
 
 @pytest.fixture
@@ -225,8 +209,11 @@ def test_gvalue_fallback_no_fallback_raises(regress_bitmask_gtype: int) -> None:
         private.gvalue_get_value(val)
 
 
-def test_gvalue_fallback_called_with_correct_gtype(regress_bitmask_gtype: int) -> None:
-    """Installed fallback is invoked with the GType and a non-zero pointer."""
+@pytest.mark.subprocess(timeout=30)
+def test_gvalue_to_py_hook_called_with_correct_gtype(
+    regress_bitmask_gtype: int,
+) -> None:
+    """Installed hook is invoked with the GType and a non-zero pointer."""
     from ginext import private
 
     val = private.gvalue_new_for_gtype(regress_bitmask_gtype)
@@ -236,11 +223,8 @@ def test_gvalue_fallback_called_with_correct_gtype(regress_bitmask_gtype: int) -
         received.append((gtype, gvalue_ptr))
         return 42
 
-    private.gvalue_set_to_py_fallback(_fallback)
-    try:
-        result = private.gvalue_get_value(val)
-    finally:
-        private.gvalue_set_to_py_fallback(None)
+    private.register_hook("gvalue.to_py", _fallback)
+    result = private.gvalue_get_value(val)
 
     assert result == 42
     assert len(received) == 1
@@ -249,20 +233,9 @@ def test_gvalue_fallback_called_with_correct_gtype(regress_bitmask_gtype: int) -
     assert ptr != 0
 
 
-def test_gvalue_fallback_cleared_restores_error(regress_bitmask_gtype: int) -> None:
-    """Clearing the fallback (None) restores the NotImplementedError."""
-    from ginext import private
-
-    val = private.gvalue_new_for_gtype(regress_bitmask_gtype)
-    private.gvalue_set_to_py_fallback(lambda g, p: "ignored")
-    private.gvalue_set_to_py_fallback(None)
-    with pytest.raises(NotImplementedError):
-        private.gvalue_get_value(val)
-
-
-def test_gvalue_set_to_py_fallback_rejects_non_callable() -> None:
+def test_gvalue_hook_rejects_non_callable() -> None:
     """Passing a non-callable (other than None) raises TypeError."""
     from ginext import private
 
     with pytest.raises(TypeError):
-        private.gvalue_set_to_py_fallback(42)  # type: ignore[arg-type]
+        private.register_hook("gvalue.to_py", 42)  # type: ignore[arg-type]
