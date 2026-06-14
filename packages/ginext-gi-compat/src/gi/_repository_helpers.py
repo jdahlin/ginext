@@ -13,6 +13,7 @@ import ginext.GIRepository as _GIRepository
 _repository: Any | None = None
 _loaded: set[tuple[str, str | None]] = set()
 _path_state: tuple[str, str] | None = None
+_gerror_gtype: int | None = None
 
 
 def _sync_paths(repo: Any) -> None:
@@ -58,3 +59,14 @@ def typelib_path(namespace: str, version: str | None = None) -> str | None:
     if version is not None and not repository().is_registered(namespace, version):
         require(namespace, version)
     return repository().get_typelib_path(namespace)
+
+
+def gerror_gtype() -> int:
+    global _gerror_gtype
+
+    if _gerror_gtype is None:
+        import ginext
+
+        _, info = ginext.private.namespace_find("GLib", "2.0", "Error")
+        _gerror_gtype = int(info.get_g_type())
+    return _gerror_gtype

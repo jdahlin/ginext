@@ -174,7 +174,6 @@ def get_converters():
     """Return the currently-installed ``(to_py, from_py)`` converters."""
     return gvalue_get_to_py_fallback(), gvalue_get_from_py_converter()
 gstrv_get_type = _gobject.gstrv_get_type
-gerror_get_type = _gobject.gerror_get_type
 ensure_cairo_gobject_types = _gobject.ensure_cairo_gobject_types
 glib_event_source_new = _gobject.glib_event_source_new
 type_has_value_table = _gobject.type_has_value_table
