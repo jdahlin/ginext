@@ -179,7 +179,6 @@ py_preload_shared_library (PyObject *m, PyObject *args)
   Py_RETURN_NONE;
 }
 
-
 static PyObject *
 py_init_gobject (PyObject *m, PyObject *args)
 {
@@ -274,24 +273,14 @@ py_getargs_s (PyObject *m, PyObject *args)
   return PyUnicode_FromString (val);
 }
 
-/* Goal: shrink this table to only what bootstraps invoke. Each entry is
- * tagged with how to remove it ("DROP: ...") or why it must stay ("keep: ...").
- * Anything that is just an introspected GObject/GLib call should route through
- * `invoke` once invoke grows the noted capability (closures, GValue in/out). */
 static PyMethodDef methods[] = {
-  /* keep: scans typelibs on disk (no introspection involved) */
   { "installed_versions", py_installed_versions, METH_NOARGS, NULL },
-  /* keep: test-infra — pre-loads a .so so g_module_open("libfoo.so") hits cache */
   { "preload_shared_library", py_preload_shared_library, METH_VARARGS, NULL },
-  /* keep: creates the GObject type with the Python GObjectMeta metaclass */
   { "init_gobject", py_init_gobject, METH_VARARGS, NULL },
-  /* keep: bootstrap handshake — Python registers GObject.Object instance hooks
-   * (__getattr__/__setattr__/_finish_construction) so C slots never import back */
   { "register_gobject_callbacks",
     (PyCFunction)(void (*) (void))pygi_register_gobject_callbacks,
     METH_VARARGS | METH_KEYWORDS,
     NULL },
-  /* keep: test-infra — PyArg_ParseTuple oracle (release-build getargs_* equivalents) */
   { "getargs_b", py_getargs_b, METH_VARARGS, NULL },
   { "getargs_B", py_getargs_B, METH_VARARGS, NULL },
   { "getargs_h", py_getargs_h, METH_VARARGS, NULL },
@@ -306,111 +295,67 @@ static PyMethodDef methods[] = {
   { "getargs_f", py_getargs_f, METH_VARARGS, NULL },
   { "getargs_d", py_getargs_d, METH_VARARGS, NULL },
   { "getargs_s", py_getargs_s, METH_VARARGS, NULL },
-  /* keep: loads a typelib — bootstraps invoke */
   { "require_namespace", py_require_namespace, METH_VARARGS, NULL },
-  /* keep: typelib metadata lookup — bootstraps invoke */
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
-  /* keep: typelib namespace listing */
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
   { "namespace_is_registered", py_namespace_is_registered, METH_VARARGS, NULL },
   { "namespace_get_dependencies", py_namespace_get_dependencies, METH_VARARGS, NULL },
   { "namespace_get_immediate_dependencies", py_namespace_get_immediate_dependencies, METH_VARARGS, NULL },
   { "namespace_find_by_gtype", py_namespace_find_by_gtype, METH_VARARGS, NULL },
   { "namespace_get_typelib_path", py_namespace_get_typelib_path, METH_VARARGS, NULL },
-  /* keep: repository gtype->info lookup */
-  /* keep: fundamental-type unref lifecycle */
   { "instantiatable_unref", py_instantiatable_unref, METH_VARARGS, NULL },
-  /* DROP: boxed constructor via invoke once invoke allocates boxed returns */
   { "record_new", py_record_new, METH_VARARGS, NULL },
-  /* keep: creates a Python-subclassable GSource (special construction) */
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
-  /* keep: boxed field read marshalling primitive */
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
-  /* keep: boxed field write marshalling primitive */
   { "record_field_set", py_record_field_set, METH_VARARGS, NULL },
-  /* keep: create a fundamental wrapper from a raw pointer (called from classbuild) */
   { "fundamental_from_pointer", py_fundamental_from_pointer, METH_VARARGS, NULL },
-  /* keep: register Python-side hooks for the Fundamental C type (bootstrap) */
   { "fundamental_init_hooks", py_fundamental_init_hooks, METH_VARARGS, NULL },
-  /* keep: anonymous-union storage sizing (memory primitive) */
   { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
-  /* keep: raw memory read for anonymous unions */
   { "record_memory_get", py_record_memory_get, METH_VARARGS, NULL },
-  /* keep: raw memory write for anonymous unions */
   { "record_memory_set", py_record_memory_set, METH_VARARGS, NULL },
-  /* DROP: g_boxed_copy via invoke */
   { "record_copy", py_record_copy, METH_VARARGS, NULL },
-  /* keep: boxed identity helper (no introspection) */
   { "record_pointer_equal", py_record_pointer_equal, METH_VARARGS, NULL },
-  /* keep: boxed pointer value for hashing (no introspection) */
   { "record_pointer_value", py_record_pointer_value, METH_VARARGS, NULL },
   { "record_install_field_descriptors", py_record_install_field_descriptors, METH_VARARGS, NULL },
   { "record_field_names", py_record_field_names, METH_VARARGS, NULL },
-  /* keep: boxed GType registration */
   { "register_boxed_class", py_register_boxed_class, METH_VARARGS, NULL },
-  /* keep: invoke instrumentation (debug) */
   { "reset_invoke_stats", py_reset_invoke_stats, METH_NOARGS, NULL },
-  /* keep: invoke instrumentation (debug) */
   { "invoke_stats", py_invoke_stats, METH_NOARGS, NULL },
-  /* keep: builds the invoke descriptor (core) */
   { "build_callable_descriptor", py_build_callable_descriptor, METH_VARARGS, NULL },
-  /* keep: the invoke path (core) */
   { "invoke_callable_descriptor",
     (PyCFunction)(void (*) (void))py_invoke_callable_descriptor,
     METH_FASTCALL | METH_KEYWORDS,
     NULL },
-  /* keep: cached synthetic callables for non-introspectable bridge APIs */
   { "synthetic_callable", py_synthetic_callable, METH_VARARGS, NULL },
-  /* keep: reads typelib async (finish-func + callback position) metadata
-           for ginext.aio AsyncCallable wrapping */
   { "callable_async_info", py_callable_async_info, METH_VARARGS, NULL },
-  /* keep: class-struct method dispatch (special) */
   { "class_struct_wrapper", py_class_struct_wrapper, METH_VARARGS, NULL },
-  /* keep: THE invoke-by-name fast path (core) */
   { "invoke", (PyCFunction)(void (*) (void))py_invoke_by_name, METH_FASTCALL, NULL },
-  /* keep: GValue marshalling primitive (invoke depends on it) */
   { "gvalue_get_type", py_gvalue_get_type, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_get_gtype", py_gvalue_get_gtype, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_init_value", py_gvalue_init_value, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_unset_value", py_gvalue_unset_value, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_reset_value", py_gvalue_reset_value, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_get_value", py_gvalue_get_value, METH_VARARGS, NULL },
-  /* keep: GValue marshalling primitive */
   { "gvalue_set_value", py_gvalue_set_value, METH_VARARGS, NULL },
   { "gvalue_array_get_nth_type", py_gvalue_array_get_nth_type, METH_VARARGS, NULL },
-  /* keep: extension point for custom-fundamental GType converters */
   { "gvalue_set_to_py_fallback", py_gvalue_set_to_py_fallback, METH_VARARGS, NULL },
   { "gvalue_get_to_py_fallback", py_gvalue_get_to_py_fallback, METH_NOARGS, NULL },
   { "gvalue_set_from_py_converter", py_gvalue_set_from_py_converter, METH_VARARGS, NULL },
   { "gvalue_get_from_py_converter", py_gvalue_get_from_py_converter, METH_NOARGS, NULL },
   { "gvalue_set_data_int", py_gvalue_set_data_int, METH_VARARGS, NULL },
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
-  /* keep: allocates a zeroed GValue wrapper for a given GType */
   { "gvalue_new_for_gtype", py_gvalue_new_for_gtype, METH_VARARGS, NULL },
   { "gvalue_wrap_pointer", py_gvalue_wrap_pointer, METH_VARARGS, NULL },
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },
-  /* keep: g_error_get_type is not introspected (special-cased boxed) — no invoke path */
   { "gerror_get_type", py_gerror_get_type, METH_VARARGS, NULL },
-  /* keep: compat foreign cairo needs cairo-gobject type registration side effects */
   { "ensure_cairo_gobject_types", py_ensure_cairo_gobject_types, METH_VARARGS, NULL },
-  /* keep: GType-system query — no introspected method */
   { "type_has_value_table", py_type_has_value_table, METH_VARARGS, NULL },
-  /* keep: registers a new pointer GType */
   { "pointer_type_register_static", py_pointer_type_register_static, METH_VARARGS, NULL },
-  /* keep: reads GParamSpec fields for introspection — no method */
   { "param_spec_info", py_param_spec_info, METH_VARARGS, NULL },
-  /* keep: reads a pspec default value — no method */
   { "param_spec_default_value", py_param_spec_default_value, METH_VARARGS, NULL },
-  /* keep: reads a pspec numeric range — no method */
   { "param_spec_numeric_info", py_param_spec_numeric_info, METH_VARARGS, NULL },
-  /* keep: GObject.weak_ref(callback, *args) — registers a GWeakNotify */
   { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
   { NULL }
 };
