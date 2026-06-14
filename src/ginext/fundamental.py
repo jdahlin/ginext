@@ -35,8 +35,6 @@ from typing import Any
 
 from . import private
 
-# Re-export the C base type under its traditional name so that
-# ``from ginext.fundamental import Fundamental`` still works in classbuild.py.
 Fundamental = private.Fundamental
 
 
@@ -48,7 +46,7 @@ class FundamentalMeta(type):
     methods on the class and caches them so subsequent accesses are O(1).
     """
 
-    __prepare__ = type.__prepare__  # type: ignore[assignment]
+    __prepare__ = type.__prepare__
 
     def __getattr__(cls, name: str) -> object:
         found = sys.modules["ginext.classbuild"].install_method_for_class(cls, name)
@@ -66,25 +64,3 @@ class FundamentalMeta(type):
         return sorted(names)
 
 
-def _fundamental_getattr(self: Any, name: str) -> Any:
-    """Instance __getattr__ registered into the C type at bootstrap.
-
-    Called by ``Fundamental_getattro`` after field access fails, to perform
-    lazy method installation and return a bound method.
-    """
-    method = sys.modules["ginext.classbuild"].method_for_instance(self, name)
-    if method is not None:
-        return method
-    raise AttributeError(name)
-
-
-def _init_hooks() -> None:
-    """Register Python callbacks into the C PyGIFundamental_Type.
-
-    Must be called once, early in the ginext import sequence, before any
-    fundamental wrapper is created.
-    """
-    private.fundamental_init_hooks(_fundamental_getattr)
-
-
-_init_hooks()

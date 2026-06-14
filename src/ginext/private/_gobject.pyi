@@ -115,3 +115,9 @@ class ValueInfo(BaseInfo):
     def get_value(self) -> int: ...
 
 class UnresolvedInfo(BaseInfo): ...
+
+class Fundamental:
+    __instance_ptr__: int
+    __gtype__: int
+
+def fundamental_from_pointer(cls: type, ptr: int, gtype: int) -> Fundamental: ...

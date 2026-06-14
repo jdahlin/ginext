@@ -31,11 +31,7 @@ from ginext.gobject.gobjectclass import GInterface as _GInterface
 from ginext.gobject.gtype import GType
 from ginext.gobject.gtype import compat_gtype_from_raw
 from ginext.gobject.resolve import own_gimeta
-from ginext.enum import (
-    GIEnum,
-    GIFlags,
-    register_enum_base_hook as _register_enum_base_hook,
-)
+from ginext.enum import GIEnum, GIFlags
 from ginext.namespace import Namespace
 from gi._compat_namespace import CompatNamespace
 from ginext.signal.connection import SignalConnection
@@ -134,21 +130,18 @@ _MISSING = object()
 _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
 
 
-class GEnum(GIEnum):
-    @property
-    def value_name(self) -> str:
+def _install_genum_compat_properties() -> None:
+    from ginext.enum import GEnum as _GEnum, GFlags as _GFlags
+
+    def _value_name(self: GIEnum) -> str:
         return getattr(type(self), "_value_names", {}).get(int(self), self.name)
 
-    @property
-    def value_nick(self) -> str:
+    def _value_nick(self: GIEnum) -> str:
         return getattr(type(self), "_value_nicks", {}).get(
             int(self), self.name.lower().replace("_", "-")
         )
 
-
-class GFlags(GIFlags):
-    @property
-    def value_names(self) -> list[str]:
+    def _value_names(self: GIFlags) -> list[str]:
         names: dict[int, str] = getattr(type(self), "_value_names", {})
         return [
             names.get(int(member), member.name or "")
@@ -156,8 +149,7 @@ class GFlags(GIFlags):
             if member in self
         ]
 
-    @property
-    def value_nicks(self) -> list[str]:
+    def _value_nicks(self: GIFlags) -> list[str]:
         nicks: dict[int, str] = getattr(type(self), "_value_nicks", {})
         return [
             nicks.get(int(member), (member.name or "").lower().replace("_", "-"))
@@ -165,22 +157,25 @@ class GFlags(GIFlags):
             if member in self
         ]
 
-    @property
-    def first_value_name(self) -> str:
-        names = self.value_names
+    def _first_value_name(self: GIFlags) -> str:
+        names = self.value_names  # type: ignore[attr-defined]
         return names[0] if names else "0"
 
-    @property
-    def first_value_nick(self) -> str:
-        nicks = self.value_nicks
+    def _first_value_nick(self: GIFlags) -> str:
+        nicks = self.value_nicks  # type: ignore[attr-defined]
         return nicks[0] if nicks else "0"
 
+    _GEnum.value_name = property(_value_name)  # type: ignore[attr-defined]
+    _GEnum.value_nick = property(_value_nick)  # type: ignore[attr-defined]
+    _GFlags.value_names = property(_value_names)  # type: ignore[attr-defined]
+    _GFlags.value_nicks = property(_value_nicks)  # type: ignore[attr-defined]
+    _GFlags.first_value_name = property(_first_value_name)  # type: ignore[attr-defined]
+    _GFlags.first_value_nick = property(_first_value_nick)  # type: ignore[attr-defined]
 
-def _gi_enum_base_hook(base: type) -> type:
-    return GFlags if issubclass(base, enum.IntFlag) else GEnum
 
-
-_register_enum_base_hook(_gi_enum_base_hook)
+_install_genum_compat_properties()
+GEnum = GIEnum
+GFlags = GIFlags
 
 # Register the pygobject-compat GObject.Object overlays early so they are
 # installed when GObject.Object is built (regardless of whether gi.repository.GObject
@@ -611,7 +606,7 @@ def _gobject_newv(cls: type, *args: object) -> object:
 
 def _register_pyobject_gtype() -> int:
     """Register a named pointer GType 'PyObject' and return its GType value."""
-    return int(ginext.private.pointer_type_register_static("PyObject"))
+    return int(ginext.private.register_static(int(GType.POINTER), "PyObject"))
 
 
 _PYOBJECT_GTYPE: int = _register_pyobject_gtype()
