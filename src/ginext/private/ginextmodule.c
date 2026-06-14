@@ -67,8 +67,6 @@ py_record_field_set (PyObject *m, PyObject *args);
 extern PyObject *
 py_fundamental_from_pointer (PyObject *m, PyObject *args);
 extern PyObject *
-py_fundamental_init_hooks (PyObject *m, PyObject *args);
-extern PyObject *
 py_record_ensure_size (PyObject *m, PyObject *args);
 extern PyObject *
 py_record_memory_get (PyObject *m, PyObject *args);
@@ -145,8 +143,8 @@ extern PyObject *
 py_ensure_cairo_gobject_types (PyObject *m, PyObject *args);
 extern PyObject *
 py_type_has_value_table (PyObject *m, PyObject *args);
-extern PyObject *
-py_pointer_type_register_static (PyObject *m, PyObject *args);
+PyObject *
+py_register_static (PyObject *m, PyObject *args);
 extern PyObject *
 py_param_spec_info (PyObject *m, PyObject *args);
 extern PyObject *
@@ -309,7 +307,6 @@ static PyMethodDef methods[] = {
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
   { "record_field_set", py_record_field_set, METH_VARARGS, NULL },
   { "fundamental_from_pointer", py_fundamental_from_pointer, METH_VARARGS, NULL },
-  { "fundamental_init_hooks", py_fundamental_init_hooks, METH_VARARGS, NULL },
   { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
   { "record_memory_get", py_record_memory_get, METH_VARARGS, NULL },
   { "record_memory_set", py_record_memory_set, METH_VARARGS, NULL },
@@ -352,7 +349,7 @@ static PyMethodDef methods[] = {
   { "gerror_get_type", py_gerror_get_type, METH_VARARGS, NULL },
   { "ensure_cairo_gobject_types", py_ensure_cairo_gobject_types, METH_VARARGS, NULL },
   { "type_has_value_table", py_type_has_value_table, METH_VARARGS, NULL },
-  { "pointer_type_register_static", py_pointer_type_register_static, METH_VARARGS, NULL },
+  { "register_static", py_register_static, METH_VARARGS, NULL },
   { "param_spec_info", py_param_spec_info, METH_VARARGS, NULL },
   { "param_spec_default_value", py_param_spec_default_value, METH_VARARGS, NULL },
   { "param_spec_numeric_info", py_param_spec_numeric_info, METH_VARARGS, NULL },

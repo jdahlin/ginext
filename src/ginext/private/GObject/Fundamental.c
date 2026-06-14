@@ -227,14 +227,6 @@ pygi_instantiatable_unref (gpointer instance, GType gtype)
 }
 
 
-static PyObject *fundamental_cb_getattr = NULL;
-
-void
-pygi_fundamental_set_getattr_hook (PyObject *hook)
-{
-  Py_XSETREF (fundamental_cb_getattr, hook != Py_None ? Py_NewRef (hook) : NULL);
-}
-
 static GIFieldInfo *
 fundamental_lookup_field (GIObjectInfo *info, const char *name)
 {
@@ -359,8 +351,17 @@ Fundamental_getattro (PyObject *self, PyObject *name)
         }
     }
 
-  if (fundamental_cb_getattr != NULL)
-    return PyObject_CallFunctionObjArgs (fundamental_cb_getattr, self, name, NULL);
+  PyObject *modules = PySys_GetObject ("modules");
+  PyObject *classbuild = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
+  if (classbuild != NULL)
+    {
+      PyObject *method = PyObject_CallMethod (classbuild, "method_for_instance", "OO", self, name);
+      if (method == NULL)
+        return NULL;
+      if (method != Py_None)
+        return method;
+      Py_DECREF (method);
+    }
 
   PyErr_SetObject (PyExc_AttributeError, name);
   return NULL;
@@ -522,13 +523,3 @@ py_fundamental_from_pointer (PyObject *module G_GNUC_UNUSED, PyObject *args)
   return pygi_fundamental_new (type, instance, (GType)gtype_val);
 }
 
-PyObject *
-py_fundamental_init_hooks (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *getattr_fn = NULL;
-  if (!PyArg_ParseTuple (args, "|O", &getattr_fn))
-    return NULL;
-  if (getattr_fn != NULL)
-    pygi_fundamental_set_getattr_hook (getattr_fn);
-  Py_RETURN_NONE;
-}

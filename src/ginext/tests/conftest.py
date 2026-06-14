@@ -254,6 +254,14 @@ if GI_TESTS_BUILDDIR is not None:
     )
 
 
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int | object) -> None:
+    if "ctypes" in sys.modules:
+        raise RuntimeError(
+            "ctypes was imported during the test session — "
+            "all GLib type registration must go through the C extension, not ctypes"
+        )
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     if os.environ.get("PYTEST_XDIST_WORKER"):
         return
