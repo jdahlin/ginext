@@ -128,7 +128,6 @@ namespace_dir = _gobject.namespace_dir
 namespace_find = _gobject.namespace_find
 synthetic_callable = _gobject.synthetic_callable
 callable_async_info = _gobject.callable_async_info
-instantiatable_unref = _gobject.instantiatable_unref
 record_field_get = _gobject.record_field_get
 record_field_set = _gobject.record_field_set
 Fundamental = _gobject.Fundamental

@@ -58,8 +58,6 @@ py_namespace_find_by_gtype (PyObject *m, PyObject *args);
 extern PyObject *
 py_namespace_get_typelib_path (PyObject *m, PyObject *args);
 extern PyObject *
-py_instantiatable_unref (PyObject *m, PyObject *args);
-extern PyObject *
 py_record_new (PyObject *m, PyObject *args);
 extern PyObject *
 py_glib_event_source_new (PyObject *m, PyObject *args);
@@ -387,7 +385,6 @@ static PyMethodDef methods[] = {
   { "namespace_get_immediate_dependencies", py_namespace_get_immediate_dependencies, METH_VARARGS, NULL },
   { "namespace_find_by_gtype", py_namespace_find_by_gtype, METH_VARARGS, NULL },
   { "namespace_get_typelib_path", py_namespace_get_typelib_path, METH_VARARGS, NULL },
-  { "instantiatable_unref", py_instantiatable_unref, METH_VARARGS, NULL },
   { "record_new", py_record_new, METH_VARARGS, NULL },
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
