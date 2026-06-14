@@ -351,11 +351,18 @@ Fundamental_getattro (PyObject *self, PyObject *name)
         }
     }
 
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *classbuild = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
-  if (classbuild != NULL)
+  static PyObject *method_for_instance_fn = NULL;
+  if (method_for_instance_fn == NULL)
     {
-      PyObject *method = PyObject_CallMethod (classbuild, "method_for_instance", "OO", self, name);
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *classbuild
+          = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
+      if (classbuild != NULL)
+        method_for_instance_fn = PyObject_GetAttrString (classbuild, "method_for_instance");
+    }
+  if (method_for_instance_fn != NULL)
+    {
+      PyObject *method = PyObject_CallFunctionObjArgs (method_for_instance_fn, self, name, NULL);
       if (method == NULL)
         return NULL;
       if (method != Py_None)

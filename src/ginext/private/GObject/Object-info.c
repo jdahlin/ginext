@@ -81,34 +81,38 @@ gobject_type_has_post_construct_hooks (PyObject *self);
 static int
 gobject_run_post_construct_hooks (PyObject *self);
 
-/* The wrapper factories live in ginext.classbuild; C looks them up via
- * sys.modules on demand (classbuild is imported well before any GObject is
- * wrapped from C). Returns a new reference to the factory callable, or NULL
- * with an exception set. */
 static PyObject *
-pygi_lookup_classbuild_factory (const char *attr)
+pygi_lookup_classbuild_fn (const char *attr, PyObject **cache)
 {
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *classbuild
-      = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
-  if (classbuild == NULL)
+  if (*cache == NULL)
     {
-      PyErr_SetString (PyExc_RuntimeError, "classbuild not loaded");
-      return NULL;
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *classbuild
+          = modules ? PyDict_GetItemString (modules, "ginext.classbuild") : NULL;
+      if (classbuild == NULL)
+        {
+          PyErr_SetString (PyExc_RuntimeError, "classbuild not loaded");
+          return NULL;
+        }
+      *cache = PyObject_GetAttrString (classbuild, attr);
+      if (*cache == NULL)
+        return NULL;
     }
-  return PyObject_GetAttrString (classbuild, attr);
+  return Py_NewRef (*cache);
 }
 
 static PyObject *
 pygi_gobject_wrapper_factory (void)
 {
-  return pygi_lookup_classbuild_factory ("wrap_object_from_c");
+  static PyObject *cached = NULL;
+  return pygi_lookup_classbuild_fn ("wrap_object_from_c", &cached);
 }
 
 static PyObject *
 pygi_preallocated_gobject_wrapper_factory (void)
 {
-  return pygi_lookup_classbuild_factory ("wrap_preallocated_object_from_c");
+  static PyObject *cached = NULL;
+  return pygi_lookup_classbuild_fn ("wrap_preallocated_object_from_c", &cached);
 }
 
 static int
@@ -991,20 +995,26 @@ gobject_type_has_post_construct_hooks (PyObject *self)
   return result;
 }
 
-/* Look up gobjectclass._finish_construction via sys.modules. Returns a new
- * reference, or NULL with an exception set. */
+/* Look up gobjectclass._finish_construction — cached after first call. */
 static PyObject *
 gobject_finish_construction_attr (void)
 {
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *gobjectclass
-      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
-  if (gobjectclass == NULL)
+  static PyObject *cached = NULL;
+  if (cached == NULL)
     {
-      PyErr_SetString (PyExc_RuntimeError, "gobjectclass not loaded");
-      return NULL;
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *gobjectclass
+          = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+      if (gobjectclass == NULL)
+        {
+          PyErr_SetString (PyExc_RuntimeError, "gobjectclass not loaded");
+          return NULL;
+        }
+      cached = PyObject_GetAttrString (gobjectclass, "_finish_construction");
+      if (cached == NULL)
+        return NULL;
     }
-  return PyObject_GetAttrString (gobjectclass, "_finish_construction");
+  return Py_NewRef (cached);
 }
 
 /* Run the type's post-construct hooks (Gtk.Template) via _finish_construction
@@ -1123,16 +1133,22 @@ GObject_getattro (PyObject *self, PyObject *name)
   PyObject *result = PyObject_GenericGetAttr (self, name);
   if (result != NULL || !PyErr_ExceptionMatches (PyExc_AttributeError))
     return result;
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *gobjectclass
-      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
-  if (gobjectclass == NULL)
+  static PyObject *getattr_fn = NULL;
+  if (getattr_fn == NULL)
+    {
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *mod
+          = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+      if (mod != NULL)
+        getattr_fn = PyObject_GetAttrString (mod, "_obj_getattr");
+    }
+  if (getattr_fn == NULL)
     {
       PyErr_SetObject (PyExc_AttributeError, name);
       return NULL;
     }
   PyErr_Clear ();
-  return PyObject_CallMethod (gobjectclass, "_obj_getattr", "OO", self, name);
+  return PyObject_CallFunctionObjArgs (getattr_fn, self, name, NULL);
 }
 
 /* tp_setattro: route writes through the registered __setattr__ body (which
@@ -1143,12 +1159,18 @@ GObject_setattro (PyObject *self, PyObject *name, PyObject *value)
 {
   if (value == NULL)
     return PyObject_GenericSetAttr (self, name, value);
-  PyObject *modules = PySys_GetObject ("modules");
-  PyObject *gobjectclass
-      = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
-  if (gobjectclass == NULL)
+  static PyObject *setattr_fn = NULL;
+  if (setattr_fn == NULL)
+    {
+      PyObject *modules = PySys_GetObject ("modules");
+      PyObject *mod
+          = modules ? PyDict_GetItemString (modules, "ginext.gobject.gobjectclass") : NULL;
+      if (mod != NULL)
+        setattr_fn = PyObject_GetAttrString (mod, "_obj_setattr");
+    }
+  if (setattr_fn == NULL)
     return PyObject_GenericSetAttr (self, name, value);
-  PyObject *r = PyObject_CallMethod (gobjectclass, "_obj_setattr", "OOO", self, name, value);
+  PyObject *r = PyObject_CallFunctionObjArgs (setattr_fn, self, name, value, NULL);
   if (r == NULL)
     return -1;
   Py_DECREF (r);
