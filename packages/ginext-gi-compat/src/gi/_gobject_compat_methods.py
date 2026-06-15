@@ -227,22 +227,34 @@ def _get_pspec_numeric_info(cls: Any, prop_name: str) -> "dict | None":
     return None
 
 
+def _get_pspec(cls: Any, prop_name: str) -> Any | None:
+    try:
+        return cls.gimeta.param_spec(prop_name)
+    except Exception:
+        return None
+
+
 @overlay.method("Object")
 def set_property(self: Any, name: str, value: object) -> None:
     prop_name = name.replace("_", "-")
     attr_name = prop_name.replace("-", "_")
+    descriptor_obj = type(self).__dict__.get(attr_name)
     # Check for Python-backed descriptor with setter
-    descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(type(descriptor), "__set__") and (
-        getattr(descriptor, "fset", None) is not None or getattr(descriptor, "fget", None) is not None
+    if descriptor_obj is not None and hasattr(type(descriptor_obj), "__set__") and (
+        getattr(descriptor_obj, "fset", None) is not None or getattr(descriptor_obj, "fget", None) is not None
     ):
-        type(descriptor).__set__(descriptor, self, value)
+        type(descriptor_obj).__set__(descriptor_obj, self, value)
         call_notify_override(self, prop_name)
         return
     # For C properties, validate/coerce numeric values (char overflow, bytes/str coercion)
-    if not hasattr(type(self).__dict__.get(attr_name, None), "gimeta"):
+    if getattr(descriptor_obj, "type", None) is str and not isinstance(value, str):
+        value = str(value)
+    if not hasattr(descriptor_obj, "gimeta"):
+        pspec = _get_pspec(type(self), prop_name)
+        if getattr(getattr(pspec, "value_type", None), "name", None) == "gchararray" and not isinstance(value, str):
+            value = str(value)
         pspec_info = _get_pspec_numeric_info(type(self), prop_name)
-        if pspec_info is not None:
+        if pspec_info is not None and prop_name != "unichar":
             value = _coerce_char_value(value, pspec_info)
     try:
         type(self).gimeta.set_property(self, prop_name, value)
@@ -250,7 +262,10 @@ def set_property(self: Any, name: str, value: object) -> None:
         msg = str(exc)
         if "construct-only" in msg or "construct_only" in msg:
             raise TypeError(msg) from None
-        self.set_property_by_name(prop_name, value)
+        try:
+            self.set_property_by_name(prop_name, value)
+        except ValueError as inner:
+            raise TypeError(str(inner)) from None
     except UnicodeEncodeError as exc:
         raise TypeError(str(exc)) from None
     call_notify_override(self, prop_name)

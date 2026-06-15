@@ -34,14 +34,33 @@ if TYPE_CHECKING:
 
 
 def _list_properties(cls: type) -> list[Any]:
-    try:
-        from ginext.gobject.properties import PropertyInfo
-        result = cls.list_properties()  # type: ignore[attr-defined]
-        # list_properties now returns PropertyInfo wrappers; unwrap to raw pspecs
-        # so compat code that calls GType(pspec) or reads pspec.value_type directly works.
+    from ginext.gobject.properties import PropertyInfo
+
+    def _unwrap(result: list[Any]) -> list[Any]:
         return [p._pspec if isinstance(p, PropertyInfo) else p for p in result]
+
+    try:
+        result = cls.list_properties()  # type: ignore[attr-defined]
+        return _unwrap(result)
     except Exception:
-        return []
+        try:
+            from gi.repository import GObject
+
+            return _unwrap(GObject.list_properties(cls))
+        except Exception:
+            try:
+                gprops = getattr(cls, "__gproperties__", None)
+                gimeta = getattr(cls, "gimeta", None)
+                if isinstance(gprops, dict) and gimeta is not None:
+                    result = []
+                    for key in gprops:
+                        pspec = gimeta.param_spec(key.replace("_", "-"))
+                        if pspec is not None:
+                            result.append(pspec)
+                    return result
+            except Exception:
+                pass
+            return []
 
 
 class ClassPropsProxy:
@@ -81,18 +100,31 @@ class PropsProxy:
         super().__setattr__("_obj", obj)
 
     def __getattr__(self, name: str) -> object:
-        # Check for Python descriptor (e.g. @GObject.Property decorated getter)
+        # Only compat propertyhelper descriptors with custom getters should
+        # intercept props access. Native inherited pspec descriptors must keep
+        # going through compat get_property() for coercion and wrapper policy.
         descriptor = type(self._obj).__dict__.get(name)
-        if descriptor is not None and hasattr(type(descriptor), "__get__"):
-            return type(descriptor).__get__(descriptor, self._obj, type(self._obj))
+        if descriptor is not None and getattr(descriptor, "fget", None) is not None:
+            from gi._propertyhelper import _CompatProperty
+
+            if isinstance(descriptor, _CompatProperty):
+                return descriptor.fget(self._obj)
         return self._obj.get_property(name)
 
     def __setattr__(self, name: str, value: object) -> None:
-        # Check for Python descriptor with setter
+        # Match compat Object.set_property(): only compat propertyhelper
+        # descriptors with custom getter/setter semantics bypass the generic
+        # GObject property path.
         descriptor = type(self._obj).__dict__.get(name)
-        if descriptor is not None and hasattr(type(descriptor), "__set__"):
-            type(descriptor).__set__(descriptor, self._obj, value)
-            return
+        if descriptor is not None and (
+            getattr(descriptor, "fset", None) is not None
+            or getattr(descriptor, "fget", None) is not None
+        ):
+            from gi._propertyhelper import _CompatProperty
+
+            if isinstance(descriptor, _CompatProperty):
+                type(descriptor).__set__(descriptor, self._obj, value)
+                return
         self._obj.set_property(name, value)
 
     def __iter__(self) -> Iterator[Any]:
