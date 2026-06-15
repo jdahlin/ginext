@@ -132,6 +132,7 @@ _XFAIL_NOT_RUN_WIN32_BY_NODE = {
 _PY315_GIL_XFAIL_BY_NODE = {
     "test_subprocess.py::test_spawn_async_fds_with_child_setup": "hangs in g_spawn_async() child_setup on Python 3.15 GIL build (CPython 3.15b2 regression)",
     "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
+    "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
 }
 
 _FREE_THREADED_XFAIL_BY_NODE = {

@@ -351,6 +351,12 @@ _FREE_THREADED_XFAIL_BY_NODE = {
 }
 
 
+_PY315_GIL_XFAIL_NOT_RUN_BY_NODE = {
+    "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
+    "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
+}
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> object:
     # ginext native tests call features.reset_for_test() in teardown, which
@@ -383,18 +389,9 @@ def pytest_collection_modifyitems(
             reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
             continue
-        if (
-            is_py315_gil
-            and relative_nodeid
-            == "test_properties.py::TestCPropsAccessor::test_parent_class"
-        ):
-            item.add_marker(
-                pytest.mark.xfail(
-                    reason="crashes xdist worker on Python 3.15 GIL build",
-                    run=False,
-                    strict=False,
-                )
-            )
+        if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_NOT_RUN_BY_NODE:
+            reason = _PY315_GIL_XFAIL_NOT_RUN_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if relative_nodeid.startswith("test_cairo.py::TestPango::") and (
             not has_display or is_debug_python
