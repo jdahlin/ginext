@@ -346,6 +346,11 @@ _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
 }
 
 
+_FREE_THREADED_XFAIL_BY_NODE = {
+    "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "refcount assertion is unstable in free-threaded Python builds",
+}
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> object:
     # ginext native tests call features.reset_for_test() in teardown, which
@@ -369,9 +374,14 @@ def pytest_collection_modifyitems(
     is_py315_gil = sys.version_info >= (3, 15) and getattr(
         sys, "_is_gil_enabled", lambda: True
     )()
+    is_free_threaded = not getattr(sys, "_is_gil_enabled", lambda: True)()
     for item in items:
         _, sep, relative_nodeid = item.nodeid.rpartition("/gi/tests/")
         if not sep:
+            continue
+        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_BY_NODE:
+            reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
             continue
         if (
             is_py315_gil
