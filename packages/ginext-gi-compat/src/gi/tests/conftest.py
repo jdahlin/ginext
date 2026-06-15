@@ -37,7 +37,6 @@ setup_gi_test_env(Path(__file__).resolve().parents[5])
 _XFAIL_BY_NODE = {
     "test_cancellable.py::test_does_not_expose_new": "constructor exposure differs after static constructor support",
     "test_enum_flags.py::test_enum_return_can_be_passed_back_as_arg": "enum/flags wrapper identity mismatch in combined compat run",
-    "test_everything.py::TestBoxed::test_boxed": "GValue boxed property conversion is not ABI-profile aware",
     "test_gi.py::TestModule::test_dir": "missing pygobject compat attribute",
     "test_gi.py::TestModule::test_path": "missing pygobject compat attribute",
     "test_gi.py::TestModule::test_str": "behaviour mismatch under ginext pygobject compat",
