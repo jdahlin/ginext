@@ -81,3 +81,7 @@ def test_keyword_shape_errors_match_pyarg_templates(
         t.int_three_in_three_out(*args, **kwargs)
 
     assert str(exc_info.value) == expected
+
+
+def test_nullable_slot_can_be_omitted_before_later_kwarg(t: Any) -> None:
+    assert t.int_two_in_utf8_two_in_with_allow_none(1, 2, d="4") is None
