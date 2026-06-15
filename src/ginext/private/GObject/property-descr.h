@@ -1,9 +1,9 @@
-#ifndef GINEXT_DECLARED_PROPERTY_H
-#define GINEXT_DECLARED_PROPERTY_H
+#ifndef GINEXT_PROPERTY_DESCR_H
+#define GINEXT_PROPERTY_DESCR_H
 
 #include "common.h"
 
-extern PyTypeObject GinextDeclaredPropertyType;
+extern PyTypeObject GinextPropertyDescriptorType;
 
 PyObject *
 pygi_declared_property_new_full (PyObject *spec,
@@ -12,4 +12,4 @@ pygi_declared_property_new_full (PyObject *spec,
                                  PyObject *pspec_obj,
                                  int coerce_gtype_int);
 
-#endif /* GINEXT_DECLARED_PROPERTY_H */
+#endif /* GINEXT_PROPERTY_DESCR_H */
