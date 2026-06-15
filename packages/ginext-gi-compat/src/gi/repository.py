@@ -18,6 +18,7 @@ from __future__ import annotations
 import enum
 import functools
 import math
+import re
 import struct
 import sys
 from typing import Any, Callable, Iterable, cast
@@ -41,36 +42,13 @@ __path__: list[str] = []
 _GFLOAT_MAX = 3.4028234663852886e38
 _VALUE_ARRAY_ITEM_TYPES_ATTR = "_ginext_compat_value_array_item_types"
 
-_CTYPES_IMPORTED = False
-_CTYPES_GOBLIB: Any = None
-_CTYPES_C_SIZE_T: Any = None
-_CTYPES_C_VOID_P: Any = None
-
-
-def _gtype_from_pspec_ctypes(pspec: Any) -> "type[GType]":
-    """Extract the GType of a GParamSpec by reading the C struct pointer chain."""
-    global _CTYPES_IMPORTED, _CTYPES_GOBLIB, _CTYPES_C_SIZE_T, _CTYPES_C_VOID_P
-    if not _CTYPES_IMPORTED:
-        import ctypes
-        _CTYPES_GOBLIB = ctypes.cdll.LoadLibrary("libgobject-2.0.so.0")
-        _CTYPES_GOBLIB.g_type_name.restype = ctypes.c_char_p
-        _CTYPES_GOBLIB.g_type_name.argtypes = [ctypes.c_size_t]
-        _CTYPES_C_SIZE_T = ctypes.c_size_t
-        _CTYPES_C_VOID_P = ctypes.c_void_p
-        _CTYPES_IMPORTED = True
-
-    import re
-    m = re.search(r"at 0x([0-9a-fA-F]+)", repr(pspec))
+def _gtype_from_pspec_repr(pspec: Any) -> "type[GType]":
+    """Extract the ParamSpec GType from the native repr prefix."""
+    m = re.match(r"<([A-Za-z0-9_]+)\s", repr(pspec))
     if not m:
         raise TypeError(f"Cannot extract GType from {pspec!r}")
-    addr = int(m.group(1), 16)
-    klass_ptr = _CTYPES_C_VOID_P.from_address(addr).value
-    if not klass_ptr:
-        raise TypeError(f"Cannot extract GType from {pspec!r}: null class pointer")
-    raw_gtype = int(_CTYPES_C_SIZE_T.from_address(klass_ptr).value)
-    type_name_bytes = _CTYPES_GOBLIB.g_type_name(raw_gtype)
-    type_name = type_name_bytes.decode() if type_name_bytes else f"GType_{raw_gtype}"
-    return compat_gtype_from_raw(raw_gtype, type_name)
+    type_name = m.group(1)
+    return GType.from_name(type_name)
 
 
 class _GTypeCompatMeta(type):
@@ -110,16 +88,15 @@ def _compat_gtype_from_object(obj: Any) -> "type[GType]":
 
     if isinstance(obj, int) and not isinstance(obj, bool):
         raw = obj
-        name_bytes = _CTYPES_GOBLIB if False else None  # not used
         import ginext as _ginext
         type_name = _ginext.GObject.type_name(raw)
         return compat_gtype_from_raw(raw, type_name)
     # GParamSpec from ginext.private
     if hasattr(_priv, "ParamSpec") and isinstance(obj, _priv.ParamSpec):
-        return _gtype_from_pspec_ctypes(obj)
+        return _gtype_from_pspec_repr(obj)
     repr_str = repr(obj)
-    if "at 0x" in repr_str:
-        return _gtype_from_pspec_ctypes(obj)
+    if repr_str.startswith("<GParam"):
+        return _gtype_from_pspec_repr(obj)
     gimeta = getattr(type(obj), "gimeta", None) or getattr(obj, "gimeta", None)
     if gimeta is not None:
         return compat_gtype_from_raw(int(gimeta.gtype), getattr(gimeta, "type_name", ""))

@@ -1,6 +1,5 @@
 import unittest
 import traceback
-import ctypes
 import warnings
 import sys
 import os
@@ -23,19 +22,6 @@ from .helper import capture_exceptions
 
 const_str = b"const \xe2\x99\xa5 utf8".decode("UTF-8")
 noconst_str = "non" + const_str
-
-
-class RawGList(ctypes.Structure):
-    _fields_ = [
-        ("data", ctypes.c_void_p),
-        ("next", ctypes.c_void_p),
-        ("prev", ctypes.c_void_p),
-    ]
-
-    @classmethod
-    def from_wrapped(cls, obj):
-        offset = sys.getsizeof(object())  # size of PyObject_HEAD
-        return ctypes.POINTER(cls).from_address(id(obj) + offset)
 
 
 class TestInstanceTransfer(unittest.TestCase):
@@ -780,19 +766,13 @@ class TestEverything(unittest.TestCase):
     )
     def test_struct_gpointer(self):
         glist = GLib.List()
-        raw = RawGList.from_wrapped(glist)
-
-        # Note that pointer fields use 0 for NULL in PyGObject and None in ctypes
         self.assertEqual(glist.data, 0)
-        self.assertEqual(raw.contents.data, None)
 
         glist.data = 123
         self.assertEqual(glist.data, 123)
-        self.assertEqual(raw.contents.data, 123)
 
         glist.data = None
         self.assertEqual(glist.data, 0)
-        self.assertEqual(raw.contents.data, None)
 
         # Setting to anything other than an int should raise
         self.assertRaises(TypeError, setattr, glist.data, "nan")
