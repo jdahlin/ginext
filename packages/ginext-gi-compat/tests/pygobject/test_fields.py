@@ -128,10 +128,6 @@ class TestFields(unittest.TestCase):
 
         self.assertRaises(TypeError, setattr, s, "obj", object())
 
-    @pytest.mark.xfail(
-        reason="record GList field compatibility is incomplete",
-        strict=False,
-    )
     def test_glist(self):
         s = Regress.TestStructD()
         self.assertEqual(s.list, [])
@@ -147,10 +143,6 @@ class TestFields(unittest.TestCase):
         glist.data = None
         self.assertEqual(glist.data, 0)
 
-    @pytest.mark.xfail(
-        reason="record GPtrArray field compatibility is incomplete",
-        strict=False,
-    )
     def test_gptrarray(self):
         s = Regress.TestStructD()
         self.assertEqual(s.garray, [])
