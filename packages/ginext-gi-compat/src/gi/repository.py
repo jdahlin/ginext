@@ -20,7 +20,6 @@ import functools
 import math
 import struct
 import sys
-import warnings
 from typing import Any, Callable, Iterable, cast
 
 import ginext
