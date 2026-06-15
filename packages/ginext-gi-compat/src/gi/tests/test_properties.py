@@ -862,11 +862,6 @@ class TestProperty(unittest.TestCase):
         b.prop1 = 20
         self.assertEqual(b.prop1, 20)
 
-    @pytest.mark.xfail(
-        reason="crashes setting inherited C property via compat props proxy",
-        run=False,
-        strict=False,
-    )
     def test_property_subclass_c(self):
         class A(Regress.TestSubObj):
             prop1 = GObject.Property(type=int)

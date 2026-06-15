@@ -18,9 +18,12 @@
 #include "GObject/Object.h"
 #include "GIRepository/BaseInfo.h"
 #include "GIRepository/Info.h"
+#include "GLib/List.h"
 #include "GLib/HashTable.h"
 #include "marshal/enum.h"
 #include "marshal/gvalue.h"
+#include "marshal/marshal.h"
+#include "marshal/scalar.h"
 #include "runtime/class-registry.h"
 #include "runtime/module_funcs.h"
 #include "gimeta-helpers.h"
@@ -187,6 +190,33 @@ pygi_gobject_get_property_by_name (PyObject *source_arg, const char *name)
   GValue value = G_VALUE_INIT;
   g_value_init (&value, pspec->value_type);
   g_object_get_property (source, name, &value);
+  if (G_IS_PARAM_SPEC_UNICHAR (pspec))
+    {
+      guint codepoint = g_value_get_uint (&value);
+      g_value_unset (&value);
+      if (codepoint == 0)
+        return PyUnicode_FromString ("");
+      return PyUnicode_FromOrdinal ((int)codepoint);
+    }
+  if (pspec->value_type == G_TYPE_POINTER)
+    {
+      g_autoptr (GITypeInfo) type_info = property_type_info_for_gobject_property (source, name);
+      if (type_info != NULL)
+        {
+          PyGIType pygi_type = { 0 };
+          if (pygi_type_from_gi (type_info, &pygi_type) == 0
+              && (pygi_type.kind == PYGI_TYPE_GLIST || pygi_type.kind == PYGI_TYPE_GSLIST))
+            {
+              GIArgument list_arg = { .v_pointer = g_value_get_pointer (&value) };
+              PyObject *list_py = pygi_argument_to_py_transfer (NULL,
+                                                                type_info,
+                                                                &list_arg,
+                                                                GI_TRANSFER_NOTHING);
+              g_value_unset (&value);
+              return list_py;
+            }
+        }
+    }
   if (g_type_is_a (pspec->value_type, G_TYPE_HASH_TABLE))
     {
       if (g_value_get_boxed (&value) == NULL)
@@ -239,6 +269,52 @@ pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject
     }
 
   GValue value = G_VALUE_INIT;
+  if (G_IS_PARAM_SPEC_UNICHAR (pspec))
+    {
+      GIArgument arg = { 0 };
+      if (pygi_unichar_from_py (py_value, &arg) != 0)
+        return -1;
+      g_value_init (&value, pspec->value_type);
+      g_value_set_uint (&value, arg.v_uint32);
+      g_object_set_property (source, name, &value);
+      g_value_unset (&value);
+      return 0;
+    }
+  if (pspec->value_type == G_TYPE_POINTER)
+    {
+      g_autoptr (GITypeInfo) type_info = property_type_info_for_gobject_property (source, name);
+      if (type_info != NULL)
+        {
+          PyGIType pygi_type = { 0 };
+          if (pygi_type_from_gi (type_info, &pygi_type) == 0)
+            {
+              if (pygi_type.kind == PYGI_TYPE_GLIST || pygi_type.kind == PYGI_TYPE_GSLIST)
+                {
+                  GIArgument list_arg = { 0 };
+                  PyGIArgCleanup cleanup = { 0 };
+                  int rc = pygi_type.kind == PYGI_TYPE_GLIST
+                               ? pygi_glist_from_py (py_value,
+                                                     type_info,
+                                                     GI_TRANSFER_NOTHING,
+                                                     &list_arg,
+                                                     &cleanup)
+                               : pygi_slist_from_py (py_value,
+                                                     type_info,
+                                                     GI_TRANSFER_NOTHING,
+                                                     &list_arg,
+                                                     &cleanup);
+                  if (rc != 0)
+                    return -1;
+                  g_value_init (&value, pspec->value_type);
+                  g_value_set_pointer (&value, list_arg.v_pointer);
+                  g_object_set_property (source, name, &value);
+                  pygi_arg_cleanup_clear (&cleanup);
+                  g_value_unset (&value);
+                  return 0;
+                }
+            }
+        }
+    }
   if (g_type_is_a (pspec->value_type, G_TYPE_HASH_TABLE))
     {
       g_autoptr (GITypeInfo) type_info = property_type_info_for_gobject_property (source, name);

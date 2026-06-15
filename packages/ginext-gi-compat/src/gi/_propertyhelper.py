@@ -308,7 +308,7 @@ class _CompatProperty(Generic[T]):
             return self.fget(obj)
         if self.fset is not None:
             raise TypeError(f"property {self.name!r} is not readable")
-        return type(obj).gimeta.get_property(obj, self.name)  # type: ignore[attr-defined]
+        return obj.get_property_by_name(self.name.replace("_", "-"))  # type: ignore[attr-defined]
 
     def __set__(self, obj: object, value: object) -> None:
         if self.fset is not None:
@@ -326,7 +326,7 @@ class _CompatProperty(Generic[T]):
         if self.maximum is not None and value > self.maximum:  # type: ignore[operator]
             return
         try:
-            type(obj).gimeta.set_property(obj, self.name, value)  # type: ignore[attr-defined]
+            obj.set_property_by_name(self.name.replace("_", "-"), value)  # type: ignore[attr-defined]
         except (AttributeError, ValueError) as exc:
             raise TypeError(str(exc)) from None
         call_notify_override(obj, self.name.replace("_", "-"))

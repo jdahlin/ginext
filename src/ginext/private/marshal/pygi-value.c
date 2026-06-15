@@ -621,7 +621,14 @@ pygi_value_gvalue_from_py (PyObject *py, const PyGIType *type, GValue *value)
           g_value_set_pointer (value, NULL);
           return 0;
         }
-      g_value_set_pointer (value, py);
+      if (!PyLong_Check (py))
+        {
+          PyErr_SetString (PyExc_TypeError, "gpointer GValue expects None or an integer pointer");
+          return -1;
+        }
+      g_value_set_pointer (value, PyLong_AsVoidPtr (py));
+      if (PyErr_Occurred ())
+        return -1;
       return 0;
     default:
       break;
