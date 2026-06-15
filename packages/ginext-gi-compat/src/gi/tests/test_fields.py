@@ -190,10 +190,6 @@ class TestFields(unittest.TestCase):
         obj = Regress.TestObj()
         self.assertTrue(obj.hash_table is None)
 
-    @pytest.mark.xfail(
-        reason="record array field length-annotation compatibility is incomplete",
-        strict=False,
-    )
     def test_array_field_with_length_annotation(self):
         """Regression test for <https://gitlab.gnome.org/GNOME/pygobject/-/issues/738>
         Every time an array field was accessed, the reference count of the struct info would be decreased.

@@ -205,6 +205,13 @@ def test_struct_c_object_field_accepts_object_and_none(regress: Namespace) -> No
         record.obj = object()
 
 
+def test_annotation_fields_length_annotated_array_defaults_to_empty_bytes(regress: Namespace) -> None:
+    record = regress.AnnotationFields()
+
+    assert record.arr == b""
+    assert record.arr == b""
+
+
 # --- __match_args__ (positional structural matching) -----------------------
 
 
