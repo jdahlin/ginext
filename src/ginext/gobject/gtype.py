@@ -24,7 +24,6 @@ pytype lookup. compat_gtype_from_raw wraps a raw (gtype, name) pair.
 
 from __future__ import annotations
 
-import types
 from typing import ClassVar, Type, cast
 
 from .. import abi, features, private
@@ -210,15 +209,13 @@ def compat_gtype_from_raw(gtype: int, type_name: str) -> type[GType]:
             (GType,),
             {
                 "__module__": __name__,
-                "gimeta": types.SimpleNamespace(
-                    gtype=int(gtype),
-                    profile=abi.NATIVE,
-                ),
+                "gimeta": private.GIMeta.from_gtype(int(gtype), type_name),
                 "gtype_name": type_name,
                 "is_a": classmethod(_is_a),
             },
         ),
     )
+    wrapper.gimeta.profile = abi.NATIVE
     _compat_gtype_cache[key] = wrapper
     return wrapper
 
@@ -246,14 +243,12 @@ def _gtype_constant_from_value(name: str, gtype: int) -> type[GType]:
         (GType,),
         {
             "__module__": __name__,
-            "gimeta": types.SimpleNamespace(
-                gtype=gtype,
-                profile=abi.NATIVE,
-            ),
+            "gimeta": private.GIMeta.from_gtype(gtype, name),
             "gtype_name": name,
         },
     )
     cls = cast("Type[GType]", cls)
+    cls.gimeta.profile = abi.NATIVE
     if cls.gimeta.gtype == 0:
         raise RuntimeError(f"unknown GType {name!r}")
     return cls
