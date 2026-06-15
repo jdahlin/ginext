@@ -2075,9 +2075,7 @@ PyType_Spec GinextMethodDescriptor_spec = {
 };
 
 /* Lazily import ginext.method._PackedUserData. Cached for the process
- * lifetime; the type is stable. The trampoline in shims.c imports the
- * same type independently, so a re-fetch here would just duplicate
- * work. */
+ * lifetime; the type is stable. */
 static PyObject *
 packed_user_data_type (void)
 {
