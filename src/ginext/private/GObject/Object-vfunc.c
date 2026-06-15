@@ -406,6 +406,52 @@ has_conflicting_vfunc_in_hierarchy (GIObjectInfo *parent_info,
   return FALSE;
 }
 
+static gboolean
+has_conflicting_vfunc_in_python_interface_bases (PyObject *cls,
+                                                 GIVFuncInfo *matched_vfunc,
+                                                 GIBaseInfo *matched_container)
+{
+  const char *matched_name = gi_base_info_get_name ((GIBaseInfo *)matched_vfunc);
+  if (matched_name == NULL)
+    return FALSE;
+
+  PyObject *mro = python_class_mro (cls);
+  if (mro == NULL)
+    return FALSE;
+
+  Py_ssize_t n = PyTuple_GET_SIZE (mro);
+  for (Py_ssize_t i = 1; i < n; i++)
+    {
+      PyObject *base_cls = PyTuple_GET_ITEM (mro, i);
+      g_autoptr (GIInterfaceInfo) iface = NULL;
+      int interface_result = interface_info_from_python_base (base_cls, &iface);
+      if (interface_result < 0)
+        {
+          Py_DECREF (mro);
+          return FALSE;
+        }
+      if (interface_result <= 0)
+        continue;
+
+      GIVFuncInfo *iface_vfunc = gi_interface_info_find_vfunc (iface, matched_name);
+      if (iface_vfunc != NULL)
+        {
+          gboolean same_vfunc
+              = gi_base_info_equal ((GIBaseInfo *)iface_vfunc, (GIBaseInfo *)matched_vfunc);
+          gboolean same_container = gi_base_info_equal ((GIBaseInfo *)iface, matched_container);
+          gi_base_info_unref ((GIBaseInfo *)iface_vfunc);
+          if (!same_vfunc || !same_container)
+            {
+              Py_DECREF (mro);
+              return TRUE;
+            }
+        }
+    }
+
+  Py_DECREF (mro);
+  return FALSE;
+}
+
 static int
 validate_vfunc_overrides (PyObject *cls, GIObjectInfo *parent_info)
 {
@@ -446,8 +492,10 @@ validate_vfunc_overrides (PyObject *cls, GIObjectInfo *parent_info)
       if (vfunc_info == NULL)
         continue;
 
-      if (parent_info != NULL && !explicit_match
-          && has_conflicting_vfunc_in_hierarchy (parent_info, vfunc_info, container))
+      if (!explicit_match
+          && ((parent_info != NULL
+               && has_conflicting_vfunc_in_hierarchy (parent_info, vfunc_info, container))
+              || has_conflicting_vfunc_in_python_interface_bases (cls, vfunc_info, container)))
         {
           PyErr_Format (PyExc_TypeError,
                         "Method %s() on class %s is ambiguous with methods in base classes",
