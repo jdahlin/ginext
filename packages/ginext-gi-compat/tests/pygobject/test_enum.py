@@ -25,7 +25,6 @@ enum_declaration_xfail = pytest.mark.xfail(
 
 
 class EnumTests(unittest.TestCase):
-    @enum_declaration_xfail
     def test_gtype(self):
         class MyEnum(GObject.GEnum):
             ONE = 1
@@ -101,7 +100,6 @@ class EnumTests(unittest.TestCase):
 
 
 class FlagsTests(unittest.TestCase):
-    @enum_declaration_xfail
     def test_gtype(self):
         class MyFlags(GObject.GFlags):
             ONE = 1
