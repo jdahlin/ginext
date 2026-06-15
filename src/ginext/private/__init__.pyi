@@ -127,14 +127,14 @@ class GObject:
 
 from typing import dataclass_transform
 
-@dataclass_transform(field_specifiers=(DeclaredProperty,))
+@dataclass_transform(field_specifiers=(PropertyDescriptor,))
 class GObjectMeta(type):
     gimeta: GIMeta
     def __getattr__(cls, name: str) -> object: ...
 
 class GBoxed: ...
 
-class DeclaredProperty:
+class PropertyDescriptor:
     name: str
     owner: type
     pspec: object
@@ -147,7 +147,7 @@ class DeclaredProperty:
         prop_id: int,
         pspec: object,
         coerce_gtype_int: bool = ...,
-    ) -> DeclaredProperty: ...
+    ) -> PropertyDescriptor: ...
 
 class CallableDescriptor:
     gimeta: types.SimpleNamespace

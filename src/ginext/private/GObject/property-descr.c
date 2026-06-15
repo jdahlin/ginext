@@ -96,7 +96,7 @@ declared_property_dealloc (GinextPropertyDescriptor *self)
 static PyObject *
 declared_property_repr (GinextPropertyDescriptor *self)
 {
-  return PyUnicode_FromFormat ("<ginext.DeclaredProperty %R>", self->name);
+  return PyUnicode_FromFormat ("<ginext.PropertyDescriptor %R>", self->name);
 }
 
 static PyObject *
