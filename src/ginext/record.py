@@ -110,7 +110,7 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                 return cast("Self", cast("Any", method)())
         obj = super().__new__(cls)
         _ensure_anonymous_union_storage(cls, obj)
-        return cast("Self", obj)
+        return obj
 
     def __getattr__(self, name: str) -> object:
         if name in type(self).gimeta.method_infos:

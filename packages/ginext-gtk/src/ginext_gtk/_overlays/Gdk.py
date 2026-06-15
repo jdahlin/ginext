@@ -98,7 +98,7 @@ if Gdk.__version__[0] == 3:
         return mapping.get(key)
 
     def _event_active_arm(event: Gdk.Event) -> object:
-        event_type = event.type
+        event_type = event.get_event_type()
         arm_name = _event_arm_name(event_type)
         if arm_name is None:
             raise AttributeError("event type has no active arm")
@@ -156,7 +156,7 @@ def _rgba_new(
     obj.green = float(green)
     obj.blue = float(blue)
     obj.alpha = float(alpha)
-    return cast("Gdk.RGBA", obj)
+    return obj
 
 
 @overlay.method("RGBA", name="__repr__")
@@ -177,7 +177,7 @@ def _rectangle_new(
     obj.y = int(y)
     obj.width = int(width)
     obj.height = int(height)
-    return cast("Gdk.Rectangle", obj)
+    return obj
 
 
 @overlay.method("Rectangle", name="__repr__")
