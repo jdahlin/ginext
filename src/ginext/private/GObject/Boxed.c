@@ -1155,6 +1155,40 @@ field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value)
           GITypeTag stag = gi_enum_info_get_storage_type ((GIEnumInfo *)finfo);
           return pygi_py_to_primitive_storage (value, stag, base + offset);
         }
+      if (finfo != NULL && (GI_IS_OBJECT_INFO (finfo) || GI_IS_INTERFACE_INFO (finfo)))
+        {
+          if (value == Py_None)
+            {
+              *(gpointer *)(base + offset) = NULL;
+              return 0;
+            }
+
+          gpointer object = pygi_gobject_get (value);
+          if (object == NULL)
+            {
+              if (PyErr_ExceptionMatches (PyExc_AttributeError))
+                {
+                  PyErr_Clear ();
+                  return pygi_raise_gobject_type_error_for_gtype (
+                      GI_IS_REGISTERED_TYPE_INFO (finfo)
+                          ? gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)finfo)
+                          : G_TYPE_OBJECT,
+                      value);
+                }
+              return -1;
+            }
+
+          if (GI_IS_REGISTERED_TYPE_INFO (finfo))
+            {
+              GType expected = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)finfo);
+              if (expected != G_TYPE_INVALID && expected != G_TYPE_NONE
+                  && !g_type_is_a (G_TYPE_FROM_INSTANCE ((GTypeInstance *)object), expected))
+                return pygi_raise_gobject_type_error_for_gtype (expected, value);
+            }
+
+          *(gpointer *)(base + offset) = object;
+          return 0;
+        }
       if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
         {
           if (value == Py_None)

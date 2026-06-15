@@ -191,6 +191,20 @@ def test_struct_d_gptrarray_field_defaults_and_rejects_bad_items(regress: Namesp
         record.garray = [object()]
 
 
+def test_struct_c_object_field_accepts_object_and_none(regress: Namespace) -> None:
+    record = regress.TestStructC()
+    obj = regress.TestObj()
+
+    record.obj = obj
+    assert record.obj is obj
+
+    record.obj = None
+    assert record.obj is None
+
+    with pytest.raises(TypeError):
+        record.obj = object()
+
+
 # --- __match_args__ (positional structural matching) -----------------------
 
 

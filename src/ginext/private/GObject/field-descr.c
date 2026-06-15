@@ -158,7 +158,8 @@ field_from_py_supported (GITypeInfo *fti)
       g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
       if (finfo != NULL
           && (GI_IS_ENUM_INFO (finfo) || GI_IS_FLAGS_INFO (finfo)
-              || GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
+              || GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)
+              || GI_IS_OBJECT_INFO (finfo) || GI_IS_INTERFACE_INFO (finfo)))
         return TRUE;
     }
 
