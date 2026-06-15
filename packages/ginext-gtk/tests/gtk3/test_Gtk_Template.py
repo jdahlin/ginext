@@ -91,7 +91,7 @@ def TemplatedClass(Gtk: Any, unique_type_name: Any) -> Any:
 
 def test_template_module_attrs(Gtk: Any) -> None:
     assert callable(Gtk.Template)
-    assert getattr(Gtk.Template, "Child", None) is not None
+    assert Gtk.Template.Child is not None
 
 
 @needs_display

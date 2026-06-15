@@ -25,7 +25,7 @@ def metadata(
     author: str,
 ) -> Callable[[_T], _T]:
     def decorator(cls: _T) -> _T:
-        getattr(cls, "set_metadata")(longname, classification, description, author)
+        cls.set_metadata(longname, classification, description, author)
         return cls
 
     return decorator
@@ -34,7 +34,7 @@ def metadata(
 def pads(*templates: Any) -> Callable[[_T], _T]:
     def decorator(cls: _T) -> _T:
         for templ in templates:
-            getattr(cls, "add_pad_template")(templ)
+            cls.add_pad_template(templ)
         return cls
 
     return decorator
