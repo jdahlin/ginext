@@ -18,10 +18,6 @@ class Number:
 
 
 class TestFields(unittest.TestCase):
-    @pytest.mark.xfail(
-        reason="record int8 field coercion compatibility is incomplete",
-        strict=False,
-    )
     def test_int8(self):
         s = Regress.TestStructA()
         s.some_int8 = 21
