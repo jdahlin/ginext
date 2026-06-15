@@ -43,7 +43,8 @@ dict_set_steal (PyObject *dict, PyObject *key, PyObject *value)
   return rc;
 }
 
-/* Resolve cls.__bases__[0].gimeta.gtype. */
+/* Resolve the first base that carries a GType. Python mixins may precede the
+ * actual GObject/GInterface base in compat-style multiple inheritance. */
 static PyObject *
 parent_class_and_gtype (PyObject *cls, GType *out_gtype)
 {
@@ -63,23 +64,26 @@ parent_class_and_gtype (PyObject *cls, GType *out_gtype)
       PyErr_SetString (PyExc_TypeError, "__bases__ is not a tuple");
       return NULL;
     }
-  if (PyTuple_GET_SIZE (bases) < 1)
-    return NULL;
-  PyObject *first = PyTuple_GetItem (bases, 0);
-  if (!first)
-    return NULL;
-  PyObject *parent_cls = Py_NewRef (first);
-
-  if (pygi_gtype_from_py_object (parent_cls, out_gtype) != 0)
+  Py_ssize_t n_bases = PyTuple_GET_SIZE (bases);
+  for (Py_ssize_t i = 0; i < n_bases; i++)
     {
+      PyObject *base = PyTuple_GET_ITEM (bases, i);
+      PyObject *parent_cls = Py_NewRef (base);
+      if (pygi_gtype_from_py_object (parent_cls, out_gtype) == 0)
+        return parent_cls;
       Py_DECREF (parent_cls);
-      return NULL;
+      if (!PyErr_ExceptionMatches (PyExc_AttributeError)
+          && !PyErr_ExceptionMatches (PyExc_TypeError))
+        return NULL;
+      PyErr_Clear ();
     }
-  return parent_cls;
+
+  PyErr_SetString (PyExc_TypeError, "no GType-bearing base class found");
+  return NULL;
 }
 
 static int
-add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
+add_declared_interfaces (PyObject *cls, PyObject *parent_cls, GType parent_gtype, GType gtype)
 {
   if (!PyType_Check (cls))
     {
@@ -99,28 +103,25 @@ add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
     }
 
   Py_ssize_t n_bases = PyTuple_GET_SIZE (bases);
-  for (Py_ssize_t i = 1; i < n_bases; i++)
+  for (Py_ssize_t i = 0; i < n_bases; i++)
     {
       PyObject *base = PyTuple_GET_ITEM (bases, i);
+      if (base == parent_cls)
+        continue;
       PyObject *gimeta = NULL;
       if (pygi_object_get_gimeta (base, &gimeta) < 0)
           return -1;
       if (gimeta == NULL)
         continue;
 
-      PyObject *gtype_obj = NULL;
-      if (PyObject_GetOptionalAttrString (gimeta, "gtype", &gtype_obj) < 0)
+      GType iface_gtype = G_TYPE_INVALID;
+      if (pygi_gimeta_get_gtype (gimeta, &iface_gtype) < 0)
         {
           Py_DECREF (gimeta);
           return -1;
         }
       Py_DECREF (gimeta);
-      if (gtype_obj == NULL)
-        continue;
-
-      GType iface_gtype = (GType)PyLong_AsUnsignedLongLong (gtype_obj);
-      Py_DECREF (gtype_obj);
-      if (PyErr_Occurred ())
+      if (iface_gtype == G_TYPE_INVALID)
         return -1;
       if (iface_gtype == G_TYPE_INVALID || g_type_fundamental (iface_gtype) != G_TYPE_INTERFACE
           || g_type_is_a (parent_gtype, iface_gtype) || g_type_is_a (gtype, iface_gtype))
@@ -232,7 +233,7 @@ pygi_register_gobject_subclass_for_class (PyObject *cls,
       return NULL;
     }
 
-  if (add_declared_interfaces (cls, parent_gtype, gtype) < 0)
+  if (add_declared_interfaces (cls, parent_cls, parent_gtype, gtype) < 0)
     return NULL;
 
   if (ginext_gobject_install_vfunc_overrides (cls, gtype, parent_cls) < 0)

@@ -77,6 +77,22 @@ def test_subclassing_imported_class_in_python() -> None:
     assert isinstance(obj, Gio.Cancellable)
 
 
+def test_subclassing_imported_class_with_python_mixin_first() -> None:
+    from ginext import Gio
+
+    class Mixin:
+        pass
+
+    class MyCancellable(Mixin, Gio.Cancellable):
+        pass
+
+    obj = MyCancellable()
+    assert isinstance(obj, MyCancellable)
+    assert isinstance(obj, Gio.Cancellable)
+    assert Mixin in MyCancellable.__mro__
+    assert Gio.Cancellable in MyCancellable.__mro__
+
+
 def test_implemented_interfaces_are_in_mro() -> None:
     from ginext import Gio
 
