@@ -221,7 +221,7 @@ def test_vfunc_caller_allocated_gvalue_out_accepts_plain_python_value(
     GIMarshallingTests = open_namespace_for_test(call_mode, "GIMarshallingTests", "1.0")
 
     class Obj(
-        GIMarshallingTests.Object,
+        GIMarshallingTests.Object,  # type: ignore[misc, call-arg, name-defined]
         type_name=_unique_name("VfuncCallerAllocatedGValueOut"),
     ):
         payload = "test caller alloc return"
@@ -241,7 +241,7 @@ def test_vfunc_can_raise_glib_error(call_mode: str) -> None:
     GIMarshallingTests = open_namespace_for_test(call_mode, "GIMarshallingTests", "1.0")
 
     class Obj(
-        GIMarshallingTests.Object,
+        GIMarshallingTests.Object,  # type: ignore[misc, call-arg, name-defined]
         type_name=_unique_name("VfuncGErrorException"),
     ):
 

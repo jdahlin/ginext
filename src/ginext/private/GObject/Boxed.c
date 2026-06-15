@@ -892,6 +892,23 @@ array_field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
   size_t fixed = 0;
   if (gi_type_info_get_array_fixed_size (fti, &fixed) && fixed > 0)
     {
+      if (gi_type_info_get_tag (inner_ti) == GI_TYPE_TAG_INTERFACE)
+        {
+          g_autoptr (GIBaseInfo) iinfo = gi_type_info_get_interface (inner_ti);
+          if (iinfo != NULL && GI_IS_UNION_INFO (iinfo))
+            {
+              PyObject *list = PyList_New ((Py_ssize_t)fixed);
+              if (list == NULL)
+                return NULL;
+              for (size_t i = 0; i < fixed; i++)
+                {
+                  Py_INCREF (Py_None);
+                  PyList_SET_ITEM (list, (Py_ssize_t)i, Py_None);
+                }
+              return list;
+            }
+        }
+
       PyGIContainerElement element;
       if (pygi_container_element_init (&element, inner_ti) != 0)
         return NULL;

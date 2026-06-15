@@ -62,6 +62,9 @@ array_field_to_py_supported (GITypeInfo *fti)
       return itag == GI_TYPE_TAG_VOID || itag == GI_TYPE_TAG_UINT8;
     }
 
+  if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_PTR_ARRAY)
+    return TRUE;
+
   if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
     return FALSE;
 
@@ -81,6 +84,13 @@ array_field_to_py_supported (GITypeInfo *fti)
   size_t fixed = 0;
   if (gi_type_info_get_array_fixed_size (fti, &fixed) && fixed > 0)
     {
+      if (gi_type_info_get_tag (inner_ti) == GI_TYPE_TAG_INTERFACE)
+        {
+          g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (inner_ti);
+          if (finfo != NULL && GI_IS_UNION_INFO (finfo))
+            return TRUE;
+        }
+
       PyGIContainerElement element;
       if (pygi_container_element_init (&element, inner_ti) != 0)
         {
@@ -96,6 +106,9 @@ array_field_to_py_supported (GITypeInfo *fti)
 static gboolean
 array_field_from_py_supported (GITypeInfo *fti)
 {
+  if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_PTR_ARRAY)
+    return TRUE;
+
   if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
     return FALSE;
 
@@ -184,6 +197,8 @@ field_to_py_supported (GITypeInfo *fti)
   GITypeTag ftag = gi_type_info_get_tag (fti);
   if (ftag == GI_TYPE_TAG_VOID)
     return TRUE;
+  if (ftag == GI_TYPE_TAG_GLIST || ftag == GI_TYPE_TAG_GSLIST)
+    return TRUE;
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_to_py_supported (fti);
   if (ftag == GI_TYPE_TAG_INTERFACE)
@@ -208,6 +223,8 @@ static gboolean
 field_from_py_supported (GITypeInfo *fti)
 {
   GITypeTag ftag = gi_type_info_get_tag (fti);
+  if (ftag == GI_TYPE_TAG_GLIST || ftag == GI_TYPE_TAG_GSLIST)
+    return TRUE;
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_from_py_supported (fti);
   if (ftag == GI_TYPE_TAG_INTERFACE)
