@@ -225,6 +225,11 @@ def test_float(t: Namespace) -> None:
     assert t.test_float(2.5) == pytest.approx(2.5)
 
 
+def test_float_rejects_overflow(t: Namespace) -> None:
+    with pytest.raises(OverflowError, match="not in range"):
+        t.test_float(3.4028234663852886e38 * 2)
+
+
 def test_double(t: Namespace) -> None:
     assert t.test_double(3.14159) == pytest.approx(3.14159)
 

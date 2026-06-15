@@ -29,6 +29,7 @@
 #include "runtime/type-info.h"
 #include "gimeta-helpers.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include <glib.h>
@@ -42,6 +43,22 @@ pygi_bare_name (const char *qualified)
     return "?";
   const char *dot = strrchr (qualified, '.');
   return dot != NULL ? dot + 1 : qualified;
+}
+
+static int
+raise_float_overflow_error (PyObject *obj, double min_v, double max_v)
+{
+  PyObject *str = PyObject_Str (obj);
+  PyObject *min_py = PyFloat_FromDouble (min_v);
+  PyObject *max_py = PyFloat_FromDouble (max_v);
+  if (str != NULL && min_py != NULL && max_py != NULL)
+    {
+      PyErr_Format (PyExc_OverflowError, "%U not in range %S to %S", str, min_py, max_py);
+    }
+  Py_XDECREF (str);
+  Py_XDECREF (min_py);
+  Py_XDECREF (max_py);
+  return -1;
 }
 
 /* Set up OUT/INOUT storage for one GI arg at out_slot `ap->out_slot`.
@@ -449,12 +466,16 @@ pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
               dv = PyFloat_AsDouble (py);
               if (dv == -1.0 && PyErr_Occurred ())
                 return -1;
+              if (!isfinite (dv) || dv < -G_MAXFLOAT || dv > G_MAXFLOAT)
+                return raise_float_overflow_error (py, -G_MAXFLOAT, G_MAXFLOAT);
               out->v_float = (float)dv;
               continue;
             case PYGI_MARSHAL_DOUBLE:
               dv = PyFloat_AsDouble (py);
               if (dv == -1.0 && PyErr_Occurred ())
                 return -1;
+              if (!isfinite (dv) || dv < -G_MAXDOUBLE || dv > G_MAXDOUBLE)
+                return raise_float_overflow_error (py, -G_MAXDOUBLE, G_MAXDOUBLE);
               out->v_double = dv;
               continue;
             case PYGI_MARSHAL_GTYPE:
