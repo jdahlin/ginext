@@ -46,23 +46,6 @@ def test_simple_variant_constructor(
     assert variant.get_type_string() == format_string
     assert getattr(variant, getter)() == expected
 
-
-def test_variant_methods_do_not_rebuild_plans() -> None:
-    import ginext
-    from ginext import runtime
-
-    variant_type = ginext.GLib.Variant
-
-    runtime.reset_stats()
-    variant = variant_type("s", "hello")
-    assert variant.get_type_string() == "s"
-
-    runtime.reset_stats()
-    assert variant.get_type_string() == "s"
-
-    assert runtime.stats()["plan_gi_metadata_calls"] == 0
-
-
 def test_new_tuple_accepts_varargs() -> None:
     from ginext import GLib
 

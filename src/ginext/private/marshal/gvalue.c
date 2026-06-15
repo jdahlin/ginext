@@ -281,18 +281,7 @@ pyobject_get_pygi_gtype (PyObject *obj, GType *out)
   if (!PyErr_ExceptionMatches (PyExc_AttributeError))
     return -1;
   PyErr_Clear ();
-
-  PyObject *py_gtype = PyObject_GetAttrString (obj, "__gtype__");
-  if (py_gtype == NULL)
-    {
-      if (PyErr_ExceptionMatches (PyExc_AttributeError))
-        PyErr_Clear ();
-      return -1;
-    }
-
-  int result = pygi_gtype_from_py_object (py_gtype, out);
-  Py_DECREF (py_gtype);
-  return result;
+  return -1;
 }
 
 static int

@@ -59,7 +59,3 @@ class ResultTuple(tuple[object, ...]):
 
 
 private.register_hook("result_tuple_new_type", ResultTuple._new_type)
-
-
-def unoptimized_descriptors_for_test() -> list[str]:
-    return []

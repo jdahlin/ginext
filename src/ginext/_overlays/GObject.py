@@ -397,7 +397,7 @@ _root.force_floating = force_floating  # type: ignore[attr-defined]
 
 
 # GObject.list_properties(type_or_instance) — pygobject compat function.
-# Accepts: Python class with gimeta, string type name, __gtype__ object, or instance.
+# Accepts: Python class with gimeta, string type name, GType object, or instance.
 # Returns a list of ParamSpec-like objects with .name and .value_type attributes.
 # Caches results by GType so repeated calls return the same list (enabling == comparisons).
 
@@ -431,22 +431,11 @@ def _resolve_to_gtype(arg: object) -> int:
     """Return the GType for arg, or -1 on failure (TypeError should be raised by caller)."""
     # Handle instances: delegate to their class
     if not isinstance(arg, type) and not isinstance(arg, str):
-        # Check for __gtype__ (compat GTypeMeta)
-        gtype_attr = getattr(type(arg), "__gtype__", None)
-        if gtype_attr is not None and type(arg) is not type:
-            return _resolve_to_gtype(type(arg))
         # Check for GObject instance via gimeta on the class
         cls = type(arg)
         gimeta = getattr(cls, "gimeta", None)
         if gimeta is not None and hasattr(gimeta, "gtype"):
             return int(gimeta.gtype)
-        # Try __gtype__ on instance (e.g. GTypeMeta is itself a type but subclasses type)
-        gtype = getattr(arg, "__gtype__", None)
-        if gtype is not None:
-            try:
-                return int(gtype)
-            except (TypeError, ValueError):
-                pass
         return -1
 
     if isinstance(arg, str):

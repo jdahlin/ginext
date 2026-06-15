@@ -168,8 +168,7 @@ pygi_check_arg_type (PyObject *h, GITypeTag tag, int arg_index)
       /* Accept a Python class with `gimeta.gtype`, not just raw ints.
        * pygi_gtype_from_py handles the class lookup; the pre-check just
        * needs to let it through. */
-      ok = PyNumber_Check (h) || PyType_Check (h) || PyObject_HasAttrString (h, "gimeta")
-           || PyObject_HasAttrString (h, "__gtype__");
+      ok = PyNumber_Check (h) || PyType_Check (h) || PyObject_HasAttrString (h, "gimeta");
       kind = K_INT_UL;
       break;
     case PYGI_TYPE_FLOAT:
