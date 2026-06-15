@@ -616,6 +616,11 @@ pygi_value_gvalue_from_py (PyObject *py, const PyGIType *type, GValue *value)
         return 0;
       }
     case G_TYPE_POINTER:
+      if (g_strcmp0 (g_type_name (type->gtype), "PyObject") == 0)
+        {
+          g_value_set_pointer (value, py == Py_None ? NULL : py);
+          return 0;
+        }
       if (py == Py_None)
         {
           g_value_set_pointer (value, NULL);
@@ -674,12 +679,14 @@ pygi_value_gvalue_to_py (GValue *value)
       const char *s = g_value_get_string (value);
       return s ? PyUnicode_FromString (s) : Py_XNewRef (Py_None);
     }
-  if (gtype == G_TYPE_POINTER)
+  if (G_TYPE_FUNDAMENTAL (gtype) == G_TYPE_POINTER)
     {
       gpointer ptr = g_value_get_pointer (value);
       if (ptr == NULL)
         Py_RETURN_NONE;
-      return Py_NewRef ((PyObject *)ptr);
+      if (g_strcmp0 (g_type_name (gtype), "PyObject") == 0)
+        return Py_NewRef ((PyObject *)ptr);
+      return PyLong_FromVoidPtr (ptr);
     }
 
   PyErr_SetString (PyExc_NotImplementedError, "pygi_value_to_py: unsupported GValue type");

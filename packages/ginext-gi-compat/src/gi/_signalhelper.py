@@ -211,10 +211,8 @@ class _CompatSignalDescriptor(SignalDescriptor):
 
 
 def _compat_signal_type(value_type: object) -> object:
-    from ginext.gobject.gtype import GType
-
     if value_type is object:
-        return GType.POINTER
+        return _gi.GType.from_name("PyObject")
     return value_type
 
 

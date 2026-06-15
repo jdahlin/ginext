@@ -111,6 +111,16 @@ def connectcallbacks(obj: GObject.Object) -> None:
     obj.connect("test-gvalue-ret", _gvalue_ret_callback)
 
 
+def create_and_get_property(cls: type[GObject.Object], name: str) -> object:
+    obj = cls()
+    return obj.get_property(name)
+
+
+def create_and_set_property(cls: type[GObject.Object], name: str, value: object) -> None:
+    obj = cls()
+    obj.set_property(name, value)
+
+
 def _gvalue_ret_callback(source: object, value_type: object) -> object:
     type_name = getattr(value_type, "gtype_name", None)
     if type_name == "gint" or value_type == 24:

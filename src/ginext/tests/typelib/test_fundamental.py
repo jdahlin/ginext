@@ -241,6 +241,25 @@ def test_gvalue_hook_rejects_non_callable() -> None:
         private.register_hook("gvalue.to_py", 42)  # type: ignore[call-overload]
 
 
+def test_gvalue_pointer_round_trips_as_integer() -> None:
+    from ginext import GObject, private
+
+    value = _new_gvalue_for_gtype(int(GObject.type_from_name("gpointer")))
+    private.gvalue_set_value(value, 42)
+
+    assert private.gvalue_get_value(value) == 42
+
+
+def test_gvalue_pyobject_round_trips_python_object() -> None:
+    from ginext import GObject, private
+
+    value = _new_gvalue_for_gtype(int(GObject.type_from_name("PyObject")))
+    marker = object()
+    private.gvalue_set_value(value, marker)
+
+    assert private.gvalue_get_value(value) is marker
+
+
 def _new_gvalue_for_gtype(gtype: int) -> object:
     from ginext import GObject, private
 
