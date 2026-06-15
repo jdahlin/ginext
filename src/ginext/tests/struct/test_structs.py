@@ -161,6 +161,18 @@ def test_glib_list_gpointer_field_accepts_int_and_none(glib: Namespace) -> None:
     assert record.data == 0
 
 
+def test_gtype_record_field_accepts_class_and_rejects_raw_int(regress: Namespace) -> None:
+    record = regress.TestStructE()
+
+    record.some_type = regress.TestObj
+    assert record.some_type == regress.TestObj.gimeta.gtype
+
+    with pytest.raises(TypeError, match="GType"):
+        record.some_type = 42
+    with pytest.raises(TypeError, match="GType"):
+        record.some_type = int
+
+
 # --- __match_args__ (positional structural matching) -----------------------
 
 
