@@ -56,21 +56,6 @@ pygi_gtype_from_py_object (PyObject *obj, GType *out)
     return -1;
   PyErr_Clear ();
 
-  PyObject *py_gtype = PyObject_GetAttrString (obj, "__gtype__");
-  if (py_gtype != NULL)
-    {
-      if (pygi_gtype_from_py_object (py_gtype, out) == 0)
-        {
-          Py_DECREF (py_gtype);
-          return 0;
-        }
-      Py_DECREF (py_gtype);
-      return -1;
-    }
-  if (!PyErr_ExceptionMatches (PyExc_AttributeError))
-    return -1;
-  PyErr_Clear ();
-
   if (PyType_Check (obj))
     {
       if (obj == (PyObject *)&PyLong_Type)
