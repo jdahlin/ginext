@@ -22,7 +22,6 @@
 from __future__ import annotations
 
 import keyword
-import struct
 import types
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Self, cast
@@ -109,7 +108,6 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                         pass
                 return cast("Self", cast("Any", method)())
         obj = super().__new__(cls)
-        _ensure_anonymous_union_storage(cls, obj)
         return obj
 
     def __getattr__(self, name: str) -> object:
@@ -122,9 +120,6 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                 return types.MethodType(cast("Any", method), self)
         if name in type(self).gimeta.hidden_fields:
             raise AttributeError(name)
-        anonymous = type(self).gimeta.anonymous_unions.get(name)
-        if anonymous is not None:
-            return _AnonymousUnionProxy(self, anonymous)
         found = install_method_for_record_class(type(self), name)
         if found is None:
             raise AttributeError(name)
@@ -190,7 +185,6 @@ class RecordBuilder:
                 version=data["version"],
                 profile=profile,
                 hidden_fields=set(),
-                anonymous_unions={},
                 method_owner_name=self._context.qualified_name(name),
                 method_infos={},
                 typelib_methods={},
@@ -232,55 +226,6 @@ def _checked_instance_method(
         wrapper.__name__ = cls.__name__
         wrapper.__qualname__ = wrapper.__name__
     return wrapper
-
-
-def _ensure_anonymous_union_storage(cls: type[RecordBase], obj: object) -> None:
-    required = cls.gimeta.size
-    for metadata in cls.gimeta.anonymous_unions.values():
-        offset = _anonymous_union_offset(cls, metadata)
-        fields = metadata["fields"]
-        slot_size = max(_ctype_size(t) for t in fields.values())
-        required = max(required, offset + slot_size)
-    if required > cls.gimeta.size:
-        private.record_ensure_size(obj, required)
-
-
-class _AnonymousUnionProxy:
-    __slots__ = ("_parent", "_metadata", "_offset")
-    _parent: RecordBase
-    _metadata: dict[str, Any]
-    _offset: int
-
-    def __init__(self, parent: RecordBase, metadata: dict[str, object]):
-        super().__setattr__("_parent", parent)
-        super().__setattr__("_metadata", metadata)
-        offset = metadata.get("offset")
-        if offset is None:
-            offset = _anonymous_union_offset(type(parent), metadata)
-        super().__setattr__("_offset", offset)
-
-    def __getattr__(self, name: str) -> object:
-        fields = self._metadata["fields"]
-        if name not in fields:
-            raise AttributeError(name)
-        return private.record_memory_get(self._parent, self._offset, fields[name])
-
-    def __setattr__(self, name: str, value: object) -> None:
-        fields = self._metadata["fields"]
-        if name not in fields:
-            raise AttributeError(name)
-        private.record_memory_set(self._parent, self._offset, fields[name], value)
-
-
-def _anonymous_union_offset(cls: type[RecordBase], metadata: dict[str, Any]) -> int:
-    offset = metadata.get("offset")
-    if offset is not None:
-        return cast("int", offset)
-    fields = metadata["fields"]
-    align = max(_ctype_size(t) for t in fields.values())
-    offset = cls.gimeta.info.anonymous_union_offset(metadata["previous_field"], align)
-    metadata["offset"] = offset
-    return cast("int", offset)
 
 
 def _lookup_record_method(
@@ -336,13 +281,3 @@ def reset_for_test() -> None:
     _record_classes_by_gtype.clear()
 
 
-def _ctype_size(type_name: str) -> int:
-    if type_name in {"gpointer", "gconstpointer"}:
-        return struct.calcsize("P")
-    if type_name in {"gdouble", "double"}:
-        return struct.calcsize("d")
-    if type_name in {"glong", "long"}:
-        return struct.calcsize("l")
-    if type_name in {"gint", "int"}:
-        return struct.calcsize("i")
-    return struct.calcsize("P")

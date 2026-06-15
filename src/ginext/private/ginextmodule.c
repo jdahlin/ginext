@@ -50,12 +50,6 @@ py_namespace_dir (PyObject *m, PyObject *args);
 extern PyObject *
 py_glib_event_source_new (PyObject *m, PyObject *args);
 extern PyObject *
-py_record_ensure_size (PyObject *m, PyObject *args);
-extern PyObject *
-py_record_memory_get (PyObject *m, PyObject *args);
-extern PyObject *
-py_record_memory_set (PyObject *m, PyObject *args);
-extern PyObject *
 py_record_setup_class (PyObject *m, PyObject *args);
 extern PyObject *
 py_register_gtype_pytype (PyObject *m, PyObject *args);
@@ -275,9 +269,6 @@ static PyMethodDef methods[] = {
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
-  { "record_ensure_size", py_record_ensure_size, METH_VARARGS, NULL },
-  { "record_memory_get", py_record_memory_get, METH_VARARGS, NULL },
-  { "record_memory_set", py_record_memory_set, METH_VARARGS, NULL },
   { "record_setup_class", py_record_setup_class, METH_VARARGS, NULL },
   { "register_gtype_pytype", py_register_gtype_pytype, METH_VARARGS, NULL },
   { "build_callable_descriptor", py_build_callable_descriptor, METH_VARARGS, NULL },
