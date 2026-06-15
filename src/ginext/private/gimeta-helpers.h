@@ -68,7 +68,7 @@ pygi_gimeta_get_method_infos (PyObject *gimeta, PyObject **out)
 {
   if (PyObject_TypeCheck (gimeta, &GIMetaType))
     {
-      *out = Py_XNewRef (((GIMetaObject *)gimeta)->method_infos);
+      *out = Py_XNewRef (((GRegisteredTypeMetaObject *)gimeta)->method_infos);
       return 0;
     }
   return PyObject_GetOptionalAttrString (gimeta, "method_infos", out);
@@ -79,7 +79,7 @@ pygi_gimeta_get_extensions (PyObject *gimeta, PyObject **out)
 {
   if (PyObject_TypeCheck (gimeta, &GIMetaType))
     {
-      *out = Py_XNewRef (((GIMetaObject *)gimeta)->extensions);
+      *out = Py_XNewRef (((GRegisteredTypeMetaObject *)gimeta)->extensions);
       return 0;
     }
   return PyObject_GetOptionalAttrString (gimeta, "extensions", out);

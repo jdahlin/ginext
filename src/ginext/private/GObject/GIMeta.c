@@ -40,6 +40,127 @@
 #include "marshal/gvalue.h"
 #include "runtime/module_funcs.h"
 
+static inline GRegisteredTypeMetaObject *
+registered_meta (GIMetaObject *self)
+{
+  return (GRegisteredTypeMetaObject *)self;
+}
+
+static void
+property_table_clear (GRegisteredTypeMetaObject *self)
+{
+  if (self->properties == NULL)
+    return;
+  for (Py_ssize_t i = 0; i < self->n_properties; i++)
+    g_free (self->properties[i].name);
+  g_free (self->properties);
+  self->properties = NULL;
+  self->n_properties = 0;
+}
+
+static int
+property_table_set_from_dicts (GRegisteredTypeMetaObject *self,
+                               PyObject *pspecs,
+                               PyObject *prop_ids)
+{
+  Py_ssize_t n = PyDict_Size (pspecs);
+  if (n < 0)
+    return -1;
+  if (n == 0)
+    return 0;
+
+  GinextPropertyMeta *items = g_new0 (GinextPropertyMeta, (gsize)n);
+  PyObject *key = NULL;
+  PyObject *pspec_long = NULL;
+  Py_ssize_t pos = 0;
+  Py_ssize_t index = 0;
+  while (PyDict_Next (pspecs, &pos, &key, &pspec_long))
+    {
+      const char *name = PyUnicode_AsUTF8 (key);
+      if (name == NULL)
+        goto error;
+      PyObject *prop_id_long = PyDict_GetItem (prop_ids, key);
+      if (prop_id_long == NULL)
+        {
+          PyErr_Format (PyExc_RuntimeError,
+                        "gimeta has pspec but no prop_id for %R",
+                        key);
+          goto error;
+        }
+      GParamSpec *pspec = (GParamSpec *)PyLong_AsVoidPtr (pspec_long);
+      long prop_id = PyLong_AsLong (prop_id_long);
+      if (PyErr_Occurred ())
+        goto error;
+      items[index].name = g_strdup (name);
+      items[index].pspec = pspec;
+      items[index].prop_id = (guint)prop_id;
+      index++;
+    }
+
+  self->properties = items;
+  self->n_properties = n;
+  return 0;
+
+error:
+  for (Py_ssize_t i = 0; i < index; i++)
+    g_free (items[i].name);
+  g_free (items);
+  return -1;
+}
+
+static GinextPropertyMeta *
+property_table_lookup (GRegisteredTypeMetaObject *self, const char *name)
+{
+  for (Py_ssize_t i = 0; i < self->n_properties; i++)
+    {
+      if (strcmp (self->properties[i].name, name) == 0)
+        return &self->properties[i];
+    }
+  return NULL;
+}
+
+static PyObject *
+property_table_pspecs_snapshot (GRegisteredTypeMetaObject *self)
+{
+  PyObject *dict = PyDict_New ();
+  if (dict == NULL)
+    return NULL;
+  for (Py_ssize_t i = 0; i < self->n_properties; i++)
+    {
+      PyObject *value = PyLong_FromVoidPtr (self->properties[i].pspec);
+      if (value == NULL
+          || PyDict_SetItemString (dict, self->properties[i].name, value) < 0)
+        {
+          Py_XDECREF (value);
+          Py_DECREF (dict);
+          return NULL;
+        }
+      Py_DECREF (value);
+    }
+  return dict;
+}
+
+static PyObject *
+property_table_prop_ids_snapshot (GRegisteredTypeMetaObject *self)
+{
+  PyObject *dict = PyDict_New ();
+  if (dict == NULL)
+    return NULL;
+  for (Py_ssize_t i = 0; i < self->n_properties; i++)
+    {
+      PyObject *value = PyLong_FromUnsignedLong (self->properties[i].prop_id);
+      if (value == NULL
+          || PyDict_SetItemString (dict, self->properties[i].name, value) < 0)
+        {
+          Py_XDECREF (value);
+          Py_DECREF (dict);
+          return NULL;
+        }
+      Py_DECREF (value);
+    }
+  return dict;
+}
+
 /* ── from_type_name classmethod ──────────────────────────────────────────── */
 
 static PyObject *
@@ -232,34 +353,19 @@ gimeta_register_signal (GIMetaObject *self, PyObject *args)
 
 /* ── property access: walk MRO, find owning gimeta, hit InstancePrivate ─── */
 
-/* Look up (pspec, prop_id) for `name` on obj's class chain. Returns 0 on
- * success and writes the borrowed-int dict values to the out params;
- * returns -1 with an AttributeError if the name doesn't resolve. */
+/* Look up (pspec, prop_id) for `name` on one GIMeta. Returns 1 on success,
+ * 0 when not found on this meta, and -1 with an exception. */
 static int
 resolve_pspec_in_gimeta (GIMetaObject *m,
                          const char *name,
                          GParamSpec **out_pspec,
                          guint *out_prop_id)
 {
-  PyObject *pspec_long = PyDict_GetItemString (m->pspecs, name);
-  if (!pspec_long)
+  GinextPropertyMeta *property = property_table_lookup (registered_meta (m), name);
+  if (property == NULL)
     return 0;
-  PyObject *prop_id_long = PyDict_GetItemString (m->prop_ids, name);
-  if (!prop_id_long)
-    {
-      PyErr_Format (PyExc_RuntimeError,
-                    "%s.gimeta has pspec but no prop_id for %s",
-                    Py_TYPE (m)->tp_name,
-                    name);
-      return -1;
-    }
-
-  GParamSpec *pspec = (GParamSpec *)PyLong_AsVoidPtr (pspec_long);
-  long prop_id = PyLong_AsLong (prop_id_long);
-  if (PyErr_Occurred ())
-    return -1;
-  *out_pspec = pspec;
-  *out_prop_id = (guint)prop_id;
+  *out_pspec = property->pspec;
+  *out_prop_id = property->prop_id;
   return 1;
 }
 
@@ -394,20 +500,20 @@ gimeta_set_property (GIMetaObject *self G_GNUC_UNUSED, PyObject *args)
 static void
 gimeta_dealloc (GIMetaObject *self)
 {
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
   Py_XDECREF (self->type_name);
-  Py_XDECREF (self->parent);
-  Py_XDECREF (self->pspecs);
-  Py_XDECREF (self->prop_ids);
   Py_XDECREF (self->gi_info);
   Py_XDECREF (self->namespace);
-  Py_XDECREF (self->method_owner_name);
-  Py_XDECREF (self->method_infos);
-  Py_XDECREF (self->typelib_methods);
-  Py_XDECREF (self->signal_infos);
-  Py_XDECREF (self->signal_method_backings);
-  Py_XDECREF (self->vfunc_infos);
   Py_XDECREF (self->profile);
-  Py_XDECREF (self->extensions);
+  Py_XDECREF (registered->parent);
+  property_table_clear (registered);
+  Py_XDECREF (registered->method_owner_name);
+  Py_XDECREF (registered->method_infos);
+  Py_XDECREF (registered->typelib_methods);
+  Py_XDECREF (registered->signal_infos);
+  Py_XDECREF (registered->signal_method_backings);
+  Py_XDECREF (registered->vfunc_infos);
+  Py_XDECREF (registered->extensions);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -417,7 +523,7 @@ gimeta_repr (GIMetaObject *self)
   return PyUnicode_FromFormat ("<GIMeta type_name=%R gtype=%llu n_pspecs=%zd>",
                                self->type_name,
                                (unsigned long long)self->gtype,
-                               PyDict_Size (self->pspecs));
+                               registered_meta (self)->n_properties);
 }
 
 static PyObject *
@@ -433,20 +539,39 @@ gimeta_get_gtype (GIMetaObject *self, void *closure G_GNUC_UNUSED)
     return self->field;                                                                            \
   }
 GETSET_OBJ (type_name)
-GETSET_OBJ (parent)
-GETSET_OBJ (pspecs)
-GETSET_OBJ (prop_ids)
 GETSET_OBJ (gi_info)
 GETSET_OBJ (namespace)
-GETSET_OBJ (method_owner_name)
-GETSET_OBJ (method_infos)
-GETSET_OBJ (typelib_methods)
-GETSET_OBJ (signal_infos)
-GETSET_OBJ (signal_method_backings)
-GETSET_OBJ (vfunc_infos)
 GETSET_OBJ (profile)
-GETSET_OBJ (extensions)
 #undef GETSET_OBJ
+
+#define GETSET_REG_OBJ(field)                                                                      \
+  static PyObject *gimeta_get_##field (GIMetaObject *self, void *closure G_GNUC_UNUSED)            \
+  {                                                                                                \
+    PyObject *value = registered_meta (self)->field;                                               \
+    Py_INCREF (value);                                                                             \
+    return value;                                                                                  \
+  }
+GETSET_REG_OBJ (parent)
+GETSET_REG_OBJ (method_owner_name)
+GETSET_REG_OBJ (method_infos)
+GETSET_REG_OBJ (typelib_methods)
+GETSET_REG_OBJ (signal_infos)
+GETSET_REG_OBJ (signal_method_backings)
+GETSET_REG_OBJ (vfunc_infos)
+GETSET_REG_OBJ (extensions)
+#undef GETSET_REG_OBJ
+
+static PyObject *
+gimeta_get_pspecs (GIMetaObject *self, void *closure G_GNUC_UNUSED)
+{
+  return property_table_pspecs_snapshot (registered_meta (self));
+}
+
+static PyObject *
+gimeta_get_prop_ids (GIMetaObject *self, void *closure G_GNUC_UNUSED)
+{
+  return property_table_prop_ids_snapshot (registered_meta (self));
+}
 
 #define SETSET_OBJ(field)                                                                          \
   static int gimeta_set_##field (GIMetaObject *self, PyObject *value, void *closure G_GNUC_UNUSED) \
@@ -461,15 +586,29 @@ GETSET_OBJ (extensions)
     return 0;                                                                                      \
   }
 SETSET_OBJ (namespace)
-SETSET_OBJ (method_owner_name)
-SETSET_OBJ (method_infos)
-SETSET_OBJ (typelib_methods)
-SETSET_OBJ (signal_infos)
-SETSET_OBJ (signal_method_backings)
-SETSET_OBJ (vfunc_infos)
 SETSET_OBJ (profile)
-SETSET_OBJ (extensions)
 #undef SETSET_OBJ
+
+#define SETSET_REG_OBJ(field)                                                                      \
+  static int gimeta_set_##field (GIMetaObject *self, PyObject *value, void *closure G_GNUC_UNUSED) \
+  {                                                                                                \
+    if (!value)                                                                                    \
+      {                                                                                            \
+        PyErr_SetString (PyExc_TypeError, #field " cannot be deleted");                            \
+        return -1;                                                                                 \
+      }                                                                                            \
+    Py_INCREF (value);                                                                             \
+    Py_SETREF (registered_meta (self)->field, value);                                              \
+    return 0;                                                                                      \
+  }
+SETSET_REG_OBJ (method_owner_name)
+SETSET_REG_OBJ (method_infos)
+SETSET_REG_OBJ (typelib_methods)
+SETSET_REG_OBJ (signal_infos)
+SETSET_REG_OBJ (signal_method_backings)
+SETSET_REG_OBJ (vfunc_infos)
+SETSET_REG_OBJ (extensions)
+#undef SETSET_REG_OBJ
 
 static PyGetSetDef gimeta_getsets[]
     = { { "gtype", (getter)gimeta_get_gtype, NULL, "GType identifier", NULL },
@@ -578,7 +717,7 @@ static PyMethodDef gimeta_methods[]
 
 PyTypeObject GIMetaType = {
   PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ginext.private._gobject.GIMeta",
-  .tp_basicsize = sizeof (GIMetaObject),
+  .tp_basicsize = sizeof (GRegisteredTypeMetaObject),
   .tp_dealloc = (destructor)gimeta_dealloc,
   .tp_repr = (reprfunc)gimeta_repr,
   .tp_flags = Py_TPFLAGS_DEFAULT,
@@ -595,51 +734,71 @@ gimeta_new (GType gtype,
             PyObject *prop_ids,
             PyObject *gi_info)
 {
-  GIMetaObject *self = PyObject_New (GIMetaObject, &GIMetaType);
-  if (!self)
+  GRegisteredTypeMetaObject *registered
+      = PyObject_New (GRegisteredTypeMetaObject, &GIMetaType);
+  if (!registered)
     return NULL;
-  self->profile = NULL;
+  registered->base.gtype = G_TYPE_INVALID;
+  registered->base.type_name = NULL;
+  registered->base.gi_info = NULL;
+  registered->base.namespace = NULL;
+  registered->base.profile = NULL;
+  registered->parent = NULL;
+  registered->properties = NULL;
+  registered->n_properties = 0;
+  registered->method_owner_name = NULL;
+  registered->method_infos = NULL;
+  registered->typelib_methods = NULL;
+  registered->signal_infos = NULL;
+  registered->signal_method_backings = NULL;
+  registered->vfunc_infos = NULL;
+  registered->extensions = NULL;
+  GIMetaObject *self = &registered->base;
+  self->kind = GINEXT_META_REGISTERED_TYPE;
   self->gtype = gtype;
   self->type_name = Py_NewRef (type_name);
-  self->parent = Py_NewRef (parent);
-  self->pspecs = Py_NewRef (pspecs);
-  self->prop_ids = Py_NewRef (prop_ids);
   self->gi_info = Py_NewRef (gi_info);
   self->namespace = Py_NewRef (Py_None);
-  self->method_owner_name = Py_NewRef (Py_None);
-  self->method_infos = PyDict_New ();
-  if (!self->method_infos)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  self->typelib_methods = PyDict_New ();
-  if (!self->typelib_methods)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  self->signal_infos = PyDict_New ();
-  if (!self->signal_infos)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  self->signal_method_backings = PyDict_New ();
-  if (!self->signal_method_backings)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  self->vfunc_infos = PyDict_New ();
-  if (!self->vfunc_infos)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
   self->profile = Py_NewRef (Py_None);
-  self->extensions = PyDict_New ();
-  if (!self->extensions)
+  registered->parent = Py_NewRef (parent);
+  if (property_table_set_from_dicts (registered, pspecs, prop_ids) < 0)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->method_owner_name = Py_NewRef (Py_None);
+  registered->method_infos = PyDict_New ();
+  if (!registered->method_infos)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->typelib_methods = PyDict_New ();
+  if (!registered->typelib_methods)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->signal_infos = PyDict_New ();
+  if (!registered->signal_infos)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->signal_method_backings = PyDict_New ();
+  if (!registered->signal_method_backings)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->vfunc_infos = PyDict_New ();
+  if (!registered->vfunc_infos)
+    {
+      Py_DECREF (self);
+      return NULL;
+    }
+  registered->extensions = PyDict_New ();
+  if (!registered->extensions)
     {
       Py_DECREF (self);
       return NULL;
