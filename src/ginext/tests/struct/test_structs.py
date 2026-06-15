@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from ginext.namespace import Namespace
@@ -100,6 +102,14 @@ def test_test_struct_a_fields_and_clone(regress: Namespace) -> None:
     assert clone.some_int8 == 21
     assert clone.some_double == pytest.approx(3.14)
     assert clone.some_enum == regress.TestEnum.VALUE3
+
+
+def test_test_struct_a_double_field_accepts_nan(regress: Namespace) -> None:
+    struct = regress.TestStructA()
+
+    struct.some_double = float("nan")
+
+    assert math.isnan(struct.some_double)
 
 
 def test_test_struct_b_nested_clone(regress: Namespace) -> None:
