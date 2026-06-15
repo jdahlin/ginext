@@ -2599,7 +2599,10 @@ def load_overlay_toml(namespace: str, version: str) -> dict[str, Any]:
 
 
 def build_namespace(
-    gir_path: Path, *, doc_format: Literal["rst", "raw"] = "rst"
+    gir_path: Path,
+    *,
+    doc_format: Literal["rst", "raw"] = "rst",
+    cache_dir: Path | None = None,
 ) -> tuple[Namespace, Parser]:
     """Parse a .gir into the overlay-applied Namespace model.
 
@@ -2607,7 +2610,17 @@ def build_namespace(
     identical model — Python signatures, docs, and overlays cannot drift.
     Returns ``(namespace, parser)``; the parser exposes the doc cross-reference
     maps (``_doc_identifiers`` / ``_doc_types`` / ``_doc_constants``).
+
+    When *cache_dir* is given, the parsed ``Namespace`` is pickled there under
+    ``<Name>-<version>.pkl`` keyed on the GIR mtime + overlay hash.  On a cache
+    hit the ``Parser`` slot is ``None`` (callers that need the parser, e.g. the
+    doc generator, bypass the cache by passing ``cache_dir=None``).
     """
+    import hashlib
+    import json
+    import os
+    import pickle
+
     overlay: dict[str, Any] = {}
     parser = Parser(gir_path, overlay=overlay, doc_format=doc_format)
     # Re-resolve the overlay TOML now that we know the namespace name +
@@ -2616,6 +2629,29 @@ def build_namespace(
     ns_name_peek = parser.ns_name
     ns_version_peek = parser.ns_version
     overlay = load_overlay_toml(ns_name_peek, ns_version_peek)
+
+    # --- pickle cache ---
+    if cache_dir is not None and os.environ.get("GINEXT_STUBGEN_NO_CACHE") != "1":
+        overlay_hash = hashlib.sha256(
+            json.dumps(overlay, sort_keys=True, default=str).encode()
+        ).hexdigest()[:16]
+        cache_key = (
+            str(gir_path.resolve()),
+            gir_path.stat().st_mtime_ns,
+            overlay_hash,
+        )
+        cache_file = cache_dir / f"{ns_name_peek}-{ns_version_peek}.pkl"
+        try:
+            if cache_file.exists():
+                stored_key, cached_ns = pickle.loads(cache_file.read_bytes())
+                if stored_key == cache_key:
+                    return cached_ns, None  # type: ignore[return-value]
+        except Exception:
+            pass  # corrupt or incompatible cache — fall through to full parse
+    else:
+        cache_key = None
+        cache_file = None
+
     parser = Parser(gir_path, overlay=overlay, doc_format=doc_format)
     ns = parser.parse()
     _apply_toml_overlay(ns, overlay)
@@ -2649,12 +2685,26 @@ def build_namespace(
                     p.type_expr = _unqualify(p.type_expr)
                 ns.callbacks.append(cb)
             ns.foreign_namespaces.update(unix_ns.foreign_namespaces - {"GLib"})
+
+    # --- write cache ---
+    if cache_dir is not None and cache_key is not None and cache_file is not None:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file.write_bytes(pickle.dumps((cache_key, ns), protocol=5))
+        except OSError:
+            pass  # silently skip caching on any OS error
+
     return ns, parser
 
 
-def generate(gir_path: Path, *, mode: Mode = "native") -> tuple[str, str]:
+def generate(
+    gir_path: Path,
+    *,
+    mode: Mode = "native",
+    cache_dir: Path | None = None,
+) -> tuple[str, str]:
     """Parse a single .gir file and return (namespace, .pyi text)."""
-    ns, _parser = build_namespace(gir_path)
+    ns, _parser = build_namespace(gir_path, cache_dir=cache_dir)
     text = Emitter(ns, mode=mode).emit()
     return ns.name, text
 

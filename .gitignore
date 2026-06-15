@@ -26,9 +26,6 @@ packages/ginext-stubs/ginext/*.pyi
 packages/ginext-stubs/ginext-stubs/*.pyi
 build/stubs/
 src/ginext/*.pyi
-!src/ginext/__init__.pyi
-!src/ginext/GObject.pyi
-!src/ginext/GIRepository.pyi
 # mypy incremental cache (per-package dirs; see ci/run-mypy.sh)
 .mypy_cache/
 **/.mypy_cache/

@@ -17,8 +17,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import ginext
 
 from . import defaults
@@ -33,7 +31,7 @@ def _namespace() -> object:
     )
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     return getattr(_namespace(), name)
 
 

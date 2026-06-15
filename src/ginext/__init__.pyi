@@ -15,14 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-# Ratchet: residual explicit Any not yet removed (adopting --disallow-any-explicit
-# incrementally). Remove this line once the file is Any-clean.
-# mypy: disable-error-code="explicit-any"
-
-from typing import Any
-
 from . import Adw as Adw
-from . import GIMarshallingTests as GIMarshallingTests
 from . import GLib as GLib
 from . import GModule as GModule
 from . import GObject as GObject
@@ -31,7 +24,6 @@ from . import GdkPixbuf as GdkPixbuf
 from . import GIRepository as GIRepository
 from . import Gio as Gio
 from . import GioUnix as GioUnix
-from . import GoiBench as GoiBench
 from . import Graphene as Graphene
 from . import Gsk as Gsk
 from . import Gst as Gst
@@ -44,8 +36,6 @@ from . import GtkSource as GtkSource
 from . import HarfBuzz as HarfBuzz
 from . import Pango as Pango
 from . import PangoCairo as PangoCairo
-from . import Regress as Regress
-from . import RegressUnix as RegressUnix
 from . import Vte as Vte
 from . import WebKit as WebKit
 from . import freetype2 as freetype2
@@ -62,6 +52,8 @@ from .signal.scoped import static_owner as static_owner
 class PyGIWarning(Warning): ...
 class PyGIDeprecationWarning(DeprecationWarning): ...
 
-def _load_namespace(name: str, version: str, *, profile: Any = ...) -> Namespace: ...
+def _load_namespace(name: str, version: str, *, profile: object = ...) -> Namespace: ...
 
-def __getattr__(name: str) -> Any: ...
+
+import types
+def __getattr__(name: str) -> types.ModuleType: ...
