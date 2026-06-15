@@ -15,6 +15,33 @@ pygi_object_get_gimeta (PyObject *obj, PyObject **out)
 }
 
 static inline int
+pygi_gimeta_get_gtype (PyObject *gimeta, GType *out)
+{
+  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+    {
+      *out = ((GIMetaObject *)gimeta)->gtype;
+      return 0;
+    }
+
+  PyObject *gtype_obj = NULL;
+  if (PyObject_GetOptionalAttrString (gimeta, "gtype", &gtype_obj) < 0)
+    return -1;
+  if (gtype_obj == NULL)
+    {
+      PyErr_SetString (PyExc_AttributeError, "gimeta has no gtype");
+      return -1;
+    }
+
+  unsigned long long gtype_value = PyLong_AsUnsignedLongLong (gtype_obj);
+  Py_DECREF (gtype_obj);
+  if (PyErr_Occurred ())
+    return -1;
+
+  *out = (GType)gtype_value;
+  return 0;
+}
+
+static inline int
 pygi_gimeta_get_gi_info (PyObject *gimeta, PyObject **out)
 {
   if (PyObject_TypeCheck (gimeta, &GIMetaType))
