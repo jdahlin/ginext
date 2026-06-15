@@ -746,10 +746,6 @@ class TestEverything(unittest.TestCase):
         data = None
 
     @unittest.skipIf(platform.python_implementation() == "PyPy", "CPython only")
-    @pytest.mark.xfail(
-        reason="PyGObject pointer-field null compatibility is incomplete",
-        strict=False,
-    )
     def test_struct_gpointer(self):
         glist = GLib.List()
         self.assertEqual(glist.data, 0)
@@ -761,9 +757,9 @@ class TestEverything(unittest.TestCase):
         self.assertEqual(glist.data, 0)
 
         # Setting to anything other than an int should raise
-        self.assertRaises(TypeError, setattr, glist.data, "nan")
-        self.assertRaises(TypeError, setattr, glist.data, object())
-        self.assertRaises(TypeError, setattr, glist.data, 123.321)
+        self.assertRaises(TypeError, setattr, glist, "data", "nan")
+        self.assertRaises(TypeError, setattr, glist, "data", object())
+        self.assertRaises(TypeError, setattr, glist, "data", 123.321)
 
     @pytest.mark.xfail(
         reason="opaque struct constructor compatibility is incomplete",
