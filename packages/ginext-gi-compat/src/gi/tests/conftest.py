@@ -136,7 +136,6 @@ _XFAIL_BY_NODE = {
     "test_overrides_gtk.py::TestGtk::test_window_gtk4": "behaviour mismatch under ginext pygobject compat",
     "test_overrides_gtk.py::TestListStore::test_insert_with_values": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTextBuffer::test_backward_find_char": "TypeError under ginext pygobject compat",
-    "test_overrides_gtk.py::TestTextBuffer::test_insert_text_signal_location_modification": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTextBuffer::test_text_buffer": "missing pygobject compat attribute",
     "test_overrides_gtk.py::TestTextBuffer::test_text_buffer_search": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTextBuffer::test_text_iter": "missing pygobject compat attribute",

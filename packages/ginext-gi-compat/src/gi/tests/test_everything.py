@@ -324,10 +324,6 @@ class TestEverything(unittest.TestCase):
         self.assertRaises(TypeError, Everything.test_unichar, "")
         self.assertRaises(TypeError, Everything.test_unichar, "morethanonechar")
 
-    @pytest.mark.xfail(
-        reason="float argument overflow validation is incomplete",
-        strict=False,
-    )
     def test_float(self):
         self.assertEqual(Everything.test_float(GLib.MAXFLOAT), GLib.MAXFLOAT)
         self.assertEqual(Everything.test_float(GLib.MINFLOAT), GLib.MINFLOAT)
