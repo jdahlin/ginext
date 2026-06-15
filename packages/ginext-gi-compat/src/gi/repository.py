@@ -21,8 +21,10 @@ import math
 import re
 import struct
 import sys
+import warnings
 from typing import Any, Callable, Iterable, cast
 
+import gi
 import ginext
 from gi._propertyhelper import CompatProperty as Property
 from ginext.gobject.gobjectclass import GObject as _GObject
@@ -159,6 +161,42 @@ def _install_genum_compat_properties() -> None:
     # excluded from GFlags so test_flags_has_no_gtype remains green.
     _GEnumMeta = type(_GEnum)
     _GFlagsMeta = type(_GFlags)
+    _orig_genum_new = _GEnumMeta.__new__
+    _orig_gflags_new = _GFlagsMeta.__new__
+
+    def _check_compat_declared_type_name(
+        kind: str, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ) -> None:
+        if kind == "enum":
+            declared = any(getattr(base, "__genum_base__", False) for base in bases)
+        else:
+            declared = any(getattr(base, "__gflags_base__", False) for base in bases)
+        if not declared:
+            return
+        if "__gtype_name__" not in namespace:
+            return
+        type_name = cast(str, namespace["__gtype_name__"]) or name
+        existing = ginext.GObject.type_from_name(type_name)
+        if int(existing) == 0:
+            return
+        warnings.warn(
+            f"cannot register existing type '{type_name}'",
+            category=gi._gi.Warning,
+            stacklevel=2,
+        )
+        raise RuntimeError(f"Unable to register {kind} '{type_name}'")
+
+    def _compat_genum_new(
+        mcs: type, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any
+    ) -> Any:
+        _check_compat_declared_type_name("enum", name, bases, namespace)
+        return _orig_genum_new(mcs, name, bases, namespace, **kwargs)
+
+    def _compat_gflags_new(
+        mcs: type, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: Any
+    ) -> Any:
+        _check_compat_declared_type_name("flags", name, bases, namespace)
+        return _orig_gflags_new(mcs, name, bases, namespace, **kwargs)
 
     def _genum_subclasscheck(self: type, C: type) -> bool:
         # self is the class being checked against (an instance of _GEnumMeta)
@@ -179,6 +217,8 @@ def _install_genum_compat_properties() -> None:
                 pass
         return type.__subclasscheck__(self, C)
 
+    _GEnumMeta.__new__ = _compat_genum_new  # type: ignore[assignment]
+    _GFlagsMeta.__new__ = _compat_gflags_new  # type: ignore[assignment]
     _GEnumMeta.__subclasscheck__ = _genum_subclasscheck  # type: ignore[attr-defined]
     _GFlagsMeta.__subclasscheck__ = _gflags_subclasscheck  # type: ignore[attr-defined]
 

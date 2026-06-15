@@ -2,27 +2,20 @@ import threading
 import unittest
 from typing import cast
 
-import pytest
-
 from gi.repository import Gio, GObject
 from .helper import capture_glib_warnings
 
 
 _lock = threading.Lock()
 counter = 0
+_TYPE_NAME_PREFIX = "CompatSrc"
 
 
 def get_id():
     global counter
     with _lock:
         counter += 1
-        return counter
-
-
-enum_declaration_xfail = pytest.mark.xfail(
-    reason="PyGObject GEnum/GFlags declaration compatibility is incomplete",
-    strict=False,
-)
+        return f"{_TYPE_NAME_PREFIX}{counter}"
 
 
 class EnumTests(unittest.TestCase):
@@ -64,7 +57,6 @@ class EnumTests(unittest.TestCase):
         self.assertEqual(forty_two.value_name, "FORTY_TWO")
         self.assertEqual(forty_two.value_nick, "forty-two")
 
-    @enum_declaration_xfail
     def test_custom_type_name(self):
         type_name = f"MyEnum{get_id()}"
 
@@ -147,7 +139,6 @@ class FlagsTests(unittest.TestCase):
         self.assertEqual(v.value_names, ["ONE", "THIRTY_TWO"])
         self.assertEqual(v.value_nicks, ["one", "thirty-two"])
 
-    @enum_declaration_xfail
     def test_custom_type_name(self):
         type_name = f"MyFlags{get_id()}"
 
