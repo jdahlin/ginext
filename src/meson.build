@@ -69,7 +69,6 @@ _gobject_ext = py.extension_module(
     'ginext/private/GObject/Boxed.c',
     'ginext/private/GObject/Closure-callback.c',
     'ginext/private/GIRepository/Repository.c',
-    'ginext/private/runtime/shims.c',
     'ginext/private/runtime/callable.c',
     'ginext/private/runtime/signal-api.c',
     'ginext/private/marshal/c-array.c',

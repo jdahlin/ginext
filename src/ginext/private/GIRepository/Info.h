@@ -201,6 +201,6 @@ PyObject *
 ginext_record_info_method (PyObject *self, PyObject *args);
 PyObject *
 ginext_find_method_method (PyObject *self, PyObject *args);
-/* anonymous_union_offset on StructInfo+UnionInfo (implemented in shims.c). */
+/* anonymous_union_offset on StructInfo+UnionInfo (implemented in Boxed.c). */
 PyObject *
 ginext_anonymous_union_offset_method (PyObject *self, PyObject *args);

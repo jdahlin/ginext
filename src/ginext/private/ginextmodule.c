@@ -107,7 +107,8 @@ py_param_spec_default_value (PyObject *m, PyObject *args);
 extern PyObject *
 py_param_spec_numeric_info (PyObject *m, PyObject *args);
 extern PyType_Spec PyGIGLibBoxed_spec;
-extern PyTypeObject *pygi_gboxed_base_type;
+PyTypeObject *pygi_gboxed_base_type = NULL;
+PyTypeObject *pygi_gobject_type = NULL;
 
 static PyObject *
 py_init_gobject (PyObject *m, PyObject *args)
