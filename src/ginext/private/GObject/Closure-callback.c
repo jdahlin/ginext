@@ -19,6 +19,7 @@
 #include "GObject/Closure.h"
 #include "GObject/Object.h"
 #include "GObject/Object-info.h"
+#include "GLib/Error.h"
 #include "marshal/enum.h"
 #include "GIRepository/BaseInfo.h"
 #include "GIRepository/Info.h"
@@ -63,7 +64,9 @@ typedef struct
   GITypeTag return_tag;
   GITransfer return_transfer;
   int n_args;
+  int n_ffi_args;
   int n_out_args;
+  gboolean throws_gerror;
   /* Positional arity of the Python callable, cached at closure
    * creation. -1 means uninspectable or accepts *args — trampoline
    * passes the full arg list. Otherwise the trampoline trims to this
@@ -452,12 +455,15 @@ callback_closure_alloc (PyObject *callable, GICallableInfo *callback_info)
   closure->return_type = gi_callable_info_get_return_type (callback_info);
   closure->return_tag = gi_type_info_get_tag (closure->return_type);
   closure->return_transfer = gi_callable_info_get_caller_owns (callback_info);
+  closure->throws_gerror = gi_callable_info_can_throw_gerror (callback_info);
   closure->ffi_return_type = callback_ffi_type_for_tag (
       closure->return_tag, closure->return_type,
       gi_type_info_is_pointer (closure->return_type));
   closure->n_args = (int)gi_callable_info_get_n_args (callback_info);
+  closure->n_ffi_args = closure->n_args + (closure->throws_gerror ? 1 : 0);
   closure->args = g_new0 (PyGICallbackArgPlan, (gsize)(closure->n_args > 0 ? closure->n_args : 1));
-  closure->ffi_arg_types = g_new0 (ffi_type *, (gsize)(closure->n_args > 0 ? closure->n_args : 1));
+  closure->ffi_arg_types
+      = g_new0 (ffi_type *, (gsize)(closure->n_ffi_args > 0 ? closure->n_ffi_args : 1));
   for (int i = 0; i < closure->n_args; i++)
     {
       closure->args[i].array_length_arg = -1;
@@ -499,6 +505,8 @@ callback_closure_alloc (PyObject *callable, GICallableInfo *callback_info)
       if (arg->direction != GI_DIRECTION_IN && arg->length_owner_array < 0)
         closure->n_out_args++;
     }
+  if (closure->throws_gerror)
+    closure->ffi_arg_types[closure->n_args] = &ffi_type_pointer;
   if (callback_apply_bound_arg_gtypes (closure) != 0)
     {
       callback_closure_free (closure);
@@ -1106,6 +1114,36 @@ callback_arg_to_py (PyGICallbackClosure *closure,
 }
 
 static void
+callback_try_propagate_gerror_exception (PyGICallbackClosure *closure, void **args)
+{
+  if (!closure->throws_gerror)
+    return;
+
+  PyObject *etype = NULL;
+  PyObject *evalue = NULL;
+  PyObject *etb = NULL;
+  PyErr_Fetch (&etype, &evalue, &etb);
+  PyErr_NormalizeException (&etype, &evalue, &etb);
+
+  GError *error = NULL;
+  int rc = evalue != NULL ? pygi_error_from_py (evalue, &error) : 0;
+  if (rc == 1)
+    {
+      GError **error_slot = *(GError ***)args[closure->n_args];
+      if (error_slot != NULL)
+        *error_slot = error;
+      else
+        g_clear_error (&error);
+      Py_XDECREF (etype);
+      Py_XDECREF (evalue);
+      Py_XDECREF (etb);
+      return;
+    }
+
+  PyErr_Restore (etype, evalue, etb);
+}
+
+static void
 callback_trampoline (ffi_cif *cif, void *ret, void **args, void *user_data)
 {
   (void)cif;
@@ -1228,7 +1266,9 @@ callback_trampoline (ffi_cif *cif, void *ret, void **args, void *user_data)
     Py_DECREF (py_args[i]);
   if (result == NULL)
     {
-      PyErr_Print ();
+      callback_try_propagate_gerror_exception (closure, args);
+      if (PyErr_Occurred ())
+        PyErr_Print ();
       callback_write_default_value (closure->return_type, closure->return_tag, ret);
       g_free (py_args);
       if (defer_async_free)
@@ -1353,7 +1393,7 @@ pygi_callback_closure_new (PyObject *callable,
   closure->scope = scope;
   if (ffi_prep_cif (&closure->cif,
                     FFI_DEFAULT_ABI,
-                    (unsigned)closure->n_args,
+                    (unsigned)closure->n_ffi_args,
                     closure->ffi_return_type,
                     closure->ffi_arg_types)
       != FFI_OK)

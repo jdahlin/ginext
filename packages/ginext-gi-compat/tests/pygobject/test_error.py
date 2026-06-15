@@ -143,7 +143,6 @@ class TestMarshalling(unittest.TestCase):
         obj = ObjectWithVFuncException()
         self.assertTrue(obj.vfunc_meth_with_error(42))
 
-    @gerror_compat_xfail
     def test_vfunc_gerror_exception(self):
         obj = ObjectWithVFuncException()
         with self.assertRaises(GLib.Error) as context:
