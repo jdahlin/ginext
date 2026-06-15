@@ -51,7 +51,6 @@ class GIMeta:
     qualified_name: str
     gi_info: Any  # None for Python-defined subclasses; GIR ObjectInfo/InterfaceInfo for built classes
     typelib_methods: dict[str, Callable[..., object]]
-    anonymous_unions: list[object]
     descriptor: object
     functions: object
     hidden_fields: set[str]

@@ -133,16 +133,3 @@ def test_union_positional_pattern_match(utility: Namespace) -> None:
             raise AssertionError("Union did not match positionally")
 
 
-@pytest.mark.xfail(
-    reason="anonymous union is not represented in the typelib",
-    run=False,
-    strict=False,
-)
-def test_utility_tagged_value_nested_anonymous_union(utility: Namespace) -> None:
-    value = utility.TaggedValue()
-
-    value.tag = 1
-    value.value.v_integer = 42
-
-    assert value.tag == 1
-    assert value.value.v_integer == 42

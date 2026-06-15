@@ -1520,6 +1520,41 @@ field_desc_setter (PyObject *self, PyObject *value, void *closure)
   return field_from_py (fti, (char *)ptr, fdc->offset, value);
 }
 
+static size_t
+record_anonymous_union_offset (GIBaseInfo *info, const char *previous_field_name, size_t align)
+{
+  GIFieldInfo *field = NULL;
+  if (!record_lookup_field (info, previous_field_name, &field))
+    {
+      PyErr_Format (PyExc_AttributeError,
+                    "%s has no field %s",
+                    gi_base_info_get_name (info),
+                    previous_field_name);
+      return 0;
+    }
+
+  size_t offset = gi_field_info_get_offset (field);
+  size_t size_bits = gi_field_info_get_size (field);
+  gi_base_info_unref ((GIBaseInfo *)field);
+
+  size_t size = (size_bits + 7u) / 8u;
+  if (size == 0)
+    size = 1;
+
+  size_t end = offset + size;
+  size_t mask = align - 1u;
+  if ((align & mask) == 0)
+    end = (end + mask) & ~mask;
+  else
+    {
+      size_t rem = end % align;
+      if (rem != 0)
+        end += align - rem;
+    }
+
+  return end;
+}
+
 static void
 field_desc_closure_destroy (gpointer data)
 {
@@ -1824,197 +1859,10 @@ ginext_anonymous_union_offset_method (PyObject *self, PyObject *args)
   if (align <= 0)
     align = 1;
   GIBaseInfo *info = PYGI_INFO (self);
-  GIFieldInfo *field = NULL;
-  if (!record_lookup_field (info, previous_field_name, &field))
-    {
-      PyErr_Format (PyExc_AttributeError,
-                    "%s has no field %s",
-                    gi_base_info_get_name (info),
-                    previous_field_name);
-      return NULL;
-    }
-  size_t offset = gi_field_info_get_offset (field);
-  size_t size_bits = gi_field_info_get_size (field);
-  gi_base_info_unref ((GIBaseInfo *)field);
-  size_t size = (size_bits + 7u) / 8u;
-  if (size == 0)
-    size = 1;
-  size_t end = offset + size;
-  size_t mask = (size_t)align - 1u;
-  if (((size_t)align & mask) == 0)
-    end = (end + mask) & ~mask;
-  else
-    {
-      size_t rem = end % (size_t)align;
-      if (rem != 0)
-        end += (size_t)align - rem;
-    }
+  size_t end = record_anonymous_union_offset (info, previous_field_name, (size_t)align);
+  if (PyErr_Occurred ())
+    return NULL;
   return PyLong_FromSize_t (end);
-}
-
-PyObject *
-py_record_ensure_size (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *obj = NULL;
-  Py_ssize_t min_size = 0;
-  if (!PyArg_ParseTuple (args, "On", &obj, &min_size))
-    return NULL;
-  if (!pygi_boxed_check (obj))
-    {
-      PyErr_SetString (PyExc_TypeError, "expected boxed record");
-      return NULL;
-    }
-  if (min_size < 0)
-    {
-      PyErr_SetString (PyExc_ValueError, "negative record size");
-      return NULL;
-    }
-  PyGIGLibBoxed *me = (PyGIGLibBoxed *)obj;
-  if (me->size >= (gsize)min_size)
-    Py_RETURN_NONE;
-  if (!me->heap_allocated || me->boxed == NULL)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "cannot resize borrowed record storage");
-      return NULL;
-    }
-  gpointer resized = g_realloc (me->boxed, (gsize)min_size);
-  if (resized == NULL)
-    return PyErr_NoMemory ();
-  memset ((char *)resized + me->size, 0, (gsize)min_size - me->size);
-  me->boxed = resized;
-  me->size = (gsize)min_size;
-  return Py_NewRef (Py_None);
-}
-
-static char *
-record_memory_checked (PyObject *obj, Py_ssize_t offset, size_t width)
-{
-  gpointer ptr = NULL;
-  if (pygi_boxed_get (obj, &ptr) != 0)
-    return NULL;
-  if (ptr == NULL)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "record is detached");
-      return NULL;
-    }
-  if (offset < 0)
-    {
-      PyErr_SetString (PyExc_ValueError, "negative record memory offset");
-      return NULL;
-    }
-  PyGIGLibBoxed *me = (PyGIGLibBoxed *)obj;
-  if (me->size != 0 && (size_t)offset + width > me->size)
-    {
-      PyErr_SetString (PyExc_ValueError, "record memory access is out of bounds");
-      return NULL;
-    }
-  return (char *)ptr + offset;
-}
-
-PyObject *
-py_record_memory_get (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *obj = NULL;
-  Py_ssize_t offset = 0;
-  const char *type_name = NULL;
-  if (!PyArg_ParseTuple (args, "Ons", &obj, &offset, &type_name))
-    return NULL;
-
-  if (strcmp (type_name, "gpointer") == 0 || strcmp (type_name, "gconstpointer") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (gpointer));
-      if (slot == NULL)
-        return NULL;
-      gpointer value = *(gpointer *)slot;
-      if (value == NULL)
-        Py_RETURN_NONE;
-      return PyLong_FromVoidPtr (value);
-    }
-  if (strcmp (type_name, "gdouble") == 0 || strcmp (type_name, "double") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (double));
-      if (slot == NULL)
-        return NULL;
-      return PyFloat_FromDouble (*(double *)slot);
-    }
-  if (strcmp (type_name, "glong") == 0 || strcmp (type_name, "long") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (long));
-      if (slot == NULL)
-        return NULL;
-      return PyLong_FromLong (*(long *)slot);
-    }
-  if (strcmp (type_name, "gint") == 0 || strcmp (type_name, "int") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (int));
-      if (slot == NULL)
-        return NULL;
-      return PyLong_FromLong (*(int *)slot);
-    }
-
-  PyErr_Format (PyExc_NotImplementedError, "unsupported anonymous union field type %s", type_name);
-  return NULL;
-}
-
-PyObject *
-py_record_memory_set (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *obj = NULL;
-  Py_ssize_t offset = 0;
-  const char *type_name = NULL;
-  PyObject *value = NULL;
-  if (!PyArg_ParseTuple (args, "OnsO", &obj, &offset, &type_name, &value))
-    return NULL;
-
-  if (strcmp (type_name, "gpointer") == 0 || strcmp (type_name, "gconstpointer") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (gpointer));
-      if (slot == NULL)
-        return NULL;
-      if (value == Py_None)
-        *(gpointer *)slot = NULL;
-      else
-        *(gpointer *)slot = PyLong_AsVoidPtr (value);
-      if (PyErr_Occurred ())
-        return NULL;
-      Py_RETURN_NONE;
-    }
-  if (strcmp (type_name, "gdouble") == 0 || strcmp (type_name, "double") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (double));
-      if (slot == NULL)
-        return NULL;
-      double v = PyFloat_AsDouble (value);
-      if (PyErr_Occurred ())
-        return NULL;
-      *(double *)slot = v;
-      Py_RETURN_NONE;
-    }
-  if (strcmp (type_name, "glong") == 0 || strcmp (type_name, "long") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (long));
-      if (slot == NULL)
-        return NULL;
-      long v = PyLong_AsLong (value);
-      if (PyErr_Occurred ())
-        return NULL;
-      *(long *)slot = v;
-      Py_RETURN_NONE;
-    }
-  if (strcmp (type_name, "gint") == 0 || strcmp (type_name, "int") == 0)
-    {
-      char *slot = record_memory_checked (obj, offset, sizeof (int));
-      if (slot == NULL)
-        return NULL;
-      long v = PyLong_AsLong (value);
-      if (PyErr_Occurred ())
-        return NULL;
-      *(int *)slot = (int)v;
-      Py_RETURN_NONE;
-    }
-
-  PyErr_Format (PyExc_NotImplementedError, "unsupported anonymous union field type %s", type_name);
-  return NULL;
 }
 
 static PyObject *
