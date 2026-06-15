@@ -235,6 +235,33 @@ def test_vfunc_caller_allocated_gvalue_out_accepts_plain_python_value(
     assert result is not obj.payload
 
 
+def test_vfunc_can_raise_glib_error(call_mode: str) -> None:
+    from ginext import GLib
+
+    GIMarshallingTests = open_namespace_for_test(call_mode, "GIMarshallingTests", "1.0")
+
+    class Obj(
+        GIMarshallingTests.Object,
+        type_name=_unique_name("VfuncGErrorException"),
+    ):
+
+        def do_vfunc_meth_with_err(self, x: int) -> bool:
+            if x == 42:
+                return True
+            raise GLib.Error("unexpected value -1", "mydomain", 42)
+
+    obj = Obj()
+    assert obj.vfunc_meth_with_error(42) is True
+
+    with pytest.raises(GLib.Error) as excinfo:
+        obj.vfunc_meth_with_error(-1)
+
+    error = excinfo.value
+    assert error.message == "unexpected value -1"
+    assert error.domain == "mydomain"
+    assert error.code == 42
+
+
 @pytest.mark.xfail(
     sys.platform == "win32",
     reason="GApplication.run ignores the passed argv on Windows (parses the real "
