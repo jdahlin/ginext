@@ -12,6 +12,7 @@ import pathlib
 import pickle
 import platform
 import enum
+import subprocess
 
 import gi
 import gi.overrides
@@ -2895,6 +2896,27 @@ class TestGObject(unittest.TestCase):
             repr(Gio.File.new_for_path("/")),
             r"<Gio\.File object at 0x[^\s]+ " r"\(GFile at 0x[^\s]+\)>",
         )
+
+    def test_compat_object_del_is_shutdown_safe(self):
+        script = """
+import ginext
+from ginext import features
+features.set_enabled(features.PYGOBJECT_COMPAT, True)
+from gi.repository import Gio
+obj = Gio.File.new_for_path("/")
+"""
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join([p for p in sys.path if p])
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Exception ignored while calling deallocator", result.stderr)
+        self.assertNotIn("TypeError: 'NoneType' object is not callable", result.stderr)
 
     def test_constructor_bad_cls_arg(self):
         # Get the unbound version of a constructor

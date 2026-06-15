@@ -561,14 +561,27 @@ def __del__(self: Any) -> None:
     # Overrides the native C tp_finalize. Only installed in compat mode, so it
     # unconditionally runs the python do_dispose override for python-defined
     # subclasses before the unref.
-    if not self.is_bound():
+    is_bound = getattr(self, "is_bound", None)
+    if not callable(is_bound) or not is_bound():
         return
-    if not self.owns_ref():
+    owns_ref = getattr(self, "owns_ref", None)
+    if not callable(owns_ref) or not owns_ref():
         return
-    self.preserve_wrapper_state()
-    if _is_python_defined_gobject_subclass(type(self)):
-        _compat_finalize_dispose(self)
-    self.release_ref()
+    preserve_wrapper_state = getattr(self, "preserve_wrapper_state", None)
+    if callable(preserve_wrapper_state):
+        preserve_wrapper_state()
+    is_python_defined_gobject_subclass = globals().get(
+        "_is_python_defined_gobject_subclass"
+    )
+    compat_finalize_dispose = globals().get("_compat_finalize_dispose")
+    if callable(is_python_defined_gobject_subclass) and is_python_defined_gobject_subclass(
+        type(self)
+    ):
+        if callable(compat_finalize_dispose):
+            compat_finalize_dispose(self)
+    release_ref = getattr(self, "release_ref", None)
+    if callable(release_ref):
+        release_ref()
 
 
 @overlay.method("Object")
