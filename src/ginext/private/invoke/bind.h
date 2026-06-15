@@ -31,7 +31,7 @@
  * Returns 0 on success; -1 on failure with Python error set.
  * On failure the frame is in a consistent state for pygi_invoke_frame_fail(). */
 int
-pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
+pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                        PyGIInvokeFrame *frame,
                        GICallableInfo *cb,
                        const PyGIInvokePlan *plan,

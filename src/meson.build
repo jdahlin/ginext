@@ -34,7 +34,7 @@ _gobject_ext = py.extension_module(
     'ginext/private/GObject/Object-weakref.c',
     'ginext/private/GObject/Closure-record.c',
     'ginext/private/GObject/Closure-signal.c',
-    'ginext/private/GObject/method-descr.c',
+    'ginext/private/GObject/callable-descr.c',
     'ginext/private/namespace.c',
     'ginext/private/ginextmodule.c',
     'ginext/private/GObject/Object-info.c',

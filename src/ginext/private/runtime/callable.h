@@ -60,10 +60,10 @@ typedef struct
    * passed through as individual positionals rather than packed into
    * _PackedUserData — they explicitly fill each closure slot. */
   Py_ssize_t n_elided_closures;
-} PyGIMethodDescriptor;
+} PyGICallableDescriptor;
 
-extern PyTypeObject *ginext_method_descriptor_type;
-extern PyType_Spec GinextMethodDescriptor_spec;
+extern PyTypeObject *ginext_callable_descriptor_type;
+extern PyType_Spec GinextCallableDescriptor_spec;
 
 void
 pygi_describe_callable_shape (GICallableInfo *cb, int has_self, char *buf, size_t buf_size);

@@ -149,7 +149,7 @@ class DeclaredProperty:
         coerce_gtype_int: bool = ...,
     ) -> DeclaredProperty: ...
 
-class MethodDescriptor:
+class CallableDescriptor:
     gimeta: types.SimpleNamespace
     __name__: str
     __qualname__: str
@@ -158,7 +158,7 @@ class MethodDescriptor:
 
 # Low-level C functions — typed as Any for internals that aren't
 # part of the public API.
-def build_callable_descriptor(*args: Any, **kwargs: Any) -> MethodDescriptor: ...
+def build_callable_descriptor(*args: Any, **kwargs: Any) -> CallableDescriptor: ...
 def invoke(
     namespace: str | Namespace | types.ModuleType,
     name: str = ...,

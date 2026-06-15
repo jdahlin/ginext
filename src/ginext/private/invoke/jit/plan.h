@@ -78,7 +78,7 @@ typedef struct
 } PyGIJitPlan;
 
 /* Cached per-callable state for JIT direct-call dispatch. Owned by the
- * PyGIMethodDescriptor; lifetime spans the descriptor's. */
+ * PyGICallableDescriptor; lifetime spans the descriptor's. */
 typedef struct PyGICompiledCallable
 {
   GICallableInfo *info;

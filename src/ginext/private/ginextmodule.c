@@ -353,16 +353,16 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  PyObject *method_descriptor_type = PyType_FromSpec (&GinextMethodDescriptor_spec);
-  if (method_descriptor_type == NULL)
+  PyObject *callable_descriptor_type = PyType_FromSpec (&GinextCallableDescriptor_spec);
+  if (callable_descriptor_type == NULL)
     {
       Py_DECREF (m);
       return NULL;
     }
-  ginext_method_descriptor_type = (PyTypeObject *)method_descriptor_type;
-  if (PyModule_AddObject (m, "MethodDescriptor", method_descriptor_type) < 0)
+  ginext_callable_descriptor_type = (PyTypeObject *)callable_descriptor_type;
+  if (PyModule_AddObject (m, "CallableDescriptor", callable_descriptor_type) < 0)
     {
-      Py_DECREF (method_descriptor_type);
+      Py_DECREF (callable_descriptor_type);
       Py_DECREF (m);
       return NULL;
     }

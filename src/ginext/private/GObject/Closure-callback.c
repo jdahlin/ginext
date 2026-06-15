@@ -172,7 +172,7 @@ reverse_callback_call (PyObject *self, PyObject *args, PyObject *kw)
         argv[i] = PyTuple_GET_ITEM (args, i);
     }
 
-  PyGIMethodDescriptor descriptor = {
+  PyGICallableDescriptor descriptor = {
     .compiled = callback->compiled,
     .info = (GIFunctionInfo *)callback->callback_info,
     .has_self = 0,
@@ -180,7 +180,7 @@ reverse_callback_call (PyObject *self, PyObject *args, PyObject *kw)
     .namespace = callback->namespace,
   };
   PyObject *result
-      = pygi_method_descriptor_call_ffi_invoke (&descriptor, argv, (size_t)full_nargs, NULL);
+      = pygi_callable_descriptor_call_ffi_invoke (&descriptor, argv, (size_t)full_nargs, NULL);
   if (callback->user_data_py_index >= 0)
     Py_DECREF (argv[callback->user_data_py_index]);
   g_free (argv);

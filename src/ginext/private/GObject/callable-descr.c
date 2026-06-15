@@ -35,8 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *CALLABLE_DESCRIPTOR_CAPSULE_NAME = "ginext.private.PyGIMethodDescriptor";
-PyTypeObject *ginext_method_descriptor_type = NULL;
+static const char *CALLABLE_DESCRIPTOR_CAPSULE_NAME = "ginext.private.PyGICallableDescriptor";
+PyTypeObject *ginext_callable_descriptor_type = NULL;
 
 static ffi_type *gvalue_ffi_elements[] = {
   &ffi_type_uint64,
@@ -64,17 +64,17 @@ type_info_is_supported_array_element_info (GITypeInfo *elem_info);
 static gboolean
 type_info_is_supported_hash_table (GITypeInfo *type_info);
 static PyObject *
-method_descriptor_vectorcall (PyObject *self,
+callable_descriptor_vectorcall (PyObject *self,
                               PyObject *const *args,
                               size_t nargsf,
                               PyObject *kwnames);
 static PyObject *
-invoke_descriptor_vectorcall (PyGIMethodDescriptor *descriptor,
+invoke_descriptor_vectorcall (PyGICallableDescriptor *descriptor,
                               PyObject *const *args,
                               size_t nargsf,
                               PyObject *kwnames);
 static PyObject *
-invoke_descriptor_trivial_scalar_fastcall (PyGIMethodDescriptor *descriptor,
+invoke_descriptor_trivial_scalar_fastcall (PyGICallableDescriptor *descriptor,
                                            PyObject *const *args,
                                            Py_ssize_t nargs);
 static int
@@ -90,27 +90,27 @@ invoke_descriptor_utf8_arg_fastcall (const PyGIArgPlan *arg_plan,
                                      PyObject *arg,
                                      char **arg_string_out);
 static PyObject *
-invoke_self_object_void_fastcall (PyGIMethodDescriptor *descriptor,
+invoke_self_object_void_fastcall (PyGICallableDescriptor *descriptor,
                                   gpointer self_ptr,
                                   PyObject *arg);
 static PyObject *
-invoke_self_bool_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, gboolean arg);
+invoke_self_bool_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, gboolean arg);
 static PyObject *
-invoke_self_utf8_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, char *arg);
+invoke_self_utf8_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, char *arg);
 static PyObject *
-invoke_self_utf8_object_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, char *arg);
+invoke_self_utf8_object_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, char *arg);
 static PyObject *
-invoke_self_void_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr);
+invoke_self_void_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr);
 static PyObject *
-invoke_self_void_boolean_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr);
+invoke_self_void_boolean_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr);
 static PyObject *
-invoke_self_void_int32_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr);
+invoke_self_void_int32_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr);
 static PyObject *
-invoke_self_void_utf8_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr);
+invoke_self_void_utf8_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr);
 static PyObject *
-invoke_self_int32_object_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, gint32 arg);
+invoke_self_int32_object_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, gint32 arg);
 static PyObject *
-resolve_call_args (PyGIMethodDescriptor *d,
+resolve_call_args (PyGICallableDescriptor *d,
                    PyObject *self_obj,
                    PyObject *args_in,
                    Py_ssize_t args_offset,
@@ -987,7 +987,7 @@ pygi_compiled_callable_destroy_for_ffi (PyGICompiledCallable *compiled)
 }
 
 static void
-method_descriptor_clear_fields (PyGIMethodDescriptor *descriptor)
+callable_descriptor_clear_fields (PyGICallableDescriptor *descriptor)
 {
   if (descriptor == NULL)
     return;
@@ -1014,11 +1014,11 @@ method_descriptor_clear_fields (PyGIMethodDescriptor *descriptor)
 }
 
 static void
-method_descriptor_destroy (PyGIMethodDescriptor *descriptor)
+callable_descriptor_destroy (PyGICallableDescriptor *descriptor)
 {
   if (descriptor == NULL)
     return;
-  method_descriptor_clear_fields (descriptor);
+  callable_descriptor_clear_fields (descriptor);
   free (descriptor);
 }
 
@@ -1026,7 +1026,7 @@ method_descriptor_destroy (PyGIMethodDescriptor *descriptor)
  * applied. Caches on the descriptor so the per-call kwarg merge path is
  * just a tuple walk. Returns 0 on success, -1 on error (PyErr set). */
 static int
-descriptor_cache_arg_names (PyGIMethodDescriptor *descriptor, PyObject *capsule)
+descriptor_cache_arg_names (PyGICallableDescriptor *descriptor, PyObject *capsule)
 {
   PyObject *call_args = Py_BuildValue ("(O)", capsule);
   if (call_args == NULL)
@@ -1082,18 +1082,18 @@ descriptor_cache_arg_names (PyGIMethodDescriptor *descriptor, PyObject *capsule)
   return 0;
 }
 
-static PyGIMethodDescriptor *
-method_descriptor_from_py (PyObject *obj)
+static PyGICallableDescriptor *
+callable_descriptor_from_py (PyObject *obj)
 {
-  if (ginext_method_descriptor_type != NULL
-      && PyObject_TypeCheck (obj, ginext_method_descriptor_type))
-    return (PyGIMethodDescriptor *)obj;
+  if (ginext_callable_descriptor_type != NULL
+      && PyObject_TypeCheck (obj, ginext_callable_descriptor_type))
+    return (PyGICallableDescriptor *)obj;
   if (PyCapsule_CheckExact (obj))
     return PyCapsule_GetPointer (obj, CALLABLE_DESCRIPTOR_CAPSULE_NAME);
   PyErr_Format (PyExc_TypeError,
                 "expected %s or a callable descriptor capsule, got %s",
-                ginext_method_descriptor_type != NULL ? ginext_method_descriptor_type->tp_name
-                                                      : "ginext.private._gobject.MethodDescriptor",
+                ginext_callable_descriptor_type != NULL ? ginext_callable_descriptor_type->tp_name
+                                                      : "ginext.private._gobject.CallableDescriptor",
                 Py_TYPE (obj)->tp_name);
   return NULL;
 }
@@ -1341,17 +1341,17 @@ py_build_callable_descriptor (PyObject *module G_GNUC_UNUSED, PyObject *args)
       PyErr_SetString (PyExc_TypeError, "expected GIFunctionInfo capsule");
       return NULL;
     }
-  if (ginext_method_descriptor_type == NULL)
+  if (ginext_callable_descriptor_type == NULL)
     {
-      PyErr_SetString (PyExc_RuntimeError, "MethodDescriptor type not initialized");
+      PyErr_SetString (PyExc_RuntimeError, "CallableDescriptor type not initialized");
       return NULL;
     }
 
-  PyObject *descriptor_obj = PyType_GenericAlloc (ginext_method_descriptor_type, 0);
+  PyObject *descriptor_obj = PyType_GenericAlloc (ginext_callable_descriptor_type, 0);
   if (descriptor_obj == NULL)
     return NULL;
-  PyGIMethodDescriptor *descriptor = (PyGIMethodDescriptor *)descriptor_obj;
-  descriptor->vectorcall = method_descriptor_vectorcall;
+  PyGICallableDescriptor *descriptor = (PyGICallableDescriptor *)descriptor_obj;
+  descriptor->vectorcall = callable_descriptor_vectorcall;
   descriptor->info = (GIFunctionInfo *)gi_base_info_ref (base);
   descriptor->has_self = has_self ? 1 : 0;
   descriptor->namespace = Py_XNewRef (namespace);
@@ -1423,7 +1423,7 @@ py_build_callable_descriptor (PyObject *module G_GNUC_UNUSED, PyObject *args)
  * (and avoid leaking namespace-prefixed qualified names that the
  * Python caller never sees). */
 static const char *
-descriptor_bare_name (const PyGIMethodDescriptor *d)
+descriptor_bare_name (const PyGICallableDescriptor *d)
 {
   const char *q = d->qualified_name;
   if (q == NULL)
@@ -1433,9 +1433,9 @@ descriptor_bare_name (const PyGIMethodDescriptor *d)
 }
 
 static PyObject *
-method_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
+callable_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
 {
-  PyGIMethodDescriptor *descriptor = (PyGIMethodDescriptor *)self;
+  PyGICallableDescriptor *descriptor = (PyGICallableDescriptor *)self;
   PyObject *fn = pygi_hook_last (pygi_hook_callable_signature);
   if (fn == NULL)
     {
@@ -1454,16 +1454,16 @@ method_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
 }
 
 static PyObject *
-method_descriptor_repr (PyObject *self)
+callable_descriptor_repr (PyObject *self)
 {
-  PyGIMethodDescriptor *descriptor = (PyGIMethodDescriptor *)self;
+  PyGICallableDescriptor *descriptor = (PyGICallableDescriptor *)self;
   return PyUnicode_FromFormat ("<ginext method %s>",
                                descriptor->qualified_name != NULL ? descriptor->qualified_name
                                                                   : "<?>");
 }
 
 static PyObject *
-method_descriptor_descr_get (PyObject *self, PyObject *obj, PyObject *type G_GNUC_UNUSED)
+callable_descriptor_descr_get (PyObject *self, PyObject *obj, PyObject *type G_GNUC_UNUSED)
 {
   if (obj == NULL)
     return Py_NewRef (self);
@@ -1471,7 +1471,7 @@ method_descriptor_descr_get (PyObject *self, PyObject *obj, PyObject *type G_GNU
 }
 
 static PyObject *
-invoke_descriptor_with_tuple_kwargs (PyGIMethodDescriptor *descriptor,
+invoke_descriptor_with_tuple_kwargs (PyGICallableDescriptor *descriptor,
                                      PyObject *py_args,
                                      PyObject *kwargs)
 {
@@ -1511,7 +1511,7 @@ invoke_descriptor_with_tuple_kwargs (PyGIMethodDescriptor *descriptor,
   for (size_t i = 0; i < nargs; i++)
     call_args[i] = PyTuple_GET_ITEM (final_args, (Py_ssize_t)i);
 
-  PyObject *result = pygi_method_descriptor_call_ffi_invoke (descriptor, call_args, nargs, NULL);
+  PyObject *result = pygi_callable_descriptor_call_ffi_invoke (descriptor, call_args, nargs, NULL);
   Py_DECREF (final_args);
   if (result != NULL && PyErr_Occurred ())
     {
@@ -1522,7 +1522,7 @@ invoke_descriptor_with_tuple_kwargs (PyGIMethodDescriptor *descriptor,
 }
 
 static PyObject *
-invoke_self_object_void_fastcall (PyGIMethodDescriptor *descriptor,
+invoke_self_object_void_fastcall (PyGICallableDescriptor *descriptor,
                                   gpointer self_ptr,
                                   PyObject *arg)
 {
@@ -1539,21 +1539,21 @@ invoke_self_object_void_fastcall (PyGIMethodDescriptor *descriptor,
 }
 
 static PyObject *
-invoke_self_bool_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, gboolean arg)
+invoke_self_bool_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, gboolean arg)
 {
   ((void (*) (gpointer, gboolean))descriptor->compiled->target_fn) (self_ptr, arg);
   Py_RETURN_NONE;
 }
 
 static PyObject *
-invoke_self_utf8_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, char *arg)
+invoke_self_utf8_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, char *arg)
 {
   ((void (*) (gpointer, const char *))descriptor->compiled->target_fn) (self_ptr, arg);
   Py_RETURN_NONE;
 }
 
 static PyObject *
-invoke_object_return_fastcall (PyGIMethodDescriptor *descriptor, gpointer ret_ptr)
+invoke_object_return_fastcall (PyGICallableDescriptor *descriptor, gpointer ret_ptr)
 {
   PyGIInvokePlan *plan = &descriptor->compiled->invoke_plan;
 
@@ -1576,28 +1576,28 @@ invoke_object_return_fastcall (PyGIMethodDescriptor *descriptor, gpointer ret_pt
 }
 
 static PyObject *
-invoke_self_void_void_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr)
+invoke_self_void_void_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr)
 {
   ((void (*) (gpointer))descriptor->compiled->target_fn) (self_ptr);
   Py_RETURN_NONE;
 }
 
 static PyObject *
-invoke_self_void_boolean_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr)
+invoke_self_void_boolean_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr)
 {
   gboolean ret = ((gboolean (*) (gpointer))descriptor->compiled->target_fn) (self_ptr);
   return PyBool_FromLong (ret != FALSE);
 }
 
 static PyObject *
-invoke_self_void_int32_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr)
+invoke_self_void_int32_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr)
 {
   gint32 ret = ((gint32 (*) (gpointer))descriptor->compiled->target_fn) (self_ptr);
   return PyLong_FromLong ((long)ret);
 }
 
 static PyObject *
-invoke_self_void_utf8_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr)
+invoke_self_void_utf8_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr)
 {
   GIArgument ret = { 0 };
 
@@ -1606,7 +1606,7 @@ invoke_self_void_utf8_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_
 }
 
 static PyObject *
-invoke_self_utf8_object_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, char *arg)
+invoke_self_utf8_object_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, char *arg)
 {
   gpointer ret_ptr = ((gpointer (*) (gpointer, const char *))descriptor->compiled->target_fn) (
       self_ptr, arg);
@@ -1614,7 +1614,7 @@ invoke_self_utf8_object_fastcall (PyGIMethodDescriptor *descriptor, gpointer sel
 }
 
 static PyObject *
-invoke_self_int32_object_fastcall (PyGIMethodDescriptor *descriptor, gpointer self_ptr, gint32 arg)
+invoke_self_int32_object_fastcall (PyGICallableDescriptor *descriptor, gpointer self_ptr, gint32 arg)
 {
   gpointer ret_ptr
       = ((gpointer (*) (gpointer, gint32))descriptor->compiled->target_fn) (self_ptr, arg);
@@ -1738,7 +1738,7 @@ invoke_descriptor_utf8_arg_fastcall (const PyGIArgPlan *arg_plan,
 }
 
 static PyObject *
-invoke_descriptor_trivial_scalar_fastcall (PyGIMethodDescriptor *descriptor,
+invoke_descriptor_trivial_scalar_fastcall (PyGICallableDescriptor *descriptor,
                                            PyObject *const *args,
                                            Py_ssize_t nargs)
 {
@@ -1959,16 +1959,16 @@ invoke_descriptor_trivial_scalar_fastcall (PyGIMethodDescriptor *descriptor,
 }
 
 static PyObject *
-method_descriptor_vectorcall (PyObject *self,
+callable_descriptor_vectorcall (PyObject *self,
                               PyObject *const *args,
                               size_t nargsf,
                               PyObject *kwnames)
 {
-  return invoke_descriptor_vectorcall ((PyGIMethodDescriptor *)self, args, nargsf, kwnames);
+  return invoke_descriptor_vectorcall ((PyGICallableDescriptor *)self, args, nargsf, kwnames);
 }
 
 static PyObject *
-invoke_descriptor_vectorcall (PyGIMethodDescriptor *descriptor,
+invoke_descriptor_vectorcall (PyGICallableDescriptor *descriptor,
                               PyObject *const *args,
                               size_t nargsf,
                               PyObject *kwnames)
@@ -1984,7 +1984,7 @@ invoke_descriptor_vectorcall (PyGIMethodDescriptor *descriptor,
           = PyTuple_GET_SIZE (descriptor->arg_names) + (descriptor->has_self ? 1 : 0);
       if (!descriptor->has_user_data_slot && descriptor->n_elided_closures == 0
           && nargs <= n_visible)
-        return pygi_method_descriptor_call_ffi_invoke (descriptor, args, (size_t)nargs, NULL);
+        return pygi_callable_descriptor_call_ffi_invoke (descriptor, args, (size_t)nargs, NULL);
     }
 
   Py_ssize_t nkwargs = kwnames != NULL ? PyTuple_GET_SIZE (kwnames) : 0;
@@ -2026,52 +2026,52 @@ invoke_descriptor_vectorcall (PyGIMethodDescriptor *descriptor,
 }
 
 static void
-method_descriptor_dealloc (PyObject *self)
+callable_descriptor_dealloc (PyObject *self)
 {
-  method_descriptor_clear_fields ((PyGIMethodDescriptor *)self);
+  callable_descriptor_clear_fields ((PyGICallableDescriptor *)self);
   Py_TYPE (self)->tp_free (self);
 }
 
-static PyMemberDef method_descriptor_members[] = {
+static PyMemberDef callable_descriptor_members[] = {
   { "__vectorcalloffset__",
     Py_T_PYSSIZET,
-    offsetof (PyGIMethodDescriptor, vectorcall),
+    offsetof (PyGICallableDescriptor, vectorcall),
     Py_READONLY,
     NULL },
-  { "gimeta", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, gimeta), 0, NULL },
-  { "__name__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, name), 0, NULL },
-  { "__qualname__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, qualname), 0, NULL },
-  { "__module__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, module), 0, NULL },
-  { "__doc__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, doc), 0, NULL },
-  { "__defaults__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, defaults), 0, NULL },
-  { "__kwdefaults__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, kwdefaults), 0, NULL },
-  { "__annotations__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, annotations), 0, NULL },
-  { "__annotate__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, annotate), 0, NULL },
-  { "__type_params__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, type_params), 0, NULL },
-  { "__objclass__", Py_T_OBJECT_EX, offsetof (PyGIMethodDescriptor, objclass), 0, NULL },
+  { "gimeta", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, gimeta), 0, NULL },
+  { "__name__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, name), 0, NULL },
+  { "__qualname__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, qualname), 0, NULL },
+  { "__module__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, module), 0, NULL },
+  { "__doc__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, doc), 0, NULL },
+  { "__defaults__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, defaults), 0, NULL },
+  { "__kwdefaults__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, kwdefaults), 0, NULL },
+  { "__annotations__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, annotations), 0, NULL },
+  { "__annotate__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, annotate), 0, NULL },
+  { "__type_params__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, type_params), 0, NULL },
+  { "__objclass__", Py_T_OBJECT_EX, offsetof (PyGICallableDescriptor, objclass), 0, NULL },
   { NULL, 0, 0, 0, NULL },
 };
 
-static PyGetSetDef method_descriptor_getset[] = {
-  { "__signature__", method_descriptor_signature, NULL, NULL, NULL },
+static PyGetSetDef callable_descriptor_getset[] = {
+  { "__signature__", callable_descriptor_signature, NULL, NULL, NULL },
   { NULL, NULL, NULL, NULL, NULL },
 };
 
-static PyType_Slot method_descriptor_slots[] = {
-  { Py_tp_dealloc, (void *)method_descriptor_dealloc },
+static PyType_Slot callable_descriptor_slots[] = {
+  { Py_tp_dealloc, (void *)callable_descriptor_dealloc },
   { Py_tp_call, (void *)PyVectorcall_Call },
-  { Py_tp_repr, (void *)method_descriptor_repr },
-  { Py_tp_descr_get, (void *)method_descriptor_descr_get },
-  { Py_tp_members, method_descriptor_members },
-  { Py_tp_getset, method_descriptor_getset },
+  { Py_tp_repr, (void *)callable_descriptor_repr },
+  { Py_tp_descr_get, (void *)callable_descriptor_descr_get },
+  { Py_tp_members, callable_descriptor_members },
+  { Py_tp_getset, callable_descriptor_getset },
   { 0, NULL },
 };
 
-PyType_Spec GinextMethodDescriptor_spec = {
-  .name = "ginext.private._gobject.MethodDescriptor",
-  .basicsize = sizeof (PyGIMethodDescriptor),
+PyType_Spec GinextCallableDescriptor_spec = {
+  .name = "ginext.private._gobject.CallableDescriptor",
+  .basicsize = sizeof (PyGICallableDescriptor),
   .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_VECTORCALL | Py_TPFLAGS_METHOD_DESCRIPTOR,
-  .slots = method_descriptor_slots,
+  .slots = callable_descriptor_slots,
 };
 
 /* Lazily import ginext.method._PackedUserData. Cached for the process
@@ -2105,7 +2105,7 @@ packed_user_data_type (void)
  * Returns a new tuple of length `(self_obj ? 1 : 0) + n_visible`
  * (+1 if user_data was supplied), or NULL on error (PyErr set). */
 static PyObject *
-resolve_call_args (PyGIMethodDescriptor *d,
+resolve_call_args (PyGICallableDescriptor *d,
                    PyObject *self_obj,
                    PyObject *args_in,
                    Py_ssize_t args_offset,
@@ -2396,7 +2396,7 @@ py_invoke_callable_descriptor (PyObject *module G_GNUC_UNUSED,
       return NULL;
     }
 
-  PyGIMethodDescriptor *descriptor = method_descriptor_from_py (args[0]);
+  PyGICallableDescriptor *descriptor = callable_descriptor_from_py (args[0]);
   if (descriptor == NULL)
     return NULL;
 
@@ -2507,7 +2507,7 @@ py_synthetic_callable (PyObject *self G_GNUC_UNUSED, PyObject *args)
   return NULL;
 }
 
-static PyGIMethodDescriptor *
+static PyGICallableDescriptor *
 invoke_lookup_or_build (const char *ns_name, const char *version, const char *func)
 {
   /* Cache key: "<ns>@<version>.<func>"; stable for the program's
@@ -2524,7 +2524,7 @@ invoke_lookup_or_build (const char *ns_name, const char *version, const char *fu
   if (_invoke_descriptor_cache == NULL)
     _invoke_descriptor_cache = g_hash_table_new (g_str_hash, g_str_equal);
 
-  PyGIMethodDescriptor *descriptor = g_hash_table_lookup (_invoke_descriptor_cache, key);
+  PyGICallableDescriptor *descriptor = g_hash_table_lookup (_invoke_descriptor_cache, key);
   if (descriptor != NULL)
     return descriptor;
 
@@ -2633,7 +2633,7 @@ invoke_lookup_or_build (const char *ns_name, const char *version, const char *fu
   descriptor->qualified_name = strdup (qualified);
   if (descriptor->qualified_name == NULL)
     {
-      method_descriptor_destroy (descriptor);
+      callable_descriptor_destroy (descriptor);
       PyErr_NoMemory ();
       return NULL;
     }
@@ -2642,7 +2642,7 @@ invoke_lookup_or_build (const char *ns_name, const char *version, const char *fu
       = compile_callable_for_ffi (descriptor->info, has_self, descriptor->qualified_name);
   if (descriptor->compiled == NULL)
     {
-      method_descriptor_destroy (descriptor);
+      callable_descriptor_destroy (descriptor);
       return NULL;
     }
 
@@ -2727,7 +2727,7 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
         return result;
     }
 
-  PyGIMethodDescriptor *descriptor = invoke_lookup_or_build (ns_name, version, func);
+  PyGICallableDescriptor *descriptor = invoke_lookup_or_build (ns_name, version, func);
   if (descriptor == NULL)
     return NULL;
 
@@ -2737,5 +2737,5 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
   for (Py_ssize_t i = 0; i < n_call; i++)
     call_args[i] = args[i + 2];
 
-  return pygi_method_descriptor_call_ffi_invoke (descriptor, call_args, (size_t)n_call, NULL);
+  return pygi_callable_descriptor_call_ffi_invoke (descriptor, call_args, (size_t)n_call, NULL);
 }
