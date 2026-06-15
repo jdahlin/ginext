@@ -163,3 +163,8 @@ param_spec_default_value = _gobject.param_spec_default_value
 param_spec_numeric_info = _gobject.param_spec_numeric_info
 register_hook = _gobject.register_hook
 register_coercion = _gobject.register_coercion
+
+
+def preload_shared_library(path: str) -> None:
+    import ctypes
+    ctypes.CDLL(path)
