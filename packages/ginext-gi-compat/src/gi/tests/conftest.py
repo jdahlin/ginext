@@ -366,9 +366,25 @@ def pytest_collection_modifyitems(
 ) -> None:
     has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
     is_debug_python = hasattr(sys, "gettotalrefcount")
+    is_py315_gil = sys.version_info >= (3, 15) and getattr(
+        sys, "_is_gil_enabled", lambda: True
+    )()
     for item in items:
         _, sep, relative_nodeid = item.nodeid.rpartition("/gi/tests/")
         if not sep:
+            continue
+        if (
+            is_py315_gil
+            and relative_nodeid
+            == "test_properties.py::TestCPropsAccessor::test_parent_class"
+        ):
+            item.add_marker(
+                pytest.mark.xfail(
+                    reason="crashes xdist worker on Python 3.15 GIL build",
+                    run=False,
+                    strict=False,
+                )
+            )
             continue
         if relative_nodeid.startswith("test_cairo.py::TestPango::") and (
             not has_display or is_debug_python

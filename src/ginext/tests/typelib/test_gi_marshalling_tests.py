@@ -693,7 +693,10 @@ def test_filename_exists(t: Namespace, tmp_path: pathlib.Path) -> None:
     assert t.filename_exists(str(tmp_path / "absent")) is False
 
 
-@pytest.mark.skipif(os.name == "nt", reason="filesystem encoding semantics differ")
+@pytest.mark.skipif(
+    sys.platform in {"darwin", "win32"},
+    reason="filesystem encoding semantics differ",
+)
 def test_filename_exists_accepts_surrogateescaped_path(t: Namespace, tmp_path: pathlib.Path) -> None:
     raw_name = b"\xff\xfe-present"
     path_bytes = os.fsencode(tmp_path) + b"/" + raw_name
