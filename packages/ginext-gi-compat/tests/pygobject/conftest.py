@@ -134,6 +134,10 @@ _PY315_GIL_XFAIL_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
 }
 
+_FREE_THREADED_XFAIL_BY_NODE = {
+    "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "refcount assertion is unstable in free-threaded Python builds",
+}
+
 # macOS-specific failures: tests that rely on Linux .so.0 library naming which
 # doesn't exist on macOS (libraries use .dylib there).
 _DARWIN_XFAIL_BY_NODE = {
@@ -168,6 +172,7 @@ def pytest_collection_modifyitems(
     is_py315_gil = sys.version_info >= (3, 15) and getattr(
         sys, "_is_gil_enabled", lambda: True
     )()
+    is_free_threaded = not getattr(sys, "_is_gil_enabled", lambda: True)()
     compat_warning_filters = (
         pytest.mark.filterwarnings(
             "ignore:connecting .* without an owner:ginext.signal.connection.UnownedSignalHandlerWarning"
@@ -188,6 +193,10 @@ def pytest_collection_modifyitems(
         if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_BY_NODE:
             reason = _PY315_GIL_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
+            continue
+        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_BY_NODE:
+            reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
             continue
         if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
             reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
