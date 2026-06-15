@@ -25,14 +25,14 @@
 #include "GObject/coercions.h"
 #include "marshal/conversion.h"
 #include "GObject/Closure.h"
-#include "GObject/DeclaredProperty.h"
+#include "GObject/property-descr.h"
 #include "GObject/Fundamental.h"
 #include "GObject/Object-info.h"
 #include "GObject/Object-weakref.h"
 #include "GObject/Object.h"
 #include "GObject/ObjectMeta.h"
 #include "GObject/GIMeta.h"
-#include "GObject/Object-vfunc-wrapper.h"
+#include "GObject/vfunc-descr.h"
 #include "GIRepository/BaseInfo.h"
 #include "GIRepository/Info.h"
 #include "runtime/callable.h"
@@ -320,7 +320,7 @@ PyInit__gobject (void)
 {
   if (PyType_Ready (&GIMetaType) < 0)
     return NULL;
-  if (PyType_Ready (&GinextDeclaredPropertyType) < 0)
+  if (PyType_Ready (&GinextPropertyDescriptorType) < 0)
     return NULL;
 
   PyObject *m = PyModule_Create (&moddef);
@@ -367,14 +367,14 @@ PyInit__gobject (void)
       return NULL;
     }
 
-  PyObject *vfunc_wrapper_type = PyType_FromSpec (&GinextVFuncWrapper_spec);
+  PyObject *vfunc_wrapper_type = PyType_FromSpec (&GinextVFuncDescriptor_spec);
   if (vfunc_wrapper_type == NULL)
     {
       Py_DECREF (m);
       return NULL;
     }
   ginext_vfunc_wrapper_type = (PyTypeObject *)vfunc_wrapper_type;
-  if (PyModule_AddObject (m, "VFuncWrapper", vfunc_wrapper_type) < 0)
+  if (PyModule_AddObject (m, "VFuncDescriptor", vfunc_wrapper_type) < 0)
     {
       Py_DECREF (vfunc_wrapper_type);
       Py_DECREF (m);
@@ -396,10 +396,10 @@ PyInit__gobject (void)
       Py_DECREF (m);
       return NULL;
     }
-  Py_INCREF (&GinextDeclaredPropertyType);
-  if (PyModule_AddObject (m, "DeclaredProperty", (PyObject *)&GinextDeclaredPropertyType) < 0)
+  Py_INCREF (&GinextPropertyDescriptorType);
+  if (PyModule_AddObject (m, "DeclaredProperty", (PyObject *)&GinextPropertyDescriptorType) < 0)
     {
-      Py_DECREF (&GinextDeclaredPropertyType);
+      Py_DECREF (&GinextPropertyDescriptorType);
       Py_DECREF (m);
       return NULL;
     }

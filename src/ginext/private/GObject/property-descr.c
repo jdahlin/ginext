@@ -1,4 +1,4 @@
-#include "DeclaredProperty.h"
+#include "property-descr.h"
 
 #include "GIMeta.h"
 #include "Object-info.h"
@@ -15,10 +15,10 @@ typedef struct
   gint private_offset;
   guint prop_id;
   int coerce_gtype_int;
-} GinextDeclaredProperty;
+} GinextPropertyDescriptor;
 
 static inline InstancePrivate *
-declared_property_private_from_instance (GinextDeclaredProperty *self, GTypeInstance *instance)
+declared_property_private_from_instance (GinextPropertyDescriptor *self, GTypeInstance *instance)
 {
   if (G_UNLIKELY (self->owner_type == 0))
     self->owner_type = self->pspec->owner_type;
@@ -42,7 +42,7 @@ gobject_from_py (PyObject *py_obj)
 }
 
 static int
-call_notify_override (GinextDeclaredProperty *self, PyObject *obj)
+call_notify_override (GinextPropertyDescriptor *self, PyObject *obj)
 {
   PyObject *obj_type = (PyObject *)Py_TYPE (obj);
   PyObject *dict = ((PyTypeObject *)obj_type)->tp_dict;
@@ -83,7 +83,7 @@ call_notify_override (GinextDeclaredProperty *self, PyObject *obj)
 }
 
 static void
-declared_property_dealloc (GinextDeclaredProperty *self)
+declared_property_dealloc (GinextPropertyDescriptor *self)
 {
   Py_XDECREF (self->spec);
   Py_XDECREF (self->name);
@@ -94,7 +94,7 @@ declared_property_dealloc (GinextDeclaredProperty *self)
 }
 
 static PyObject *
-declared_property_repr (GinextDeclaredProperty *self)
+declared_property_repr (GinextPropertyDescriptor *self)
 {
   return PyUnicode_FromFormat ("<ginext.DeclaredProperty %R>", self->name);
 }
@@ -102,7 +102,7 @@ declared_property_repr (GinextDeclaredProperty *self)
 static PyObject *
 declared_property_descr_get (PyObject *descr, PyObject *obj, PyObject *objtype G_GNUC_UNUSED)
 {
-  GinextDeclaredProperty *self = (GinextDeclaredProperty *)descr;
+  GinextPropertyDescriptor *self = (GinextPropertyDescriptor *)descr;
   if (obj == NULL || obj == Py_None)
     return Py_NewRef (descr);
 
@@ -131,7 +131,7 @@ declared_property_descr_get (PyObject *descr, PyObject *obj, PyObject *objtype G
 static int
 declared_property_descr_set (PyObject *descr, PyObject *obj, PyObject *value)
 {
-  GinextDeclaredProperty *self = (GinextDeclaredProperty *)descr;
+  GinextPropertyDescriptor *self = (GinextPropertyDescriptor *)descr;
   if (value == NULL)
     {
       PyErr_Format (PyExc_AttributeError, "cannot delete property %U", self->name);
@@ -177,24 +177,24 @@ declared_property_getattro (PyObject *obj, PyObject *name)
     return result;
 
   PyErr_Clear ();
-  GinextDeclaredProperty *self = (GinextDeclaredProperty *)obj;
+  GinextPropertyDescriptor *self = (GinextPropertyDescriptor *)obj;
   return PyObject_GetAttr (self->spec, name);
 }
 
 static PyObject *
-declared_property_get_pspec (GinextDeclaredProperty *self, void *closure G_GNUC_UNUSED)
+declared_property_get_pspec (GinextPropertyDescriptor *self, void *closure G_GNUC_UNUSED)
 {
   return pygi_param_spec_new (self->pspec);
 }
 
 static PyObject *
-declared_property_get_owner (GinextDeclaredProperty *self, void *closure G_GNUC_UNUSED)
+declared_property_get_owner (GinextPropertyDescriptor *self, void *closure G_GNUC_UNUSED)
 {
   return Py_NewRef (self->owner);
 }
 
 static PyObject *
-declared_property_get_name (GinextDeclaredProperty *self, void *closure G_GNUC_UNUSED)
+declared_property_get_name (GinextPropertyDescriptor *self, void *closure G_GNUC_UNUSED)
 {
   return Py_NewRef (self->name);
 }
@@ -232,7 +232,7 @@ pygi_declared_property_new_full (PyObject *spec,
       return NULL;
     }
 
-  GinextDeclaredProperty *self = PyObject_New (GinextDeclaredProperty, &GinextDeclaredPropertyType);
+  GinextPropertyDescriptor *self = PyObject_New (GinextPropertyDescriptor, &GinextPropertyDescriptorType);
   if (!self)
     return NULL;
   self->spec = Py_NewRef (spec);
@@ -269,9 +269,9 @@ static PyMethodDef declared_property_methods[]
     = { { "from_spec", (PyCFunction)declared_property_from_spec, METH_VARARGS | METH_CLASS, NULL },
         { NULL } };
 
-PyTypeObject GinextDeclaredPropertyType = {
-  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ginext.private.DeclaredProperty",
-  .tp_basicsize = sizeof (GinextDeclaredProperty),
+PyTypeObject GinextPropertyDescriptorType = {
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ginext.private.PropertyDescriptor",
+  .tp_basicsize = sizeof (GinextPropertyDescriptor),
   .tp_dealloc = (destructor)declared_property_dealloc,
   .tp_repr = (reprfunc)declared_property_repr,
   .tp_flags = Py_TPFLAGS_DEFAULT,

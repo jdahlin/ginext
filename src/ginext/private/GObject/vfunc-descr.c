@@ -17,7 +17,7 @@
  * descriptor, so calling the parent class dispatches the parent slot instead
  * of recursing into the subclass override.
  */
-#include "GObject/Object-vfunc-wrapper.h"
+#include "GObject/vfunc-descr.h"
 #include "gimeta-helpers.h"
 
 #include <girepository/girepository.h>
@@ -34,12 +34,12 @@ typedef struct
 {
   PyObject_HEAD GIVFuncInfo *vfunc_info;
   GType implementor;
-} GinextVFuncWrapper;
+} GinextVFuncDescriptor;
 
 static void
 VFuncWrapper_dealloc (PyObject *self)
 {
-  GinextVFuncWrapper *w = (GinextVFuncWrapper *)self;
+  GinextVFuncDescriptor *w = (GinextVFuncDescriptor *)self;
   if (w->vfunc_info != NULL)
     gi_base_info_unref ((GIBaseInfo *)w->vfunc_info);
   Py_TYPE (self)->tp_free (self);
@@ -131,7 +131,7 @@ vfunc_ref_transfer_full_arg (PyObject *obj, GIArgInfo *ainfo, GIArgument *arg)
 static PyObject *
 VFuncWrapper_call (PyObject *self, PyObject *args, PyObject *kw)
 {
-  GinextVFuncWrapper *w = (GinextVFuncWrapper *)self;
+  GinextVFuncDescriptor *w = (GinextVFuncDescriptor *)self;
   if (kw != NULL && PyDict_GET_SIZE (kw) != 0)
     {
       PyErr_SetString (PyExc_TypeError, "vfunc chain-up doesn't accept keyword arguments");
@@ -194,7 +194,7 @@ VFuncWrapper_call (PyObject *self, PyObject *args, PyObject *kw)
 static PyObject *
 VFuncWrapper_repr (PyObject *self)
 {
-  GinextVFuncWrapper *w = (GinextVFuncWrapper *)self;
+  GinextVFuncDescriptor *w = (GinextVFuncDescriptor *)self;
   const char *vname
       = w->vfunc_info != NULL ? gi_base_info_get_name ((GIBaseInfo *)w->vfunc_info) : "(unbound)";
   return PyUnicode_FromFormat ("<vfunc '%s' on %s>", vname, g_type_name (w->implementor));
@@ -203,7 +203,7 @@ VFuncWrapper_repr (PyObject *self)
 static PyObject *
 VFuncWrapper_descr_get (PyObject *self, PyObject *obj, PyObject *type)
 {
-  GinextVFuncWrapper *w = (GinextVFuncWrapper *)self;
+  GinextVFuncDescriptor *w = (GinextVFuncDescriptor *)self;
 
   if (obj != NULL)
     return PyMethod_New (self, obj);
@@ -220,7 +220,7 @@ VFuncWrapper_descr_get (PyObject *self, PyObject *obj, PyObject *type)
   PyObject *bound = PyType_GenericAlloc (ginext_vfunc_wrapper_type, 0);
   if (bound == NULL)
     return NULL;
-  GinextVFuncWrapper *b = (GinextVFuncWrapper *)bound;
+  GinextVFuncDescriptor *b = (GinextVFuncDescriptor *)bound;
   b->vfunc_info = (GIVFuncInfo *)gi_base_info_ref ((GIBaseInfo *)w->vfunc_info);
   b->implementor = bound_gt;
   return bound;
@@ -234,9 +234,9 @@ static PyType_Slot VFuncWrapper_slots[] = {
   { 0, NULL },
 };
 
-PyType_Spec GinextVFuncWrapper_spec = {
-  .name = "ginext.private._gobject.VFuncWrapper",
-  .basicsize = sizeof (GinextVFuncWrapper),
+PyType_Spec GinextVFuncDescriptor_spec = {
+  .name = "ginext.private._gobject.VFuncDescriptor",
+  .basicsize = sizeof (GinextVFuncDescriptor),
   .flags = Py_TPFLAGS_DEFAULT,
   .slots = VFuncWrapper_slots,
 };
@@ -287,7 +287,7 @@ pygi_install_native_vfunc_attrs_for_class (PyObject *cls, PyObject *capsule)
       PyObject *wrapper = PyType_GenericAlloc (ginext_vfunc_wrapper_type, 0);
       if (wrapper == NULL)
         return -1;
-      GinextVFuncWrapper *w = (GinextVFuncWrapper *)wrapper;
+      GinextVFuncDescriptor *w = (GinextVFuncDescriptor *)wrapper;
       w->vfunc_info = (GIVFuncInfo *)gi_base_info_ref ((GIBaseInfo *)vfunc);
       w->implementor = implementor;
 

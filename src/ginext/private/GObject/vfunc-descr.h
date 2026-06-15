@@ -11,7 +11,7 @@
 #include <Python.h>
 
 extern PyTypeObject *ginext_vfunc_wrapper_type;
-extern PyType_Spec GinextVFuncWrapper_spec;
+extern PyType_Spec GinextVFuncDescriptor_spec;
 
 int
 pygi_install_native_vfunc_attrs_for_class (PyObject *cls, PyObject *capsule);

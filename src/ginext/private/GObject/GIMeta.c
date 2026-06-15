@@ -34,7 +34,7 @@
 #include "../GIRepository/ObjectInfo.h"
 #include "Object-info.h"
 #include "Object-register.h"
-#include "Object-vfunc-wrapper.h"
+#include "vfunc-descr.h"
 #include "ParamSpec.h"
 #include "Value.h"
 #include "marshal/gvalue.h"
