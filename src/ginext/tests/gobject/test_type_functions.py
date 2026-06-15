@@ -131,6 +131,25 @@ def test_python_defined_interface_impl_dispatches_vfunc(
     assert impl.val == 42
 
 
+def test_python_defined_interface_vfunc_name_clash_is_rejected(
+    GObject: type[object], gi_marshalling_tests: Any, unique_type_name: Any
+) -> None:
+    def do_test_int8_in(self: Any, int8: int) -> None:
+        pass
+
+    with pytest.raises(TypeError, match="ambiguous"):
+        type(GObject)(  # type: ignore[misc]
+            "CustomImplClash",
+            (
+                GObject,
+                cast("type[object]", gi_marshalling_tests.Interface),
+                cast("type[object]", gi_marshalling_tests.Interface2),
+            ),
+            {"do_test_int8_in": do_test_int8_in},
+            type_name=unique_type_name("PygIfaceClash"),
+        )
+
+
 def test_type_parent(GObject: Any, GType: Any, unique_type_name: Any) -> None:
     from ginext import GObject as GObjectNamespace
 
