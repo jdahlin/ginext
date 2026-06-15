@@ -127,7 +127,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
             setattr(
                 cls,
                 attr_name,
-                private.DeclaredProperty.from_spec(
+                private.PropertyDescriptor.from_spec(
                     attr,
                     cls,
                     gimeta.prop_ids[attr_name],

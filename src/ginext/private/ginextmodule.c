@@ -397,7 +397,7 @@ PyInit__gobject (void)
       return NULL;
     }
   Py_INCREF (&GinextPropertyDescriptorType);
-  if (PyModule_AddObject (m, "DeclaredProperty", (PyObject *)&GinextPropertyDescriptorType) < 0)
+  if (PyModule_AddObject (m, "PropertyDescriptor", (PyObject *)&GinextPropertyDescriptorType) < 0)
     {
       Py_DECREF (&GinextPropertyDescriptorType);
       Py_DECREF (m);

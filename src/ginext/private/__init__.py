@@ -16,7 +16,7 @@
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
 """Re-export the C-implemented surface so callers can write
-`ginext.private.GIMeta`, `ginext.private.DeclaredProperty`, etc.
+`ginext.private.GIMeta`, `ginext.private.PropertyDescriptor`, etc.
 
 GIMeta is now a C heap type with `gtype` / `type_name` / `parent` /
 `pspecs` / `prop_ids` properties plus `from_type_name` classmethod and
@@ -116,7 +116,7 @@ GObjectMeta = _gobject.GObjectMeta
 init_gobject = _gobject.init_gobject
 register_gtype_pytype = _gobject.register_gtype_pytype
 GBoxed = _gobject.GBoxed
-DeclaredProperty = _gobject.DeclaredProperty
+PropertyDescriptor = _gobject.PropertyDescriptor
 build_callable_descriptor = _gobject.build_callable_descriptor
 invoke = _gobject.invoke
 class_struct_wrapper = _gobject.class_struct_wrapper

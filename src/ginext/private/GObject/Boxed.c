@@ -1314,7 +1314,7 @@ typedef struct
   size_t offset;
   char *name;
   PyGetSetDef *def;
-} FieldDescClosure;
+} FieldDescriptor;
 
 static gboolean
 array_field_to_py_supported (GITypeInfo *fti)
@@ -1441,7 +1441,7 @@ field_from_py_supported (GITypeInfo *fti)
 static PyObject *
 field_desc_getter (PyObject *self, void *closure)
 {
-  FieldDescClosure *fdc = (FieldDescClosure *)closure;
+  FieldDescriptor *fdc = (FieldDescriptor *)closure;
   if (!(gi_field_info_get_flags (fdc->field) & GI_FIELD_IS_READABLE))
     {
       PyErr_Format (PyExc_AttributeError, "field %s is not readable", fdc->name);
@@ -1495,7 +1495,7 @@ field_desc_setter (PyObject *self, PyObject *value, void *closure)
       PyErr_SetString (PyExc_AttributeError, "cannot delete struct field");
       return -1;
     }
-  FieldDescClosure *fdc = (FieldDescClosure *)closure;
+  FieldDescriptor *fdc = (FieldDescriptor *)closure;
   if (!(gi_field_info_get_flags (fdc->field) & GI_FIELD_IS_WRITABLE))
     {
       PyErr_Format (PyExc_AttributeError, "field %s is not writable", fdc->name);
@@ -1558,7 +1558,7 @@ record_anonymous_union_offset (GIBaseInfo *info, const char *previous_field_name
 static void
 field_desc_closure_destroy (gpointer data)
 {
-  FieldDescClosure *fdc = (FieldDescClosure *)data;
+  FieldDescriptor *fdc = (FieldDescriptor *)data;
   if (fdc == NULL)
     return;
   if (fdc->owner_info != NULL)
@@ -1699,7 +1699,7 @@ py_record_install_field_descriptors (PyObject *module G_GNUC_UNUSED, PyObject *a
       if (reserved)
         continue;
 
-      FieldDescClosure *fdc = g_new0 (FieldDescClosure, 1);
+      FieldDescriptor *fdc = g_new0 (FieldDescriptor, 1);
       fdc->owner_info = gi_base_info_ref (info);
       fdc->field = (GIFieldInfo *)gi_base_info_ref ((GIBaseInfo *)field);
       fdc->offset = gi_field_info_get_offset (field);

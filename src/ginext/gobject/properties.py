@@ -73,7 +73,7 @@ T = TypeVar("T", bound=ValueType)
 class PropertyMeta(type):
     def __instancecheck__(cls, instance: object) -> bool:
         try:
-            if isinstance(instance, private.DeclaredProperty):
+            if isinstance(instance, private.PropertyDescriptor):
                 return True
         except AttributeError:
             pass
