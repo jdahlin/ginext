@@ -19,33 +19,45 @@
 
 #include "common.h"
 
-/* GIMeta heap type: one per registered ginext GObject class. Carries the
- * GType, the resolved name, the parent Python class, and dicts mapping
- * Python attribute names to (GParamSpec pointer / prop_id). The pspecs
- * dict's values are GParamSpec pointers cast to Python ints — same
- * representation the previous dataclass version exposed.
- *
- * get_property/set_property methods walk type(obj).__mro__ themselves
- * to find inherited properties, so a B(A) instance can read/write A's
- * property even though B.gimeta.pspecs only lists B's own. */
+typedef enum
+{
+  GINEXT_META_REGISTERED_TYPE = 1,
+} GinextMetaKind;
+
 typedef struct
 {
-  PyObject_HEAD GType gtype;
+  char *name;
+  GParamSpec *pspec;
+  guint prop_id;
+} GinextPropertyMeta;
+
+typedef struct
+{
+  PyObject_HEAD GinextMetaKind kind;
+  GType gtype;
   PyObject *type_name; /* str */
-  PyObject *parent; /* Python class or None */
-  PyObject *pspecs; /* dict[str, int] — value is GParamSpec* */
-  PyObject *prop_ids; /* dict[str, int] — 1-based prop_ids */
   PyObject *gi_info; /* GIBaseInfo capsule for imported classes or None */
   PyObject *namespace; /* Namespace object for imported classes or None */
+  PyObject *profile; /* ABIProfile or None */
+} GIMetaObject;
+
+/* Object/interface-like metadata. Properties are owned by a C table; pspecs
+ * are borrowed from the registered class data or GObject class, not unreffed
+ * by the meta object. Python-visible pspecs/prop_ids are snapshots. */
+typedef struct
+{
+  GIMetaObject base;
+  PyObject *parent; /* Python class or None */
+  GinextPropertyMeta *properties;
+  Py_ssize_t n_properties;
   PyObject *method_owner_name; /* str qualified owner name or None */
   PyObject *method_infos; /* dict[str, (GIBaseInfo, has_self)] */
   PyObject *typelib_methods; /* dict[str, callable] */
   PyObject *signal_infos; /* dict[str, signal_info_or_descriptor] */
   PyObject *signal_method_backings; /* dict[str, callable] */
   PyObject *vfunc_infos; /* dict[str, vfunc_info] */
-  PyObject *profile; /* ABIProfile or None */
   PyObject *extensions; /* dict[str, dict[str, object]] for toolkit metadata */
-} GIMetaObject;
+} GRegisteredTypeMetaObject;
 
 extern PyTypeObject GIMetaType;
 

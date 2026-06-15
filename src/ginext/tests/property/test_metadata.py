@@ -60,6 +60,16 @@ def test_gimeta_repr_includes_type_name_and_property_count(
     assert "n_pspecs=1" in actual
 
 
+def test_gimeta_pspecs_is_snapshot(make_property_class: Any) -> None:
+    cls = make_property_class(int, name="count")
+    pspecs = cls.gimeta.pspecs
+    original = pspecs["count"]
+
+    pspecs["count"] = 0
+
+    assert cls.gimeta.pspecs["count"] == original
+
+
 def test_direct_gimeta_get_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
