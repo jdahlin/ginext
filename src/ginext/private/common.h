@@ -26,6 +26,7 @@
 
 #include <Python.h>
 #include <glib-object.h>
+#include <string.h>
 
 /* Per-class state kept in the class struct's tail. ClassData owns the
  * pspecs array. ClassState is the bridge: it lives in the class struct
@@ -64,6 +65,38 @@ py_xdecref_cleanup (PyObject **p)
   Py_XDECREF (*p);
 }
 #define Py_AUTO_DECREF __attribute__ ((cleanup (py_xdecref_cleanup)))
+
+static inline PyObject *
+pygi_strip_known_module_prefixes (PyObject *module_name)
+{
+  static const char *const prefixes[] = { "ginext.", "gi.repository." };
+  static const Py_ssize_t prefix_lengths[] = { 7, 14 };
+  PyObject *current = Py_NewRef (module_name);
+  if (current == NULL)
+    return NULL;
+
+  for (size_t i = 0; i < G_N_ELEMENTS (prefixes); i++)
+    {
+      Py_ssize_t len = 0;
+      const char *text = PyUnicode_AsUTF8AndSize (current, &len);
+      if (text == NULL)
+        {
+          Py_DECREF (current);
+          return NULL;
+        }
+      Py_ssize_t prefix_len = prefix_lengths[i];
+      if (len >= prefix_len && strncmp (text, prefixes[i], (size_t)prefix_len) == 0)
+        {
+          PyObject *trimmed = PyUnicode_Substring (current, prefix_len, len);
+          Py_DECREF (current);
+          if (trimmed == NULL)
+            return NULL;
+          current = trimmed;
+        }
+    }
+
+  return current;
+}
 
 /* Forward decls for Object-class.c (vfuncs + private-space lookup). */
 void

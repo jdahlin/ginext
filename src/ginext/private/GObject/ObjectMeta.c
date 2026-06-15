@@ -88,7 +88,8 @@ gobjectmeta_dir (PyObject *cls, PyObject *Py_UNUSED (ignored))
         return NULL;
       PyErr_Clear ();
     }
-  PyObject *type_dir = PyObject_GetAttrString ((PyObject *)&PyType_Type, "__dir__");
+  PyObject *type_dir
+      = Py_XNewRef (PyDict_GetItemString (((PyTypeObject *)&PyType_Type)->tp_dict, "__dir__"));
   if (type_dir == NULL)
     return NULL;
   PyObject *result = PyObject_CallFunctionObjArgs (type_dir, cls, NULL);

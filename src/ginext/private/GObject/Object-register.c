@@ -47,8 +47,23 @@ dict_set_steal (PyObject *dict, PyObject *key, PyObject *value)
 static PyObject *
 parent_class_and_gtype (PyObject *cls, GType *out_gtype)
 {
-  Py_AUTO_DECREF PyObject *bases = PyObject_GetAttrString (cls, "__bases__");
-  if (!bases)
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "cls is not a type");
+      return NULL;
+    }
+  PyObject *bases = ((PyTypeObject *)cls)->tp_bases;
+  if (bases == NULL)
+    {
+      PyErr_SetString (PyExc_TypeError, "__bases__ is not initialized");
+      return NULL;
+    }
+  if (!PyTuple_Check (bases))
+    {
+      PyErr_SetString (PyExc_TypeError, "__bases__ is not a tuple");
+      return NULL;
+    }
+  if (PyTuple_GET_SIZE (bases) < 1)
     return NULL;
   PyObject *first = PyTuple_GetItem (bases, 0);
   if (!first)
@@ -66,12 +81,19 @@ parent_class_and_gtype (PyObject *cls, GType *out_gtype)
 static int
 add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
 {
-  PyObject *bases = PyObject_GetAttrString (cls, "__bases__");
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "cls is not a type");
+      return -1;
+    }
+  PyObject *bases = ((PyTypeObject *)cls)->tp_bases;
   if (bases == NULL)
-    return -1;
+    {
+      PyErr_SetString (PyExc_TypeError, "__bases__ is not initialized");
+      return -1;
+    }
   if (!PyTuple_Check (bases))
     {
-      Py_DECREF (bases);
       PyErr_SetString (PyExc_TypeError, "__bases__ is not a tuple");
       return -1;
     }
@@ -81,11 +103,8 @@ add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
     {
       PyObject *base = PyTuple_GET_ITEM (bases, i);
       PyObject *gimeta = NULL;
-      if (PyObject_GetOptionalAttrString (base, "gimeta", &gimeta) < 0)
-        {
-          Py_DECREF (bases);
+      if (pygi_object_get_gimeta (base, &gimeta) < 0)
           return -1;
-        }
       if (gimeta == NULL)
         continue;
 
@@ -93,7 +112,6 @@ add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
       if (PyObject_GetOptionalAttrString (gimeta, "gtype", &gtype_obj) < 0)
         {
           Py_DECREF (gimeta);
-          Py_DECREF (bases);
           return -1;
         }
       Py_DECREF (gimeta);
@@ -103,10 +121,7 @@ add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
       GType iface_gtype = (GType)PyLong_AsUnsignedLongLong (gtype_obj);
       Py_DECREF (gtype_obj);
       if (PyErr_Occurred ())
-        {
-          Py_DECREF (bases);
-          return -1;
-        }
+        return -1;
       if (iface_gtype == G_TYPE_INVALID || g_type_fundamental (iface_gtype) != G_TYPE_INTERFACE
           || g_type_is_a (parent_gtype, iface_gtype) || g_type_is_a (gtype, iface_gtype))
         {
@@ -117,7 +132,6 @@ add_declared_interfaces (PyObject *cls, GType parent_gtype, GType gtype)
       g_type_add_interface_static (gtype, iface_gtype, &iface_info);
     }
 
-  Py_DECREF (bases);
   return 0;
 }
 
@@ -141,7 +155,12 @@ pygi_register_gobject_subclass_for_class (PyObject *cls,
   if (ginext_gobject_validate_vfunc_overrides (cls, parent_cls) < 0)
     return NULL;
 
-  Py_AUTO_DECREF PyObject *cls_dict = PyObject_GetAttrString (cls, "__dict__");
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "cls is not a type");
+      return NULL;
+    }
+  Py_AUTO_DECREF PyObject *cls_dict = Py_XNewRef (((PyTypeObject *)cls)->tp_dict);
   Py_AUTO_DECREF PyObject *pspecs_dict = PyDict_New ();
   Py_AUTO_DECREF PyObject *prop_ids_dict = PyDict_New ();
   if (!cls_dict || !pspecs_dict || !prop_ids_dict)

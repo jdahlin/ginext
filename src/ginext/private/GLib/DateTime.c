@@ -105,7 +105,11 @@ pygi_gtimezone_from_py (PyObject *obj)
     }
 
   /* Otherwise use the fixed UTC offset. */
-  PyObject *offset = PyObject_CallMethod (obj, "utcoffset", "O", Py_None);
+  PyObject *utcoffset = PyObject_GetAttrString (obj, "utcoffset");
+  if (utcoffset == NULL)
+    return NULL;
+  PyObject *offset = PyObject_CallOneArg (utcoffset, Py_None);
+  Py_DECREF (utcoffset);
   if (offset == NULL)
     return NULL;
   if (offset == Py_None)

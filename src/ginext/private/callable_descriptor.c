@@ -1435,15 +1435,19 @@ descriptor_bare_name (const PyGIMethodDescriptor *d)
 static PyObject *
 method_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
 {
+  PyGIMethodDescriptor *descriptor = (PyGIMethodDescriptor *)self;
   PyObject *fn = pygi_hook_last (pygi_hook_callable_signature);
   if (fn == NULL)
     {
       PyErr_SetString (PyExc_RuntimeError, "callable_signature hook not registered");
       return NULL;
     }
-  PyObject *gimeta = PyObject_GetAttrString (self, "gimeta");
+  PyObject *gimeta = Py_XNewRef (descriptor->gimeta);
   if (gimeta == NULL)
-    return NULL;
+    {
+      PyErr_SetString (PyExc_RuntimeError, "method descriptor gimeta is not initialized");
+      return NULL;
+    }
   PyObject *result = PyObject_CallOneArg (fn, gimeta);
   Py_DECREF (gimeta);
   return result;
@@ -2672,7 +2676,18 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
     }
   else
     {
-      name_holder = PyObject_GetAttrString (ns_obj, "__name__");
+      if (PyObject_GetOptionalAttrString (ns_obj, "_name", &name_holder) < 0)
+        return NULL;
+      if (name_holder == NULL)
+        {
+          if (PyObject_GetOptionalAttrString (ns_obj, "__name__", &name_holder) < 0)
+            return NULL;
+        }
+      if (name_holder == NULL)
+        {
+          PyErr_SetString (PyExc_AttributeError, "namespace object has no _name or __name__");
+          return NULL;
+        }
       if (name_holder == NULL)
         return NULL;
       ns_name = PyUnicode_AsUTF8 (name_holder);

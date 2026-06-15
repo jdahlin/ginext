@@ -154,11 +154,13 @@ py_init_gobject (PyObject *m, PyObject *args)
     goto error;
 
   {
-    PyObject *gimeta_cls = PyObject_GetAttrString (m, "GIMeta");
-    if (gimeta_cls == NULL)
+    GType gtype = g_type_from_name ("GObject");
+    Py_AUTO_DECREF PyObject *type_name = PyUnicode_FromString ("GObject");
+    Py_AUTO_DECREF PyObject *pspecs = PyDict_New ();
+    Py_AUTO_DECREF PyObject *prop_ids = PyDict_New ();
+    if (type_name == NULL || pspecs == NULL || prop_ids == NULL)
       goto error;
-    PyObject *gimeta = PyObject_CallMethod (gimeta_cls, "from_type_name", "(s)", "GObject");
-    Py_DECREF (gimeta_cls);
+    PyObject *gimeta = gimeta_new (gtype, type_name, Py_None, pspecs, prop_ids, Py_None);
     if (gimeta == NULL)
       goto error;
     int rc = PyObject_SetAttrString (gobject, "gimeta", gimeta);
