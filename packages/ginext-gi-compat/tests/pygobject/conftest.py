@@ -116,6 +116,7 @@ _XFAIL_NOT_RUN_BY_NODE = {
 _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
     "test_overrides_gtk.py::TestTreeModel::test_tree_model": "crashes xdist worker in debug Python builds",
     "test_overrides_gtk.py::TestTreeModel::test_tree_store": "crashes xdist worker in debug Python builds",
+    "test_properties.py::TestCPropsAccessor::test_unichar": "triggers ASAN/UBSAN crash in ParamSpec numeric info for unichar properties",
 }
 
 # Tests that crash with a Windows access violation (C-level) on all Python builds.
