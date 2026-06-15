@@ -32,10 +32,6 @@ def test_constructor_with_data():
         Regress.TestFundamentalSubObject(data="foo")
 
 
-@pytest.mark.xfail(
-    reason="fundamental type new() constructor compatibility is incomplete",
-    strict=False,
-)
 def test_create_fundamental_new_with_data():
     obj = Regress.TestFundamentalSubObject.new("foo")
 
@@ -69,10 +65,6 @@ def test_create_fundamental_hidden_class_instance():
     assert isinstance(obj, Regress.TestFundamentalObject)
 
 
-@pytest.mark.xfail(
-    reason="fundamental type new() constructor compatibility is incomplete",
-    strict=False,
-)
 def test_create_fundamental_refcount():
     obj = Regress.TestFundamentalSubObject.new("foo")
 
