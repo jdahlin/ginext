@@ -122,7 +122,6 @@ invoke = _gobject.invoke
 class_struct_wrapper = _gobject.class_struct_wrapper
 installed_versions = _gobject.installed_versions
 invoke_callable_descriptor = _gobject.invoke_callable_descriptor
-invoke_stats = _gobject.invoke_stats
 namespace_dir = _gobject.namespace_dir
 namespace_find = _gobject.namespace_find
 synthetic_callable = _gobject.synthetic_callable
@@ -138,7 +137,6 @@ record_field_names = _gobject.record_field_names
 record_new = _gobject.record_new
 register_boxed_class = _gobject.register_boxed_class
 require_namespace = _gobject.require_namespace
-reset_invoke_stats = _gobject.reset_invoke_stats
 gvalue_get_type = _gobject.gvalue_get_type
 gvalue_get_gtype = _gobject.gvalue_get_gtype
 gvalue_init_value = _gobject.gvalue_init_value
@@ -146,10 +144,8 @@ gvalue_unset_value = _gobject.gvalue_unset_value
 gvalue_reset_value = _gobject.gvalue_reset_value
 gvalue_get_value = _gobject.gvalue_get_value
 gvalue_set_value = _gobject.gvalue_set_value
-gvalue_array_get_nth_type = _gobject.gvalue_array_get_nth_type
 gvalue_set_data_int = _gobject.gvalue_set_data_int
 gvalue_set_data_uint64 = _gobject.gvalue_set_data_uint64
-gvalue_new_for_gtype = _gobject.gvalue_new_for_gtype
 gvalue_wrap_pointer = _gobject.gvalue_wrap_pointer
 
 
@@ -167,7 +163,6 @@ def register_converter(to_py, from_py):
     if from_py is not None:
         register_hook("gvalue.from_py", from_py)
 gstrv_get_type = _gobject.gstrv_get_type
-ensure_cairo_gobject_types = _gobject.ensure_cairo_gobject_types
 glib_event_source_new = _gobject.glib_event_source_new
 type_has_value_table = _gobject.type_has_value_table
 register_static = _gobject.register_static

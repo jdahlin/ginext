@@ -84,11 +84,19 @@ _gobject_ext = py.extension_module(
     'ginext/private/invoke/return.c',
     'ginext/private/invoke/ffi/invoke.c',
   ),
-  dependencies : [ext_dep, gir, gobject, glib, dependency('gmodule-2.0'), libffi, threads, dependency('cairo'), dependency('cairo-gobject')] + win32_deps,
+  dependencies : [ext_dep, gir, gobject, glib, dependency('gmodule-2.0'), libffi, threads, dependency('cairo')] + win32_deps,
   include_directories : include_directories('ginext/private',
                                             'ginext/private/GObject',
                                             win32_includes),
   c_args : win32_cargs,
+  install : true,
+  subdir : 'ginext/private',
+)
+
+_cairo_ext = py.extension_module(
+  '_cairo',
+  files('ginext/private/_cairo.c'),
+  dependencies : [ext_dep, dependency('cairo-gobject')],
   install : true,
   subdir : 'ginext/private',
 )
@@ -104,6 +112,14 @@ custom_target(
   'ginext_private__gobject_so',
   output : 'ginext_private__gobject_so.stamp',
   input : _gobject_ext,
+  command : [py, copy_into, '@INPUT@', '@OUTDIR@/ginext/private', '@OUTPUT@'],
+  build_by_default : true,
+)
+
+custom_target(
+  'ginext_private__cairo_so',
+  output : 'ginext_private__cairo_so.stamp',
+  input : _cairo_ext,
   command : [py, copy_into, '@INPUT@', '@OUTDIR@/ginext/private', '@OUTPUT@'],
   build_by_default : true,
 )

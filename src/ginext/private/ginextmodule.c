@@ -48,8 +48,6 @@ py_namespace_find (PyObject *m, PyObject *args);
 extern PyObject *
 py_namespace_dir (PyObject *m, PyObject *args);
 extern PyObject *
-py_namespace_find_by_gtype (PyObject *m, PyObject *args);
-extern PyObject *
 py_record_new (PyObject *m, PyObject *args);
 extern PyObject *
 py_glib_event_source_new (PyObject *m, PyObject *args);
@@ -71,10 +69,6 @@ extern PyObject *
 py_register_boxed_class (PyObject *m, PyObject *args);
 extern PyObject *
 py_register_gtype_pytype (PyObject *m, PyObject *args);
-extern PyObject *
-py_reset_invoke_stats (PyObject *m, PyObject *args);
-extern PyObject *
-py_invoke_stats (PyObject *m, PyObject *args);
 extern PyObject *
 py_build_callable_descriptor (PyObject *m, PyObject *args);
 extern PyObject *
@@ -103,8 +97,6 @@ py_gvalue_reset_value (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_get_value (PyObject *m, PyObject *args);
 extern PyObject *
-py_gvalue_array_get_nth_type (PyObject *m, PyObject *args);
-extern PyObject *
 py_gvalue_set_value (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_set_data_int (PyObject *m, PyObject *args);
@@ -113,11 +105,7 @@ py_gvalue_set_data_uint64 (PyObject *m, PyObject *args);
 extern PyObject *
 py_gvalue_wrap_pointer (PyObject *m, PyObject *args);
 extern PyObject *
-py_gvalue_new_for_gtype (PyObject *m, PyObject *args);
-extern PyObject *
 py_gstrv_get_type (PyObject *m, PyObject *args);
-extern PyObject *
-py_ensure_cairo_gobject_types (PyObject *m, PyObject *args);
 extern PyObject *
 py_type_has_value_table (PyObject *m, PyObject *args);
 PyObject *
@@ -293,7 +281,6 @@ static PyMethodDef methods[] = {
   { "require_namespace", py_require_namespace, METH_VARARGS, NULL },
   { "namespace_find", py_namespace_find, METH_VARARGS, NULL },
   { "namespace_dir", py_namespace_dir, METH_VARARGS, NULL },
-  { "namespace_find_by_gtype", py_namespace_find_by_gtype, METH_VARARGS, NULL },
   { "record_new", py_record_new, METH_VARARGS, NULL },
   { "glib_event_source_new", py_glib_event_source_new, METH_VARARGS, NULL },
   { "record_field_get", py_record_field_get, METH_VARARGS, NULL },
@@ -305,8 +292,6 @@ static PyMethodDef methods[] = {
   { "record_field_names", py_record_field_names, METH_VARARGS, NULL },
   { "register_boxed_class", py_register_boxed_class, METH_VARARGS, NULL },
   { "register_gtype_pytype", py_register_gtype_pytype, METH_VARARGS, NULL },
-  { "reset_invoke_stats", py_reset_invoke_stats, METH_NOARGS, NULL },
-  { "invoke_stats", py_invoke_stats, METH_NOARGS, NULL },
   { "build_callable_descriptor", py_build_callable_descriptor, METH_VARARGS, NULL },
   { "invoke_callable_descriptor",
     (PyCFunction)(void (*) (void))py_invoke_callable_descriptor,
@@ -323,15 +308,12 @@ static PyMethodDef methods[] = {
   { "gvalue_reset_value", py_gvalue_reset_value, METH_VARARGS, NULL },
   { "gvalue_get_value", py_gvalue_get_value, METH_VARARGS, NULL },
   { "gvalue_set_value", py_gvalue_set_value, METH_VARARGS, NULL },
-  { "gvalue_array_get_nth_type", py_gvalue_array_get_nth_type, METH_VARARGS, NULL },
   { "gvalue_set_data_int", py_gvalue_set_data_int, METH_VARARGS, NULL },
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
-  { "gvalue_new_for_gtype", py_gvalue_new_for_gtype, METH_VARARGS, NULL },
   { "gvalue_wrap_pointer", py_gvalue_wrap_pointer, METH_VARARGS, NULL },
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },
-  { "ensure_cairo_gobject_types", py_ensure_cairo_gobject_types, METH_VARARGS, NULL },
   { "type_has_value_table", py_type_has_value_table, METH_VARARGS, NULL },
   { "register_static", py_register_static, METH_VARARGS, NULL },
   { "param_spec_info", py_param_spec_info, METH_VARARGS, NULL },
@@ -427,12 +409,6 @@ PyInit__gobject (void)
       return NULL;
     }
   ginext_reverse_callback_type = (PyTypeObject *)reverse_callback_type;
-  if (PyModule_AddObject (m, "CallbackWrapper", reverse_callback_type) < 0)
-    {
-      Py_DECREF (reverse_callback_type);
-      Py_DECREF (m);
-      return NULL;
-    }
 
   Py_INCREF (&GIMetaType);
   if (PyModule_AddObject (m, "GIMeta", (PyObject *)&GIMetaType) < 0)

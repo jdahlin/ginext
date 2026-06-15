@@ -318,8 +318,7 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
     def _tm_convert_value(self: Any, column: int, value: Any) -> Any:
         import ginext
         GObject = ginext._load_namespace("GObject", "2.0", profile=ginext.abi.PYGOBJECT)
-        GValue = getattr(GObject, "Value", None) or ginext.private.gvalue_new_for_gtype.__class__
-        if GValue is not None and isinstance(value, GValue):
+        if isinstance(value, GObject.Value):
             return value
         col_type = self.get_column_type(column)
         return GObject.Value(col_type, value)
