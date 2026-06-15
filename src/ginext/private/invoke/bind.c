@@ -571,6 +571,7 @@ pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
             case PYGI_MARSHAL_UTF8_OWNED:
               {
                 PyObject *coerced_path = NULL;
+                Py_ssize_t string_size = 0;
                 if (ap->tag == GI_TYPE_TAG_FILENAME && !PyUnicode_Check (py) && !PyBytes_Check (py)
                     && !PyByteArray_Check (py) && py != Py_None)
                   {
@@ -610,20 +611,36 @@ pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                             return -1;
                           }
                         Py_XSETREF (coerced_path, enc);
+                        string_size = PyBytes_GET_SIZE (enc);
                         out->v_string = PyBytes_AsString (enc);
                       }
                     else
                       out->v_string = (char *)PyUnicode_AsUTF8 (py);
 #else
-                    out->v_string = (char *)PyUnicode_AsUTF8 (py);
+                    if (ap->tag == GI_TYPE_TAG_FILENAME)
+                      {
+                        PyObject *enc = PyUnicode_EncodeFSDefault (py);
+                        if (enc == NULL)
+                          {
+                            Py_XDECREF (coerced_path);
+                            return -1;
+                          }
+                        Py_XSETREF (coerced_path, enc);
+                        string_size = PyBytes_GET_SIZE (enc);
+                        out->v_string = PyBytes_AsString (enc);
+                      }
+                    else
+                      out->v_string = (char *)PyUnicode_AsUTF8AndSize (py, &string_size);
 #endif
                   }
                 else if (PyBytes_Check (py))
                   {
+                    string_size = PyBytes_GET_SIZE (py);
                     out->v_string = PyBytes_AsString (py);
                   }
                 else if (PyByteArray_Check (py))
                   {
+                    string_size = PyByteArray_GET_SIZE (py);
                     out->v_string = PyByteArray_AsString (py);
                   }
                 else
@@ -638,6 +655,13 @@ pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                 if (out->v_string == NULL)
                   {
                     Py_XDECREF (coerced_path);
+                    return -1;
+                  }
+                if (ap->tag == GI_TYPE_TAG_FILENAME
+                    && memchr (out->v_string, '\0', (size_t)string_size) != NULL)
+                  {
+                    Py_XDECREF (coerced_path);
+                    PyErr_SetString (PyExc_ValueError, "embedded null byte");
                     return -1;
                   }
                 if (ap->marshal_kind == PYGI_MARSHAL_UTF8_OWNED)

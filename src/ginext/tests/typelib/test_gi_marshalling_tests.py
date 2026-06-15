@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import enum
 import math
+import os
 import pathlib
 import sys
 from ginext.namespace import Namespace
@@ -653,15 +654,36 @@ def test_flags_python_type(t: Namespace) -> None:
 
 
 def test_extra_utf8_full_out_invalid(t: Namespace) -> None:
-    t.extra_utf8_full_out_invalid()
+    with pytest.raises(UnicodeDecodeError):
+        t.extra_utf8_full_out_invalid()
 
 
 def test_extra_utf8_full_return_invalid(t: Namespace) -> None:
-    t.extra_utf8_full_return_invalid()
+    with pytest.raises(UnicodeDecodeError):
+        t.extra_utf8_full_return_invalid()
 
 
 def test_filename_copy(t: Namespace) -> None:
     assert t.filename_copy("/foo/bar") == "/foo/bar"
+
+
+def test_filename_copy_rejects_embedded_null(t: Namespace) -> None:
+    with pytest.raises(ValueError, match="embedded null byte"):
+        t.filename_copy(b"foo\x00")
+    with pytest.raises(ValueError, match="embedded null byte"):
+        t.filename_copy("foo\x00")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="filesystem encoding semantics differ")
+def test_filename_copy_uses_filesystem_decoding(t: Namespace) -> None:
+    raw = b"\xff\xfe"
+    try:
+        expected = os.fsdecode(raw)
+    except UnicodeDecodeError:
+        with pytest.raises(UnicodeDecodeError):
+            t.filename_copy(raw)
+    else:
+        assert t.filename_copy(raw) == expected
 
 
 def test_filename_exists(t: Namespace, tmp_path: pathlib.Path) -> None:
@@ -669,6 +691,14 @@ def test_filename_exists(t: Namespace, tmp_path: pathlib.Path) -> None:
     existing.write_text("x")
     assert t.filename_exists(str(existing)) is True
     assert t.filename_exists(str(tmp_path / "absent")) is False
+
+
+@pytest.mark.skipif(os.name == "nt", reason="filesystem encoding semantics differ")
+def test_filename_exists_accepts_surrogateescaped_path(t: Namespace, tmp_path: pathlib.Path) -> None:
+    raw_name = b"\xff\xfe-present"
+    path_bytes = os.fsencode(tmp_path) + b"/" + raw_name
+    with open(path_bytes, "wb"):
+        assert t.filename_exists(os.fsdecode(path_bytes)) is True
 
 
 def test_filename_list_return(t: Namespace) -> None:
@@ -2252,6 +2282,14 @@ def test_ushort_return(t: Namespace) -> None:
 
 def test_utf8_as_uint8array_in(t: Namespace) -> None:
     t.utf8_as_uint8array_in(b"const \xe2\x99\xa5 utf8")
+
+
+def test_utf8_as_uint8array_in_rejects_str(t: Namespace) -> None:
+    with pytest.raises(
+        TypeError,
+        match=r"Unable to marshal str as an array, use \.encode\(\) to convert to bytes",
+    ):
+        t.utf8_as_uint8array_in("const ♥ utf8")
 
 
 def test_utf8_dangling_out(t: Namespace) -> None:

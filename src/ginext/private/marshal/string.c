@@ -65,12 +65,6 @@ pygi_utf8_to_py (GIArgument *arg, GITransfer transfer)
   if (s == NULL)
     Py_RETURN_NONE;
   PyObject *out = PyUnicode_FromString (s);
-  if (out == NULL)
-    {
-      /* Invalid UTF-8: clear the error and return raw bytes instead. */
-      PyErr_Clear ();
-      out = PyBytes_FromString (s);
-    }
   if (transfer == GI_TRANSFER_EVERYTHING)
     g_free (arg->v_string);
   return out;
@@ -175,7 +169,7 @@ pygi_filename_to_py (GIArgument *arg, GITransfer transfer)
        Windows paths (WTF-8); decode with surrogatepass to match pygobject. */
     out = PyUnicode_DecodeUTF8 (s, (Py_ssize_t)strlen (s), "surrogatepass");
 #else
-    out = PyUnicode_FromString (s);
+    out = PyUnicode_DecodeFSDefaultAndSize (s, (Py_ssize_t)strlen (s));
 #endif
   if (transfer == GI_TRANSFER_EVERYTHING && s != NULL)
     g_free (arg->v_string);
