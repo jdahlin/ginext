@@ -36,6 +36,7 @@
 #include "GObject/coercions.h"
 #include "GLib/DateTime.h"
 #include "gimeta-helpers.h"
+#include "common.h"
 
 #include <string.h>
 
@@ -73,14 +74,10 @@ gvalue_call_to_py_hook (GType gtype, GValue *value)
       return NULL;
     }
 
-  PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
-  PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
+  Py_AUTO_DECREF PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
+  Py_AUTO_DECREF PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
   if (py_gtype == NULL || py_ptr == NULL)
-    {
-      Py_XDECREF (py_gtype);
-      Py_XDECREF (py_ptr);
-      return NULL;
-    }
+    return NULL;
 
   Py_ssize_t n = PyList_GET_SIZE (list);
   for (Py_ssize_t i = n - 1; i >= 0; i--)
@@ -88,21 +85,11 @@ gvalue_call_to_py_hook (GType gtype, GValue *value)
       PyObject *handler = PyList_GET_ITEM (list, i);
       PyObject *result = PyObject_CallFunctionObjArgs (handler, py_gtype, py_ptr, NULL);
       if (result != NULL)
-        {
-          Py_DECREF (py_gtype);
-          Py_DECREF (py_ptr);
-          return result;
-        }
+        return result;
       if (!gvalue_hook_not_handled ())
-        {
-          Py_DECREF (py_gtype);
-          Py_DECREF (py_ptr);
-          return NULL;
-        }
+        return NULL;
     }
 
-  Py_DECREF (py_gtype);
-  Py_DECREF (py_ptr);
   PyErr_SetString (PyExc_AttributeError, "no GValue to-Python hook handled the type");
   return NULL;
 }
@@ -114,14 +101,10 @@ gvalue_call_from_py_hook (PyObject *obj, GType type, GValue *value)
   if (list == NULL || !PyList_Check (list))
     return 1;
 
-  PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)type);
-  PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
+  Py_AUTO_DECREF PyObject *py_gtype = PyLong_FromUnsignedLongLong ((unsigned long long)type);
+  Py_AUTO_DECREF PyObject *py_ptr = PyLong_FromVoidPtr ((void *)value);
   if (py_gtype == NULL || py_ptr == NULL)
-    {
-      Py_XDECREF (py_gtype);
-      Py_XDECREF (py_ptr);
-      return -1;
-    }
+    return -1;
 
   Py_ssize_t n = PyList_GET_SIZE (list);
   for (Py_ssize_t i = n - 1; i >= 0; i--)
@@ -131,20 +114,12 @@ gvalue_call_from_py_hook (PyObject *obj, GType type, GValue *value)
       if (result != NULL)
         {
           Py_DECREF (result);
-          Py_DECREF (py_gtype);
-          Py_DECREF (py_ptr);
           return 0;
         }
       if (!gvalue_hook_not_handled ())
-        {
-          Py_DECREF (py_gtype);
-          Py_DECREF (py_ptr);
-          return -1;
-        }
+        return -1;
     }
 
-  Py_DECREF (py_gtype);
-  Py_DECREF (py_ptr);
   return 1;
 }
 
@@ -162,7 +137,7 @@ pygi_gvalue_new_for_gtype (GType gtype)
       return NULL;
     }
   PyObject *cls = pygi_class_registry_get_pytype_for_gtype (G_TYPE_VALUE);
-  PyObject *owned_cls = NULL;
+  Py_AUTO_DECREF PyObject *owned_cls = NULL;
   if (cls == NULL)
     {
       owned_cls = resolve_boxed_pytype_from_context (G_TYPE_VALUE);
@@ -180,13 +155,11 @@ pygi_gvalue_new_for_gtype (GType gtype)
   GValue *value = g_new0 (GValue, 1);
   if (value == NULL)
     {
-      Py_XDECREF (owned_cls);
       PyErr_NoMemory ();
       return NULL;
     }
   g_value_init (value, gtype);
   PyObject *wrapper = pygi_boxed_new_heap (cls, value, G_TYPE_VALUE, sizeof (GValue));
-  Py_XDECREF (owned_cls);
   return wrapper;
 }
 
@@ -367,7 +340,7 @@ resolve_boxed_pytype_from_context (GType gtype)
   if (context == NULL)
     return NULL;
 
-  PyObject *namespace_name_obj = PyObject_GetAttrString (context, "__name__");
+  Py_AUTO_DECREF PyObject *namespace_name_obj = PyObject_GetAttrString (context, "__name__");
   if (namespace_name_obj == NULL)
     {
       PyErr_Clear ();
@@ -376,27 +349,19 @@ resolve_boxed_pytype_from_context (GType gtype)
   const char *namespace_name = PyUnicode_AsUTF8 (namespace_name_obj);
   if (namespace_name == NULL)
     {
-      Py_DECREF (namespace_name_obj);
       PyErr_Clear ();
       return NULL;
     }
 
   const char *type_name = g_type_name (gtype);
   if (type_name == NULL || !g_str_has_prefix (type_name, namespace_name))
-    {
-      Py_DECREF (namespace_name_obj);
-      return NULL;
-    }
+    return NULL;
 
   const char *member_name = type_name + strlen (namespace_name);
   if (*member_name == '\0')
-    {
-      Py_DECREF (namespace_name_obj);
-      return NULL;
-    }
+    return NULL;
 
   PyObject *cls = PyObject_GetAttrString (context, member_name);
-  Py_DECREF (namespace_name_obj);
   if (cls == NULL)
     {
       PyErr_Clear ();
@@ -856,7 +821,7 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
        * boxed type (e.g. re.Pattern → GLib.Regex).  Real GLib wrappers
        * flow through the generic boxed path below and never reach this. */
       {
-        PyObject *coerced = pygi_call_coercion (type, obj);
+        Py_AUTO_DECREF PyObject *coerced = pygi_call_coercion (type, obj);
         if (coerced != NULL)
           {
             gpointer boxed_ptr = NULL;
@@ -864,10 +829,8 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
             if (boxed_ptr != NULL)
               {
                 g_value_set_boxed (value, boxed_ptr);
-                Py_DECREF (coerced);
                 return 0;
               }
-            Py_DECREF (coerced);
             if (!PyErr_Occurred ())
               PyErr_SetString (PyExc_TypeError,
                                "coercion did not return a boxed wrapper");
@@ -938,7 +901,8 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
               PyErr_SetString (PyExc_TypeError, "GStrv value must be a sequence of str, not str");
               return -1;
             }
-          PyObject *seq = PySequence_Fast (obj, "expected a sequence of str for GStrv");
+          Py_AUTO_DECREF PyObject *seq
+              = PySequence_Fast (obj, "expected a sequence of str for GStrv");
           if (seq == NULL)
             return -1;
           Py_ssize_t n = PySequence_Fast_GET_SIZE (seq);
@@ -949,7 +913,6 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
               if (!PyUnicode_Check (item))
                 {
                   g_strfreev (strv);
-                  Py_DECREF (seq);
                   PyErr_Format (PyExc_TypeError,
                                 "GStrv %s: item %zd is not a str",
                                 context ? context : "<unknown>",
@@ -960,12 +923,10 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
               if (s == NULL)
                 {
                   g_strfreev (strv);
-                  Py_DECREF (seq);
                   return -1;
                 }
               strv[i] = g_strdup (s);
             }
-          Py_DECREF (seq);
           g_value_take_boxed (value, strv);
           return 0;
         }
@@ -1204,7 +1165,7 @@ pygi_gvalue_value_to_py (GValue *value)
       if (boxed == NULL)
         return Py_XNewRef (Py_None);
       PyObject *cls = pygi_class_registry_get_pytype_for_gtype (gtype);
-      PyObject *owned_cls = NULL;
+      Py_AUTO_DECREF PyObject *owned_cls = NULL;
       g_autoptr (GIBaseInfo) info = NULL;
       if (cls == NULL)
         {
@@ -1267,10 +1228,8 @@ pygi_gvalue_value_to_py (GValue *value)
               transfer_full = 1;
             }
           PyObject *wrapper = pygi_boxed_new (cls, boxed, gtype, transfer_full);
-          Py_XDECREF (owned_cls);
           return wrapper != NULL ? (PyObject *)(wrapper) : NULL;
         }
-      Py_XDECREF (owned_cls);
       const char *type_name = g_type_name (gtype);
       return PyUnicode_FromString (type_name ? type_name : "<boxed>");
     }

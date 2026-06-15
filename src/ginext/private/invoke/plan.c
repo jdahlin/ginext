@@ -72,13 +72,12 @@ resolve_marshal_kind (const PyGIArgPlan *ap, GITransfer transfer)
       return PYGI_MARSHAL_FLAGS_UINT32;
     case PYGI_TYPE_BOXED:
       {
-        GIBaseInfo *iface = gi_type_info_get_interface (ap->cached_ti);
+        g_autoptr (GIBaseInfo) iface = gi_type_info_get_interface (ap->cached_ti);
         if (iface == NULL)
           return PYGI_MARSHAL_GENERIC;
         PyGIMarshalKind kind = PYGI_MARSHAL_GENERIC;
         if (gi_base_info_is_named (iface, "GLib", "Bytes"))
           kind = PYGI_MARSHAL_GBYTES;
-        gi_base_info_unref (iface);
         return kind;
       }
     default:

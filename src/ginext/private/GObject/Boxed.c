@@ -103,11 +103,10 @@ profile_name_from_context (void)
 static PyObject *
 boxed_registry_key (GType gtype, PyObject *profile_name)
 {
-  PyObject *gtype_obj = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
+  Py_AUTO_DECREF PyObject *gtype_obj = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
   if (gtype_obj == NULL)
     return NULL;
   PyObject *key = PyTuple_Pack (2, profile_name, gtype_obj);
-  Py_DECREF (gtype_obj);
   return key;
 }
 
@@ -116,21 +115,19 @@ pygi_class_registry_get_pytype_for_gtype (GType gtype)
 {
   if (boxed_classes_by_gtype == NULL || gtype == 0)
     return NULL;
-  PyObject *profile_name = profile_name_from_context ();
+  Py_AUTO_DECREF PyObject *profile_name = profile_name_from_context ();
   if (profile_name == NULL)
     {
       PyErr_Clear ();
       return NULL;
     }
-  PyObject *key = boxed_registry_key (gtype, profile_name);
-  Py_DECREF (profile_name);
+  Py_AUTO_DECREF PyObject *key = boxed_registry_key (gtype, profile_name);
   if (key == NULL)
     {
       PyErr_Clear ();
       return NULL;
     }
   PyObject *cls = PyDict_GetItemWithError (boxed_classes_by_gtype, key);
-  Py_DECREF (key);
   if (cls == NULL && PyErr_Occurred ())
     PyErr_Clear ();
   return cls;
@@ -250,9 +247,9 @@ pygi_error_from_py (PyObject *obj, GError **out_error)
   if (obj == Py_None)
     return 1;
 
-  PyObject *domain_obj = NULL;
-  PyObject *code_obj = NULL;
-  PyObject *message_obj = NULL;
+  Py_AUTO_DECREF PyObject *domain_obj = NULL;
+  Py_AUTO_DECREF PyObject *code_obj = NULL;
+  Py_AUTO_DECREF PyObject *message_obj = NULL;
   int rc = pygi_error_fields_from_tuple (obj, &domain_obj, &code_obj, &message_obj);
   if (rc == 0)
     rc = pygi_error_fields_from_attrs (obj, &domain_obj, &code_obj, &message_obj);
@@ -315,9 +312,6 @@ pygi_error_from_py (PyObject *obj, GError **out_error)
   rc = *out_error != NULL ? 1 : -1;
 
 out:
-  Py_XDECREF (domain_obj);
-  Py_XDECREF (code_obj);
-  Py_XDECREF (message_obj);
   return rc;
 }
 
@@ -537,10 +531,10 @@ GBoxedBase_repr (PyObject *self)
 {
   PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
   PyTypeObject *type = Py_TYPE (self);
-  PyObject *module = NULL;
-  PyObject *stripped = NULL;
-  PyObject *name = NULL;
-  PyObject *qualified = NULL;
+  Py_AUTO_DECREF PyObject *module = NULL;
+  Py_AUTO_DECREF PyObject *stripped = NULL;
+  Py_AUTO_DECREF PyObject *name = NULL;
+  Py_AUTO_DECREF PyObject *qualified = NULL;
   PyObject *result = NULL;
 
   module = PyType_GetModuleName (type);
@@ -578,10 +572,6 @@ GBoxedBase_repr (PyObject *self)
                                    me->boxed);
 
 done:
-  Py_XDECREF (module);
-  Py_XDECREF (stripped);
-  Py_XDECREF (name);
-  Py_XDECREF (qualified);
   return result;
 }
 
@@ -766,7 +756,7 @@ union_interface_field_shadow_to_py (GITypeInfo *fti,
     return PyErr_NoMemory ();
   memcpy (copy, base + offset, size);
 
-  PyObject *cls = record_build_class_for_info (finfo, parent);
+  Py_AUTO_DECREF PyObject *cls = record_build_class_for_info (finfo, parent);
   if (cls == NULL)
     {
       g_free (copy);
@@ -774,7 +764,6 @@ union_interface_field_shadow_to_py (GITypeInfo *fti,
     }
   GType gtype = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)finfo);
   PyObject *out = pygi_boxed_new_heap (cls, copy, gtype, size);
-  Py_DECREF (cls);
   if (out == NULL)
     {
       g_free (copy);
@@ -855,7 +844,7 @@ array_field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
           if (iinfo == NULL || (!GI_IS_STRUCT_INFO (iinfo) && !GI_IS_UNION_INFO (iinfo)))
             return list;
           GType gtype = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)iinfo);
-          PyObject *cls = record_build_class_for_info (iinfo, parent);
+          Py_AUTO_DECREF PyObject *cls = record_build_class_for_info (iinfo, parent);
           if (cls == NULL)
             {
               Py_DECREF (list);
@@ -866,13 +855,11 @@ array_field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
               PyObject *item = pygi_boxed_new_alias (cls, arr[i], gtype, parent);
               if (item == NULL)
                 {
-                  Py_DECREF (cls);
                   Py_DECREF (list);
                   return NULL;
                 }
               PyList_SET_ITEM (list, (Py_ssize_t)i, item);
             }
-          Py_DECREF (cls);
           return list;
         }
     }
@@ -926,7 +913,7 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
       GITypeTag itag = gi_type_info_get_tag (inner_ti);
       if (itag == GI_TYPE_TAG_UTF8 || itag == GI_TYPE_TAG_FILENAME)
         {
-          PyObject *seq = PySequence_Fast (value, "expected a sequence of strings");
+          Py_AUTO_DECREF PyObject *seq = PySequence_Fast (value, "expected a sequence of strings");
           if (seq == NULL)
             return -1;
           Py_ssize_t len = PySequence_Fast_GET_SIZE (seq);
@@ -936,7 +923,6 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
               PyObject *item = PySequence_Fast_GET_ITEM (seq, i);
               if (!PyUnicode_Check (item))
                 {
-                  Py_DECREF (seq);
                   g_strfreev (strv);
                   PyErr_SetString (PyExc_TypeError, "expected a sequence of strings");
                   return -1;
@@ -944,13 +930,11 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
               const char *s = PyUnicode_AsUTF8 (item);
               if (s == NULL)
                 {
-                  Py_DECREF (seq);
                   g_strfreev (strv);
                   return -1;
                 }
               strv[i] = g_strdup (s);
             }
-          Py_DECREF (seq);
           gchar ***slot = (gchar ***)(void *)(base + offset);
           g_strfreev (*slot);
           *slot = strv;
@@ -961,13 +945,12 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
   size_t fixed = 0;
   if (gi_type_info_get_array_fixed_size (fti, &fixed) && fixed > 0)
     {
-      PyObject *seq = PySequence_Fast (value, "expected a sequence");
+      Py_AUTO_DECREF PyObject *seq = PySequence_Fast (value, "expected a sequence");
       if (seq == NULL)
         return -1;
       Py_ssize_t len = PySequence_Fast_GET_SIZE (seq);
       if (len != (Py_ssize_t)fixed)
         {
-          Py_DECREF (seq);
           PyErr_Format (PyExc_ValueError,
                         "expected fixed array of length %zu, got %zd",
                         fixed,
@@ -976,14 +959,10 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
         }
       PyGIContainerElement element;
       if (pygi_container_element_init (&element, inner_ti) != 0)
-        {
-          Py_DECREF (seq);
-          return -1;
-        }
+        return -1;
       gsize elem_size = pygi_container_element_inline_size (&element);
       if (elem_size == 0)
         {
-          Py_DECREF (seq);
           PyErr_SetString (PyExc_NotImplementedError, "unsupported fixed array element type");
           return -1;
         }
@@ -996,12 +975,8 @@ array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value
                                                      GI_TRANSFER_NOTHING,
                                                      array + ((gsize)i * elem_size))
               != 0)
-            {
-              Py_DECREF (seq);
-              return -1;
-            }
+            return -1;
         }
-      Py_DECREF (seq);
       return 0;
     }
 
@@ -1039,11 +1014,10 @@ field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
                                                              : (gpointer)(base + offset);
           if (field_ptr == NULL)
             Py_RETURN_NONE;
-          PyObject *cls = record_build_class_for_info (finfo, parent);
+          Py_AUTO_DECREF PyObject *cls = record_build_class_for_info (finfo, parent);
           if (cls == NULL)
             return NULL;
           PyObject *out = pygi_boxed_new_alias (cls, field_ptr, gtype, parent);
-          Py_DECREF (cls);
           return out;
         }
       if (GI_IS_OBJECT_INFO (finfo) || GI_IS_INTERFACE_INFO (finfo))
@@ -1146,7 +1120,7 @@ event_source_call_method (GSource *source, const char *name, PyObject *args)
   if (event_source->py_wrapper == NULL)
     Py_RETURN_NONE;
 
-  PyObject *method = PyObject_GetAttrString (event_source->py_wrapper, name);
+  Py_AUTO_DECREF PyObject *method = PyObject_GetAttrString (event_source->py_wrapper, name);
   if (method == NULL)
     {
       if (PyErr_ExceptionMatches (PyExc_AttributeError))
@@ -1159,7 +1133,6 @@ event_source_call_method (GSource *source, const char *name, PyObject *args)
 
   PyObject *result
       = args == NULL ? PyObject_CallNoArgs (method) : PyObject_CallObject (method, args);
-  Py_DECREF (method);
   return result;
 }
 
@@ -1295,7 +1268,7 @@ py_glib_event_source_new (PyObject *module G_GNUC_UNUSED, PyObject *args)
 static size_t
 record_anonymous_union_offset (GIBaseInfo *info, const char *previous_field_name, size_t align)
 {
-  GIFieldInfo *field = NULL;
+  g_autoptr (GIFieldInfo) field = NULL;
   if (!record_lookup_field (info, previous_field_name, &field))
     {
       PyErr_Format (PyExc_AttributeError,
@@ -1307,7 +1280,6 @@ record_anonymous_union_offset (GIBaseInfo *info, const char *previous_field_name
 
   size_t offset = gi_field_info_get_offset (field);
   size_t size_bits = gi_field_info_get_size (field);
-  gi_base_info_unref ((GIBaseInfo *)field);
 
   size_t size = (size_bits + 7u) / 8u;
   if (size == 0)
@@ -1352,7 +1324,7 @@ py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
     return PyTuple_New (0);
 
   int n = gi_struct_or_union_n_fields (info);
-  PyObject *names = PyList_New (0);
+  Py_AUTO_DECREF PyObject *names = PyList_New (0);
   if (names == NULL)
     return NULL;
   for (int fi = 0; fi < n; fi++)
@@ -1391,29 +1363,18 @@ py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
         {
           int reserved = record_class_field_name_reserved (cls, raw_name);
           if (reserved < 0)
-            {
-              Py_DECREF (names);
-              return NULL;
-            }
+            return NULL;
           if (reserved)
             continue;
         }
-      PyObject *s = PyUnicode_FromString (raw_name);
+      Py_AUTO_DECREF PyObject *s = PyUnicode_FromString (raw_name);
       if (s == NULL)
-        {
-          Py_DECREF (names);
-          return NULL;
-        }
+        return NULL;
       int rc = PyList_Append (names, s);
-      Py_DECREF (s);
       if (rc != 0)
-        {
-          Py_DECREF (names);
-          return NULL;
-        }
+        return NULL;
     }
   PyObject *tuple = PyList_AsTuple (names);
-  Py_DECREF (names);
   return tuple;
 }
 
@@ -1457,19 +1418,14 @@ py_register_boxed_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
     }
   if (gtype_arg != 0)
     {
-      PyObject *profile_name = profile_name_from_object (cls);
+      Py_AUTO_DECREF PyObject *profile_name = profile_name_from_object (cls);
       if (profile_name == NULL)
         return NULL;
-      PyObject *key = boxed_registry_key ((GType)gtype_arg, profile_name);
-      Py_DECREF (profile_name);
+      Py_AUTO_DECREF PyObject *key = boxed_registry_key ((GType)gtype_arg, profile_name);
       if (key == NULL)
         return NULL;
       if (PyDict_SetItem (boxed_classes_by_gtype, key, cls) < 0)
-        {
-          Py_DECREF (key);
-          return NULL;
-        }
-      Py_DECREF (key);
+        return NULL;
     }
   (void)capsule;
   Py_RETURN_NONE;
@@ -1508,7 +1464,7 @@ py_record_setup_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
       data->gtype = gtype;
       data->size = record_info_size (info);
 
-      PyObject *data_capsule
+      Py_AUTO_DECREF PyObject *data_capsule
           = PyCapsule_New (data, PYGI_RECORD_CLASS_DATA_CAPSULE, record_class_data_destroy);
       if (data_capsule == NULL)
         {
@@ -1517,45 +1473,32 @@ py_record_setup_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
           return NULL;
         }
       if (PyObject_SetAttrString (cls, "__record_data__", data_capsule) < 0)
-        {
-          Py_DECREF (data_capsule);
-          return NULL;
-        }
-      Py_DECREF (data_capsule);
+        return NULL;
 
-      PyObject *setup_args = PyTuple_Pack (2, cls, capsule);
+      Py_AUTO_DECREF PyObject *setup_args = PyTuple_Pack (2, cls, capsule);
       if (setup_args == NULL)
         return NULL;
-      PyObject *installed = py_record_install_field_descriptors (NULL, setup_args);
-      Py_DECREF (setup_args);
+      Py_AUTO_DECREF PyObject *installed = py_record_install_field_descriptors (NULL, setup_args);
       if (installed == NULL)
         return NULL;
-      Py_DECREF (installed);
 
-      PyObject *names_args = PyTuple_Pack (2, capsule, cls);
+      Py_AUTO_DECREF PyObject *names_args = PyTuple_Pack (2, capsule, cls);
       if (names_args == NULL)
         return NULL;
-      PyObject *match_args = py_record_field_names (NULL, names_args);
-      Py_DECREF (names_args);
+      Py_AUTO_DECREF PyObject *match_args = py_record_field_names (NULL, names_args);
       if (match_args == NULL)
         return NULL;
       if (PyTuple_GET_SIZE (match_args) > 0
           && PyObject_SetAttrString (cls, "__match_args__", match_args) < 0)
-        {
-          Py_DECREF (match_args);
-          return NULL;
-        }
-      Py_DECREF (match_args);
+        return NULL;
     }
 
-  PyObject *register_args = Py_BuildValue ("OKO", cls, (unsigned long long)gtype, capsule);
+  Py_AUTO_DECREF PyObject *register_args = Py_BuildValue ("OKO", cls, (unsigned long long)gtype, capsule);
   if (register_args == NULL)
     return NULL;
-  PyObject *registered = py_register_boxed_class (NULL, register_args);
-  Py_DECREF (register_args);
+  Py_AUTO_DECREF PyObject *registered = py_register_boxed_class (NULL, register_args);
   if (registered == NULL)
     return NULL;
-  Py_DECREF (registered);
 
   Py_RETURN_NONE;
 }

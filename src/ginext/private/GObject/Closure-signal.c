@@ -29,6 +29,7 @@
 #include "runtime/class-registry.h"
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
+#include "common.h"
 
 typedef struct
 {
@@ -373,13 +374,13 @@ pygi_closure_new_full_with_kind (PyObject *callable,
   Py_INCREF (callable);
   pc->callable = callable;
   PyObject *effective_user_callable = user_callable;
-  PyObject *declared_user_callable = PyObject_GetAttrString (callable, "__pygi_user_callable__");
+  Py_AUTO_DECREF PyObject *declared_user_callable
+      = PyObject_GetAttrString (callable, "__pygi_user_callable__");
   if (declared_user_callable != NULL)
     effective_user_callable = declared_user_callable;
   else
     PyErr_Clear ();
   pc->record = pygi_closure_record_new (kind, callable, effective_user_callable);
-  Py_XDECREF (declared_user_callable);
   pygi_closure_record_set_signal_metadata (pc->record, NULL, 0, weak_target);
   pc->signal_info
       = signal_info != NULL ? (GICallableInfo *)gi_base_info_ref ((GIBaseInfo *)signal_info) : NULL;

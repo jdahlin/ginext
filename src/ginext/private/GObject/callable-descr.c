@@ -1028,21 +1028,17 @@ callable_descriptor_destroy (PyGICallableDescriptor *descriptor)
 static int
 descriptor_cache_arg_names (PyGICallableDescriptor *descriptor, PyObject *capsule)
 {
-  PyObject *call_args = Py_BuildValue ("(O)", capsule);
+  Py_AUTO_DECREF PyObject *call_args = Py_BuildValue ("(O)", capsule);
   if (call_args == NULL)
     return -1;
-  PyObject *names_list = py_callable_arg_names (NULL, call_args);
-  Py_DECREF (call_args);
+  Py_AUTO_DECREF PyObject *names_list = py_callable_arg_names (NULL, call_args);
   if (names_list == NULL)
     return -1;
 
   Py_ssize_t n = PyList_GET_SIZE (names_list);
   PyObject *names_tuple = PyTuple_New (n);
   if (names_tuple == NULL)
-    {
-      Py_DECREF (names_list);
-      return -1;
-    }
+    return -1;
   for (Py_ssize_t i = 0; i < n; i++)
     {
       PyObject *raw = PyList_GET_ITEM (names_list, i); /* borrowed */
@@ -1050,7 +1046,6 @@ descriptor_cache_arg_names (PyGICallableDescriptor *descriptor, PyObject *capsul
       const char *utf8 = PyUnicode_AsUTF8AndSize (raw, &len);
       if (utf8 == NULL)
         {
-          Py_DECREF (names_list);
           Py_DECREF (names_tuple);
           return -1;
         }
@@ -1071,13 +1066,11 @@ descriptor_cache_arg_names (PyGICallableDescriptor *descriptor, PyObject *capsul
         }
       if (converted == NULL)
         {
-          Py_DECREF (names_list);
           Py_DECREF (names_tuple);
           return -1;
         }
       PyTuple_SET_ITEM (names_tuple, i, converted); /* steals */
     }
-  Py_DECREF (names_list);
   descriptor->arg_names = names_tuple;
   return 0;
 }
@@ -1376,21 +1369,19 @@ py_build_callable_descriptor (PyObject *module G_GNUC_UNUSED, PyObject *args)
       Py_DECREF (descriptor_obj);
       return NULL;
     }
-  PyObject *user_data_call_args = Py_BuildValue ("(O)", capsule);
+  Py_AUTO_DECREF PyObject *user_data_call_args = Py_BuildValue ("(O)", capsule);
   if (user_data_call_args == NULL)
     {
       Py_DECREF (descriptor_obj);
       return NULL;
     }
-  PyObject *user_data_flag = py_callable_has_user_data_slot (NULL, user_data_call_args);
-  Py_DECREF (user_data_call_args);
+  Py_AUTO_DECREF PyObject *user_data_flag = py_callable_has_user_data_slot (NULL, user_data_call_args);
   if (user_data_flag == NULL)
     {
       Py_DECREF (descriptor_obj);
       return NULL;
     }
   descriptor->has_user_data_slot = PyObject_IsTrue (user_data_flag);
-  Py_DECREF (user_data_flag);
   if (descriptor->has_user_data_slot < 0)
     {
       Py_DECREF (descriptor_obj);
@@ -1442,14 +1433,13 @@ callable_descriptor_signature (PyObject *self, void *closure G_GNUC_UNUSED)
       PyErr_SetString (PyExc_RuntimeError, "callable_signature hook not registered");
       return NULL;
     }
-  PyObject *gimeta = Py_XNewRef (descriptor->gimeta);
+  Py_AUTO_DECREF PyObject *gimeta = Py_XNewRef (descriptor->gimeta);
   if (gimeta == NULL)
     {
       PyErr_SetString (PyExc_RuntimeError, "method descriptor gimeta is not initialized");
       return NULL;
     }
   PyObject *result = PyObject_CallOneArg (fn, gimeta);
-  Py_DECREF (gimeta);
   return result;
 }
 
@@ -1500,7 +1490,7 @@ invoke_descriptor_with_tuple_kwargs (PyGICallableDescriptor *descriptor,
       args_offset = 1;
     }
 
-  PyObject *final_args
+  Py_AUTO_DECREF PyObject *final_args
       = resolve_call_args (descriptor, self_obj, py_args, args_offset, actual_kwargs);
   if (final_args == NULL)
     return NULL;
@@ -1512,7 +1502,6 @@ invoke_descriptor_with_tuple_kwargs (PyGICallableDescriptor *descriptor,
     call_args[i] = PyTuple_GET_ITEM (final_args, (Py_ssize_t)i);
 
   PyObject *result = pygi_callable_descriptor_call_ffi_invoke (descriptor, call_args, nargs, NULL);
-  Py_DECREF (final_args);
   if (result != NULL && PyErr_Occurred ())
     {
       Py_DECREF (result);
@@ -1988,7 +1977,7 @@ invoke_descriptor_vectorcall (PyGICallableDescriptor *descriptor,
     }
 
   Py_ssize_t nkwargs = kwnames != NULL ? PyTuple_GET_SIZE (kwnames) : 0;
-  PyObject *args_tuple = PyTuple_New (nargs);
+  Py_AUTO_DECREF PyObject *args_tuple = PyTuple_New (nargs);
   if (args_tuple == NULL)
     return NULL;
   for (Py_ssize_t i = 0; i < nargs; i++)
@@ -1998,30 +1987,21 @@ invoke_descriptor_vectorcall (PyGICallableDescriptor *descriptor,
       PyTuple_SET_ITEM (args_tuple, i, value);
     }
 
-  PyObject *kwargs = NULL;
+  Py_AUTO_DECREF PyObject *kwargs = NULL;
   if (nkwargs > 0)
     {
       kwargs = PyDict_New ();
       if (kwargs == NULL)
-        {
-          Py_DECREF (args_tuple);
-          return NULL;
-        }
+        return NULL;
       for (Py_ssize_t i = 0; i < nkwargs; i++)
         {
           PyObject *key = PyTuple_GET_ITEM (kwnames, i);
           if (PyDict_SetItem (kwargs, key, args[nargs + i]) < 0)
-            {
-              Py_DECREF (kwargs);
-              Py_DECREF (args_tuple);
-              return NULL;
-            }
+            return NULL;
         }
     }
 
   PyObject *result = invoke_descriptor_with_tuple_kwargs (descriptor, args_tuple, kwargs);
-  Py_DECREF (args_tuple);
-  Py_XDECREF (kwargs);
   return result;
 }
 
@@ -2167,12 +2147,11 @@ resolve_call_args (PyGICallableDescriptor *d,
               PyObject *packed_type = packed_user_data_type ();
               if (packed_type == NULL)
                 return NULL;
-              PyObject *slice
+              Py_AUTO_DECREF PyObject *slice
                   = PyTuple_GetSlice (args_in, args_offset + n_visible, args_offset + n_args);
               if (slice == NULL)
                 return NULL;
               user_data = PyObject_CallOneArg (packed_type, slice);
-              Py_DECREF (slice);
               if (user_data == NULL)
                 return NULL;
             }
@@ -2447,11 +2426,10 @@ invoke_special_gobject (const char *func, PyObject *const *args, Py_ssize_t narg
                         nargs);
           return NULL;
         }
-      PyObject *call_args = PyTuple_Pack (2, args[0], args[1]);
+      Py_AUTO_DECREF PyObject *call_args = PyTuple_Pack (2, args[0], args[1]);
       if (call_args == NULL)
         return NULL;
       PyObject *result = py_construct_gobject (NULL, call_args);
-      Py_DECREF (call_args);
       return result;
     }
 
@@ -2465,11 +2443,10 @@ invoke_special_gobject (const char *func, PyObject *const *args, Py_ssize_t narg
                         nargs);
           return NULL;
         }
-      PyObject *call_args = PyTuple_Pack (1, args[0]);
+      Py_AUTO_DECREF PyObject *call_args = PyTuple_Pack (1, args[0]);
       if (call_args == NULL)
         return NULL;
       PyObject *result = py_interface_list_properties (NULL, call_args);
-      Py_DECREF (call_args);
       return result;
     }
 
@@ -2583,7 +2560,7 @@ invoke_lookup_or_build (const char *ns_name, const char *version, const char *fu
       cls_name[cls_len] = '\0';
       const char *method_name = dot + 1;
 
-      GIBaseInfo *cls_info = gi_repository_find_by_name (repo, ns_name, cls_name);
+      g_autoptr (GIBaseInfo) cls_info = gi_repository_find_by_name (repo, ns_name, cls_name);
       if (cls_info == NULL)
         {
           PyErr_Format (PyExc_AttributeError,
@@ -2603,7 +2580,6 @@ invoke_lookup_or_build (const char *ns_name, const char *version, const char *fu
         method = gi_struct_info_find_method ((GIStructInfo *)cls_info, method_name);
       else if (GI_IS_UNION_INFO (cls_info))
         method = gi_union_info_find_method ((GIUnionInfo *)cls_info, method_name);
-      gi_base_info_unref (cls_info);
       if (method == NULL)
         {
           PyErr_Format (PyExc_AttributeError,
@@ -2699,10 +2675,9 @@ py_invoke_by_name (PyObject *self G_GNUC_UNUSED, PyObject *const *args, Py_ssize
       return NULL;
     }
   PyObject *load_arg = PyUnicode_Check (ns_obj) ? ns_obj : name_holder;
-  PyObject *loaded_namespace = PyObject_CallOneArg (loader, load_arg);
+  Py_AUTO_DECREF PyObject *loaded_namespace = PyObject_CallOneArg (loader, load_arg);
   if (loaded_namespace == NULL)
     return NULL;
-  Py_DECREF (loaded_namespace);
 
   const char *version = gi_repository_get_version (ginext_shared_repository (), ns_name);
   if (version == NULL)

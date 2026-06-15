@@ -397,7 +397,7 @@ py_namespace_find (PyObject *module G_GNUC_UNUSED, PyObject *args)
       return NULL;
     }
 
-  GIBaseInfo *info = gi_repository_find_by_name (repo, namespace_name, attr);
+  g_autoptr (GIBaseInfo) info = gi_repository_find_by_name (repo, namespace_name, attr);
   if (info == NULL)
     {
       PyErr_Format (PyExc_AttributeError, "%s has no attribute %s", namespace_name, attr);
@@ -409,7 +409,6 @@ py_namespace_find (PyObject *module G_GNUC_UNUSED, PyObject *args)
   /* Return a native GIRepository.*Info object. gi_info_to_py takes its own ref,
    * so release ours unconditionally. */
   PyObject *wrapper = gi_info_to_py (info);
-  gi_base_info_unref (info);
   if (wrapper == NULL)
     return NULL;
   return Py_BuildValue ("sN", kind, wrapper);
@@ -441,13 +440,14 @@ ginext_record_info_method (PyObject *self, PyObject *Py_UNUSED (args))
   size_t size = GI_IS_STRUCT_INFO (base) ? gi_struct_info_get_size ((GIStructInfo *)base)
                                          : gi_union_info_get_size ((GIUnionInfo *)base);
 
-  PyObject *name_obj = PyUnicode_FromString (name ? name : "");
-  PyObject *namespace_obj = PyUnicode_FromString (namespace_name ? namespace_name : "");
-  PyObject *version_obj = PyUnicode_FromString (version ? version : "");
-  PyObject *gtype_obj = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
-  PyObject *type_name_obj = PyUnicode_FromString (type_name ? type_name : "");
-  PyObject *size_obj = PyLong_FromSize_t (size);
-  PyObject *kind_obj = PyUnicode_FromString (GI_IS_STRUCT_INFO (base) ? "record" : "union");
+  Py_AUTO_DECREF PyObject *name_obj = PyUnicode_FromString (name ? name : "");
+  Py_AUTO_DECREF PyObject *namespace_obj = PyUnicode_FromString (namespace_name ? namespace_name : "");
+  Py_AUTO_DECREF PyObject *version_obj = PyUnicode_FromString (version ? version : "");
+  Py_AUTO_DECREF PyObject *gtype_obj = PyLong_FromUnsignedLongLong ((unsigned long long)gtype);
+  Py_AUTO_DECREF PyObject *type_name_obj = PyUnicode_FromString (type_name ? type_name : "");
+  Py_AUTO_DECREF PyObject *size_obj = PyLong_FromSize_t (size);
+  Py_AUTO_DECREF PyObject *kind_obj
+      = PyUnicode_FromString (GI_IS_STRUCT_INFO (base) ? "record" : "union");
   if (name_obj == NULL || namespace_obj == NULL || version_obj == NULL || gtype_obj == NULL
       || type_name_obj == NULL || size_obj == NULL || kind_obj == NULL)
     goto error;
@@ -459,13 +459,6 @@ ginext_record_info_method (PyObject *self, PyObject *Py_UNUSED (args))
       || PyDict_SetItemString (dict, "size", size_obj) < 0
       || PyDict_SetItemString (dict, "kind", kind_obj) < 0)
     goto error;
-  Py_CLEAR (name_obj);
-  Py_CLEAR (namespace_obj);
-  Py_CLEAR (version_obj);
-  Py_CLEAR (gtype_obj);
-  Py_CLEAR (type_name_obj);
-  Py_CLEAR (size_obj);
-  Py_CLEAR (kind_obj);
 
   int n_methods = GI_IS_STRUCT_INFO (base) ? gi_struct_info_get_n_methods ((GIStructInfo *)base)
                                            : gi_union_info_get_n_methods ((GIUnionInfo *)base);
@@ -495,13 +488,6 @@ ginext_record_info_method (PyObject *self, PyObject *Py_UNUSED (args))
   return dict;
 
 error:
-  Py_XDECREF (name_obj);
-  Py_XDECREF (namespace_obj);
-  Py_XDECREF (version_obj);
-  Py_XDECREF (gtype_obj);
-  Py_XDECREF (type_name_obj);
-  Py_XDECREF (size_obj);
-  Py_XDECREF (kind_obj);
   Py_DECREF (dict);
   return NULL;
 }
@@ -915,7 +901,7 @@ PyObject *
 ginext_callable_info_arg_names (GICallableInfo *callable)
 {
   int n_args = gi_callable_info_get_n_args (callable);
-  gboolean *skip = g_new0 (gboolean, n_args > 0 ? (gsize)n_args : 1);
+  g_autofree gboolean *skip = g_new0 (gboolean, n_args > 0 ? (gsize)n_args : 1);
   for (int i = 0; i < n_args; i++)
     {
       g_autoptr (GIArgInfo) arg_info = gi_callable_info_get_arg (callable, i);
@@ -957,12 +943,10 @@ ginext_callable_info_arg_names (GICallableInfo *callable)
         n_visible++;
     }
 
-  PyObject *names = PyList_New (n_visible);
+  Py_AUTO_DECREF PyObject *names = NULL;
+  names = PyList_New (n_visible);
   if (names == NULL)
-    {
-      g_free (skip);
-      return NULL;
-    }
+    return NULL;
   int visible = 0;
   for (int i = 0; i < n_args; i++)
     {
@@ -972,15 +956,10 @@ ginext_callable_info_arg_names (GICallableInfo *callable)
       const char *name = gi_base_info_get_name ((GIBaseInfo *)arg_info);
       PyObject *py_name = PyUnicode_FromString (name ? name : "");
       if (py_name == NULL)
-        {
-          Py_DECREF (names);
-          g_free (skip);
-          return NULL;
-        }
+        return NULL;
       PyList_SET_ITEM (names, visible++, py_name);
     }
-  g_free (skip);
-  return names;
+  return Py_NewRef (names);
 }
 
 PyObject *
@@ -1066,7 +1045,7 @@ py_callable_async_info (PyObject *module G_GNUC_UNUSED, PyObject *args)
    * back to "the (single) callback-typed argument" for GIRs that omit the
    * async scope annotation (e.g. GdkPixbuf). */
   int n_args = gi_callable_info_get_n_args (callable);
-  gboolean *skip = g_new0 (gboolean, n_args > 0 ? (gsize)n_args : 1);
+  g_autofree gboolean *skip = g_new0 (gboolean, n_args > 0 ? (gsize)n_args : 1);
   int cb_index = -1;
   int callback_typed_index = -1;
   for (int i = 0; i < n_args; i++)
@@ -1105,13 +1084,10 @@ py_callable_async_info (PyObject *module G_GNUC_UNUSED, PyObject *args)
   if (cb_index < 0)
     cb_index = callback_typed_index;
   if (cb_index < 0)
-    {
-      g_free (skip);
-      Py_RETURN_NONE;
-    }
+    Py_RETURN_NONE;
 
-  GICallableInfo *finish = gi_callable_info_get_finish_function (callable);
-  const char *finish_name = finish != NULL ? gi_base_info_get_name ((GIBaseInfo *)finish) : "";
+  g_autoptr (GIBaseInfo) finish = (GIBaseInfo *)gi_callable_info_get_finish_function (callable);
+  const char *finish_name = finish != NULL ? gi_base_info_get_name (finish) : "";
 
   int visible = 0;
   for (int i = 0; i < cb_index; i++)
@@ -1120,10 +1096,6 @@ py_callable_async_info (PyObject *module G_GNUC_UNUSED, PyObject *args)
         visible++;
     }
   int cb_position = visible;
-  g_free (skip);
 
-  PyObject *result = Py_BuildValue ("(si)", finish_name ? finish_name : "", cb_position);
-  if (finish != NULL)
-    gi_base_info_unref ((GIBaseInfo *)finish);
-  return result;
+  return Py_BuildValue ("(si)", finish_name ? finish_name : "", cb_position);
 }

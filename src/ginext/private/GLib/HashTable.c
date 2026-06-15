@@ -17,6 +17,7 @@
 /* hashtable.c - GHashTable argument and return marshalling. */
 #include "GLib/HashTable.h"
 
+#include "common.h"
 #include "GLib/Variant.h"
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
@@ -338,7 +339,7 @@ pygi_ghash_from_py (PyObject *value_obj,
       return -1;
     }
 
-  PyObject *items = PyMapping_Items (value_obj);
+  Py_AUTO_DECREF PyObject *items = PyMapping_Items (value_obj);
   if (items == NULL)
     {
       if (PyErr_ExceptionMatches (PyExc_AttributeError))
@@ -383,7 +384,6 @@ pygi_ghash_from_py (PyObject *value_obj,
       = g_hash_table_new_full (key_hash_func, key_equal_func, key_destroy, value_destroy);
   if (hash == NULL)
     {
-      Py_DECREF (items);
       PyErr_NoMemory ();
       return -1;
     }
@@ -394,7 +394,6 @@ pygi_ghash_from_py (PyObject *value_obj,
       PyObject *pair = PyList_GET_ITEM (items, i);
       if (!PyTuple_Check (pair) || PyTuple_GET_SIZE (pair) != 2)
         {
-          Py_DECREF (items);
           g_hash_table_unref (hash);
           PyErr_SetString (PyExc_TypeError, "mapping items must be key/value pairs");
           return -1;
@@ -410,7 +409,6 @@ pygi_ghash_from_py (PyObject *value_obj,
         {
           if (pygi_py_item_to_gvariant (py_key_item, &key_ptr) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -420,7 +418,6 @@ pygi_ghash_from_py (PyObject *value_obj,
           GIArgument tmp = { 0 };
           if (pygi_object_info_from_py (py_key_item, &tmp) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -432,7 +429,6 @@ pygi_ghash_from_py (PyObject *value_obj,
         {
           if (pygi_boxed_get (py_key_item, &key_ptr) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -444,7 +440,6 @@ pygi_ghash_from_py (PyObject *value_obj,
                                                                      &key_ptr)
                       != 0)
         {
-          Py_DECREF (items);
           g_hash_table_unref (hash);
           return -1;
         }
@@ -453,7 +448,6 @@ pygi_ghash_from_py (PyObject *value_obj,
           gvalue_ptr = g_new0 (GValue, 1);
           if (gvalue_ptr == NULL)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               PyErr_NoMemory ();
               return -1;
@@ -461,7 +455,6 @@ pygi_ghash_from_py (PyObject *value_obj,
           if (pygi_py_to_gvalue_inplace (PyTuple_GET_ITEM (pair, 1), gvalue_ptr, NULL) != 0)
             {
               g_free (gvalue_ptr);
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -471,7 +464,6 @@ pygi_ghash_from_py (PyObject *value_obj,
         {
           if (pygi_py_item_to_gvariant (PyTuple_GET_ITEM (pair, 1), &value_ptr) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -481,7 +473,6 @@ pygi_ghash_from_py (PyObject *value_obj,
           GIArgument tmp = { 0 };
           if (pygi_object_info_from_py (PyTuple_GET_ITEM (pair, 1), &tmp) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -493,7 +484,6 @@ pygi_ghash_from_py (PyObject *value_obj,
         {
           if (pygi_boxed_get (PyTuple_GET_ITEM (pair, 1), &value_ptr) != 0)
             {
-              Py_DECREF (items);
               g_hash_table_unref (hash);
               return -1;
             }
@@ -508,14 +498,12 @@ pygi_ghash_from_py (PyObject *value_obj,
                                                                      &value_ptr)
                       != 0)
         {
-          Py_DECREF (items);
           g_hash_table_unref (hash);
           return -1;
         }
       g_hash_table_insert (hash, key_ptr, value_ptr);
     }
 
-  Py_DECREF (items);
   dest->v_pointer = hash;
   if (transfer == GI_TRANSFER_NOTHING)
     {
