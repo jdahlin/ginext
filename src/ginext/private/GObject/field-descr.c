@@ -171,6 +171,17 @@ field_from_py_supported (GITypeInfo *fti)
   return pygi_type_is_direct_storage (&field_type);
 }
 
+static gboolean
+field_uses_pointer_value_semantics (GIBaseInfo *owner_info, const char *field_name)
+{
+  const char *owner_name = gi_base_info_get_name (owner_info);
+  if (owner_name == NULL || field_name == NULL)
+    return FALSE;
+
+  return strcmp (field_name, "data") == 0
+         && (strcmp (owner_name, "List") == 0 || strcmp (owner_name, "SList") == 0);
+}
+
 static PyObject *
 field_desc_getter (PyObject *self, void *closure)
 {
@@ -214,6 +225,10 @@ field_desc_getter (PyObject *self, void *closure)
         return union_interface_field_shadow_to_py (fti, (char *)ptr, fdc->offset, self, fdc->name);
     }
 
+  if (gi_type_info_get_tag (fti) == GI_TYPE_TAG_VOID
+      && field_uses_pointer_value_semantics (fdc->owner_info, fdc->name))
+    return PyLong_FromVoidPtr (*(gpointer *)((char *)ptr + fdc->offset));
+
   PyObject *out = field_to_py (fti, (char *)ptr, fdc->offset, self);
   if (out == NULL && !PyErr_Occurred ())
     PyErr_Format (PyExc_NotImplementedError, "field %s: marshalling not implemented", fdc->name);
@@ -249,6 +264,18 @@ field_desc_setter (PyObject *self, PyObject *value, void *closure)
     {
       PyErr_Format (PyExc_NotImplementedError, "field %s: missing type info", fdc->name);
       return -1;
+    }
+  if (gi_type_info_get_tag (fti) == GI_TYPE_TAG_VOID
+      && field_uses_pointer_value_semantics (fdc->owner_info, fdc->name))
+    {
+      gpointer *slot = (gpointer *)((char *)ptr + fdc->offset);
+      if (value == Py_None)
+        {
+          *slot = NULL;
+          return 0;
+        }
+      *slot = PyLong_AsVoidPtr (value);
+      return PyErr_Occurred () ? -1 : 0;
     }
   return field_from_py (fti, (char *)ptr, fdc->offset, value);
 }
