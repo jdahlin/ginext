@@ -110,9 +110,8 @@ def test_query_info_keyword_shape_errors() -> None:
     from ginext import Gio
 
     file = Gio.File.new_for_path("/tmp")
-    query_info = getattr(file, "query_info")
     with pytest.raises(TypeError) as exc_info:
-        query_info(
+        file.query_info(  # type: ignore[misc]
             "standard::name",
             attributes="standard::type",
             flags=Gio.FileQueryInfoFlags.NONE,
@@ -185,10 +184,10 @@ def test_copy_defaults_flags() -> None:
 def _enumerator_names(enumerator: object) -> list[str]:
     names: list[str] = []
     while True:
-        info = getattr(enumerator, "next_file")(None)
+        info = enumerator.next_file(None)  # type: ignore[attr-defined]
         if info is None:
             return names
-        names.append(getattr(info, "get_name")())
+        names.append(info.get_name())
 
 
 def test_file_enumerator_next_file_matches_repeated_enumeration() -> None:
@@ -219,18 +218,18 @@ def tmp_gfile() -> Generator[tuple[object, object], None, None]:
     # Close the IOStream immediately: no test uses it, and on Windows an open
     # handle blocks deleting/replacing the file (EINVAL).
     with contextlib.suppress(Exception):
-        getattr(stream, "close")(None)
+        stream.close(None)
     try:
         yield file, stream
     finally:
         with contextlib.suppress(Exception):
-            getattr(file, "delete")(None)
+            file.delete(None)
 
 
 def test_new_tmp_exists(tmp_gfile: tuple[object, object]) -> None:
     file, _stream = tmp_gfile
 
-    assert getattr(file, "query_exists")(None) is True
+    assert file.query_exists(None) is True  # type: ignore[attr-defined]
 
 
 def test_replace_contents(tmp_gfile: tuple[object, object]) -> None:
@@ -239,14 +238,14 @@ def test_replace_contents(tmp_gfile: tuple[object, object]) -> None:
     file, _stream = tmp_gfile
     content = b"hello\0world\x7f!"
 
-    success, etag = getattr(file, "replace_contents")(
+    success, etag = file.replace_contents(  # type: ignore[attr-defined]
         content,
         None,
         False,
         Gio.FileCreateFlags.NONE,
         None,
     )
-    new_success, new_content, new_etag = getattr(file, "load_contents")(None)
+    new_success, new_content, new_etag = file.load_contents(None)  # type: ignore[attr-defined]
 
     assert success is True
     assert new_success is True
@@ -257,8 +256,8 @@ def test_replace_contents(tmp_gfile: tuple[object, object]) -> None:
 def test_delete(tmp_gfile: tuple[object, object]) -> None:
     file, _stream = tmp_gfile
 
-    assert getattr(file, "delete")(None) is True
-    assert getattr(file, "query_exists")(None) is False
+    assert file.delete(None) is True  # type: ignore[attr-defined]
+    assert file.query_exists(None) is False  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -286,13 +285,13 @@ def _load_bytes_op(file: object, cancellable: object = None) -> "_AsyncOperation
     from ginext import aio
 
     def start(callback: Callable[[object, object], None]) -> None:
-        getattr(file, "load_bytes_async")(cancellable, callback)
+        file.load_bytes_async(cancellable, callback)  # type: ignore[attr-defined]
 
     def finish(result: object) -> bytes:
-        return bytes(getattr(getattr(file, "load_bytes_finish")(result)[0], "get_data")())
+        return bytes(file.load_bytes_finish(result)[0].get_data())  # type: ignore[attr-defined]
 
     return aio._AsyncOperation(
-        start, finish, cancel=getattr(cancellable, "cancel") if cancellable else None
+        start, finish, cancel=cancellable.cancel if cancellable else None  # type: ignore[attr-defined]
     )
 
 
@@ -311,7 +310,7 @@ def test_await_matches_blocking_load_bytes(hello_file: tuple[object, bytes]) -> 
     from ginext import aio
 
     file, _payload = hello_file
-    blocking = bytes(getattr(getattr(file, "load_bytes")(None)[0], "get_data")())
+    blocking = bytes(file.load_bytes(None)[0].get_data())  # type: ignore[attr-defined]
 
     async def main() -> object:
         return await _load_bytes_op(file)
@@ -406,10 +405,10 @@ def test_file_enumerator_async_iteration_yields_all_entries(
     directory, names = populated_dir
 
     async def main() -> list[str]:
-        enumerator = getattr(directory, "enumerate_children")("standard::name", 0, None)
+        enumerator = directory.enumerate_children("standard::name", 0, None)  # type: ignore[attr-defined]
         found = []
         async for info in enumerator:
-            found.append(getattr(info, "get_name")())
+            found.append(info.get_name())
         return found
 
     assert sorted(asyncio.run(main(), loop_factory=aio.EventLoop)) == sorted(names)
@@ -422,13 +421,13 @@ def test_file_enumerator_async_iteration_matches_sync(
 
     directory, _names = populated_dir
     sync_names = sorted(
-        getattr(info, "get_name")()
-        for info in getattr(directory, "enumerate_children")("standard::name", 0, None)
+        info.get_name()
+        for info in directory.enumerate_children("standard::name", 0, None)  # type: ignore[attr-defined]
     )
 
     async def main() -> list[str]:
-        enumerator = getattr(directory, "enumerate_children")("standard::name", 0, None)
-        return sorted([getattr(info, "get_name")() async for info in enumerator])
+        enumerator = directory.enumerate_children("standard::name", 0, None)  # type: ignore[attr-defined]
+        return sorted([info.get_name() async for info in enumerator])
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == sync_names
 
@@ -462,7 +461,7 @@ def test_file_enumerator_async_iteration_crosses_batches() -> None:
 
         async def main() -> set[str]:
             enumerator: Any = directory.enumerate_children("standard::name", 0, None)
-            return {getattr(info, "get_name")() async for info in enumerator}
+            return {info.get_name() async for info in enumerator}
 
         assert asyncio.run(main(), loop_factory=aio.EventLoop) == names
     finally:
@@ -481,7 +480,7 @@ def test_file_enumerator_async_iteration_under_eventloop(
     directory, names = populated_dir
 
     async def main() -> set[str]:
-        enumerator = getattr(directory, "enumerate_children")("standard::name", 0, None)
-        return {getattr(info, "get_name")() async for info in enumerator}
+        enumerator = directory.enumerate_children("standard::name", 0, None)  # type: ignore[attr-defined]
+        return {info.get_name() async for info in enumerator}
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == names

@@ -23,8 +23,7 @@ from . import defaults
 
 
 def _namespace() -> object:
-    load_namespace = getattr(ginext, "_load_namespace")
-    return load_namespace(
+    return ginext._load_namespace(
         "GObject",
         defaults.resolve_version("GObject") or "2.0",
         _module_name_override=f"{__name__}._namespace",

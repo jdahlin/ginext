@@ -43,9 +43,8 @@ def test_emit_with_args_rejects_wrong_arity() -> None:
     from ginext import Gio
 
     c = Gio.Cancellable()
-    emit = getattr(c.cancelled, "emit")
     with pytest.raises(TypeError, match="expects 0 argument"):
-        emit("unexpected")
+        c.cancelled.emit("unexpected")
 
 
 def test_emit_with_args_for_zero_arg_signal_still_works_with_no_args() -> None:

@@ -331,7 +331,7 @@ def test_array_struct_take_in(t: Namespace) -> None:
 def test_array_struct_take_in_keeps_wrappers_alive(t: Namespace) -> None:
     structs = _make_boxed_structs(t)
     assert t.array_struct_take_in(structs) is None
-    assert [getattr(s, "long_") for s in structs] == [1, 2, 3]
+    assert [s.long_ for s in structs] == [1, 2, 3]  # type: ignore[attr-defined]
 
 
 def test_array_struct_value_in(t: Namespace) -> None:
@@ -642,14 +642,14 @@ def test_enum_python_type(t: Namespace) -> None:
     assert issubclass(t.GEnum, enum.IntEnum)
     assert t.GEnum.__module__ == "GIMarshallingTests"
     assert t.GEnum.__qualname__ == "GEnum"
-    assert getattr(t.GEnum, "value3") is getattr(t.GEnum, "VALUE3")
+    assert t.GEnum.value3 is t.GEnum.VALUE3
 
 
 def test_flags_python_type(t: Namespace) -> None:
     assert issubclass(t.Flags, enum.IntFlag)
     assert t.Flags.__module__ == "GIMarshallingTests"
     assert t.Flags.__qualname__ == "Flags"
-    assert getattr(t.Flags, "value3") is getattr(t.Flags, "VALUE3")
+    assert t.Flags.value3 is t.Flags.VALUE3
 
 
 def test_extra_utf8_full_out_invalid(t: Namespace) -> None:
