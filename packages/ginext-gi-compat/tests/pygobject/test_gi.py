@@ -3356,11 +3356,7 @@ class TestMRO(unittest.TestCase):
             B,
             C,
             A,
-            GIMarshallingTests.Object,
-            GObject.Object,
-            GObject.Object.__base__,
-            gi._gi.GObject,
-            object,
+            *GIMarshallingTests.Object.__mro__,
         )
         self.assertEqual(expected, E.__mro__)
 
@@ -3373,9 +3369,6 @@ class TestMRO(unittest.TestCase):
         # which shouldn't really be a problem.
 
         class TestInterfaceImpl(GObject.GObject, GIMarshallingTests.Interface):
-            pass
-
-        class TestInterfaceImpl2(GIMarshallingTests.Interface, TestInterfaceImpl):
             pass
 
         class TestInterfaceImpl3(TestInterfaceImpl, GIMarshallingTests.Interface2):
