@@ -22,6 +22,7 @@
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
 #include "marshal/marshal.h"
+#include "runtime/type-info.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -159,18 +160,10 @@ out_slot_to_py (GICallableInfo *cb,
     .target.giarg = &out_values[j],
     .callable = cb,
   };
-  if (osp->tag == GI_TYPE_TAG_ERROR && plan != NULL && osp->gi_arg_index < plan->n_gi_args)
-    {
-      mslot.transfer = plan->args[osp->gi_arg_index].transfer;
-      mslot.transfer_set = true;
-    }
-  if ((osp->tag == GI_TYPE_TAG_GLIST || osp->tag == GI_TYPE_TAG_GSLIST) && plan != NULL
-      && osp->gi_arg_index < plan->n_gi_args)
-    {
-      mslot.transfer = plan->args[osp->gi_arg_index].transfer;
-      mslot.transfer_set = true;
-    }
-  if (osp->tag == GI_TYPE_TAG_GHASH && plan != NULL && osp->gi_arg_index < plan->n_gi_args)
+  if (plan != NULL && osp->gi_arg_index < plan->n_gi_args
+      && ((osp->tag == GI_TYPE_TAG_INTERFACE && !gi_type_info_is_gvalue (out_tis[j]))
+          || osp->tag == GI_TYPE_TAG_ERROR || osp->tag == GI_TYPE_TAG_GLIST
+          || osp->tag == GI_TYPE_TAG_GSLIST || osp->tag == GI_TYPE_TAG_GHASH))
     {
       mslot.transfer = plan->args[osp->gi_arg_index].transfer;
       mslot.transfer_set = true;

@@ -24,13 +24,8 @@
 GIMarshallingTests.Object has four shapes:
 * full_out          — OUT, transfer-full      (supported, exercised here)
 * none_out          — OUT, transfer-none      (supported, exercised here)
-* full_inout        — INOUT, transfer-full    (descriptor + runtime pending)
-* none_inout        — INOUT, transfer-none    (descriptor + runtime pending)
-
-The INOUT variants are deliberately rejected by the invoke gate —
-opening the gate makes the descriptor build but the runtime crashes
-because pygi_object_info_from_py does not yet apply transfer-FULL
-ref management. The INOUT tests below are kept as skip-marked todos.
+* full_inout        — INOUT, transfer-full    (supported, exercised here)
+* none_inout        — INOUT, transfer-none    (supported, exercised here)
 """
 
 from __future__ import annotations
@@ -55,6 +50,7 @@ def test_object_full_out_returns_object(t: Any) -> None:
     """OUT-only transfer-full returns a freshly-allocated wrapper."""
     obj = t.Object.full_out()
     assert _is_marshall_object(obj, t)
+    assert obj.__grefcount__ == 1
 
 
 def test_object_none_out_returns_object(t: Any) -> None:
@@ -62,6 +58,7 @@ def test_object_none_out_returns_object(t: Any) -> None:
     static instance."""
     obj = t.Object.none_out()
     assert _is_marshall_object(obj, t)
+    assert obj.__grefcount__ == 2
 
 
 def test_object_full_inout_returns_replacement(t: Any) -> None:
@@ -69,6 +66,8 @@ def test_object_full_inout_returns_replacement(t: Any) -> None:
     result = t.Object.full_inout(original)
     assert _is_marshall_object(result, t)
     assert result is not original
+    assert original.__grefcount__ == 1
+    assert result.__grefcount__ == 1
 
 
 def test_object_none_inout_returns_replacement(t: Any) -> None:
@@ -76,3 +75,5 @@ def test_object_none_inout_returns_replacement(t: Any) -> None:
     result = t.Object.none_inout(original)
     assert _is_marshall_object(result, t)
     assert result is not original
+    assert original.__grefcount__ == 1
+    assert result.__grefcount__ == 2
