@@ -112,10 +112,6 @@ class TestFields(unittest.TestCase):
         self.assertEqual(s.array1, [])
         self.assertEqual(s.array2, [])
 
-    @pytest.mark.xfail(
-        reason="record interface field compatibility is incomplete",
-        strict=False,
-    )
     def test_interface(self):
         s = Regress.TestStructC()
 
