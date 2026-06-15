@@ -340,6 +340,11 @@ _XFAIL_NOT_RUN_BY_NODE = {
 }
 
 
+_XFAIL_NOT_RUN_DEBUG_BY_NODE = {
+    "test_overrides_gtk.py::TestTreeModel::test_tree_store": "crashes xdist worker in debug Python builds",
+}
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> object:
     # ginext native tests call features.reset_for_test() in teardown, which
@@ -372,6 +377,10 @@ def pytest_collection_modifyitems(
                     reason="Gtk cairo font-options test is not stable under debug/display-limited runs",
                 )
             )
+            continue
+        if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
+            reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         reason = _XFAIL_NOT_RUN_BY_NODE.get(relative_nodeid)
         if reason is not None:

@@ -115,6 +115,7 @@ _XFAIL_NOT_RUN_BY_NODE = {
 # only way to prevent the crash from failing the test run.
 _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
     "test_overrides_gtk.py::TestTreeModel::test_tree_model": "crashes xdist worker in debug Python builds",
+    "test_overrides_gtk.py::TestTreeModel::test_tree_store": "crashes xdist worker in debug Python builds",
 }
 
 # Tests that crash with a Windows access violation (C-level) on all Python builds.
