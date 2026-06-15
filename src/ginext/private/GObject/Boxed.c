@@ -15,7 +15,9 @@
  */
 
 #include "GObject/hooks.h"
+#include "GLib/Array.h"
 #include "GLib/HashTable.h"
+#include "GLib/List.h"
 #include "GObject/Boxed.h"
 #include "GObject/GIMeta.h"
 #include "GObject/Object.h"
@@ -828,6 +830,15 @@ array_field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
       return NULL;
     }
 
+  if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_PTR_ARRAY)
+    {
+      gpointer ptr = *(gpointer *)((void *)(base + offset));
+      if (ptr == NULL)
+        return PyList_New (0);
+      GIArgument arg = { .v_pointer = ptr };
+      return pygi_garray_to_py (NULL, fti, &arg, GI_TRANSFER_NOTHING);
+    }
+
   if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
     {
       PyErr_SetString (PyExc_NotImplementedError, "unsupported array field type");
@@ -915,6 +926,20 @@ array_field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
 static int
 array_field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value)
 {
+  if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_PTR_ARRAY)
+    {
+      GIArgument dest = { 0 };
+      PyGIArgCleanup cleanup = { 0 };
+      if (pygi_garray_from_py (value, fti, GI_TRANSFER_EVERYTHING, &dest, &cleanup) != 0)
+        return -1;
+
+      GPtrArray **slot = (GPtrArray **)(void *)(base + offset);
+      if (*slot != NULL)
+        g_ptr_array_unref (*slot);
+      *slot = (GPtrArray *)dest.v_pointer;
+      return 0;
+    }
+
   if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
     return -1;
 
@@ -1023,6 +1048,11 @@ field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
     }
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_to_py (fti, base, offset, parent);
+  if (ftag == GI_TYPE_TAG_GLIST || ftag == GI_TYPE_TAG_GSLIST)
+    {
+      GIArgument arg = { .v_pointer = *(gpointer *)((void *)(base + offset)) };
+      return pygi_argument_to_py_transfer (NULL, fti, &arg, GI_TRANSFER_NOTHING);
+    }
   if (ftag == GI_TYPE_TAG_INTERFACE)
     {
       g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
@@ -1096,6 +1126,27 @@ field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value)
     }
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_from_py (fti, base, offset, value);
+  if (ftag == GI_TYPE_TAG_GLIST || ftag == GI_TYPE_TAG_GSLIST)
+    {
+      GIArgument dest = { 0 };
+      PyGIArgCleanup cleanup = { 0 };
+      int rc = (ftag == GI_TYPE_TAG_GLIST)
+                   ? pygi_glist_from_py (value, fti, GI_TRANSFER_EVERYTHING, &dest, &cleanup)
+                   : pygi_slist_from_py (value, fti, GI_TRANSFER_EVERYTHING, &dest, &cleanup);
+      if (rc != 0)
+        return -1;
+
+      gpointer *slot = (gpointer *)(void *)(base + offset);
+      if (*slot != NULL)
+        {
+          if (ftag == GI_TYPE_TAG_GLIST)
+            g_list_free ((GList *)*slot);
+          else
+            g_slist_free ((GSList *)*slot);
+        }
+      *slot = dest.v_pointer;
+      return 0;
+    }
   if (ftag == GI_TYPE_TAG_INTERFACE)
     {
       g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);

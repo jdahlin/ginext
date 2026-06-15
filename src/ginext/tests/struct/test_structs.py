@@ -173,6 +173,24 @@ def test_gtype_record_field_accepts_class_and_rejects_raw_int(regress: Namespace
         record.some_type = int
 
 
+def test_struct_d_glist_field_defaults_and_rejects_bad_items(regress: Namespace) -> None:
+    record = regress.TestStructD()
+
+    assert record.list == []
+
+    with pytest.raises(TypeError):
+        record.list = [object()]
+
+
+def test_struct_d_gptrarray_field_defaults_and_rejects_bad_items(regress: Namespace) -> None:
+    record = regress.TestStructD()
+
+    assert record.garray == []
+
+    with pytest.raises(TypeError):
+        record.garray = [object()]
+
+
 # --- __match_args__ (positional structural matching) -----------------------
 
 
