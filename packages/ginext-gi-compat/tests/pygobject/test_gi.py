@@ -2871,6 +2871,12 @@ class TestGObject(unittest.TestCase):
 
     def test_compat_object_del_is_shutdown_safe(self):
         script = """
+import os
+import sys
+if sys.platform == "win32":
+    for _dll_dir in os.environ.get("GINEXT_WIN_DLL_DIRS", "").split(os.pathsep):
+        if _dll_dir and os.path.isdir(_dll_dir):
+            os.add_dll_directory(_dll_dir)
 import ginext
 from ginext import features
 features.set_enabled(features.PYGOBJECT_COMPAT, True)
