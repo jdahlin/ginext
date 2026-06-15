@@ -41,6 +41,7 @@ import pytest
 
 from ginext import Gio as _Gio
 from ginext.tests.typelib.support import assert_gobject_class_mro
+from ginext.tests.typelib.support import open_namespace_for_test
 
 
 _subclass_seq = itertools.count()
@@ -212,6 +213,26 @@ def test_super_do_startup_chains_up(Gio: Any) -> None:
     )
     app.register(None)
     assert seq == ["before", "after"]
+
+
+def test_vfunc_caller_allocated_gvalue_out_accepts_plain_python_value(
+    call_mode: str,
+) -> None:
+    GIMarshallingTests = open_namespace_for_test(call_mode, "GIMarshallingTests", "1.0")
+
+    class Obj(
+        GIMarshallingTests.Object,
+        type_name=_unique_name("VfuncCallerAllocatedGValueOut"),
+    ):
+        payload = "test caller alloc return"
+
+        def do_vfunc_caller_allocated_out_parameter(self) -> str:
+            return self.payload
+
+    obj = Obj()
+    result = obj.vfunc_caller_allocated_out_parameter()
+    assert result == obj.payload
+    assert result is not obj.payload
 
 
 @pytest.mark.xfail(

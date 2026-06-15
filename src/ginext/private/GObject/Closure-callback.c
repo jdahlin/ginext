@@ -709,6 +709,9 @@ callback_write_value (PyObject *value,
     }
   if (tag == GI_TYPE_TAG_INTERFACE)
     {
+      if (type_info != NULL && gi_type_info_is_gvalue (type_info))
+        return pygi_py_to_gvalue_inplace (value, (GValue *)dst, NULL);
+
       g_autoptr (GIBaseInfo) iface = gi_type_info_get_interface (type_info);
       if (iface != NULL && gi_base_info_is_named (iface, "GObject", "Closure"))
         {
