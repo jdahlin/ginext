@@ -616,9 +616,6 @@ class TestFloat(unittest.TestCase):
     def test_float_out(self):
         self.assertAlmostEqual(self.MAX, GIMarshallingTests.float_out())
 
-    @pytest.mark.xfail(
-        reason="float MIN compat expectation differs from current GI test", strict=False
-    )
     def test_float_inout(self):
         self.assertAlmostEqual(
             self.MIN, GIMarshallingTests.float_inout(Number(self.MAX))
@@ -640,10 +637,6 @@ class TestDouble(unittest.TestCase):
     def test_double_out(self):
         self.assertAlmostEqual(self.MAX, GIMarshallingTests.double_out())
 
-    @pytest.mark.xfail(
-        reason="double MIN compat expectation differs from current GI test",
-        strict=False,
-    )
     def test_double_inout(self):
         self.assertAlmostEqual(
             self.MIN, GIMarshallingTests.double_inout(Number(self.MAX))
@@ -693,9 +686,6 @@ class TestUtf8(unittest.TestCase):
             data = data.encode("utf-8")
         GIMarshallingTests.utf8_as_uint8array_in(data)
 
-    @pytest.mark.xfail(
-        reason="uint8 array str error message compatibility is incomplete", strict=False
-    )
     def test_utf8_as_string_array_in(self):
         data = CONSTANT_UTF8
         with pytest.raises(
@@ -710,17 +700,10 @@ class TestUtf8(unittest.TestCase):
     def test_utf8_full_return(self):
         self.assertEqual(CONSTANT_UTF8, GIMarshallingTests.utf8_full_return())
 
-    @pytest.mark.xfail(
-        reason="invalid UTF-8 return error compatibility is incomplete", strict=False
-    )
     def test_extra_utf8_full_return_invalid(self):
         with pytest.raises(UnicodeDecodeError):
             GIMarshallingTests.extra_utf8_full_return_invalid()
 
-    @pytest.mark.xfail(
-        reason="invalid UTF-8 out argument error compatibility is incomplete",
-        strict=False,
-    )
     def test_extra_utf8_full_out_invalid(self):
         with pytest.raises(UnicodeDecodeError):
             GIMarshallingTests.extra_utf8_full_out_invalid()
@@ -834,10 +817,6 @@ class TestFilename(unittest.TestCase):
         self.assertEqual(GIMarshallingTests.filename_copy("foo"), "foo")
         self.assertEqual(GIMarshallingTests.filename_copy(b"foo"), "foo")
 
-    @pytest.mark.xfail(
-        reason="filename embedded-NUL validation compatibility is incomplete",
-        strict=False,
-    )
     def test_contains_null(self):
         self.assertRaises(
             (ValueError, TypeError), GIMarshallingTests.filename_copy, b"foo\x00"
@@ -886,9 +865,6 @@ class TestFilename(unittest.TestCase):
                 continue
             self.assertEqual(GIMarshallingTests.filename_copy(v), uni)
 
-    @pytest.mark.xfail(
-        reason="filename non-UTF-8 filesystem encoding is incomplete", strict=False
-    )
     def test_unix_various(self):
         if os.name == "nt":
             return
@@ -929,10 +905,6 @@ class TestFilename(unittest.TestCase):
             self.assertTrue(GIMarshallingTests.filename_exists(path))
         os.unlink(path)
 
-    @pytest.mark.xfail(
-        reason="filename surrogateescape filesystem encoding is incomplete",
-        strict=False,
-    )
     def test_path_exists_various_types(self):
         wd = self.workdir
         wdb = os.fsencode(wd)
