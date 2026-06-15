@@ -262,19 +262,15 @@ fundamental_get_field (PyGIFundamental *self, const char *name)
   if (info == NULL)
     return NULL;
 
-  GIFieldInfo *field = fundamental_lookup_field (info, name);
+  g_autoptr (GIFieldInfo) field = fundamental_lookup_field (info, name);
   if (field == NULL)
     return NULL;
 
   if (!(gi_field_info_get_flags (field) & GI_FIELD_IS_READABLE))
-    {
-      gi_base_info_unref ((GIBaseInfo *)field);
-      return NULL;
-    }
+    return NULL;
 
   g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
   size_t offset = (size_t)gi_field_info_get_offset (field);
-  gi_base_info_unref ((GIBaseInfo *)field);
 
   PyGIType type;
   if (pygi_type_from_gi (fti, &type) != 0)
@@ -354,11 +350,10 @@ Fundamental_getattro (PyObject *self, PyObject *name)
 
   if (pygi_hook_method_for_instance != NULL)
     {
-      PyObject *call_args = PyTuple_Pack (2, self, name);
+      Py_AUTO_DECREF PyObject *call_args = PyTuple_Pack (2, self, name);
       if (call_args == NULL)
         return NULL;
       PyObject *method = pygi_hook_call_first (pygi_hook_method_for_instance, call_args);
-      Py_DECREF (call_args);
       if (method == NULL)
         {
           if (!PyErr_ExceptionMatches (PyExc_AttributeError))

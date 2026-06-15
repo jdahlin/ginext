@@ -31,6 +31,7 @@
 #include "runtime/class-registry.h"
 #include "runtime/module_funcs.h"
 #include "gimeta-helpers.h"
+#include "common.h"
 
 #include <ffi.h>
 #include <girepository/girepository.h>
@@ -324,13 +325,9 @@ callback_inspect_arity (PyObject *callable)
   if (!PyFunction_Check (func))
     {
       /* Try __wrapped__ for decorated functions. */
-      PyObject *wrapped = PyObject_GetAttrString (func, "__wrapped__");
+      Py_AUTO_DECREF PyObject *wrapped = PyObject_GetAttrString (func, "__wrapped__");
       if (wrapped != NULL)
-        {
-          int result = callback_inspect_arity (wrapped);
-          Py_DECREF (wrapped);
-          return result;
-        }
+        return callback_inspect_arity (wrapped);
       PyErr_Clear ();
       return -1;
     }
@@ -352,14 +349,13 @@ callback_bound_arg_gtypes_obj (PyObject *callable)
   if (bound != NULL)
     return bound;
   PyErr_Clear ();
-  PyObject *func = PyObject_GetAttrString (callable, "__func__");
+  Py_AUTO_DECREF PyObject *func = PyObject_GetAttrString (callable, "__func__");
   if (func == NULL)
     {
       PyErr_Clear ();
       return NULL;
     }
   bound = PyObject_GetAttrString (func, "ginext_bound_callback_gtypes");
-  Py_DECREF (func);
   if (bound == NULL)
     PyErr_Clear ();
   return bound;
@@ -368,27 +364,20 @@ callback_bound_arg_gtypes_obj (PyObject *callable)
 static int
 callback_apply_bound_arg_gtypes (PyGICallbackClosure *closure)
 {
-  PyObject *bound = callback_bound_arg_gtypes_obj (closure->callable);
+  Py_AUTO_DECREF PyObject *bound = callback_bound_arg_gtypes_obj (closure->callable);
   if (bound == NULL)
     return 0;
   if (!PyTuple_Check (bound))
-    {
-      Py_DECREF (bound);
-      return 0;
-    }
+    return 0;
   Py_ssize_t n = PyTuple_GET_SIZE (bound);
   Py_ssize_t limit = n < closure->n_args ? n : closure->n_args;
   for (Py_ssize_t i = 0; i < limit; i++)
     {
       unsigned long long raw = PyLong_AsUnsignedLongLong (PyTuple_GET_ITEM (bound, i));
       if (PyErr_Occurred ())
-        {
-          Py_DECREF (bound);
-          return -1;
-        }
+        return -1;
       closure->args[i].wrapper_gtype = (GType)raw;
     }
-  Py_DECREF (bound);
   return 0;
 }
 
@@ -670,7 +659,7 @@ callback_write_value (PyObject *value,
           return 0;
         }
       const char *s = NULL;
-      PyObject *bytes = NULL;
+      Py_AUTO_DECREF PyObject *bytes = NULL;
       if (PyUnicode_Check (value))
         s = PyUnicode_AsUTF8 (value);
       else
@@ -680,12 +669,8 @@ callback_write_value (PyObject *value,
             s = PyBytes_AsString (bytes);
         }
       if (s == NULL)
-        {
-          Py_XDECREF (bytes);
-          return -1;
-        }
+        return -1;
       *(gpointer *)dst = g_strdup (s);
-      Py_XDECREF (bytes);
       return 0;
     }
 

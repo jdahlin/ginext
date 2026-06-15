@@ -38,6 +38,7 @@
 #include "GObject/Fundamental.h"
 #include "GObject/Object-info.h"
 #include "GLib/Variant.h"
+#include "common.h"
 
 #include <string.h>
 
@@ -171,14 +172,14 @@ pygi_py_to_c_array_invoke (PyObject *h,
           PyErr_SetString (PyExc_NotImplementedError, "string-array element type not supported");
           return -1;
         }
-      PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence of strings");
+      Py_AUTO_DECREF PyObject *fast
+          = PySequence_Fast ((PyObject *)(h), "expected a sequence of strings");
       if (fast == NULL)
         return -1;
       Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
       char **strv = g_new0 (char *, (gsize)(n + 1));
       if (strv == NULL)
         {
-          Py_DECREF (fast);
           PyErr_NoMemory ();
           return -1;
         }
@@ -202,11 +203,9 @@ pygi_py_to_c_array_invoke (PyObject *h,
                 g_strfreev (strv);
               else
                 g_free (strv);
-              Py_DECREF (fast);
               return -1;
             }
         }
-      Py_DECREF (fast);
       if (validate_fixed_size (n, fixed_size) != 0)
         {
           if (dup_strings)
@@ -253,19 +252,16 @@ pygi_py_to_c_array_invoke (PyObject *h,
         {
           if (gi_type_info_is_variant (elem_ti))
             {
-              PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+              Py_AUTO_DECREF PyObject *fast
+                  = PySequence_Fast ((PyObject *)(h), "expected a sequence");
               if (fast == NULL)
                 return -1;
               Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
               if (validate_fixed_size (n, fixed_size) != 0)
-                {
-                  Py_DECREF (fast);
-                  return -1;
-                }
+                return -1;
               gpointer *buf = n > 0 ? g_new0 (gpointer, (gsize)n + 1u) : g_new0 (gpointer, 1u);
               if (buf == NULL)
                 {
-                  Py_DECREF (fast);
                   PyErr_NoMemory ();
                   return -1;
                 }
@@ -276,11 +272,9 @@ pygi_py_to_c_array_invoke (PyObject *h,
                       for (Py_ssize_t kk = 0; kk < k; kk++)
                         g_variant_unref ((GVariant *)buf[kk]);
                       g_free (buf);
-                      Py_DECREF (fast);
                       return -1;
                     }
                 }
-              Py_DECREF (fast);
               if (len_ti != NULL && gi_argument_set_length (len_ti, n, len_arg) != 0)
                 {
                   for (Py_ssize_t kk = 0; kk < n; kk++)
@@ -298,15 +292,13 @@ pygi_py_to_c_array_invoke (PyObject *h,
             }
           if (gi_type_info_is_gvalue (elem_ti))
             {
-              PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+              Py_AUTO_DECREF PyObject *fast
+                  = PySequence_Fast ((PyObject *)(h), "expected a sequence");
               if (fast == NULL)
                 return -1;
               Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
               if (validate_fixed_size (n, fixed_size) != 0)
-                {
-                  Py_DECREF (fast);
-                  return -1;
-                }
+                return -1;
               GValue *values = g_new0 (GValue, (gsize)n);
               for (Py_ssize_t k = 0; k < n; k++)
                 {
@@ -328,18 +320,16 @@ pygi_py_to_c_array_invoke (PyObject *h,
                       long iv = PyLong_AsLongAndOverflow (item, &overflow);
                       if (overflow != 0 || iv > G_MAXINT || iv < G_MININT)
                         {
-                          PyObject *repr = PyObject_Str (item);
+                          Py_AUTO_DECREF PyObject *repr = PyObject_Str (item);
                           const char *vstr = repr != NULL ? PyUnicode_AsUTF8 (repr) : "?";
                           PyErr_Format (PyExc_OverflowError,
                                         "%s not in range %d to %d",
                                         vstr != NULL ? vstr : "?",
                                         G_MININT,
                                         G_MAXINT);
-                          Py_XDECREF (repr);
                           for (Py_ssize_t kk = 0; kk < k; kk++)
                             g_value_unset (&values[kk]);
                           g_free (values);
-                          Py_DECREF (fast);
                           return -1;
                         }
                       if (iv == -1 && PyErr_Occurred ())
@@ -347,7 +337,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                           for (Py_ssize_t kk = 0; kk < k; kk++)
                             g_value_unset (&values[kk]);
                           g_free (values);
-                          Py_DECREF (fast);
                           return -1;
                         }
                     }
@@ -361,11 +350,9 @@ pygi_py_to_c_array_invoke (PyObject *h,
                       for (Py_ssize_t kk = 0; kk < k; kk++)
                         g_value_unset (&values[kk]);
                       g_free (values);
-                      Py_DECREF (fast);
                       return -1;
                     }
                 }
-              Py_DECREF (fast);
               if (len_ti != NULL && gi_argument_set_length (len_ti, n, len_arg) != 0)
                 {
                   for (Py_ssize_t kk = 0; kk < n; kk++)
@@ -387,15 +374,13 @@ pygi_py_to_c_array_invoke (PyObject *h,
               int is_pointer_array = gi_type_info_is_pointer (elem_ti) || struct_size == 0;
               GType iface_gt = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)iface);
               int transfer_full = transfer == GI_TRANSFER_EVERYTHING;
-              PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+              Py_AUTO_DECREF PyObject *fast
+                  = PySequence_Fast ((PyObject *)(h), "expected a sequence");
               if (fast == NULL)
                 return -1;
               Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
               if (validate_fixed_size (n, fixed_size) != 0)
-                {
-                  Py_DECREF (fast);
-                  return -1;
-                }
+                return -1;
 
               char *buf;
               if (is_pointer_array)
@@ -419,7 +404,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                           if (transfer_full)
                             free_struct_pointer_array_items ((gpointer *)buf, k, iface_gt);
                           g_free (buf);
-                          Py_DECREF (fast);
                           return -1;
                         }
                       if (transfer_full && ptr != NULL)
@@ -436,14 +420,12 @@ pygi_py_to_c_array_invoke (PyObject *h,
                                   "transfer-full pointer struct array without copy semantics");
                               free_struct_pointer_array_items ((gpointer *)buf, k, iface_gt);
                               g_free (buf);
-                              Py_DECREF (fast);
                               return -1;
                             }
                           if (((gpointer *)buf)[k] == NULL)
                             {
                               free_struct_pointer_array_items ((gpointer *)buf, k, iface_gt);
                               g_free (buf);
-                              Py_DECREF (fast);
                               PyErr_NoMemory ();
                               return -1;
                             }
@@ -476,7 +458,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                             g_free (((gpointer *)buf)[kk]);
                         }
                       g_free (buf);
-                      Py_DECREF (fast);
                       return -1;
                     }
                   char *struct_buf;
@@ -484,11 +465,9 @@ pygi_py_to_c_array_invoke (PyObject *h,
                   if (pygi_struct_info_copy_py_attrs_to_buffer (item, iface, struct_buf) != 0)
                     {
                       g_free (buf);
-                      Py_DECREF (fast);
                       return -1;
                     }
                 }
-              Py_DECREF (fast);
               if (len_ti != NULL && gi_argument_set_length (len_ti, n, len_arg) != 0)
                 {
                   g_free (buf);
@@ -505,15 +484,13 @@ pygi_py_to_c_array_invoke (PyObject *h,
             {
               GType iface_gt = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)iface);
               int transfer_full = transfer == GI_TRANSFER_EVERYTHING;
-              PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+              Py_AUTO_DECREF PyObject *fast
+                  = PySequence_Fast ((PyObject *)(h), "expected a sequence");
               if (fast == NULL)
                 return -1;
               Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
               if (validate_fixed_size (n, fixed_size) != 0)
-                {
-                  Py_DECREF (fast);
-                  return -1;
-                }
+                return -1;
               gpointer *buf = n > 0 || zero_terminated
                                   ? g_new0 (gpointer, (gsize)n + (zero_terminated ? 1u : 0u))
                                   : NULL;
@@ -527,7 +504,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                       if (transfer_full)
                         unref_instantiatable_array_items (buf, k, iface_gt);
                       g_free (buf);
-                      Py_DECREF (fast);
                       return -1;
                     }
                   if (transfer_full && tmp.v_pointer != NULL)
@@ -537,7 +513,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                         {
                           unref_instantiatable_array_items (buf, k, iface_gt);
                           g_free (buf);
-                          Py_DECREF (fast);
                           return -1;
                         }
                       buf[k] = owned;
@@ -547,7 +522,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                       buf[k] = tmp.v_pointer;
                     }
                 }
-              Py_DECREF (fast);
               if (len_ti != NULL && gi_argument_set_length (len_ti, n, len_arg) != 0)
                 {
                   if (transfer_full)
@@ -580,15 +554,13 @@ pygi_py_to_c_array_invoke (PyObject *h,
           PyErr_SetString (PyExc_NotImplementedError, "nested array inner type not utf8");
           return -1;
         }
-      PyObject *fast_outer = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+      Py_AUTO_DECREF PyObject *fast_outer
+          = PySequence_Fast ((PyObject *)(h), "expected a sequence");
       if (fast_outer == NULL)
         return -1;
       Py_ssize_t no = PySequence_Fast_GET_SIZE (fast_outer);
       if (validate_fixed_size (no, fixed_size) != 0)
-        {
-          Py_DECREF (fast_outer);
-          return -1;
-        }
+        return -1;
       /* Allocate one extra slot for a NULL terminator (zero-terminated arrays). */
       gchar ***buf = g_new0 (gchar **, (gsize)(no + 1));
       for (Py_ssize_t k = 0; k < no; k++)
@@ -600,7 +572,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
               for (Py_ssize_t kk = 0; kk < k; kk++)
                 g_strfreev (buf[kk]);
               g_free (buf);
-              Py_DECREF (fast_outer);
               return -1;
             }
           Py_ssize_t ni = PySequence_Fast_GET_SIZE (fast_inner);
@@ -615,7 +586,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
                   for (Py_ssize_t kk = 0; kk < k; kk++)
                     g_strfreev (buf[kk]);
                   g_free (buf);
-                  Py_DECREF (fast_outer);
                   return -1;
                 }
               strv2[m] = g_strdup (s);
@@ -623,7 +593,6 @@ pygi_py_to_c_array_invoke (PyObject *h,
           Py_DECREF (fast_inner);
           buf[k] = strv2;
         }
-      Py_DECREF (fast_outer);
       if (len_ti != NULL && gi_argument_set_length (len_ti, no, len_arg) != 0)
         {
           for (Py_ssize_t kk = 0; kk < no; kk++)
@@ -729,20 +698,16 @@ pygi_py_to_c_array_invoke (PyObject *h,
       }
   }
 
-  PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
+  Py_AUTO_DECREF PyObject *fast = PySequence_Fast ((PyObject *)(h), "expected a sequence");
   if (fast == NULL)
     return -1;
   Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
   if (validate_fixed_size (n, fixed_size) != 0)
-    {
-      Py_DECREF (fast);
-      return -1;
-    }
+    return -1;
   gsize alloc_n = (gsize)n + (zero_terminated ? 1u : 0u);
   void *buf = alloc_n > 0 ? g_malloc0 (elem_size * alloc_n) : NULL;
   if (alloc_n > 0 && buf == NULL)
     {
-      Py_DECREF (fast);
       PyErr_NoMemory ();
       return -1;
     }
@@ -755,12 +720,10 @@ pygi_py_to_c_array_invoke (PyObject *h,
                                                  (char *)buf + (size_t)k * elem_size)
           != 0)
         {
-          Py_DECREF (fast);
           g_free (buf);
           return -1;
         }
     }
-  Py_DECREF (fast);
 
   if (len_ti != NULL && gi_argument_set_length (len_ti, n, len_arg) != 0)
     {

@@ -95,25 +95,16 @@ pygi_gobject_wrapper_factory (void)
 static PyObject *
 pygi_gobject_wrapper_type_for_gtype (GType wrapper_gtype)
 {
-  PyObject *factory = pygi_gobject_wrapper_factory ();
+  Py_AUTO_DECREF PyObject *factory = pygi_gobject_wrapper_factory ();
   if (factory == NULL)
     return NULL;
-  PyObject *gtype = PyLong_FromUnsignedLongLong ((unsigned long long)wrapper_gtype);
+  Py_AUTO_DECREF PyObject *gtype = PyLong_FromUnsignedLongLong ((unsigned long long)wrapper_gtype);
   if (gtype == NULL)
-    {
-      Py_DECREF (factory);
-      return NULL;
-    }
+    return NULL;
   PyObject *context = pygi_namespace_context ();
   if (context == NULL)
-    {
-      Py_DECREF (gtype);
-      Py_DECREF (factory);
-      return NULL;
-    }
+    return NULL;
   PyObject *type = PyObject_CallFunctionObjArgs (factory, gtype, context, NULL);
-  Py_DECREF (gtype);
-  Py_DECREF (factory);
   if (type == NULL)
     return NULL;
   if (!PyType_Check (type))
@@ -128,7 +119,7 @@ pygi_gobject_wrapper_type_for_gtype (GType wrapper_gtype)
 static int
 gobject_wrapper_type_is_python_defined (PyObject *type)
 {
-  PyObject *gimeta = NULL;
+  Py_AUTO_DECREF PyObject *gimeta = NULL;
   if (pygi_object_get_gimeta (type, &gimeta) < 0)
     return -1;
   if (gimeta == NULL)
@@ -136,20 +127,15 @@ gobject_wrapper_type_is_python_defined (PyObject *type)
       PyErr_Clear ();
       return 0;
     }
-  PyObject *gi_info = NULL;
+  Py_AUTO_DECREF PyObject *gi_info = NULL;
   if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
-    {
-      Py_DECREF (gimeta);
-      return -1;
-    }
-  Py_DECREF (gimeta);
+    return -1;
   if (gi_info == NULL)
     {
       PyErr_Clear ();
       return 0;
     }
   int is_python_defined = gi_info == Py_None;
-  Py_DECREF (gi_info);
   return is_python_defined;
 }
 
@@ -263,14 +249,13 @@ apply_construction_properties (GObject *object, PyObject *properties)
       Py_AUTO_DECREF PyObject *hyphen = PyUnicode_FromString ("-");
       if (underscore == NULL || hyphen == NULL)
         return -1;
-      PyObject *norm = PyUnicode_Replace (key, underscore, hyphen, -1);
+      Py_AUTO_DECREF PyObject *norm = PyUnicode_Replace (key, underscore, hyphen, -1);
       if (norm == NULL)
         return -1;
       const char *name = PyUnicode_AsUTF8 (norm);
       int r = name != NULL
                   ? pygi_gobject_set_property_on_object (object, name, value)
                   : -1;
-      Py_DECREF (norm);
       if (r != 0)
         return -1;
     }
@@ -344,20 +329,18 @@ wrap_gobject_with_type (GObject *object, GType wrapper_gtype, gboolean prealloca
     Py_RETURN_NONE;
   if (!G_IS_OBJECT (object))
     {
-      PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
+      Py_AUTO_DECREF PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
       if (type == NULL)
         return NULL;
       PyObject *fnd = pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, type);
-      Py_DECREF (type);
       return fnd;
     }
-  PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
+  Py_AUTO_DECREF PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
   if (type == NULL)
     return NULL;
   if (!PyType_IsSubtype ((PyTypeObject *)type, pygi_gobject_type))
     {
       PyErr_SetString (PyExc_TypeError, "Object.wrap hook returned a non-GObject type for GObject");
-      Py_DECREF (type);
       return NULL;
     }
 
@@ -366,7 +349,6 @@ wrap_gobject_with_type (GObject *object, GType wrapper_gtype, gboolean prealloca
     wrapper = gobject_new_preallocated_from_object (type, object, Py_None);
   else
     wrapper = gobject_new_bound_from_object (type, object, owns_ref);
-  Py_DECREF (type);
   return wrapper;
 }
 
@@ -729,8 +711,9 @@ GObject_repr (PyObject *self)
    * the pygobject "type at 0xADDR" form) that overrides this slot in compat
    * mode. */
   PyTypeObject *type = Py_TYPE (self);
-  PyObject *module = NULL, *stripped = NULL, *name = NULL;
-  PyObject *gimeta = NULL, *type_name = NULL, *result = NULL;
+  Py_AUTO_DECREF PyObject *module = NULL, *stripped = NULL, *name = NULL;
+  Py_AUTO_DECREF PyObject *gimeta = NULL, *type_name = NULL;
+  PyObject *result = NULL;
 
   module = PyType_GetModuleName (type);
   if (module == NULL || !PyUnicode_Check (module))
@@ -764,11 +747,6 @@ GObject_repr (PyObject *self)
     result = PyUnicode_FromFormat ("<%U.%U object at %p (%U)>", stripped, name,
                                    self, type_name);
 done:
-  Py_XDECREF (module);
-  Py_XDECREF (stripped);
-  Py_XDECREF (name);
-  Py_XDECREF (gimeta);
-  Py_XDECREF (type_name);
   return result;
 }
 
@@ -857,7 +835,7 @@ error:
 static int
 gobject_type_has_post_construct_hooks (PyObject *self)
 {
-  PyObject *gimeta = NULL;
+  Py_AUTO_DECREF PyObject *gimeta = NULL;
   if (pygi_object_get_gimeta ((PyObject *)Py_TYPE (self), &gimeta) < 0)
     return -1;
   if (gimeta == NULL)
@@ -865,13 +843,9 @@ gobject_type_has_post_construct_hooks (PyObject *self)
       PyErr_Clear ();
       return 0;
     }
-  PyObject *extensions;
+  Py_AUTO_DECREF PyObject *extensions = NULL;
   if (pygi_gimeta_get_extensions (gimeta, &extensions) < 0)
-    {
-      Py_DECREF (gimeta);
-      return -1;
-    }
-  Py_DECREF (gimeta);
+    return -1;
   if (extensions == NULL)
     {
       PyErr_Clear ();
@@ -888,7 +862,6 @@ gobject_type_has_post_construct_hooks (PyObject *self)
             result = 1;
         }
     }
-  Py_DECREF (extensions);
   return result;
 }
 
@@ -904,15 +877,13 @@ gobject_run_post_construct_hooks (PyObject *self)
       PyErr_SetString (PyExc_RuntimeError, "Object.post_init hook not registered");
       return -1;
     }
-  PyObject *empty = PyDict_New ();
+  Py_AUTO_DECREF PyObject *empty = PyDict_New ();
   if (empty == NULL)
     return -1;
-  PyObject *call_args = PyTuple_Pack (2, self, empty);
-  Py_DECREF (empty);
+  Py_AUTO_DECREF PyObject *call_args = PyTuple_Pack (2, self, empty);
   if (call_args == NULL)
     return -1;
   int rc = pygi_hook_call_all (pygi_hook_finish_construction, call_args);
-  Py_DECREF (call_args);
   return rc;
 }
 
@@ -988,11 +959,10 @@ GObject_init (PyObject *self, PyObject *args, PyObject *kwds)
           PyErr_SetString (PyExc_RuntimeError, "Object.post_init hook not registered");
           goto done;
         }
-      PyObject *call_args = PyTuple_Pack (2, self, finish_handlers);
+      Py_AUTO_DECREF PyObject *call_args = PyTuple_Pack (2, self, finish_handlers);
       if (call_args == NULL)
         goto done;
       int call_rc = pygi_hook_call_all (pygi_hook_finish_construction, call_args);
-      Py_DECREF (call_args);
       if (call_rc < 0)
         goto done;
     }
@@ -1020,11 +990,10 @@ GObject_getattro (PyObject *self, PyObject *name)
       PyErr_SetObject (PyExc_AttributeError, name);
       return NULL;
     }
-  PyObject *hook_args = PyTuple_Pack (2, self, name);
+  Py_AUTO_DECREF PyObject *hook_args = PyTuple_Pack (2, self, name);
   if (hook_args == NULL)
     return NULL;
   PyObject *hook_result = pygi_hook_call_first (pygi_hook_obj_getattr, hook_args);
-  Py_DECREF (hook_args);
   if (hook_result == NULL && PyErr_ExceptionMatches (PyExc_AttributeError))
     {
       PyErr_Clear ();
@@ -1047,10 +1016,9 @@ GObject_setattro (PyObject *self, PyObject *name, PyObject *value)
     return PyObject_GenericSetAttr (self, name, value);
   PyObject *handler = PyList_GET_ITEM (pygi_hook_obj_setattr,
                                        PyList_GET_SIZE (pygi_hook_obj_setattr) - 1);
-  PyObject *r = PyObject_CallFunctionObjArgs (handler, self, name, value, NULL);
+  Py_AUTO_DECREF PyObject *r = PyObject_CallFunctionObjArgs (handler, self, name, value, NULL);
   if (r == NULL)
     return -1;
-  Py_DECREF (r);
   return 0;
 }
 
@@ -1461,18 +1429,14 @@ pygi_expected_gobject_type_name (GType gtype)
       PyObject *cls = pygi_class_registry_get_pytype_for_gtype (gtype);
       if (cls != NULL)
         {
-          PyObject *module = PyType_GetModuleName ((PyTypeObject *)cls);
-          PyObject *name = PyType_GetName ((PyTypeObject *)cls);
+          Py_AUTO_DECREF PyObject *module = PyType_GetModuleName ((PyTypeObject *)cls);
+          Py_AUTO_DECREF PyObject *name = PyType_GetName ((PyTypeObject *)cls);
           if (module != NULL && name != NULL)
             {
               PyObject *qualified = PyUnicode_FromFormat ("%U.%U", module, name);
-              Py_DECREF (module);
-              Py_DECREF (name);
               if (qualified != NULL)
                 return qualified;
             }
-          Py_XDECREF (module);
-          Py_XDECREF (name);
           PyErr_Clear ();
         }
     }
@@ -1499,18 +1463,14 @@ pygi_actual_object_display (PyObject *actual)
   PyErr_Clear ();
 
   PyTypeObject *cls = Py_TYPE (actual);
-  PyObject *module = PyType_GetModuleName (cls);
-  PyObject *name = PyType_GetName (cls);
+  Py_AUTO_DECREF PyObject *module = PyType_GetModuleName (cls);
+  Py_AUTO_DECREF PyObject *name = PyType_GetName (cls);
   if (module != NULL && name != NULL)
     {
       PyObject *fallback
           = PyUnicode_FromFormat ("<%U.%U object at %p>", module, name, (void *)actual);
-      Py_DECREF (module);
-      Py_DECREF (name);
       return fallback;
     }
-  Py_XDECREF (module);
-  Py_XDECREF (name);
   PyErr_Clear ();
 
   return PyUnicode_FromFormat ("<%.200s object at %p>", Py_TYPE (actual)->tp_name, (void *)actual);
@@ -1542,7 +1502,7 @@ pygi_gobject_get (PyObject *wrapper)
 int
 pygi_raise_gobject_type_error (const char *expected, PyObject *actual)
 {
-  PyObject *actual_repr = pygi_actual_object_display (actual);
+  Py_AUTO_DECREF PyObject *actual_repr = pygi_actual_object_display (actual);
   if (actual_repr == NULL)
     return -1;
 
@@ -1550,7 +1510,6 @@ pygi_raise_gobject_type_error (const char *expected, PyObject *actual)
                 "expected a %s, but got %U",
                 expected != NULL ? expected : "GObject",
                 actual_repr);
-  Py_DECREF (actual_repr);
   return -1;
 }
 
@@ -1565,24 +1524,19 @@ pygi_raise_gobject_type_error_for_gtype_named (GType expected_gtype,
                                                PyObject *actual,
                                                const char *arg_name)
 {
-  PyObject *expected = pygi_expected_gobject_type_name (expected_gtype);
+  Py_AUTO_DECREF PyObject *expected = pygi_expected_gobject_type_name (expected_gtype);
   if (expected == NULL)
     return -1;
 
-  PyObject *actual_repr = pygi_actual_object_display (actual);
+  Py_AUTO_DECREF PyObject *actual_repr = pygi_actual_object_display (actual);
   if (actual_repr == NULL)
-    {
-      Py_DECREF (expected);
-      return -1;
-    }
+    return -1;
 
   if (arg_name != NULL)
     PyErr_Format (PyExc_TypeError, "%s: expected %U, but got %U",
                   arg_name, expected, actual_repr);
   else
     PyErr_Format (PyExc_TypeError, "expected a %U, but got %U", expected, actual_repr);
-  Py_DECREF (expected);
-  Py_DECREF (actual_repr);
   return -1;
 }
 
@@ -1617,11 +1571,10 @@ pygi_gobject_to_py_as_gtype (GObject *object, GType wrapper_gtype, GITransfer tr
 
   if (!G_IS_OBJECT (object))
     {
-      PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
+      Py_AUTO_DECREF PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
       if (type == NULL)
         return NULL;
       PyObject *fnd = pygi_fundamental_to_py (object, transfer, type);
-      Py_DECREF (type);
       return fnd;
     }
 
@@ -1698,11 +1651,10 @@ pygi_wrap_preallocated_gobject (GObject *object, GType wrapper_gtype)
     return Py_NewRef (Py_None);
   if (!G_IS_OBJECT (object))
     {
-      PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
+      Py_AUTO_DECREF PyObject *type = pygi_gobject_wrapper_type_for_gtype (wrapper_gtype);
       if (type == NULL)
         return NULL;
       PyObject *fnd = pygi_fundamental_to_py (object, GI_TRANSFER_NOTHING, type);
-      Py_DECREF (type);
       return fnd;
     }
   return wrap_gobject_with_type (object, wrapper_gtype, TRUE, FALSE);

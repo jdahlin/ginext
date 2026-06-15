@@ -23,6 +23,7 @@
 #include "marshal/marshal.h"
 #include "runtime/type-info.h"
 #include "gimeta-helpers.h"
+#include "common.h"
 
 #include <glib.h>
 #include <stdint.h>
@@ -39,29 +40,21 @@
 static int
 pygi_long_check_signed_bounds (PyObject *long_obj, long long min_v, long long max_v)
 {
-  PyObject *min_py = PyLong_FromLongLong (min_v);
+  Py_AUTO_DECREF PyObject *min_py = PyLong_FromLongLong (min_v);
   if (min_py == NULL)
     return -1;
-  PyObject *max_py = PyLong_FromLongLong (max_v);
+  Py_AUTO_DECREF PyObject *max_py = PyLong_FromLongLong (max_v);
   if (max_py == NULL)
-    {
-      Py_DECREF (min_py);
-      return -1;
-    }
+    return -1;
   int below = PyObject_RichCompareBool (long_obj, min_py, Py_LT);
   int above = below == 0 ? PyObject_RichCompareBool (long_obj, max_py, Py_GT) : 0;
-  Py_DECREF (min_py);
-  Py_DECREF (max_py);
   if (below < 0 || above < 0)
     return -1;
   if (below || above)
     {
-      PyObject *str = PyObject_Str (long_obj);
+      Py_AUTO_DECREF PyObject *str = PyObject_Str (long_obj);
       if (str != NULL)
-        {
-          PyErr_Format (PyExc_OverflowError, "%U not in range %lld to %lld", str, min_v, max_v);
-          Py_DECREF (str);
-        }
+        PyErr_Format (PyExc_OverflowError, "%U not in range %lld to %lld", str, min_v, max_v);
       return -1;
     }
   return 0;
@@ -70,29 +63,21 @@ pygi_long_check_signed_bounds (PyObject *long_obj, long long min_v, long long ma
 static int
 pygi_long_check_unsigned_bounds (PyObject *long_obj, unsigned long long max_v)
 {
-  PyObject *zero = PyLong_FromLong (0);
+  Py_AUTO_DECREF PyObject *zero = PyLong_FromLong (0);
   if (zero == NULL)
     return -1;
-  PyObject *max_py = PyLong_FromUnsignedLongLong (max_v);
+  Py_AUTO_DECREF PyObject *max_py = PyLong_FromUnsignedLongLong (max_v);
   if (max_py == NULL)
-    {
-      Py_DECREF (zero);
-      return -1;
-    }
+    return -1;
   int below = PyObject_RichCompareBool (long_obj, zero, Py_LT);
   int above = below == 0 ? PyObject_RichCompareBool (long_obj, max_py, Py_GT) : 0;
-  Py_DECREF (zero);
-  Py_DECREF (max_py);
   if (below < 0 || above < 0)
     return -1;
   if (below || above)
     {
-      PyObject *str = PyObject_Str (long_obj);
+      Py_AUTO_DECREF PyObject *str = PyObject_Str (long_obj);
       if (str != NULL)
-        {
-          PyErr_Format (PyExc_OverflowError, "%U not in range 0 to %llu", str, max_v);
-          Py_DECREF (str);
-        }
+        PyErr_Format (PyExc_OverflowError, "%U not in range 0 to %llu", str, max_v);
       return -1;
     }
   return 0;
@@ -179,16 +164,12 @@ int
 pygi_int8_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_8bit_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_8bit_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_signed_bounds (long_obj, INT8_MIN, INT8_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   long value = PyLong_AsLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == -1 && PyErr_Occurred ())
     return -1;
   out->v_int8 = (int8_t)value;
@@ -199,16 +180,12 @@ int
 pygi_uint8_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_8bit_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_8bit_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_unsigned_bounds (long_obj, UINT8_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   unsigned long value = PyLong_AsUnsignedLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == (unsigned long)-1 && PyErr_Occurred ())
     return -1;
   out->v_uint8 = (uint8_t)value;
@@ -219,16 +196,12 @@ int
 pygi_int16_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_signed_bounds (long_obj, INT16_MIN, INT16_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   long value = PyLong_AsLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == -1 && PyErr_Occurred ())
     return -1;
   out->v_int16 = (int16_t)value;
@@ -239,16 +212,12 @@ int
 pygi_uint16_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_unsigned_bounds (long_obj, UINT16_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   unsigned long value = PyLong_AsUnsignedLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == (unsigned long)-1 && PyErr_Occurred ())
     return -1;
   out->v_uint16 = (uint16_t)value;
@@ -259,16 +228,12 @@ int
 pygi_int32_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_signed_bounds (long_obj, INT32_MIN, INT32_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   long value = PyLong_AsLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == -1 && PyErr_Occurred ())
     return -1;
   out->v_int32 = (int32_t)value;
@@ -279,16 +244,12 @@ int
 pygi_uint32_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_unsigned_bounds (long_obj, UINT32_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   unsigned long value = PyLong_AsUnsignedLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == (unsigned long)-1 && PyErr_Occurred ())
     return -1;
   out->v_uint32 = (uint32_t)value;
@@ -303,16 +264,12 @@ int
 pygi_int64_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_signed_bounds (long_obj, INT64_MIN, INT64_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   long long value = PyLong_AsLongLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == -1 && PyErr_Occurred ())
     return -1;
   out->v_int64 = (int64_t)value;
@@ -323,16 +280,12 @@ int
 pygi_uint64_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  PyObject *long_obj = pygi_pyobj_to_long_object (h);
+  Py_AUTO_DECREF PyObject *long_obj = pygi_pyobj_to_long_object (h);
   if (long_obj == NULL)
     return -1;
   if (pygi_long_check_unsigned_bounds (long_obj, UINT64_MAX) != 0)
-    {
-      Py_DECREF (long_obj);
-      return -1;
-    }
+    return -1;
   unsigned long long value = PyLong_AsUnsignedLongLong (long_obj);
-  Py_DECREF (long_obj);
   if (value == (unsigned long long)-1 && PyErr_Occurred ())
     return -1;
   out->v_uint64 = (uint64_t)value;

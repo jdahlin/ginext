@@ -16,6 +16,7 @@
 
 /* array.c - Non-C GI_TYPE_TAG_ARRAY (GArray, GPtrArray, GByteArray). */
 #include "GLib/Array.h"
+#include "common.h"
 #include "GObject/Boxed.h"
 #include "GObject/Object-info.h"
 #include "marshal/container-element.h"
@@ -144,7 +145,7 @@ pygi_garray_from_py (PyObject *value,
       return 0;
     }
 
-  PyObject *fast = PySequence_Fast (value, "expected a sequence");
+  Py_AUTO_DECREF PyObject *fast = PySequence_Fast (value, "expected a sequence");
   if (fast == NULL)
     return -1;
   Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
@@ -154,7 +155,6 @@ pygi_garray_from_py (PyObject *value,
       if (n == 0)
         {
           GPtrArray *pa = g_ptr_array_new ();
-          Py_DECREF (fast);
           dest->v_pointer = pa;
           cleanup->kind = (transfer == GI_TRANSFER_NOTHING) ? PYGI_ARG_CLEANUP_GPTR_ARRAY
                                                             : PYGI_ARG_CLEANUP_NONE;
@@ -174,7 +174,6 @@ pygi_garray_from_py (PyObject *value,
       if (elem_tag != GI_TYPE_TAG_UTF8 && elem_tag != GI_TYPE_TAG_FILENAME && !is_object_elem
           && !is_boxed_elem)
         {
-          Py_DECREF (fast);
           PyErr_SetString (PyExc_NotImplementedError, "GPtrArray element type not supported");
           return -1;
         }
@@ -189,7 +188,6 @@ pygi_garray_from_py (PyObject *value,
                 {
                   if (pygi_object_info_from_py (item, &tmp) != 0)
                     {
-                      Py_DECREF (fast);
                       g_ptr_array_unref (pa);
                       return -1;
                     }
@@ -198,14 +196,12 @@ pygi_garray_from_py (PyObject *value,
                 {
                   if (pygi_boxed_get (item, &tmp.v_pointer) != 0)
                     {
-                      Py_DECREF (fast);
                       g_ptr_array_unref (pa);
                       return -1;
                     }
                 }
               g_ptr_array_add (pa, tmp.v_pointer);
             }
-          Py_DECREF (fast);
           dest->v_pointer = pa;
           cleanup->kind = (transfer == GI_TRANSFER_NOTHING) ? PYGI_ARG_CLEANUP_GPTR_ARRAY
                                                             : PYGI_ARG_CLEANUP_NONE;
@@ -216,7 +212,6 @@ pygi_garray_from_py (PyObject *value,
       if (pygi_container_element_init (&element, elem_ti) != 0 || !element.is_string
           || !pygi_container_element_can_use_pointer_slot (&element))
         {
-          Py_DECREF (fast);
           PyErr_SetString (PyExc_NotImplementedError, "GPtrArray element type not supported");
           return -1;
         }
@@ -228,13 +223,11 @@ pygi_garray_from_py (PyObject *value,
           gpointer ptr = NULL;
           if (pygi_container_element_pointer_from_py (&element, item, transfer, &ptr) != 0)
             {
-              Py_DECREF (fast);
               g_ptr_array_unref (pa);
               return -1;
             }
           g_ptr_array_add (pa, ptr);
         }
-      Py_DECREF (fast);
       dest->v_pointer = pa;
       cleanup->kind
           = (transfer == GI_TRANSFER_NOTHING) ? PYGI_ARG_CLEANUP_GPTR_ARRAY : PYGI_ARG_CLEANUP_NONE;
@@ -247,7 +240,6 @@ pygi_garray_from_py (PyObject *value,
   if (elem_tag == GI_TYPE_TAG_ARRAY || elem_tag == GI_TYPE_TAG_GLIST
       || elem_tag == GI_TYPE_TAG_GSLIST || elem_tag == GI_TYPE_TAG_GHASH)
     {
-      Py_DECREF (fast);
       gpointer boxed_ptr = NULL;
       if (pygi_boxed_get (value, &boxed_ptr) == 0)
         {
@@ -265,14 +257,12 @@ pygi_garray_from_py (PyObject *value,
   PyGIContainerElement element;
   if (pygi_container_element_init (&element, elem_ti) != 0)
     {
-      Py_DECREF (fast);
       PyErr_SetString (PyExc_NotImplementedError, "GArray element type not supported");
       return -1;
     }
   gsize elem_size = pygi_container_element_inline_size (&element);
   if (elem_size == 0)
     {
-      Py_DECREF (fast);
       PyErr_SetString (PyExc_NotImplementedError, "GArray element type not supported");
       return -1;
     }
@@ -287,13 +277,11 @@ pygi_garray_from_py (PyObject *value,
                                                  buf)
           != 0)
         {
-          Py_DECREF (fast);
           g_array_unref (ga);
           return -1;
         }
       g_array_append_vals (ga, buf, 1);
     }
-  Py_DECREF (fast);
   dest->v_pointer = ga;
   cleanup->kind
       = (transfer == GI_TRANSFER_NOTHING) ? PYGI_ARG_CLEANUP_GARRAY : PYGI_ARG_CLEANUP_NONE;

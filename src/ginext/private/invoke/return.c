@@ -17,6 +17,7 @@
 /* invoke/return.c - shape the return value + OUT params of a finished GI
  * invocation into a single Python value (or tuple). */
 #include "invoke/return.h"
+#include "common.h"
 #include "GObject/hooks.h"
 
 #include "GObject/Boxed.h"
@@ -38,34 +39,24 @@ build_named_pair_namespace (const char *name0,
   static PyObject *sns_cls = NULL;
   if (sns_cls == NULL)
     {
-      PyObject *types_mod = PyImport_ImportModule ("types");
+      Py_AUTO_DECREF PyObject *types_mod = PyImport_ImportModule ("types");
       if (types_mod == NULL)
         return NULL;
       sns_cls = PyObject_GetAttrString (types_mod, "SimpleNamespace");
-      Py_DECREF (types_mod);
       if (sns_cls == NULL)
         return NULL;
     }
 
-  PyObject *kwargs = PyDict_New ();
+  Py_AUTO_DECREF PyObject *kwargs = PyDict_New ();
   if (kwargs == NULL)
     return NULL;
   if (PyDict_SetItemString (kwargs, name0, value0) < 0
       || PyDict_SetItemString (kwargs, name1, value1) < 0)
-    {
-      Py_DECREF (kwargs);
-      return NULL;
-    }
-  PyObject *empty = PyTuple_New (0);
+    return NULL;
+  Py_AUTO_DECREF PyObject *empty = PyTuple_New (0);
   if (empty == NULL)
-    {
-      Py_DECREF (kwargs);
-      return NULL;
-    }
-  PyObject *result = PyObject_Call (sns_cls, empty, kwargs);
-  Py_DECREF (empty);
-  Py_DECREF (kwargs);
-  return result;
+    return NULL;
+  return PyObject_Call (sns_cls, empty, kwargs);
 }
 
 static PyObject *
@@ -225,13 +216,11 @@ build_visible_out_tuple (GICallableInfo *cb,
   Py_ssize_t pos = 0;
   Py_ssize_t prefix_count = prefix_item != NULL ? 1 : 0;
   Py_ssize_t tuple_len = (Py_ssize_t)n_visible + prefix_count;
-  PyObject *tup = PyTuple_New (tuple_len);
-  PyObject *names = PyList_New (tuple_len);
+  Py_AUTO_DECREF PyObject *tup = PyTuple_New (tuple_len);
+  Py_AUTO_DECREF PyObject *names = PyList_New (tuple_len);
   if (tup == NULL || names == NULL)
     {
       Py_XDECREF (prefix_item);
-      Py_XDECREF (tup);
-      Py_XDECREF (names);
       return NULL;
     }
 
@@ -257,21 +246,13 @@ build_visible_out_tuple (GICallableInfo *cb,
                                        in_len_ti,
                                        in_args);
       if (item == NULL)
-        {
-          Py_DECREF (tup);
-          Py_DECREF (names);
-          return NULL;
-        }
+        return NULL;
       PyTuple_SET_ITEM (tup, pos++, item);
       if (out_slots[j].arg_name != NULL)
         {
           PyObject *name = PyUnicode_FromString (out_slots[j].arg_name);
           if (name == NULL)
-            {
-              Py_DECREF (tup);
-              Py_DECREF (names);
-              return NULL;
-            }
+            return NULL;
           PyList_SET_ITEM (names, pos - 1, name);
         }
       else
@@ -281,18 +262,11 @@ build_visible_out_tuple (GICallableInfo *cb,
         }
     }
 
-  PyObject *tuple_type = build_result_tuple_type (names);
-  Py_DECREF (names);
+  Py_AUTO_DECREF PyObject *tuple_type = build_result_tuple_type (names);
   if (tuple_type == NULL)
-    {
-      Py_DECREF (tup);
-      return NULL;
-    }
+    return NULL;
 
-  PyObject *result = PyObject_CallOneArg (tuple_type, tup);
-  Py_DECREF (tuple_type);
-  Py_DECREF (tup);
-  return result;
+  return PyObject_CallOneArg (tuple_type, tup);
 }
 
 PyObject *

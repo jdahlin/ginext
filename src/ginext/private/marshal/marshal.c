@@ -40,6 +40,7 @@
 #include "GObject/Object-info.h"
 #include "GObject/Object-class.h"
 #include "GLib/Variant.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -308,7 +309,7 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
         }
       PyErr_Clear ();
       GType regex_gtype = g_regex_get_type ();
-      PyObject *coerced = pygi_call_coercion (regex_gtype, obj);
+      Py_AUTO_DECREF PyObject *coerced = pygi_call_coercion (regex_gtype, obj);
       if (coerced == NULL)
         {
           if (!PyErr_Occurred ())
@@ -322,14 +323,12 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
       pygi_boxed_get (coerced, &boxed_ptr);
       if (boxed_ptr == NULL)
         {
-          Py_DECREF (coerced);
           if (!PyErr_Occurred ())
             PyErr_SetString (PyExc_TypeError,
                              "GLib.Regex coercion did not return a boxed wrapper");
           return -1;
         }
       out->v_pointer = g_regex_ref ((GRegex *)boxed_ptr);
-      Py_DECREF (coerced);
       return 0;
     }
   /* GLib.DateTime/Date/TimeZone: accept the matching stdlib datetime object,
@@ -407,7 +406,7 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
           out->v_pointer = NULL;
           return 0;
         }
-      PyObject *fast = PySequence_Fast (obj, "expected a sequence");
+      Py_AUTO_DECREF PyObject *fast = PySequence_Fast (obj, "expected a sequence");
       if (fast == NULL)
         return -1;
       Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
@@ -426,7 +425,6 @@ interface_from_py (PyObject *h, GITypeInfo *ti, GITransfer transfer, GIArgument 
               g_ptr_array_add (pa, NULL);
             }
         }
-      Py_DECREF (fast);
       out->v_pointer = pa;
       return 0;
     }

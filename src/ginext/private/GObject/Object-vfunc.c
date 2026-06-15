@@ -23,6 +23,7 @@
 
 #include "GObject/Closure.h"
 #include "GIRepository/BaseInfo.h"
+#include "common.h"
 #include "gimeta-helpers.h"
 
 static GIObjectInfo *
@@ -238,7 +239,7 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
 {
   *container_out = NULL;
 
-  PyObject *mro = python_class_mro (cls);
+  Py_AUTO_DECREF PyObject *mro = python_class_mro (cls);
   if (mro == NULL)
     return NULL;
 
@@ -248,10 +249,7 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
       PyObject *base_cls = PyTuple_GET_ITEM (mro, i);
       PyObject *gimeta = NULL;
       if (pygi_object_get_gimeta (base_cls, &gimeta) < 0)
-        {
-          Py_DECREF (mro);
-          return NULL;
-        }
+        return NULL;
       if (gimeta == NULL)
         continue;
 
@@ -259,7 +257,6 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
       if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
         {
           Py_DECREF (gimeta);
-          Py_DECREF (mro);
           return NULL;
         }
       Py_DECREF (gimeta);
@@ -285,7 +282,6 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
                   && match_explicit_vfunc_name ((GIBaseInfo *)obj, vfunc, python_name))
                 {
                   *container_out = gi_base_info_ref ((GIBaseInfo *)obj);
-                  Py_DECREF (mro);
                   return (GIVFuncInfo *)gi_base_info_ref ((GIBaseInfo *)vfunc);
                 }
             }
@@ -294,10 +290,7 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
       g_autoptr (GIInterfaceInfo) iface = NULL;
       int interface_result = interface_info_from_python_base (base_cls, &iface);
       if (interface_result < 0)
-        {
-          Py_DECREF (mro);
-          return NULL;
-        }
+        return NULL;
       if (interface_result > 0)
         {
           unsigned int n_vfuncs = gi_interface_info_get_n_vfuncs (iface);
@@ -308,14 +301,12 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
                   && match_explicit_vfunc_name ((GIBaseInfo *)iface, vfunc, python_name))
                 {
                   *container_out = gi_base_info_ref ((GIBaseInfo *)iface);
-                  Py_DECREF (mro);
                   return (GIVFuncInfo *)gi_base_info_ref ((GIBaseInfo *)vfunc);
                 }
             }
         }
     }
 
-  Py_DECREF (mro);
   return NULL;
 }
 
@@ -326,7 +317,7 @@ find_vfunc_in_python_interface_bases (PyObject *cls,
 {
   *container_out = NULL;
 
-  PyObject *mro = python_class_mro (cls);
+  Py_AUTO_DECREF PyObject *mro = python_class_mro (cls);
   if (mro == NULL)
     return NULL;
 
@@ -337,10 +328,7 @@ find_vfunc_in_python_interface_bases (PyObject *cls,
       g_autoptr (GIInterfaceInfo) iface = NULL;
       int interface_result = interface_info_from_python_base (base_cls, &iface);
       if (interface_result < 0)
-        {
-          Py_DECREF (mro);
-          return NULL;
-        }
+        return NULL;
       if (interface_result <= 0)
         continue;
 
@@ -348,12 +336,10 @@ find_vfunc_in_python_interface_bases (PyObject *cls,
       if (vfunc != NULL)
         {
           *container_out = gi_base_info_ref ((GIBaseInfo *)iface);
-          Py_DECREF (mro);
           return vfunc;
         }
     }
 
-  Py_DECREF (mro);
   return NULL;
 }
 
