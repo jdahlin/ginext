@@ -115,6 +115,9 @@ resolve_call_args (PyGICallableDescriptor *d,
                    PyObject *args_in,
                    Py_ssize_t args_offset,
                    PyObject *kwargs_in);
+static int
+descriptor_visible_arg_is_nullable_or_optional (PyGIMethodDescriptor *d,
+                                                Py_ssize_t visible_index);
 
 static gboolean
 callback_return_type_is_supported (GITypeInfo *type_info, GITransfer transfer)
@@ -2323,6 +2326,13 @@ resolve_call_args (PyGICallableDescriptor *d,
     {
       if (PyTuple_GET_ITEM (merged, self_pad + i) == NULL)
         {
+          if (descriptor_visible_arg_is_nullable_or_optional (d, i))
+            {
+              Py_INCREF (Py_None);
+              PyTuple_SET_ITEM (merged, self_pad + i, Py_None);
+              continue;
+            }
+
           PyErr_Format (PyExc_TypeError,
                         "%s() takes exactly %zd non-keyword arguments (%zd given)",
                         descriptor_bare_name (d),
@@ -2336,6 +2346,27 @@ resolve_call_args (PyGICallableDescriptor *d,
   if (user_data != NULL)
     PyTuple_SET_ITEM (merged, self_pad + n_payload, user_data); /* steals */
   return merged;
+}
+
+static int
+descriptor_visible_arg_is_nullable_or_optional (PyGIMethodDescriptor *d, Py_ssize_t visible_index)
+{
+  if (d == NULL || d->compiled == NULL || visible_index < 0)
+    return 0;
+
+  const PyGIInvokePlan *plan = &d->compiled->invoke_plan;
+  Py_ssize_t current = 0;
+  for (size_t i = 0; i < plan->n_gi_args; i++)
+    {
+      const PyGIArgPlan *arg = &plan->args[i];
+      if (!arg->consumes_py_arg || arg->py_arg_index < 0)
+        continue;
+      if (current == visible_index)
+        return arg->nullable_or_optional ? 1 : 0;
+      current++;
+    }
+
+  return 0;
 }
 
 static PyObject *
