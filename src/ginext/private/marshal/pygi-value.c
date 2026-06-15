@@ -412,14 +412,12 @@ pygi_memory_from_py (PyObject *py, const PyGIType *type, void *memory)
     {
     case GI_TYPE_TAG_VOID:
       {
-        if (py == Py_None)
+        if (py != Py_None)
           {
-            *(gpointer *)memory = NULL;
-            return 0;
+            PyErr_SetString (PyExc_TypeError, "expected None for opaque (void *) field");
+            return -1;
           }
-        *(gpointer *)memory = PyLong_AsVoidPtr (py);
-        if (PyErr_Occurred ())
-          return -1;
+        *(gpointer *)memory = NULL;
         return 0;
       }
     case GI_TYPE_TAG_UTF8:
@@ -480,6 +478,8 @@ pygi_memory_to_py (const PyGIType *type, const void *memory)
     case GI_TYPE_TAG_VOID:
       {
         gpointer ptr = *(gpointer const *)memory;
+        if (ptr == NULL)
+          Py_RETURN_NONE;
         return PyLong_FromVoidPtr (ptr);
       }
     default:
