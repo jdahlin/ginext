@@ -102,6 +102,9 @@ pygi_long_check_unsigned_bounds (PyObject *long_obj, unsigned long long max_v)
 static int
 pygi_float_check_bounds (PyObject *obj, double value, double min_v, double max_v)
 {
+  if (isnan (value))
+    return 0;
+
   if (!isfinite (value) || value < min_v || value > max_v)
     {
       PyObject *str = PyObject_Str (obj);
