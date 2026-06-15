@@ -676,6 +676,12 @@ pygi_py_to_c_array_invoke (PyObject *h,
                            || elem_tag == GI_TYPE_TAG_INT32 || elem_tag == GI_TYPE_TAG_UINT32
                            || elem_tag == GI_TYPE_TAG_INT64 || elem_tag == GI_TYPE_TAG_UINT64
                            || elem_tag == GI_TYPE_TAG_FLOAT || elem_tag == GI_TYPE_TAG_DOUBLE);
+    if (elem_tag == GI_TYPE_TAG_UINT8 && PyUnicode_Check ((PyObject *)h))
+      {
+        PyErr_SetString (PyExc_TypeError,
+                         "Unable to marshal str as an array, use .encode() to convert to bytes");
+        return -1;
+      }
     if (pod_scalar && !gi_type_info_is_pointer (elem_ti) && PyObject_CheckBuffer ((PyObject *)h))
       {
         Py_buffer view;
