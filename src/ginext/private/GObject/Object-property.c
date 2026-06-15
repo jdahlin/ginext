@@ -94,14 +94,14 @@ object_info_for_gtype (GIRepository *repo, GType gtype)
     return NULL;
 
   PyObject *gimeta = NULL;
-  if (PyObject_GetOptionalAttrString (cls, "gimeta", &gimeta) < 0 || gimeta == NULL)
+  if (pygi_object_get_gimeta (cls, &gimeta) < 0 || gimeta == NULL)
     {
       Py_XDECREF (gimeta);
       return NULL;
     }
 
   PyObject *gi_info_obj = NULL;
-  if (PyObject_GetOptionalAttrString (gimeta, "gi_info", &gi_info_obj) < 0)
+  if (pygi_gimeta_get_gi_info (gimeta, &gi_info_obj) < 0)
     {
       Py_DECREF (gimeta);
       return NULL;

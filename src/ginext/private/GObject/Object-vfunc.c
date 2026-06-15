@@ -23,26 +23,35 @@
 
 #include "GObject/Closure.h"
 #include "GIRepository/BaseInfo.h"
+#include "gimeta-helpers.h"
 
 static GIObjectInfo *
 object_info_from_python_class (PyObject *cls)
 {
-  PyObject *mro = PyObject_GetAttrString (cls, "__mro__");
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "cls is not a type");
+      return NULL;
+    }
+  PyObject *mro = ((PyTypeObject *)cls)->tp_mro;
   if (mro == NULL)
-    return NULL;
+    {
+      PyErr_SetString (PyExc_TypeError, "__mro__ is not initialized");
+      return NULL;
+    }
   if (!PyTuple_Check (mro))
     {
-      Py_DECREF (mro);
       PyErr_SetString (PyExc_TypeError, "__mro__ is not a tuple");
       return NULL;
     }
+  Py_INCREF (mro);
 
   Py_ssize_t n = PyTuple_GET_SIZE (mro);
   for (Py_ssize_t i = 0; i < n; i++)
     {
       PyObject *base = PyTuple_GET_ITEM (mro, i);
       PyObject *gimeta = NULL;
-      if (PyObject_GetOptionalAttrString (base, "gimeta", &gimeta) < 0)
+      if (pygi_object_get_gimeta (base, &gimeta) < 0)
         {
           Py_DECREF (mro);
           return NULL;
@@ -51,7 +60,7 @@ object_info_from_python_class (PyObject *cls)
         continue;
 
       PyObject *gi_info = NULL;
-      if (PyObject_GetOptionalAttrString (gimeta, "gi_info", &gi_info) < 0)
+      if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
         {
           Py_DECREF (gimeta);
           Py_DECREF (mro);
@@ -83,13 +92,13 @@ interface_info_from_python_base (PyObject *base, GIInterfaceInfo **out)
   *out = NULL;
 
   PyObject *gimeta = NULL;
-  if (PyObject_GetOptionalAttrString (base, "gimeta", &gimeta) < 0)
+  if (pygi_object_get_gimeta (base, &gimeta) < 0)
     return -1;
   if (gimeta == NULL)
     return 0;
 
   PyObject *gi_info = NULL;
-  if (PyObject_GetOptionalAttrString (gimeta, "gi_info", &gi_info) < 0)
+  if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
     {
       Py_DECREF (gimeta);
       return -1;
@@ -203,16 +212,23 @@ gi_object_info_get_parent_ref (GIObjectInfo *info)
 static PyObject *
 python_class_mro (PyObject *cls)
 {
-  PyObject *mro = PyObject_GetAttrString (cls, "__mro__");
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "cls is not a type");
+      return NULL;
+    }
+  PyObject *mro = ((PyTypeObject *)cls)->tp_mro;
   if (mro == NULL)
-    return NULL;
+    {
+      PyErr_SetString (PyExc_TypeError, "__mro__ is not initialized");
+      return NULL;
+    }
   if (!PyTuple_Check (mro))
     {
-      Py_DECREF (mro);
       PyErr_SetString (PyExc_TypeError, "__mro__ is not a tuple");
       return NULL;
     }
-  return mro;
+  return Py_NewRef (mro);
 }
 
 static GIVFuncInfo *
@@ -231,7 +247,7 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
     {
       PyObject *base_cls = PyTuple_GET_ITEM (mro, i);
       PyObject *gimeta = NULL;
-      if (PyObject_GetOptionalAttrString (base_cls, "gimeta", &gimeta) < 0)
+      if (pygi_object_get_gimeta (base_cls, &gimeta) < 0)
         {
           Py_DECREF (mro);
           return NULL;
@@ -240,7 +256,7 @@ find_explicit_vfunc_for_python_name (PyObject *cls,
         continue;
 
       PyObject *gi_info = NULL;
-      if (PyObject_GetOptionalAttrString (gimeta, "gi_info", &gi_info) < 0)
+      if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
         {
           Py_DECREF (gimeta);
           Py_DECREF (mro);

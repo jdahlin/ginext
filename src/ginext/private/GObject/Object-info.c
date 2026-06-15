@@ -21,6 +21,7 @@
 #include "GObject/Object.h"
 #include "GObject/ObjectMeta.h"
 #include "GObject/GIMeta.h"
+#include "gimeta-helpers.h"
 #include "marshal/conversion.h"
 #include "marshal/enum.h"
 #include "runtime/class-registry.h"
@@ -127,13 +128,20 @@ pygi_gobject_wrapper_type_for_gtype (GType wrapper_gtype)
 static int
 gobject_wrapper_type_is_python_defined (PyObject *type)
 {
-  PyObject *gimeta = PyObject_GetAttrString (type, "gimeta");
+  PyObject *gimeta = NULL;
+  if (pygi_object_get_gimeta (type, &gimeta) < 0)
+    return -1;
   if (gimeta == NULL)
     {
       PyErr_Clear ();
       return 0;
     }
-  PyObject *gi_info = PyObject_GetAttrString (gimeta, "gi_info");
+  PyObject *gi_info = NULL;
+  if (pygi_gimeta_get_gi_info (gimeta, &gi_info) < 0)
+    {
+      Py_DECREF (gimeta);
+      return -1;
+    }
   Py_DECREF (gimeta);
   if (gi_info == NULL)
     {
@@ -251,7 +259,11 @@ apply_construction_properties (GObject *object, PyObject *properties)
   PyObject *value = NULL;
   while (PyDict_Next (properties, &pos, &key, &value))
     {
-      PyObject *norm = PyObject_CallMethod (key, "replace", "ss", "_", "-");
+      Py_AUTO_DECREF PyObject *underscore = PyUnicode_FromString ("_");
+      Py_AUTO_DECREF PyObject *hyphen = PyUnicode_FromString ("-");
+      if (underscore == NULL || hyphen == NULL)
+        return -1;
+      PyObject *norm = PyUnicode_Replace (key, underscore, hyphen, -1);
       if (norm == NULL)
         return -1;
       const char *name = PyUnicode_AsUTF8 (norm);
@@ -716,11 +728,11 @@ GObject_repr (PyObject *self)
   /* Native repr. The gi-compat layer installs its own __repr__ overlay (with
    * the pygobject "type at 0xADDR" form) that overrides this slot in compat
    * mode. */
-  PyObject *type = (PyObject *)Py_TYPE (self);
+  PyTypeObject *type = Py_TYPE (self);
   PyObject *module = NULL, *stripped = NULL, *name = NULL;
   PyObject *gimeta = NULL, *type_name = NULL, *result = NULL;
 
-  module = PyObject_GetAttrString (type, "__module__");
+  module = PyType_GetModuleName (type);
   if (module == NULL || !PyUnicode_Check (module))
     {
       PyErr_Clear ();
@@ -729,24 +741,19 @@ GObject_repr (PyObject *self)
       if (module == NULL)
         return NULL;
     }
-  stripped = PyObject_CallMethod (module, "removeprefix", "s", "ginext.");
-  if (stripped == NULL)
-    goto done;
-  Py_SETREF (stripped,
-             PyObject_CallMethod (stripped, "removeprefix", "s", "gi.repository."));
+  stripped = pygi_strip_known_module_prefixes (module);
   if (stripped == NULL)
     goto done;
 
-  name = PyObject_GetAttrString (type, "__name__");
+  name = PyType_GetName (type);
   if (name == NULL)
     goto done;
-  gimeta = PyObject_GetAttrString (type, "gimeta");
+  if (pygi_object_get_gimeta ((PyObject *)type, &gimeta) < 0)
+    goto done;
   if (gimeta == NULL)
     goto done;
-  if (PyObject_TypeCheck (gimeta, &GIMetaType))
-    type_name = Py_XNewRef (((GIMetaObject *)gimeta)->type_name);
-  else
-    type_name = PyObject_GetAttrString (gimeta, "type_name");
+  if (pygi_gimeta_get_type_name (gimeta, &type_name) < 0)
+    goto done;
   if (type_name == NULL)
     goto done;
 
@@ -850,17 +857,20 @@ error:
 static int
 gobject_type_has_post_construct_hooks (PyObject *self)
 {
-  PyObject *gimeta = PyObject_GetAttrString ((PyObject *)Py_TYPE (self), "gimeta");
+  PyObject *gimeta = NULL;
+  if (pygi_object_get_gimeta ((PyObject *)Py_TYPE (self), &gimeta) < 0)
+    return -1;
   if (gimeta == NULL)
     {
       PyErr_Clear ();
       return 0;
     }
   PyObject *extensions;
-  if (PyObject_TypeCheck (gimeta, &GIMetaType))
-    extensions = Py_XNewRef (((GIMetaObject *)gimeta)->extensions);
-  else
-    extensions = PyObject_GetAttrString (gimeta, "extensions");
+  if (pygi_gimeta_get_extensions (gimeta, &extensions) < 0)
+    {
+      Py_DECREF (gimeta);
+      return -1;
+    }
   Py_DECREF (gimeta);
   if (extensions == NULL)
     {
@@ -1451,8 +1461,8 @@ pygi_expected_gobject_type_name (GType gtype)
       PyObject *cls = pygi_class_registry_get_pytype_for_gtype (gtype);
       if (cls != NULL)
         {
-          PyObject *module = PyObject_GetAttrString (cls, "__module__");
-          PyObject *name = PyObject_GetAttrString (cls, "__name__");
+          PyObject *module = PyType_GetModuleName ((PyTypeObject *)cls);
+          PyObject *name = PyType_GetName ((PyTypeObject *)cls);
           if (module != NULL && name != NULL)
             {
               PyObject *qualified = PyUnicode_FromFormat ("%U.%U", module, name);
@@ -1488,9 +1498,9 @@ pygi_actual_object_display (PyObject *actual)
 
   PyErr_Clear ();
 
-  PyObject *cls = (PyObject *)Py_TYPE (actual);
-  PyObject *module = PyObject_GetAttrString (cls, "__module__");
-  PyObject *name = PyObject_GetAttrString (cls, "__name__");
+  PyTypeObject *cls = Py_TYPE (actual);
+  PyObject *module = PyType_GetModuleName (cls);
+  PyObject *name = PyType_GetName (cls);
   if (module != NULL && name != NULL)
     {
       PyObject *fallback

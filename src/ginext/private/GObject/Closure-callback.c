@@ -335,34 +335,9 @@ callback_inspect_arity (PyObject *callable)
       return -1;
     }
 
-  PyObject *code = PyFunction_GET_CODE (func); /* borrowed */
-  PyObject *argcount_obj = PyObject_GetAttrString (code, "co_argcount");
-  if (argcount_obj == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  long argcount = PyLong_AsLong (argcount_obj);
-  Py_DECREF (argcount_obj);
-  if (argcount < 0)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-
-  PyObject *flags_obj = PyObject_GetAttrString (code, "co_flags");
-  if (flags_obj == NULL)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
-  long flags = PyLong_AsLong (flags_obj);
-  Py_DECREF (flags_obj);
-  if (flags < 0)
-    {
-      PyErr_Clear ();
-      return -1;
-    }
+  PyCodeObject *code = (PyCodeObject *)PyFunction_GET_CODE (func); /* borrowed */
+  long argcount = code->co_argcount;
+  long flags = code->co_flags;
 
   /* CO_VARARGS = 0x04 — callable accepts *args, arity is unlimited. */
   if (flags & 0x04)
@@ -1436,4 +1411,3 @@ PyType_Spec ReverseCallback_spec = {
   .flags = Py_TPFLAGS_DEFAULT,
   .slots = ReverseCallback_slots,
 };
-

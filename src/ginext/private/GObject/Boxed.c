@@ -51,18 +51,28 @@ profile_name_from_object (PyObject *obj)
     {
       PyErr_Clear ();
       PyObject *type = (PyObject *)Py_TYPE (obj);
-      PyObject *gimeta = PyObject_GetAttrString (type, "gimeta");
+      PyObject *gimeta = NULL;
+      if (pygi_object_get_gimeta (type, &gimeta) < 0)
+        {
+          PyErr_Clear ();
+          gimeta = NULL;
+        }
       if (gimeta == NULL)
         {
           PyErr_Clear ();
-          gimeta = PyObject_GetAttrString (obj, "gimeta");
+          if (pygi_object_get_gimeta (obj, &gimeta) < 0)
+            {
+              PyErr_Clear ();
+              gimeta = NULL;
+            }
         }
       if (gimeta != NULL)
         {
-          if (PyObject_TypeCheck (gimeta, &GIMetaType))
-            profile = Py_XNewRef (((GIMetaObject *)gimeta)->profile);
-          else
-            profile = PyObject_GetAttrString (gimeta, "profile");
+          if (pygi_gimeta_get_profile (gimeta, &profile) < 0)
+            {
+              PyErr_Clear ();
+              profile = NULL;
+            }
           Py_DECREF (gimeta);
         }
       if (profile == NULL)
@@ -525,14 +535,14 @@ static PyObject *
 GBoxedBase_repr (PyObject *self)
 {
   PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
-  PyObject *type = (PyObject *)Py_TYPE (self);
+  PyTypeObject *type = Py_TYPE (self);
   PyObject *module = NULL;
   PyObject *stripped = NULL;
   PyObject *name = NULL;
   PyObject *qualified = NULL;
   PyObject *result = NULL;
 
-  module = PyObject_GetAttrString (type, "__module__");
+  module = PyType_GetModuleName (type);
   if (module == NULL || !PyUnicode_Check (module))
     {
       PyErr_Clear ();
@@ -541,14 +551,10 @@ GBoxedBase_repr (PyObject *self)
       if (module == NULL)
         return NULL;
     }
-  stripped = PyObject_CallMethod (module, "removeprefix", "s", "ginext.");
+  stripped = pygi_strip_known_module_prefixes (module);
   if (stripped == NULL)
     goto done;
-  Py_SETREF (stripped,
-             PyObject_CallMethod (stripped, "removeprefix", "s", "gi.repository."));
-  if (stripped == NULL)
-    goto done;
-  name = PyObject_GetAttrString (type, "__name__");
+  name = PyType_GetName (type);
   if (name == NULL)
     goto done;
   if (PyUnicode_GET_LENGTH (stripped) > 0)
@@ -1541,7 +1547,9 @@ field_desc_bundle_destroy (PyObject *cap)
 static int
 record_class_field_name_reserved (PyObject *cls, const char *name)
 {
-  PyObject *gimeta = PyObject_GetAttrString (cls, "gimeta");
+  PyObject *gimeta = NULL;
+  if (pygi_object_get_gimeta (cls, &gimeta) < 0)
+    return -1;
   if (gimeta == NULL)
     {
       if (PyErr_ExceptionMatches (PyExc_AttributeError))
@@ -1552,7 +1560,12 @@ record_class_field_name_reserved (PyObject *cls, const char *name)
       return -1;
     }
 
-  PyObject *method_infos = PyObject_GetAttrString (gimeta, "method_infos");
+  PyObject *method_infos = NULL;
+  if (pygi_gimeta_get_method_infos (gimeta, &method_infos) < 0)
+    {
+      Py_DECREF (gimeta);
+      return -1;
+    }
   if (method_infos == NULL)
     {
       if (PyErr_ExceptionMatches (PyExc_AttributeError))
@@ -1574,7 +1587,12 @@ record_class_field_name_reserved (PyObject *cls, const char *name)
         }
     }
 
-  PyObject *hidden_fields = PyObject_GetAttrString (gimeta, "hidden_fields");
+  PyObject *hidden_fields = NULL;
+  if (pygi_gimeta_get_hidden_fields (gimeta, &hidden_fields) < 0)
+    {
+      Py_DECREF (gimeta);
+      return -1;
+    }
   Py_DECREF (gimeta);
   if (hidden_fields == NULL)
     {
@@ -2133,4 +2151,3 @@ pygi_pybuffer_release_destroy_notify (gpointer data)
       g_free (view);
     }
 }
-
