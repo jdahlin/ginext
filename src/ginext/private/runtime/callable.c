@@ -15,6 +15,7 @@
  */
 
 #include "runtime/callable.h"
+#include "marshal/enum.h"
 
 #include <stdio.h>
 
@@ -39,4 +40,50 @@ pygi_unsupported_fallback_shape (const char *qualified_name, GICallableInfo *cb,
                 detail != NULL ? ": " : "",
                 detail != NULL ? detail : "");
   return NULL;
+}
+
+#include "GObject/hooks.h"
+#include "runtime/module_funcs.h"
+
+__attribute__ ((weak)) int
+pygi_foreign_cairo_from_py (PyObject *value,
+                            GIBaseInfo *iface,
+                            GITransfer transfer,
+                            GIArgument *out)
+{
+  (void)value;
+  (void)iface;
+  (void)transfer;
+  (void)out;
+  return 1;
+}
+
+__attribute__ ((weak)) PyObject *
+pygi_foreign_cairo_to_py (GIBaseInfo *iface, gpointer pointer, GITransfer transfer)
+{
+  (void)iface;
+  (void)pointer;
+  (void)transfer;
+  return NULL;
+}
+
+PyObject *
+pygi_build_struct_class (const char *namespace_name, GIBaseInfo *info)
+{
+  if (namespace_name == NULL || info == NULL)
+    Py_RETURN_NONE;
+  const char *name = gi_base_info_get_name (info);
+  if (name == NULL)
+    Py_RETURN_NONE;
+
+  PyObject *resolver = pygi_hook_last (pygi_hook_class_from_namespace_profile);
+  if (resolver == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "class_from_namespace_profile hook not registered");
+      return NULL;
+    }
+  PyObject *context = pygi_namespace_context ();
+  if (context == NULL)
+    return NULL;
+  return PyObject_CallFunction (resolver, "Oss", context, namespace_name, name);
 }
