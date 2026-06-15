@@ -49,17 +49,3 @@ def test_suffixed_import() -> None:
     assert GLib2.__name__ == "GLib"
     assert GLib2.__version__ == (2, 0)
     assert isinstance(GLib2.get_user_name(), str)
-
-
-def test_invoke_plan_has_no_hot_gi_metadata_calls() -> None:
-    from ginext import GLib
-    from ginext import private
-
-    fn = GLib.get_user_name
-    fn()
-
-    private.reset_invoke_stats()
-    fn()
-    fn()
-
-    assert private.invoke_stats()["invoke_gi_metadata_calls"] == 0

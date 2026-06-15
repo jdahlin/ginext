@@ -204,7 +204,7 @@ def test_gvalue_fallback_no_fallback_raises(regress_bitmask_gtype: int) -> None:
     """Without a fallback, gvalue_get_value raises NotImplementedError."""
     from ginext import private
 
-    val = private.gvalue_new_for_gtype(regress_bitmask_gtype)
+    val = _new_gvalue_for_gtype(regress_bitmask_gtype)
     with pytest.raises(NotImplementedError):
         private.gvalue_get_value(val)
 
@@ -216,7 +216,7 @@ def test_gvalue_to_py_hook_called_with_correct_gtype(
     """Installed hook is invoked with the GType and a non-zero pointer."""
     from ginext import private
 
-    val = private.gvalue_new_for_gtype(regress_bitmask_gtype)
+    val = _new_gvalue_for_gtype(regress_bitmask_gtype)
     received: list[tuple[int, int]] = []
 
     def _fallback(gtype: int, gvalue_ptr: int) -> object:
@@ -239,3 +239,13 @@ def test_gvalue_hook_rejects_non_callable() -> None:
 
     with pytest.raises(TypeError):
         private.register_hook("gvalue.to_py", 42)  # type: ignore[call-overload]
+
+
+def _new_gvalue_for_gtype(gtype: int) -> object:
+    from ginext import GObject, private
+
+    _kind, info = private.namespace_find("GObject", GObject._version, "Value")
+    value_cls = GObject._record_builder.build_record(info)
+    value = value_cls()
+    private.gvalue_init_value(value, gtype)
+    return value

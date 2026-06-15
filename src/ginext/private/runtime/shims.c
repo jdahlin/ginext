@@ -43,7 +43,6 @@
 #include "runtime/module_funcs.h"
 #include "runtime/type-info.h"
 
-#include <cairo-gobject.h>
 #include "gimeta-helpers.h"
 
 #include <ffi.h>
@@ -433,19 +432,6 @@ py_gvalue_set_data_uint64 (PyObject *m, PyObject *args)
 }
 
 PyObject *
-py_gvalue_new_for_gtype (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *gtype_obj;
-  if (!PyArg_ParseTuple (args, "O", &gtype_obj))
-    return NULL;
-  GType gtype = 0;
-  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
-    return NULL;
-  return pygi_gvalue_new_for_gtype (gtype);
-}
-
-PyObject *
 py_gvalue_wrap_pointer (PyObject *m, PyObject *args)
 {
   (void)m;
@@ -459,100 +445,12 @@ py_gvalue_wrap_pointer (PyObject *m, PyObject *args)
 }
 
 PyObject *
-py_gvalue_array_get_nth_type (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *wrapper;
-  Py_ssize_t index;
-  if (!PyArg_ParseTuple (args, "On", &wrapper, &index))
-    return NULL;
-
-  GValue *value = NULL;
-  if (!pygi_gvalue_wrapper_get (wrapper, &value))
-    {
-      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
-      return NULL;
-    }
-  GType value_array_type = g_type_from_name ("GValueArray");
-  if (value_array_type == G_TYPE_INVALID || G_VALUE_TYPE (value) != value_array_type)
-    {
-      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
-      return NULL;
-    }
-
-  GValueArray *array = g_value_get_boxed (value);
-  if (array == NULL)
-    {
-      PyErr_SetString (PyExc_TypeError, "expected GValueArray-compatible value");
-      return NULL;
-    }
-  if (index < 0 || (guint)index >= array->n_values)
-    {
-      PyObject *index_obj = PyLong_FromSsize_t (index);
-      if (index_obj == NULL)
-        return NULL;
-      PyErr_SetObject (PyExc_IndexError, index_obj);
-      Py_DECREF (index_obj);
-      return NULL;
-    }
-
-  GValue *item = &array->values[index];
-  return PyLong_FromUnsignedLongLong ((unsigned long long)G_VALUE_TYPE (item));
-}
-
-PyObject *
 py_gstrv_get_type (PyObject *m, PyObject *args)
 {
   (void)m;
   if (!PyArg_ParseTuple (args, ""))
     return NULL;
   return PyLong_FromUnsignedLongLong ((unsigned long long)g_strv_get_type ());
-}
-
-PyObject *
-py_ensure_cairo_gobject_types (PyObject *m, PyObject *args)
-{
-  (void)m;
-  if (!PyArg_ParseTuple (args, ""))
-    return NULL;
-
-  (void)cairo_gobject_context_get_type ();
-  (void)cairo_gobject_device_get_type ();
-  (void)cairo_gobject_matrix_get_type ();
-  (void)cairo_gobject_pattern_get_type ();
-  (void)cairo_gobject_surface_get_type ();
-  (void)cairo_gobject_rectangle_get_type ();
-  (void)cairo_gobject_scaled_font_get_type ();
-  (void)cairo_gobject_font_face_get_type ();
-  (void)cairo_gobject_font_options_get_type ();
-  (void)cairo_gobject_rectangle_int_get_type ();
-  (void)cairo_gobject_region_get_type ();
-  (void)cairo_gobject_glyph_get_type ();
-  (void)cairo_gobject_text_cluster_get_type ();
-  (void)cairo_gobject_status_get_type ();
-  (void)cairo_gobject_content_get_type ();
-  (void)cairo_gobject_operator_get_type ();
-  (void)cairo_gobject_antialias_get_type ();
-  (void)cairo_gobject_fill_rule_get_type ();
-  (void)cairo_gobject_line_cap_get_type ();
-  (void)cairo_gobject_line_join_get_type ();
-  (void)cairo_gobject_text_cluster_flags_get_type ();
-  (void)cairo_gobject_font_slant_get_type ();
-  (void)cairo_gobject_font_weight_get_type ();
-  (void)cairo_gobject_subpixel_order_get_type ();
-  (void)cairo_gobject_hint_style_get_type ();
-  (void)cairo_gobject_hint_metrics_get_type ();
-  (void)cairo_gobject_font_type_get_type ();
-  (void)cairo_gobject_path_data_type_get_type ();
-  (void)cairo_gobject_device_type_get_type ();
-  (void)cairo_gobject_surface_type_get_type ();
-  (void)cairo_gobject_format_get_type ();
-  (void)cairo_gobject_pattern_type_get_type ();
-  (void)cairo_gobject_extend_get_type ();
-  (void)cairo_gobject_filter_get_type ();
-  (void)cairo_gobject_region_overlap_get_type ();
-
-  Py_RETURN_NONE;
 }
 
 PyObject *

@@ -67,7 +67,6 @@ _XFAIL_BY_NODE = {
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_none_with_held_floating": "behaviour mismatch under ginext pygobject compat",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "flaky timing-sensitive SIGALRM test",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_gio_application": "TypeError under ginext pygobject compat",
-    "test_ossig.py::TestSigintFallback::test_no_replace_if_set_by_glib": "missing pygobject compat attribute",
     "test_overrides_gdk.py::TestGdk::test_file_list": "GSList<GFile> elements marshal as None in ginext; requires C-level fix",
     "test_overrides_gtk.py::TestBuilder::test_builder": "missing pygobject compat attribute",
     "test_overrides_gtk.py::TestBuilder::test_builder_with_handler_and_args": "TypeError under ginext pygobject compat",

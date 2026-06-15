@@ -341,11 +341,7 @@ class _ParamSpecWrapper:
         return sorted(set(base))
 
     def _gtype_to_class(self, gtype: object) -> object:
-        from ginext.private import _gobject as _ginext_gobject
-        import ginext
-        import sys
-
-        result = _ginext_gobject.namespace_find_by_gtype(int(gtype))
+        result = _namespace_find_by_gtype(int(gtype))
         if result is None:
             raise AttributeError(f"cannot find class for gtype {gtype!r}")
         namespace_name, class_name = result
@@ -355,6 +351,27 @@ class _ParamSpecWrapper:
         if ns_mod is None:
             raise AttributeError(f"namespace {namespace_name!r} not loaded")
         return getattr(ns_mod, class_name)
+
+
+def _namespace_find_by_gtype(gtype: int) -> tuple[str, str] | None:
+    from gi import repository as _gi_repo
+
+    for namespace_name, ns_mod in vars(_gi_repo).items():
+        version = getattr(ns_mod, "_version", None)
+        if version is None:
+            continue
+        try:
+            names = ginext.private.namespace_dir(namespace_name, version)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        for name in names:
+            try:
+                _kind, info = ginext.private.namespace_find(namespace_name, version, name)
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if int(getattr(info, "gtype", 0)) == gtype:
+                return namespace_name, name
+    return None
 
 
 @overlay.method("Object", as_classmethod=True)
