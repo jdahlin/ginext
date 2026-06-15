@@ -905,70 +905,70 @@ py_param_spec_numeric_info (PyObject *m G_GNUC_UNUSED, PyObject *args)
     return NULL;
 
   GType value_type = pspec->value_type;
-  if (value_type == G_TYPE_CHAR)
+  if (G_IS_PARAM_SPEC_CHAR (pspec))
     {
       GParamSpecChar *p = G_PARAM_SPEC_CHAR (pspec);
       return numeric_info_new (PyLong_FromLong (p->minimum),
                                PyLong_FromLong (p->maximum),
                                PyLong_FromLong (p->default_value));
     }
-  if (value_type == G_TYPE_UCHAR)
+  if (G_IS_PARAM_SPEC_UCHAR (pspec))
     {
       GParamSpecUChar *p = G_PARAM_SPEC_UCHAR (pspec);
       return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
                                PyLong_FromUnsignedLong (p->maximum),
                                PyLong_FromUnsignedLong (p->default_value));
     }
-  if (value_type == G_TYPE_INT)
+  if (G_IS_PARAM_SPEC_INT (pspec))
     {
       GParamSpecInt *p = G_PARAM_SPEC_INT (pspec);
       return numeric_info_new (PyLong_FromLong (p->minimum),
                                PyLong_FromLong (p->maximum),
                                PyLong_FromLong (p->default_value));
     }
-  if (value_type == G_TYPE_UINT)
+  if (G_IS_PARAM_SPEC_UINT (pspec))
     {
       GParamSpecUInt *p = G_PARAM_SPEC_UINT (pspec);
       return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
                                PyLong_FromUnsignedLong (p->maximum),
                                PyLong_FromUnsignedLong (p->default_value));
     }
-  if (value_type == G_TYPE_LONG)
+  if (G_IS_PARAM_SPEC_LONG (pspec))
     {
       GParamSpecLong *p = G_PARAM_SPEC_LONG (pspec);
       return numeric_info_new (PyLong_FromLong (p->minimum),
                                PyLong_FromLong (p->maximum),
                                PyLong_FromLong (p->default_value));
     }
-  if (value_type == G_TYPE_ULONG)
+  if (G_IS_PARAM_SPEC_ULONG (pspec))
     {
       GParamSpecULong *p = G_PARAM_SPEC_ULONG (pspec);
       return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
                                PyLong_FromUnsignedLong (p->maximum),
                                PyLong_FromUnsignedLong (p->default_value));
     }
-  if (value_type == G_TYPE_INT64)
+  if (G_IS_PARAM_SPEC_INT64 (pspec))
     {
       GParamSpecInt64 *p = G_PARAM_SPEC_INT64 (pspec);
       return numeric_info_new (PyLong_FromLongLong (p->minimum),
                                PyLong_FromLongLong (p->maximum),
                                PyLong_FromLongLong (p->default_value));
     }
-  if (value_type == G_TYPE_UINT64)
+  if (G_IS_PARAM_SPEC_UINT64 (pspec))
     {
       GParamSpecUInt64 *p = G_PARAM_SPEC_UINT64 (pspec);
       return numeric_info_new (PyLong_FromUnsignedLongLong (p->minimum),
                                PyLong_FromUnsignedLongLong (p->maximum),
                                PyLong_FromUnsignedLongLong (p->default_value));
     }
-  if (value_type == G_TYPE_FLOAT)
+  if (G_IS_PARAM_SPEC_FLOAT (pspec))
     {
       GParamSpecFloat *p = G_PARAM_SPEC_FLOAT (pspec);
       return numeric_info_new (PyFloat_FromDouble (p->minimum),
                                PyFloat_FromDouble (p->maximum),
                                PyFloat_FromDouble (p->default_value));
     }
-  if (value_type == G_TYPE_DOUBLE)
+  if (G_IS_PARAM_SPEC_DOUBLE (pspec))
     {
       GParamSpecDouble *p = G_PARAM_SPEC_DOUBLE (pspec);
       return numeric_info_new (PyFloat_FromDouble (p->minimum),
@@ -981,4 +981,3 @@ py_param_spec_numeric_info (PyObject *m G_GNUC_UNUSED, PyObject *args)
                 g_type_name (value_type));
   return NULL;
 }
-
