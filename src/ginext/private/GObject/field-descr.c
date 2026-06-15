@@ -65,6 +65,10 @@ array_field_to_py_supported (GITypeInfo *fti)
   if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
     return FALSE;
 
+  unsigned int length_index = 0;
+  if (gi_type_info_get_array_length_index (fti, &length_index))
+    return gi_type_info_get_tag (inner_ti) == GI_TYPE_TAG_UINT8;
+
   if (gi_type_info_is_zero_terminated (fti))
     {
       GITypeTag itag = gi_type_info_get_tag (inner_ti);
@@ -119,6 +123,59 @@ array_field_from_py_supported (GITypeInfo *fti)
     }
 
   return FALSE;
+}
+
+static PyObject *
+length_annotated_array_field_to_py (GIBaseInfo *owner_info, GITypeInfo *fti, char *base, size_t offset)
+{
+  unsigned int length_index = 0;
+  if (!gi_type_info_get_array_length_index (fti, &length_index))
+    {
+      PyErr_SetString (PyExc_NotImplementedError, "array field has no length annotation");
+      return NULL;
+    }
+
+  g_autoptr (GIFieldInfo) length_field
+      = (GIFieldInfo *)gi_struct_or_union_get_field (owner_info, length_index);
+  if (length_field == NULL)
+    {
+      PyErr_SetString (PyExc_NotImplementedError, "array field length metadata missing");
+      return NULL;
+    }
+
+  g_autoptr (GITypeInfo) length_ti = gi_field_info_get_type_info (length_field);
+  if (length_ti == NULL)
+    {
+      PyErr_SetString (PyExc_NotImplementedError, "array field length type metadata missing");
+      return NULL;
+    }
+
+  PyObject *length_py = pygi_primitive_storage_to_py (gi_type_info_get_tag (length_ti),
+                                                      base + gi_field_info_get_offset (length_field));
+  if (length_py == NULL)
+    return NULL;
+  Py_ssize_t length = PyLong_AsSsize_t (length_py);
+  Py_DECREF (length_py);
+  if (length < 0)
+    return NULL;
+
+  g_autoptr (GITypeInfo) inner_ti = gi_type_info_get_param_type (fti, 0);
+  if (inner_ti == NULL)
+    {
+      PyErr_SetString (PyExc_NotImplementedError, "array field has no element type info");
+      return NULL;
+    }
+  if (gi_type_info_get_tag (inner_ti) != GI_TYPE_TAG_UINT8)
+    {
+      PyErr_SetString (PyExc_NotImplementedError, "length-annotated array field element type unsupported");
+      return NULL;
+    }
+
+  guint8 *array = *(guint8 **)((void *)(base + offset));
+  if (array == NULL || length == 0)
+    return PyBytes_FromStringAndSize ("", 0);
+
+  return PyBytes_FromStringAndSize ((const char *)array, length);
 }
 
 gboolean
@@ -224,6 +281,14 @@ field_desc_getter (PyObject *self, void *closure)
       g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
       if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
         return union_interface_field_shadow_to_py (fti, (char *)ptr, fdc->offset, self, fdc->name);
+    }
+
+  if (gi_type_info_get_tag (fti) == GI_TYPE_TAG_ARRAY)
+    {
+      unsigned int length_index = 0;
+      if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_C
+          && gi_type_info_get_array_length_index (fti, &length_index))
+        return length_annotated_array_field_to_py (fdc->owner_info, fti, (char *)ptr, fdc->offset);
     }
 
   if (gi_type_info_get_tag (fti) == GI_TYPE_TAG_VOID

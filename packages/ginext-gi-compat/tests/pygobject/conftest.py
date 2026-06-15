@@ -23,7 +23,6 @@ import pytest
 
 
 _XFAIL_BY_NODE = {
-    "test_fields.py::TestFields::test_array_field_with_length_annotation": "length-annotated C array field access not implemented",
     "test_everything.py::TestBoxed::test_boxed": "GValue boxed property read is not ABI-profile aware; requires C-level TSS fix",
     "test_glib.py::TestGLib::test_main_context_query": "marshalling not implemented",
     "test_gobject.py::TestGObjectAPI::test_call_method_uninitialized_instance": "TypeError instead of RuntimeError; fixing would break native gobject test",
