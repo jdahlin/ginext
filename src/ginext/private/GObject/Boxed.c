@@ -22,6 +22,7 @@
 #include "GObject/Object-info.h"
 #include "GIRepository/BaseInfo.h"
 #include "GIRepository/Info.h"
+#include "marshal/conversion.h"
 #include "marshal/container-element.h"
 #include "marshal/enum.h"
 #include "marshal/marshal.h"
@@ -1078,6 +1079,21 @@ int
 field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value)
 {
   GITypeTag ftag = gi_type_info_get_tag (fti);
+  if (ftag == GI_TYPE_TAG_GTYPE)
+    {
+      GType gtype = G_TYPE_INVALID;
+      if (pygi_gtype_from_gimeta_attr (value, &gtype) == 0)
+        {
+          *(GType *)(base + offset) = gtype;
+          return 0;
+        }
+
+      if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+        return -1;
+      PyErr_Clear ();
+      PyErr_SetString (PyExc_TypeError, "expected GType carrier for GType field");
+      return -1;
+    }
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_from_py (fti, base, offset, value);
   if (ftag == GI_TYPE_TAG_INTERFACE)

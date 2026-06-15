@@ -86,10 +86,6 @@ class TestFields(unittest.TestCase):
         self.assertRaises(TypeError, setattr, s, "some_double", b"a")
         self.assertRaises(TypeError, setattr, s, "some_double", None)
 
-    @pytest.mark.xfail(
-        reason="record GType field compatibility is incomplete",
-        strict=False,
-    )
     def test_gtype(self):
         s = Regress.TestStructE()
 
