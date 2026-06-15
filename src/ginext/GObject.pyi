@@ -34,7 +34,7 @@ from typing import (
     overload,
 )
 
-from gi.repository import GObject as _CompatGObject  # type: ignore[import-untyped]
+from gi.repository import GObject as _CompatGObject
 from ginext.private import GIMeta as _GIMeta
 
 from .signal.connection import SignalConnection as SignalConnection
@@ -43,11 +43,14 @@ _SigO = TypeVar("_SigO")
 _SigP = _ParamSpec("_SigP")
 _SigR = TypeVar("_SigR")
 
-Binding = _CompatGObject.Binding
-ParamSpec = _CompatGObject.ParamSpec
-Property = _CompatGObject.Property
-SignalFlags = _CompatGObject.SignalFlags
-ParamFlags = _CompatGObject.ParamFlags
+# These are re-exported from gi.repository.GObject; callers use the generated
+# stubs in build/stubs/ginext/GObject.pyi for precise types.
+Binding: Any = ...
+ParamSpec: Any = ...
+Property: Any = ...
+SignalFlags: Any = ...
+ParamFlags: Any = ...
+
 
 class _Signal(Generic[_SigO, _SigP, _SigR]):
     def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
@@ -99,13 +102,13 @@ class GFlags(int):
 
     __gtype__: ClassVar[Any]
 
-class Object(_CompatGObject.Object):  # type: ignore[misc]
+class Object(_CompatGObject.Object):  # type: ignore[misc, name-defined]
     gimeta: ClassVar[_GIMeta]
     def __init_subclass__(cls, *, type_name: str = ..., **kwargs: object) -> None: ...
     __gtype_name__: Final[str]
-    notify: "DetailedSignal[Self, Any, None]"  # type: ignore[assignment]
-    def freeze_notify(self) -> "_FreezeNotifyContext": ...  # type: ignore[override]
-    def handler_block(  # type: ignore[override]
+    notify: "DetailedSignal[Self, Any, None]"
+    def freeze_notify(self) -> "_FreezeNotifyContext": ...
+    def handler_block(
         self, handler_id: int | SignalConnection
     ) -> _HandlerBlockContext: ...
     def handler_unblock(self, handler_id: int | SignalConnection) -> None: ...

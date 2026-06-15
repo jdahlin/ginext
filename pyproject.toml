@@ -115,8 +115,7 @@ dev = [
 # building its wheel runs `ginext-stubgen generate-all` (minutes), and only the
 # typecheck job needs it. The typecheck Makefile target installs it explicitly
 # (STUB_INSTALL_STAMP), so the test/sanitizer jobs' `uv sync` no longer pays the
-# stub-generation cost. ginext's own library API stays inline-typed
-# (src/ginext/*.pyi).
+# stub-generation cost.
 typecheck = [
     "ginext-stubs",
 ]
@@ -202,10 +201,6 @@ exclude = [
     # compat (gi.repository / pygobject layer): excluded from strict checking
     # for now — tracked separately.
     "^packages/ginext-gi-compat/",
-    # Generated namespace stubs are synced into src/ginext/ so mypy can resolve
-    # `from ginext import Gio`, but they are still generated artifacts and
-    # should not be checked as handwritten core sources here.
-    "^src/ginext/(Adw|GIMarshallingTests|GLib|GModule|Gdk|GdkPixbuf|Gio|GioUnix|GoiBench|Graphene|Gsk|Gst|GstApp|GstAudio|GstBase|GstVideo|Gtk|GtkSource|HarfBuzz|Pango|PangoCairo|Regress|RegressUnix|Vte|WebKit|freetype2)\\.pyi$",
     # conftest modules collide across packages (same module name) and are test
     # fixtures, not shipped surface.
     "/conftest\\.py$",
@@ -248,13 +243,6 @@ ignore_errors = true
 module = ["ginext_gtk._overlays.gtk3_builder"]
 disable_error_code = ["no-untyped-call"]
 
-[[tool.mypy.overrides]]
-# src/ginext/GObject.pyi inherits from gi.repository.GObject.Object. When
-# gi.repository is suppressed (no stubs in CI), _CompatGObject becomes Any and
-# the inheritance / attr-defined / unused-ignore errors fire. Suppress them here
-# since the same file passes cleanly with real gi stubs (locally).
-module = ["ginext.GObject"]
-disable_error_code = ["misc", "attr-defined", "name-defined", "unused-ignore", "override", "assignment"]
 
 [tool.pyrefly]
 project-includes = [
