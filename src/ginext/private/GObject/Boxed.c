@@ -1016,9 +1016,7 @@ field_to_py (GITypeInfo *fti, char *base, size_t offset, PyObject *parent)
   if (ftag == GI_TYPE_TAG_VOID)
     {
       gpointer ptr = *(gpointer *)(base + offset);
-      if (ptr == NULL)
-        Py_RETURN_NONE;
-      return PyLong_FromUnsignedLongLong ((unsigned long long)(uintptr_t)ptr);
+      return PyLong_FromVoidPtr (ptr);
     }
   if (ftag == GI_TYPE_TAG_ARRAY)
     return array_field_to_py (fti, base, offset, parent);

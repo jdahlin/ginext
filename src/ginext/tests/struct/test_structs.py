@@ -35,6 +35,11 @@ def regress() -> Namespace:
     return load_test_namespace("Regress")
 
 
+@pytest.fixture(scope="module")
+def glib() -> Namespace:
+    return load_test_namespace("GLib", "2.0")
+
+
 def test_simple_struct_default_constructor_and_fields(gm: Namespace) -> None:
     struct = gm.SimpleStruct()
 
@@ -144,6 +149,16 @@ def test_fixed_array_field(regress: Namespace) -> None:
 
     assert struct.just_int == 5
     assert struct.array == list(range(10))
+
+
+def test_glib_list_gpointer_field_accepts_int_and_none(glib: Namespace) -> None:
+    record = glib.List()
+
+    record.data = 123
+    assert record.data == 123
+
+    record.data = None
+    assert record.data == 0
 
 
 # --- __match_args__ (positional structural matching) -----------------------

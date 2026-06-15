@@ -146,10 +146,6 @@ class TestFields(unittest.TestCase):
 
         self.assertRaises(TypeError, setattr, s, "list", [object()])
 
-    @pytest.mark.xfail(
-        reason="record gpointer field compatibility is incomplete",
-        strict=False,
-    )
     def test_gpointer(self):
         glist = GLib.List()
 
