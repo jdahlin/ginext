@@ -2169,7 +2169,6 @@ class TestEnumVFuncResults(unittest.TestCase):
 
 
 class TestGEnum(unittest.TestCase):
-    @pytest.mark.xfail(reason="enum issubclass")
     def test_genum(self):
         self.assertTrue(issubclass(GIMarshallingTests.GEnum, GObject.GEnum))
         self.assertTrue(
