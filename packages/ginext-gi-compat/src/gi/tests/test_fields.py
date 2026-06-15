@@ -156,10 +156,6 @@ class TestFields(unittest.TestCase):
         s.some_enum = 0
         self.assertEqual(s.some_enum, Regress.TestEnum.VALUE1)
 
-    @pytest.mark.xfail(
-        reason="record union field compatibility is incomplete",
-        strict=False,
-    )
     def test_union(self):
         s = Regress.TestStructE()
         self.assertEqual(s.some_union, [None, None])

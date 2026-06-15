@@ -116,7 +116,7 @@ resolve_call_args (PyGICallableDescriptor *d,
                    Py_ssize_t args_offset,
                    PyObject *kwargs_in);
 static int
-descriptor_visible_arg_is_nullable_or_optional (PyGIMethodDescriptor *d,
+descriptor_visible_arg_is_nullable_or_optional (PyGICallableDescriptor *d,
                                                 Py_ssize_t visible_index);
 
 static gboolean
@@ -2349,7 +2349,7 @@ resolve_call_args (PyGICallableDescriptor *d,
 }
 
 static int
-descriptor_visible_arg_is_nullable_or_optional (PyGIMethodDescriptor *d, Py_ssize_t visible_index)
+descriptor_visible_arg_is_nullable_or_optional (PyGICallableDescriptor *d, Py_ssize_t visible_index)
 {
   if (d == NULL || d->compiled == NULL || visible_index < 0)
     return 0;

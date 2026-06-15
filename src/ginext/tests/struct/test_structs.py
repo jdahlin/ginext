@@ -205,6 +205,12 @@ def test_struct_c_object_field_accepts_object_and_none(regress: Namespace) -> No
         record.obj = object()
 
 
+def test_struct_e_union_array_defaults_to_none_entries(regress: Namespace) -> None:
+    record = regress.TestStructE()
+
+    assert record.some_union == [None, None]
+
+
 def test_annotation_fields_length_annotated_array_defaults_to_empty_bytes(regress: Namespace) -> None:
     record = regress.AnnotationFields()
 
