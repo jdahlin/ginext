@@ -25,6 +25,7 @@
 #include "gimeta-helpers.h"
 
 #include <glib.h>
+#include <math.h>
 #include <stdint.h>
 
 /* --------------------------------------------------------------------- */
@@ -93,6 +94,26 @@ pygi_long_check_unsigned_bounds (PyObject *long_obj, unsigned long long max_v)
           PyErr_Format (PyExc_OverflowError, "%U not in range 0 to %llu", str, max_v);
           Py_DECREF (str);
         }
+      return -1;
+    }
+  return 0;
+}
+
+static int
+pygi_float_check_bounds (PyObject *obj, double value, double min_v, double max_v)
+{
+  if (!isfinite (value) || value < min_v || value > max_v)
+    {
+      PyObject *str = PyObject_Str (obj);
+      PyObject *min_py = PyFloat_FromDouble (min_v);
+      PyObject *max_py = PyFloat_FromDouble (max_v);
+      if (str != NULL && min_py != NULL && max_py != NULL)
+        {
+          PyErr_Format (PyExc_OverflowError, "%U not in range %S to %S", str, min_py, max_py);
+        }
+      Py_XDECREF (str);
+      Py_XDECREF (min_py);
+      Py_XDECREF (max_py);
       return -1;
     }
   return 0;
@@ -347,16 +368,26 @@ int
 pygi_float_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  out->v_float = (float)PyFloat_AsDouble (h);
-  return PyErr_Occurred () ? -1 : 0;
+  double value = PyFloat_AsDouble (h);
+  if (value == -1.0 && PyErr_Occurred ())
+    return -1;
+  if (pygi_float_check_bounds (h, value, -G_MAXFLOAT, G_MAXFLOAT) != 0)
+    return -1;
+  out->v_float = (float)value;
+  return 0;
 }
 
 int
 pygi_double_from_py (PyObject *h, GIArgument *out)
 {
   g_return_val_if_fail (out != NULL, -1);
-  out->v_double = PyFloat_AsDouble (h);
-  return PyErr_Occurred () ? -1 : 0;
+  double value = PyFloat_AsDouble (h);
+  if (value == -1.0 && PyErr_Occurred ())
+    return -1;
+  if (pygi_float_check_bounds (h, value, -G_MAXDOUBLE, G_MAXDOUBLE) != 0)
+    return -1;
+  out->v_double = value;
+  return 0;
 }
 
 /* --------------------------------------------------------------------- */
