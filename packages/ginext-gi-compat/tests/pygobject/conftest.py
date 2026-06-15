@@ -135,6 +135,7 @@ _PY315_GIL_XFAIL_BY_NODE = {
 # doesn't exist on macOS (libraries use .dylib there).
 _DARWIN_XFAIL_BY_NODE = {
     "test_properties.py::TestPropertyObject::test_iteration": "dlopen(libgobject-2.0.so.0) fails on macOS; library uses .dylib naming",
+    "test_overrides_gtk.py::TestTreeModel::test_tree_store": "crashes xdist worker on macOS in the compat Gtk tree model run",
 }
 
 

@@ -229,6 +229,7 @@ gi_files = [
   ['../packages/ginext-gi-compat/src/gi/overrides/GObject.py',           'gi/overrides'],
   ['../packages/ginext-gi-compat/src/gi/overrides/Pango.py',             'gi/overrides'],
   ['../packages/ginext-gi-compat/src/gi/overrides/Gdk.py',               'gi/overrides'],
+  ['../packages/ginext-gi-compat/src/gi/overrides/Regress.py',           'gi/overrides'],
 ]
 
 foreach pair : gi_files
