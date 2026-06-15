@@ -234,7 +234,7 @@ pygi_jit_prepare_call (PyGICompiledCallable *compiled,
       frame->plan = &compiled->invoke_plan;
     }
 
-  PyGIMethodDescriptor proxy = { 0 };
+  PyGICallableDescriptor proxy = { 0 };
   proxy.info = (GIFunctionInfo *)compiled->info;
   proxy.has_self = compiled->has_self;
   proxy.qualified_name = compiled->qualified_name;

@@ -216,12 +216,12 @@ class _GICallable:
 
 
 def _attach_callable_metadata(
-    descriptor: private.MethodDescriptor,
+    descriptor: private.CallableDescriptor,
     *,
     gimeta: types.SimpleNamespace,
     name: str,
     qualified_name: str,
-) -> private.MethodDescriptor:
+) -> private.CallableDescriptor:
     descriptor.gimeta = gimeta
     descriptor.__name__ = name
     descriptor.__qualname__ = qualified_name

@@ -56,7 +56,7 @@ pygi_bare_name (const char *qualified)
  *
  * Returns NULL on failure with a Python error set. */
 static void *
-bind_out_storage (PyGIMethodDescriptor *descriptor,
+bind_out_storage (PyGICallableDescriptor *descriptor,
                   PyGIInvokeFrame *frame,
                   GICallableInfo *cb,
                   const PyGIInvokePlan *plan,
@@ -209,7 +209,7 @@ bind_inout_value (PyGIInvokeFrame *frame,
 }
 
 int
-pygi_invoke_bind_args (PyGIMethodDescriptor *descriptor,
+pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                        PyGIInvokeFrame *frame,
                        GICallableInfo *cb,
                        const PyGIInvokePlan *plan,

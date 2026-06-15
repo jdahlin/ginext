@@ -21,7 +21,7 @@
 #include "runtime/callable.h"
 
 PyObject *
-pygi_method_descriptor_call_ffi_invoke (PyGIMethodDescriptor *d,
+pygi_callable_descriptor_call_ffi_invoke (PyGICallableDescriptor *d,
                                         PyObject *const *args,
                                         size_t nargs,
                                         PyObject *kwnames);
