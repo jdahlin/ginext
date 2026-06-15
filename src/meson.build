@@ -27,6 +27,7 @@ _gobject_ext = py.extension_module(
     'ginext/private/GObject/Object-register.c',
     'ginext/private/GObject/Object-vfunc.c',
     'ginext/private/GObject/vfunc-descr.c',
+    'ginext/private/GObject/field-descr.c',
     'ginext/private/GObject/Object-construct.c',
     'ginext/private/GObject/ObjectMeta.c',
     'ginext/private/GObject/Object-wrapper.c',
