@@ -909,14 +909,70 @@ pygi_boxed_new_heap (PyObject *cls, gpointer boxed, GType gtype, gsize size)
   return self;
 }
 
+#define PYGI_RECORD_CLASS_DATA_CAPSULE "_ginext_record_class_data"
+
+typedef struct
+{
+  GIBaseInfo *info;
+  GType gtype;
+  gsize size;
+} PyGIRecordClassData;
+
+static void
+record_class_data_destroy (PyObject *capsule)
+{
+  PyGIRecordClassData *data
+      = PyCapsule_GetPointer (capsule, PYGI_RECORD_CLASS_DATA_CAPSULE);
+  if (data == NULL)
+    return;
+  if (data->info != NULL)
+    gi_base_info_unref (data->info);
+  g_free (data);
+}
+
+static PyGIRecordClassData *
+record_class_data_for_type (PyTypeObject *type)
+{
+  PyObject *capsule = NULL;
+  if (PyObject_GetOptionalAttrString ((PyObject *)type, "__record_data__", &capsule) < 0)
+    return NULL;
+  if (capsule == NULL)
+    return NULL;
+  PyGIRecordClassData *data
+      = PyCapsule_GetPointer (capsule, PYGI_RECORD_CLASS_DATA_CAPSULE);
+  Py_DECREF (capsule);
+  return data;
+}
+
 static PyObject *
 GBoxedBase_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-  (void)type;
-  (void)args;
-  (void)kwds;
-  PyErr_SetString (PyExc_TypeError, "direct GLib.Boxed construction is unsupported");
-  return NULL;
+  if ((args != NULL && PyTuple_GET_SIZE (args) != 0)
+      || (kwds != NULL && PyDict_GET_SIZE (kwds) != 0))
+    {
+      PyErr_SetString (PyExc_TypeError, "GLib.Boxed construction does not accept arguments");
+      return NULL;
+    }
+
+  PyGIRecordClassData *data = record_class_data_for_type (type);
+  if (data == NULL)
+    {
+      if (!PyErr_Occurred ())
+        PyErr_SetString (PyExc_TypeError, "direct GLib.Boxed construction is unsupported");
+      return NULL;
+    }
+
+  gsize size = data->size != 0 ? data->size : sizeof (void *);
+  gpointer boxed = g_malloc0 (size);
+  if (boxed == NULL)
+    return PyErr_NoMemory ();
+  PyObject *self = pygi_boxed_new_heap ((PyObject *)type, boxed, data->gtype, size);
+  if (self == NULL)
+    {
+      g_free (boxed);
+      return NULL;
+    }
+  return self;
 }
 
 static void
@@ -1570,49 +1626,6 @@ field_from_py (GITypeInfo *fti, char *base, size_t offset, PyObject *value)
   return -1;
 }
 
-PyObject *
-py_record_new (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *cls = NULL;
-  PyObject *capsule = NULL;
-  if (!PyArg_ParseTuple (args, "OO", &cls, &capsule))
-    return NULL;
-  if (!PyType_Check (cls))
-    {
-      PyErr_SetString (PyExc_TypeError, "record_new: cls must be a type");
-      return NULL;
-    }
-  GIBaseInfo *info = info_from_capsule (capsule);
-  if (info == NULL)
-    return NULL;
-  if (!GI_IS_STRUCT_INFO (info) && !GI_IS_UNION_INFO (info))
-    {
-      PyErr_SetString (PyExc_TypeError, "record_new: expected struct or union info");
-      return NULL;
-    }
-  gsize size = record_info_size (info);
-  if (size == 0)
-    size = sizeof (void *);
-  gpointer boxed = g_malloc0 (size);
-  if (boxed == NULL)
-    return PyErr_NoMemory ();
-  PyObject *self = ((PyTypeObject *)cls)->tp_alloc ((PyTypeObject *)cls, 0);
-  if (self == NULL)
-    {
-      g_free (boxed);
-      return NULL;
-    }
-  PyGIGLibBoxed *me = (PyGIGLibBoxed *)self;
-  me->boxed = boxed;
-  me->gtype = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)info);
-  me->borrowed = 0;
-  me->heap_allocated = 1;
-  me->size = size;
-  me->py_dict = NULL;
-  me->parent = NULL;
-  return self;
-}
-
 static PyObject *
 event_source_call_method (GSource *source, const char *name, PyObject *args)
 {
@@ -1766,17 +1779,17 @@ py_glib_event_source_new (PyObject *module G_GNUC_UNUSED, PyObject *args)
   return self;
 }
 
-/* ── Fast primitive field descriptors ──────────────────────────────────────
+/* ── Record field descriptors ──────────────────────────────────────────────
  *
  * record_install_field_descriptors(cls, info) builds PyGetSetDef-backed
- * "getset_descriptor" entries for every readable primitive scalar field in
- * a struct/union GI info and installs them on `cls`.  Once installed, a
- * plain attribute lookup (tp_getattro dict walk) finds the descriptor before
- * RecordBase.__getattr__ is ever called, giving O(1) access with no GI walk.
+ * "getset_descriptor" entries for fields in a struct/union GI info and
+ * installs them on `cls`.  Once installed, a plain attribute lookup
+ * (tp_getattro dict walk) finds the descriptor before RecordBase.__getattr__
+ * is ever called.
  *
- * Lifetime: the FieldDescClosure* blocks must outlive the descriptors (which
- * live as long as the class has any reference).  We keep them alive by storing
- * a PyCapsule under __field_desc_bundle__ on the class dict.
+ * Lifetime: the descriptor closure blocks must outlive the descriptors. We
+ * keep them alive by storing a PyCapsule under __field_desc_bundle__ on the
+ * class dict.
  * ────────────────────────────────────────────────────────────────────────── */
 
 #include "marshal/scalar.h"
@@ -1784,20 +1797,182 @@ py_glib_event_source_new (PyObject *module G_GNUC_UNUSED, PyObject *args)
 
 typedef struct
 {
+  GIBaseInfo *owner_info;
+  GIFieldInfo *field;
   size_t offset;
-  GITypeTag tag;
+  char *name;
+  PyGetSetDef *def;
 } FieldDescClosure;
+
+static gboolean
+array_field_to_py_supported (GITypeInfo *fti)
+{
+  g_autoptr (GITypeInfo) inner_ti = gi_type_info_get_param_type (fti, 0);
+  if (inner_ti == NULL)
+    return FALSE;
+
+  if (gi_type_info_get_array_type (fti) == GI_ARRAY_TYPE_ARRAY)
+    {
+      GITypeTag itag = gi_type_info_get_tag (inner_ti);
+      return itag == GI_TYPE_TAG_VOID || itag == GI_TYPE_TAG_UINT8;
+    }
+
+  if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
+    return FALSE;
+
+  if (gi_type_info_is_zero_terminated (fti))
+    {
+      GITypeTag itag = gi_type_info_get_tag (inner_ti);
+      if (itag == GI_TYPE_TAG_UTF8 || itag == GI_TYPE_TAG_FILENAME)
+        return TRUE;
+      if (itag == GI_TYPE_TAG_INTERFACE)
+        return TRUE;
+    }
+
+  size_t fixed = 0;
+  if (gi_type_info_get_array_fixed_size (fti, &fixed) && fixed > 0)
+    {
+      PyGIContainerElement element;
+      if (pygi_container_element_init (&element, inner_ti) != 0)
+        {
+          PyErr_Clear ();
+          return FALSE;
+        }
+      return pygi_container_element_inline_size (&element) != 0;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+array_field_from_py_supported (GITypeInfo *fti)
+{
+  if (gi_type_info_get_array_type (fti) != GI_ARRAY_TYPE_C)
+    return FALSE;
+
+  g_autoptr (GITypeInfo) inner_ti = gi_type_info_get_param_type (fti, 0);
+  if (inner_ti == NULL)
+    return FALSE;
+
+  if (gi_type_info_is_zero_terminated (fti))
+    {
+      GITypeTag itag = gi_type_info_get_tag (inner_ti);
+      if (itag == GI_TYPE_TAG_UTF8 || itag == GI_TYPE_TAG_FILENAME)
+        return TRUE;
+    }
+
+  size_t fixed = 0;
+  if (gi_type_info_get_array_fixed_size (fti, &fixed) && fixed > 0)
+    {
+      PyGIContainerElement element;
+      if (pygi_container_element_init (&element, inner_ti) != 0)
+        {
+          PyErr_Clear ();
+          return FALSE;
+        }
+      return pygi_container_element_inline_size (&element) != 0;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+field_to_py_supported (GITypeInfo *fti)
+{
+  GITypeTag ftag = gi_type_info_get_tag (fti);
+  if (ftag == GI_TYPE_TAG_VOID)
+    return TRUE;
+  if (ftag == GI_TYPE_TAG_ARRAY)
+    return array_field_to_py_supported (fti);
+  if (ftag == GI_TYPE_TAG_INTERFACE)
+    {
+      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
+      return finfo != NULL
+             && (GI_IS_ENUM_INFO (finfo) || GI_IS_FLAGS_INFO (finfo)
+                 || GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)
+                 || GI_IS_OBJECT_INFO (finfo) || GI_IS_INTERFACE_INFO (finfo));
+    }
+
+  PyGIType field_type = { 0 };
+  if (pygi_type_from_gi (fti, &field_type) != 0)
+    {
+      PyErr_Clear ();
+      return FALSE;
+    }
+  return pygi_type_is_direct_storage (&field_type);
+}
+
+static gboolean
+field_from_py_supported (GITypeInfo *fti)
+{
+  GITypeTag ftag = gi_type_info_get_tag (fti);
+  if (ftag == GI_TYPE_TAG_ARRAY)
+    return array_field_from_py_supported (fti);
+  if (ftag == GI_TYPE_TAG_INTERFACE)
+    {
+      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
+      if (finfo != NULL
+          && (GI_IS_ENUM_INFO (finfo) || GI_IS_FLAGS_INFO (finfo)
+              || GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
+        return TRUE;
+    }
+
+  PyGIType field_type = { 0 };
+  if (pygi_type_from_gi (fti, &field_type) != 0)
+    {
+      PyErr_Clear ();
+      return FALSE;
+    }
+  return pygi_type_is_direct_storage (&field_type);
+}
 
 static PyObject *
 field_desc_getter (PyObject *self, void *closure)
 {
   FieldDescClosure *fdc = (FieldDescClosure *)closure;
-  gpointer base = NULL;
-  if (pygi_boxed_get (self, &base) != 0)
+  if (!(gi_field_info_get_flags (fdc->field) & GI_FIELD_IS_READABLE))
+    {
+      PyErr_Format (PyExc_AttributeError, "field %s is not readable", fdc->name);
+      return NULL;
+    }
+
+  gpointer ptr = NULL;
+  if (pygi_boxed_get (self, &ptr) != 0)
     return NULL;
-  if (base == NULL)
+  if (ptr == NULL)
     Py_RETURN_NONE;
-  return pygi_primitive_storage_to_py (fdc->tag, (const char *)base + fdc->offset);
+
+  g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (fdc->field);
+  if (fti == NULL)
+    {
+      PyErr_Format (PyExc_NotImplementedError, "field %s: missing type info", fdc->name);
+      return NULL;
+    }
+
+  if (GI_IS_UNION_INFO (fdc->owner_info)
+      && !(gi_field_info_get_flags (fdc->field) & GI_FIELD_IS_WRITABLE)
+      && gi_type_info_get_tag (fti) == GI_TYPE_TAG_INTERFACE)
+    {
+      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
+      if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
+        {
+          PyErr_Format (PyExc_AttributeError, "field %s is not readable", fdc->name);
+          return NULL;
+        }
+    }
+
+  if (GI_IS_UNION_INFO (fdc->owner_info)
+      && gi_type_info_get_tag (fti) == GI_TYPE_TAG_INTERFACE)
+    {
+      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
+      if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
+        return union_interface_field_shadow_to_py (fti, (char *)ptr, fdc->offset, self, fdc->name);
+    }
+
+  PyObject *out = field_to_py (fti, (char *)ptr, fdc->offset, self);
+  if (out == NULL && !PyErr_Occurred ())
+    PyErr_Format (PyExc_NotImplementedError, "field %s: marshalling not implemented", fdc->name);
+  return out;
 }
 
 static int
@@ -1809,15 +1984,44 @@ field_desc_setter (PyObject *self, PyObject *value, void *closure)
       return -1;
     }
   FieldDescClosure *fdc = (FieldDescClosure *)closure;
-  gpointer base = NULL;
-  if (pygi_boxed_get (self, &base) != 0)
+  if (!(gi_field_info_get_flags (fdc->field) & GI_FIELD_IS_WRITABLE))
+    {
+      PyErr_Format (PyExc_AttributeError, "field %s is not writable", fdc->name);
+      return -1;
+    }
+
+  gpointer ptr = NULL;
+  if (pygi_boxed_get (self, &ptr) != 0)
     return -1;
-  if (base == NULL)
+  if (ptr == NULL)
     {
       PyErr_SetString (PyExc_RuntimeError, "cannot set field on detached record");
       return -1;
     }
-  return pygi_py_to_primitive_storage (value, fdc->tag, (char *)base + fdc->offset);
+
+  g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (fdc->field);
+  if (fti == NULL)
+    {
+      PyErr_Format (PyExc_NotImplementedError, "field %s: missing type info", fdc->name);
+      return -1;
+    }
+  return field_from_py (fti, (char *)ptr, fdc->offset, value);
+}
+
+static void
+field_desc_closure_destroy (gpointer data)
+{
+  FieldDescClosure *fdc = (FieldDescClosure *)data;
+  if (fdc == NULL)
+    return;
+  if (fdc->owner_info != NULL)
+    gi_base_info_unref (fdc->owner_info);
+  if (fdc->field != NULL)
+    gi_base_info_unref ((GIBaseInfo *)fdc->field);
+  if (fdc->def != NULL)
+    g_free (fdc->def);
+  g_free (fdc->name);
+  g_free (fdc);
 }
 
 static void
@@ -1828,7 +2032,66 @@ field_desc_bundle_destroy (PyObject *cap)
     g_ptr_array_unref (arr);
 }
 
-PyObject *
+static int
+record_class_field_name_reserved (PyObject *cls, const char *name)
+{
+  PyObject *gimeta = PyObject_GetAttrString (cls, "gimeta");
+  if (gimeta == NULL)
+    {
+      if (PyErr_ExceptionMatches (PyExc_AttributeError))
+        {
+          PyErr_Clear ();
+          return 0;
+        }
+      return -1;
+    }
+
+  PyObject *method_infos = PyObject_GetAttrString (gimeta, "method_infos");
+  if (method_infos == NULL)
+    {
+      if (PyErr_ExceptionMatches (PyExc_AttributeError))
+        PyErr_Clear ();
+      else
+        {
+          Py_DECREF (gimeta);
+          return -1;
+        }
+    }
+  else
+    {
+      int contains = PyMapping_HasKeyString (method_infos, name);
+      Py_DECREF (method_infos);
+      if (contains != 0)
+        {
+          Py_DECREF (gimeta);
+          return contains;
+        }
+    }
+
+  PyObject *hidden_fields = PyObject_GetAttrString (gimeta, "hidden_fields");
+  Py_DECREF (gimeta);
+  if (hidden_fields == NULL)
+    {
+      if (PyErr_ExceptionMatches (PyExc_AttributeError))
+        {
+          PyErr_Clear ();
+          return 0;
+        }
+      return -1;
+    }
+  PyObject *py_name = PyUnicode_FromString (name);
+  if (py_name == NULL)
+    {
+      Py_DECREF (hidden_fields);
+      return -1;
+    }
+  int contains = PySequence_Contains (hidden_fields, py_name);
+  Py_DECREF (py_name);
+  Py_DECREF (hidden_fields);
+  return contains;
+}
+
+static PyObject *
 py_record_install_field_descriptors (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *cls = NULL;
@@ -1846,11 +2109,7 @@ py_record_install_field_descriptors (PyObject *module G_GNUC_UNUSED, PyObject *a
   if (!GI_IS_STRUCT_INFO (info) && !GI_IS_UNION_INFO (info))
     Py_RETURN_NONE; /* nothing to do for non-struct/union */
 
-  /* bundle: GPtrArray* of FieldDescClosure* — kept alive by a PyCapsule
-   * stored under __field_desc_bundle__ on the class dict.
-   * Name strings are also kept in this array (as char* via g_strdup) so they
-   * outlive the PyGetSetDef copies that PyDescr_NewGetSet makes internally. */
-  GPtrArray *bundle = g_ptr_array_new_with_free_func (g_free);
+  GPtrArray *bundle = g_ptr_array_new_with_free_func (field_desc_closure_destroy);
 
   int n = gi_struct_or_union_n_fields (info);
   for (int fi = 0; fi < n; fi++)
@@ -1858,67 +2117,61 @@ py_record_install_field_descriptors (PyObject *module G_GNUC_UNUSED, PyObject *a
       g_autoptr (GIFieldInfo) field = (GIFieldInfo *)gi_struct_or_union_get_field (info, (guint)fi);
       if (field == NULL)
         continue;
-      if (!(gi_field_info_get_flags (field) & GI_FIELD_IS_READABLE))
+      GIFieldInfoFlags flags = gi_field_info_get_flags (field);
+      if (!(flags & GI_FIELD_IS_READABLE) && !(flags & GI_FIELD_IS_WRITABLE))
         continue;
       g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
       if (fti == NULL)
         continue;
-      GITypeTag tag = gi_type_info_get_tag (fti);
-      switch (tag)
-        {
-        case GI_TYPE_TAG_BOOLEAN:
-        case GI_TYPE_TAG_INT8:
-        case GI_TYPE_TAG_UINT8:
-        case GI_TYPE_TAG_INT16:
-        case GI_TYPE_TAG_UINT16:
-        case GI_TYPE_TAG_INT32:
-        case GI_TYPE_TAG_UINT32:
-        case GI_TYPE_TAG_INT64:
-        case GI_TYPE_TAG_UINT64:
-        case GI_TYPE_TAG_FLOAT:
-        case GI_TYPE_TAG_DOUBLE:
-          break;
-        default:
-          continue; /* skip non-primitive fields */
-        }
+      gboolean can_get = (flags & GI_FIELD_IS_READABLE) && field_to_py_supported (fti);
+      gboolean can_set = (flags & GI_FIELD_IS_WRITABLE) && field_from_py_supported (fti);
+      if (!can_get && !can_set)
+        continue;
 
       const char *raw_name = gi_base_info_get_name ((GIBaseInfo *)field);
       if (raw_name == NULL)
         continue;
-      size_t offset = gi_field_info_get_offset (field);
+      int reserved = record_class_field_name_reserved (cls, raw_name);
+      if (reserved < 0)
+        {
+          g_ptr_array_unref (bundle);
+          return NULL;
+        }
+      if (reserved)
+        continue;
 
-      /* Allocate FieldDescClosure + name copy into bundle so the capsule
-       * destructor frees them together. */
       FieldDescClosure *fdc = g_new0 (FieldDescClosure, 1);
-      fdc->offset = offset;
-      fdc->tag = tag;
-      g_ptr_array_add (bundle, fdc);
-
-      char *name_copy = g_strdup (raw_name);
-      g_ptr_array_add (bundle, name_copy);
+      fdc->owner_info = gi_base_info_ref (info);
+      fdc->field = (GIFieldInfo *)gi_base_info_ref ((GIBaseInfo *)field);
+      fdc->offset = gi_field_info_get_offset (field);
+      fdc->name = g_strdup (raw_name);
 
       /* PyDescr_NewGetSet stores the PyGetSetDef* by pointer, not by value,
        * so the def must be heap-allocated and outlive the descriptor. */
       PyGetSetDef *def = g_new0 (PyGetSetDef, 1);
-      def->name = name_copy;
-      def->get = field_desc_getter;
-      def->set = field_desc_setter;
+      def->name = fdc->name;
+      def->get = can_get ? field_desc_getter : NULL;
+      def->set = can_set ? field_desc_setter : NULL;
       def->doc = NULL;
       def->closure = (void *)fdc;
-      g_ptr_array_add (bundle, def);
+      fdc->def = def;
+
       PyObject *desc = PyDescr_NewGetSet ((PyTypeObject *)cls, def);
       if (desc == NULL)
         {
+          field_desc_closure_destroy (fdc);
           g_ptr_array_unref (bundle);
           return NULL;
         }
-      int rc = PyDict_SetItemString (((PyTypeObject *)cls)->tp_dict, name_copy, desc);
+      int rc = PyDict_SetItemString (((PyTypeObject *)cls)->tp_dict, fdc->name, desc);
       Py_DECREF (desc);
       if (rc != 0)
         {
+          field_desc_closure_destroy (fdc);
           g_ptr_array_unref (bundle);
           return NULL;
         }
+      g_ptr_array_add (bundle, fdc);
     }
 
   if (bundle->len > 0)
@@ -1950,17 +2203,17 @@ py_record_install_field_descriptors (PyObject *module G_GNUC_UNUSED, PyObject *a
  * matching, e.g. `case Color(red, green, blue)` — where field order is the
  * natural contract, mirroring the C layout.
  *
- * Restricted to the same readable primitive scalars that
- * record_install_field_descriptors exposes as fast getset descriptors: those
- * are the safe, value-like fields. Pointer/array/nested/interface fields are
- * excluded — a positional `case` reads *every* listed attribute, and routing
- * those through the generic field getter can fault on a freshly-zeroed record
- * (e.g. a NULL gpointer field). */
-PyObject *
+ * Restricted to readable primitive scalars: those are the safe, value-like
+ * fields. Pointer/array/nested/interface fields are excluded — a positional
+ * `case` reads *every* listed attribute, and routing those through the generic
+ * field getter can fault on a freshly-zeroed record (e.g. a NULL gpointer
+ * field). */
+static PyObject *
 py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *capsule = NULL;
-  if (!PyArg_ParseTuple (args, "O", &capsule))
+  PyObject *cls = NULL;
+  if (!PyArg_ParseTuple (args, "O|O", &capsule, &cls))
     return NULL;
   GIBaseInfo *info = info_from_capsule (capsule);
   if (info == NULL)
@@ -1982,6 +2235,8 @@ py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
       g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
       if (fti == NULL)
         continue;
+      if (!field_to_py_supported (fti))
+        continue;
       switch (gi_type_info_get_tag (fti))
         {
         case GI_TYPE_TAG_BOOLEAN:
@@ -2002,6 +2257,17 @@ py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
       const char *raw_name = gi_base_info_get_name ((GIBaseInfo *)field);
       if (raw_name == NULL)
         continue;
+      if (cls != NULL)
+        {
+          int reserved = record_class_field_name_reserved (cls, raw_name);
+          if (reserved < 0)
+            {
+              Py_DECREF (names);
+              return NULL;
+            }
+          if (reserved)
+            continue;
+        }
       PyObject *s = PyUnicode_FromString (raw_name);
       if (s == NULL)
         {
@@ -2019,105 +2285,6 @@ py_record_field_names (PyObject *module G_GNUC_UNUSED, PyObject *args)
   PyObject *tuple = PyList_AsTuple (names);
   Py_DECREF (names);
   return tuple;
-}
-
-PyObject *
-py_record_field_get (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *obj = NULL;
-  PyObject *capsule = NULL;
-  const char *name = NULL;
-  if (!PyArg_ParseTuple (args, "OOs", &obj, &capsule, &name))
-    return NULL;
-  GIBaseInfo *info = info_from_capsule (capsule);
-  if (info == NULL)
-    return NULL;
-  gpointer ptr = NULL;
-  if (pygi_boxed_get (obj, &ptr) != 0)
-    return NULL;
-  if (ptr == NULL)
-    Py_RETURN_NONE;
-  GIFieldInfo *field = NULL;
-  if (!record_lookup_field (info, name, &field))
-    {
-      PyErr_Format (PyExc_AttributeError, "%s has no field %s", gi_base_info_get_name (info), name);
-      return NULL;
-    }
-  if (!(gi_field_info_get_flags (field) & GI_FIELD_IS_READABLE))
-    {
-      gi_base_info_unref ((GIBaseInfo *)field);
-      PyErr_Format (PyExc_AttributeError, "field %s is not readable", name);
-      return NULL;
-    }
-  g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
-  size_t offset = gi_field_info_get_offset (field);
-  if (GI_IS_UNION_INFO (info) && !(gi_field_info_get_flags (field) & GI_FIELD_IS_WRITABLE)
-      && gi_type_info_get_tag (fti) == GI_TYPE_TAG_INTERFACE)
-    {
-      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
-      if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
-        {
-          gi_base_info_unref ((GIBaseInfo *)field);
-          PyErr_Format (PyExc_AttributeError, "field %s is not readable", name);
-          return NULL;
-        }
-    }
-  if (GI_IS_UNION_INFO (info) && gi_type_info_get_tag (fti) == GI_TYPE_TAG_INTERFACE)
-    {
-      g_autoptr (GIBaseInfo) finfo = gi_type_info_get_interface (fti);
-      if (finfo != NULL && (GI_IS_STRUCT_INFO (finfo) || GI_IS_UNION_INFO (finfo)))
-        {
-          PyObject *out = union_interface_field_shadow_to_py (fti, (char *)ptr, offset, obj, name);
-          gi_base_info_unref ((GIBaseInfo *)field);
-          return out;
-        }
-    }
-  PyObject *out = field_to_py (fti, (char *)ptr, offset, obj);
-  gi_base_info_unref ((GIBaseInfo *)field);
-  if (out == NULL && !PyErr_Occurred ())
-    PyErr_Format (PyExc_NotImplementedError, "field %s: marshalling not implemented", name);
-  return out;
-}
-
-PyObject *
-py_record_field_set (PyObject *module G_GNUC_UNUSED, PyObject *args)
-{
-  PyObject *obj = NULL;
-  PyObject *capsule = NULL;
-  const char *name = NULL;
-  PyObject *value = NULL;
-  if (!PyArg_ParseTuple (args, "OOsO", &obj, &capsule, &name, &value))
-    return NULL;
-  GIBaseInfo *info = info_from_capsule (capsule);
-  if (info == NULL)
-    return NULL;
-  gpointer ptr = NULL;
-  if (pygi_boxed_get (obj, &ptr) != 0)
-    return NULL;
-  if (ptr == NULL)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "cannot set field on detached boxed value");
-      return NULL;
-    }
-  GIFieldInfo *field = NULL;
-  if (!record_lookup_field (info, name, &field))
-    {
-      PyErr_Format (PyExc_AttributeError, "%s has no field %s", gi_base_info_get_name (info), name);
-      return NULL;
-    }
-  if (!(gi_field_info_get_flags (field) & GI_FIELD_IS_WRITABLE))
-    {
-      gi_base_info_unref ((GIBaseInfo *)field);
-      PyErr_Format (PyExc_AttributeError, "field %s is not writable", name);
-      return NULL;
-    }
-  g_autoptr (GITypeInfo) fti = gi_field_info_get_type_info (field);
-  size_t offset = gi_field_info_get_offset (field);
-  int rc = field_from_py (fti, (char *)ptr, offset, value);
-  gi_base_info_unref ((GIBaseInfo *)field);
-  if (rc != 0)
-    return NULL;
-  Py_RETURN_NONE;
 }
 
 /* StructInfo.anonymous_union_offset(prev_field, align) /
@@ -2326,7 +2493,7 @@ py_record_memory_set (PyObject *module G_GNUC_UNUSED, PyObject *args)
   return NULL;
 }
 
-PyObject *
+static PyObject *
 py_register_boxed_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *cls = NULL;
@@ -2362,6 +2529,91 @@ py_register_boxed_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
       Py_DECREF (key);
     }
   (void)capsule;
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_record_setup_class (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *cls = NULL;
+  PyObject *capsule = NULL;
+  if (!PyArg_ParseTuple (args, "OO", &cls, &capsule))
+    return NULL;
+  if (!PyType_Check (cls))
+    {
+      PyErr_SetString (PyExc_TypeError, "record_setup_class: cls must be a type");
+      return NULL;
+    }
+  GIBaseInfo *info = info_from_capsule (capsule);
+  if (info == NULL)
+    return NULL;
+  if (!GI_IS_STRUCT_INFO (info) && !GI_IS_UNION_INFO (info))
+    {
+      PyErr_SetString (PyExc_TypeError, "record_setup_class: expected struct or union info");
+      return NULL;
+    }
+
+  PyGIRecordClassData *existing_data = record_class_data_for_type ((PyTypeObject *)cls);
+  if (existing_data == NULL && PyErr_Occurred ())
+    return NULL;
+
+  GType gtype = gi_registered_type_info_get_g_type ((GIRegisteredTypeInfo *)info);
+  if (existing_data == NULL)
+    {
+      PyGIRecordClassData *data = g_new0 (PyGIRecordClassData, 1);
+      data->info = gi_base_info_ref (info);
+      data->gtype = gtype;
+      data->size = record_info_size (info);
+
+      PyObject *data_capsule
+          = PyCapsule_New (data, PYGI_RECORD_CLASS_DATA_CAPSULE, record_class_data_destroy);
+      if (data_capsule == NULL)
+        {
+          gi_base_info_unref (data->info);
+          g_free (data);
+          return NULL;
+        }
+      if (PyObject_SetAttrString (cls, "__record_data__", data_capsule) < 0)
+        {
+          Py_DECREF (data_capsule);
+          return NULL;
+        }
+      Py_DECREF (data_capsule);
+
+      PyObject *setup_args = PyTuple_Pack (2, cls, capsule);
+      if (setup_args == NULL)
+        return NULL;
+      PyObject *installed = py_record_install_field_descriptors (NULL, setup_args);
+      Py_DECREF (setup_args);
+      if (installed == NULL)
+        return NULL;
+      Py_DECREF (installed);
+
+      PyObject *names_args = PyTuple_Pack (2, capsule, cls);
+      if (names_args == NULL)
+        return NULL;
+      PyObject *match_args = py_record_field_names (NULL, names_args);
+      Py_DECREF (names_args);
+      if (match_args == NULL)
+        return NULL;
+      if (PyTuple_GET_SIZE (match_args) > 0
+          && PyObject_SetAttrString (cls, "__match_args__", match_args) < 0)
+        {
+          Py_DECREF (match_args);
+          return NULL;
+        }
+      Py_DECREF (match_args);
+    }
+
+  PyObject *register_args = Py_BuildValue ("OKO", cls, (unsigned long long)gtype, capsule);
+  if (register_args == NULL)
+    return NULL;
+  PyObject *registered = py_register_boxed_class (NULL, register_args);
+  Py_DECREF (register_args);
+  if (registered == NULL)
+    return NULL;
+  Py_DECREF (registered);
+
   Py_RETURN_NONE;
 }
 

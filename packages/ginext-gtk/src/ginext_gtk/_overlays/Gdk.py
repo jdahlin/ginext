@@ -98,12 +98,11 @@ if Gdk.__version__[0] == 3:
         return mapping.get(key)
 
     def _event_active_arm(event: Gdk.Event) -> object:
-        info = getattr(type(event), "gimeta").info
-        event_type = private.record_field_get(event, info, "type")
+        event_type = event.type
         arm_name = _event_arm_name(event_type)
         if arm_name is None:
             raise AttributeError("event type has no active arm")
-        return private.record_field_get(event, info, arm_name)
+        return getattr(event, arm_name)
 
     class _EventArmField:
         __slots__ = ("_name",)
@@ -115,11 +114,11 @@ if Gdk.__version__[0] == 3:
             if event is None:
                 return self
             arm = _event_active_arm(event)
-            return private.record_field_get(arm, getattr(type(arm), "gimeta").info, self._name)
+            return getattr(arm, self._name)
 
         def __set__(self, event: Gdk.Event, value: object) -> None:
             arm = _event_active_arm(event)
-            private.record_field_set(arm, getattr(type(arm), "gimeta").info, self._name, value)
+            setattr(arm, self._name, value)
 
     class _EventMixin:
         direction = _EventArmField("direction")
@@ -152,12 +151,11 @@ def _rgba_new(
             DeprecationWarning,
             stacklevel=2,
         )
-    info = getattr(cls, "gimeta").info
-    obj = private.record_new(cls, info)
-    private.record_field_set(obj, info, "red", float(red))
-    private.record_field_set(obj, info, "green", float(green))
-    private.record_field_set(obj, info, "blue", float(blue))
-    private.record_field_set(obj, info, "alpha", float(alpha))
+    obj = private.GBoxed.__new__(cls)
+    obj.red = float(red)
+    obj.green = float(green)
+    obj.blue = float(blue)
+    obj.alpha = float(alpha)
     return cast("Gdk.RGBA", obj)
 
 
@@ -174,12 +172,11 @@ def _rectangle_new(
     width: int = 0,
     height: int = 0,
 ) -> Gdk.Rectangle:
-    info = getattr(cls, "gimeta").info
-    obj = private.record_new(cls, info)
-    private.record_field_set(obj, info, "x", int(x))
-    private.record_field_set(obj, info, "y", int(y))
-    private.record_field_set(obj, info, "width", int(width))
-    private.record_field_set(obj, info, "height", int(height))
+    obj = private.GBoxed.__new__(cls)
+    obj.x = int(x)
+    obj.y = int(y)
+    obj.width = int(width)
+    obj.height = int(height)
     return cast("Gdk.Rectangle", obj)
 
 

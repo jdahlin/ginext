@@ -108,7 +108,7 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                     except TypeError:
                         pass
                 return cast("Self", cast("Any", method)())
-        obj = private.record_new(cls, cls.gimeta.info)
+        obj = super().__new__(cls)
         _ensure_anonymous_union_storage(cls, obj)
         return cast("Self", obj)
 
@@ -125,16 +125,13 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
         anonymous = type(self).gimeta.anonymous_unions.get(name)
         if anonymous is not None:
             return _AnonymousUnionProxy(self, anonymous)
-        try:
-            return private.record_field_get(self, type(self).gimeta.info, name)
-        except AttributeError:
-            found = install_method_for_record_class(type(self), name)
-            if found is None:
-                raise
-            method, has_self = found
-            if not has_self:
-                return method
-            return types.MethodType(cast("Any", method), self)
+        found = install_method_for_record_class(type(self), name)
+        if found is None:
+            raise AttributeError(name)
+        method, has_self = found
+        if not has_self:
+            return method
+        return types.MethodType(cast("Any", method), self)
 
     def __setattr__(self, name: str, value: object) -> None:
         if name.startswith("_"):
@@ -142,7 +139,7 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
             return
         if name in type(self).gimeta.hidden_fields:
             raise AttributeError(name)
-        private.record_field_set(self, type(self).gimeta.info, name, value)
+        super().__setattr__(name, value)
 
 
 class RecordBuilder:
@@ -207,21 +204,12 @@ class RecordBuilder:
                 method_info.is_method(),
             )
 
-        # A record's fields have a meaningful order (the C layout), so expose
-        # them as __match_args__ for positional pattern matching, e.g.
-        # `case Color(red, green, blue)`. GObject classes are deliberately left
-        # out — their property order is not a contract.
-        match_args = private.record_field_names(info)
-        if match_args:
-            attrs["__match_args__"] = match_args
-
         bases: tuple[type, ...] = (RecordBase,)
         extra_bases = class_bases_overlay_for(self._context.name, name)
         if extra_bases:
             bases = (*extra_bases, *bases)
         cls = cast("type[Any]", type(name, bases, attrs))
-        private.register_boxed_class(cls, gtype, info)
-        private.record_install_field_descriptors(cls, info)
+        private.record_setup_class(cls, info)
         _record_classes_by_key[key] = cls
         if cacheable_gtype:
             _record_classes_by_gtype[gtype_key] = cls
