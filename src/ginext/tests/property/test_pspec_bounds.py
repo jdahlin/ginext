@@ -23,6 +23,9 @@ from typing import Any
 
 import pytest
 
+from ginext.namespace import Namespace
+from ginext.tests.gi_test_utils import load_test_namespace
+
 from ..conftest import NUMERIC_BOUNDS_TYPES, read_numeric_pspec
 
 
@@ -31,6 +34,11 @@ def assert_numeric(actual: Any, expected: Any) -> None:
         assert actual == pytest.approx(expected)
     else:
         assert actual == expected
+
+
+@pytest.fixture(scope="module")
+def regress() -> Namespace:
+    return load_test_namespace("Regress")
 
 
 @pytest.mark.parametrize("case", NUMERIC_BOUNDS_TYPES)
@@ -49,6 +57,15 @@ def test_numeric_pspec_bounds_match_property_bounds(
     assert_numeric(pspec.maximum, case.maximum)
     assert_numeric(pspec.default_value, case.default)
     assert_numeric(pspec_default(cls.gimeta.pspecs["x"]), case.default)
+
+
+def test_unichar_pspec_is_not_read_as_uint(regress: Namespace) -> None:
+    from ginext import private
+
+    pspec = regress.TestObj.gimeta.param_spec("unichar")
+    assert pspec is not None
+    with pytest.raises(TypeError, match="not numeric"):
+        private.param_spec_numeric_info(pspec)
 
 
 @pytest.mark.parametrize("case", NUMERIC_BOUNDS_TYPES)
