@@ -22,7 +22,6 @@
 from __future__ import annotations
 
 import enum
-import types
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
 from ginext import private
@@ -150,7 +149,7 @@ def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
 
 class GIEnum(enum.IntEnum):
     __info__: ClassVar[EnumInfo]
-    gimeta: ClassVar[types.SimpleNamespace]
+    gimeta: ClassVar[private.GIMeta]
     __gtype__: ClassVar[int]
     __enum_values__: ClassVar[dict[int, enum.IntEnum]]
     _value_names: ClassVar[dict[int, str]]
@@ -176,7 +175,7 @@ class GIEnum(enum.IntEnum):
 
 class GIFlags(enum.IntFlag):
     __info__: ClassVar[FlagsInfo]
-    gimeta: ClassVar[types.SimpleNamespace]
+    gimeta: ClassVar[private.GIMeta]
     __gtype__: ClassVar[int]
     __flags_values__: ClassVar[dict[int, enum.IntFlag]]
     _value_names: ClassVar[dict[int, str]]
@@ -264,7 +263,8 @@ class EnumBuilder:
         assert isinstance(cls, type)
         cls.__info__ = info
         if gtype > 255:
-            cls.gimeta = types.SimpleNamespace(gtype=gtype, profile=context.profile)
+            cls.gimeta = private.GIMeta.from_gtype(gtype, info.get_type_name())
+            cls.gimeta.profile = context.profile
             cls.__gtype__ = gtype
         cls._value_names = {
             value: _enum_c_value_name(context.name, name, raw_name)

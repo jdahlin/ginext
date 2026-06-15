@@ -190,6 +190,36 @@ gimeta_from_type_name (PyTypeObject *cls G_GNUC_UNUSED, PyObject *args)
 }
 
 static PyObject *
+gimeta_from_gtype (PyTypeObject *cls G_GNUC_UNUSED, PyObject *args)
+{
+  unsigned long long gtype_arg = 0;
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "K|z", &gtype_arg, &name))
+    return NULL;
+
+  GType gtype = (GType)gtype_arg;
+  if (name == NULL)
+    name = g_type_name (gtype);
+  if (name == NULL)
+    name = "";
+
+  Py_AUTO_DECREF PyObject *type_name = PyUnicode_FromString (name);
+  Py_AUTO_DECREF PyObject *pspecs = PyDict_New ();
+  Py_AUTO_DECREF PyObject *prop_ids = PyDict_New ();
+  if (!type_name || !pspecs || !prop_ids)
+    return NULL;
+
+  PyObject *gm = gimeta_new (gtype, type_name, Py_None, pspecs, prop_ids, Py_None);
+  if (gm)
+    {
+      type_name = NULL;
+      pspecs = NULL;
+      prop_ids = NULL;
+    }
+  return gm;
+}
+
+static PyObject *
 gimeta_info_by_gtype (PyTypeObject *cls G_GNUC_UNUSED, PyObject *args)
 {
   unsigned long long gtype_arg = 0;
@@ -673,6 +703,10 @@ static PyMethodDef gimeta_methods[]
           (PyCFunction)gimeta_info_by_gtype,
           METH_VARARGS | METH_CLASS,
           "Resolve GI object or interface info by GType." },
+        { "from_gtype",
+          (PyCFunction)gimeta_from_gtype,
+          METH_VARARGS | METH_CLASS,
+          "Build a GIMeta from a raw GType and optional type name." },
         { "register_subclass",
           (PyCFunction)gimeta_register_subclass,
           METH_VARARGS | METH_CLASS,
