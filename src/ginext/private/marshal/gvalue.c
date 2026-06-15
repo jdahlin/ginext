@@ -309,6 +309,15 @@ pyobject_to_gerror (PyObject *obj, GError **out_error)
   return *out_error != NULL ? 1 : -1;
 }
 
+static int
+pyobject_to_gerror_instance (PyObject *obj, GError **out_error)
+{
+  int rc = pygi_error_from_py (obj, out_error);
+  if (rc < 0)
+    return -1;
+  return rc;
+}
+
 static GIBaseInfo *
 find_registered_type_info_for_gtype (GIRepository *repo, GType gtype)
 {
@@ -411,6 +420,8 @@ pygi_py_to_gvalue_inplace (PyObject *h, GValue *value, GIArgInfo *arg_info)
   g_return_val_if_fail (value != NULL, -1);
   PyObject *obj = (PyObject *)(h);
   GType gtype = 0;
+  GError *gerror_instance = NULL;
+  int gerror_instance_rc = 0;
   GValue *wrapped = NULL;
   if (pygi_gvalue_wrapper_get (obj, &wrapped))
     {
@@ -453,6 +464,14 @@ pygi_py_to_gvalue_inplace (PyObject *h, GValue *value, GIArgInfo *arg_info)
         g_value_set_float (value, (gfloat)v);
       else
         g_value_set_double (value, v);
+    }
+  else if ((gerror_instance_rc = pyobject_to_gerror_instance (obj, &gerror_instance)) < 0)
+    return -1;
+  else if (gerror_instance_rc == 1)
+    {
+      g_value_init (value, G_TYPE_ERROR);
+      g_value_take_boxed (value, gerror_instance);
+      return 0;
     }
   else if (pyobject_get_pygi_gtype (obj, &gtype) == 0 && g_type_is_a (gtype, G_TYPE_ENUM))
     {

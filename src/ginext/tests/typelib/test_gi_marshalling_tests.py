@@ -1039,6 +1039,15 @@ def test_gerror_return(t: Namespace) -> None:
     t.gerror_return()
 
 
+def test_compare_two_gerrors_in_gvalue_accepts_glib_error_instances(t: Namespace) -> None:
+    from ginext import GLib
+
+    error = GLib.Error.new_literal(1, 1, "error")
+    error1 = GLib.Error.new_literal(1, 1, "error")
+
+    t.compare_two_gerrors_in_gvalue(error, error1)
+
+
 def test_ghashtable_double_in(t: Namespace) -> None:
     assert t.ghashtable_double_in({"-1": -0.1, "0": 0.0, "1": 0.1, "2": 0.2}) is None
 
