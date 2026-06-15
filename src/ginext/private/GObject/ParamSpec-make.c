@@ -524,3 +524,461 @@ make_pspec (const char *attr_name, PyObject *value_type, PyObject *prop)
 #undef CHECK_CONV
 #undef CHECK_PSPEC
 }
+
+#include "GObject/Value.h"
+#include "GObject/coercions.h"
+
+typedef struct
+{
+  PyObject_HEAD GParamSpec *pspec;
+} PyGIParamSpec;
+
+static void
+param_spec_dealloc (PyGIParamSpec *self)
+{
+  if (self->pspec != NULL)
+    g_param_spec_unref (self->pspec);
+  Py_TYPE (self)->tp_free ((PyObject *)self);
+}
+
+static PyObject *
+param_spec_repr (PyGIParamSpec *self)
+{
+  const char *name = self->pspec != NULL ? g_param_spec_get_name (self->pspec) : NULL;
+  const char *type_name = self->pspec != NULL ? G_OBJECT_TYPE_NAME (self->pspec) : NULL;
+  PyObject *name_obj = name != NULL ? PyUnicode_FromString (name) : Py_NewRef (Py_None);
+  if (name_obj == NULL)
+    return NULL;
+  PyObject *repr = PyUnicode_FromFormat ("<%s name=%R at %p>",
+                                         type_name != NULL ? type_name : "GParamSpec",
+                                         name_obj,
+                                         self->pspec);
+  Py_DECREF (name_obj);
+  return repr;
+}
+
+static PyObject *
+param_spec_get_name (PyGIParamSpec *self, void *closure G_GNUC_UNUSED)
+{
+  const char *name = self->pspec != NULL ? g_param_spec_get_name (self->pspec) : NULL;
+  if (name == NULL)
+    Py_RETURN_NONE;
+  return PyUnicode_FromString (name);
+}
+
+static PyObject *
+param_spec_get_nick (PyGIParamSpec *self, void *closure G_GNUC_UNUSED)
+{
+  const char *nick = self->pspec != NULL ? g_param_spec_get_nick (self->pspec) : NULL;
+  if (nick == NULL)
+    Py_RETURN_NONE;
+  return PyUnicode_FromString (nick);
+}
+
+static PyObject *
+param_spec_get_blurb (PyGIParamSpec *self, void *closure G_GNUC_UNUSED)
+{
+  const char *blurb = self->pspec != NULL ? g_param_spec_get_blurb (self->pspec) : NULL;
+  if (blurb == NULL)
+    Py_RETURN_NONE;
+  return PyUnicode_FromString (blurb);
+}
+
+static PyObject *
+param_spec_get_value_type (PyGIParamSpec *self, void *closure G_GNUC_UNUSED)
+{
+  if (self->pspec == NULL)
+    Py_RETURN_NONE;
+  /* GType is gsize (pointer-width); unsigned long is only 32-bit on LLP64
+     (Windows), which truncates registered-type GTypes. */
+  return PyLong_FromUnsignedLongLong ((unsigned long long)self->pspec->value_type);
+}
+
+static PyGetSetDef param_spec_getsets[] = {
+  { "name", (getter)param_spec_get_name, NULL, NULL, NULL },
+  { "nick", (getter)param_spec_get_nick, NULL, NULL, NULL },
+  { "blurb", (getter)param_spec_get_blurb, NULL, NULL, NULL },
+  { "value_type", (getter)param_spec_get_value_type, NULL, NULL, NULL },
+  { NULL, NULL, NULL, NULL, NULL },
+};
+
+static PyTypeObject param_spec_type = {
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "ginext.private.ParamSpec",
+  .tp_basicsize = sizeof (PyGIParamSpec),
+  .tp_dealloc = (destructor)param_spec_dealloc,
+  .tp_repr = (reprfunc)param_spec_repr,
+  .tp_getset = param_spec_getsets,
+  .tp_flags = Py_TPFLAGS_DEFAULT,
+};
+
+PyObject *
+pygi_param_spec_new (GParamSpec *pspec)
+{
+  if (pspec == NULL)
+    Py_RETURN_NONE;
+  if (PyType_Ready (&param_spec_type) < 0)
+    return NULL;
+  PyGIParamSpec *self = PyObject_New (PyGIParamSpec, &param_spec_type);
+  if (self == NULL)
+    return NULL;
+  self->pspec = g_param_spec_ref (pspec);
+  return (PyObject *)self;
+}
+
+int
+pygi_param_spec_from_py (PyObject *obj, GParamSpec **out_pspec)
+{
+  PyObject *repr = NULL;
+  if (out_pspec == NULL)
+    {
+      PyErr_SetString (PyExc_SystemError, "pygi_param_spec_from_py: NULL out pointer");
+      return -1;
+    }
+  *out_pspec = NULL;
+  if (obj == Py_None)
+    return 0;
+
+  if (PyType_Ready (&param_spec_type) < 0)
+    return -1;
+  if (!PyObject_TypeCheck (obj, &param_spec_type))
+    {
+      repr = PyObject_Repr (obj);
+      PyErr_Format (PyExc_TypeError,
+                    "expected GObject.ParamSpec, got %.200s",
+                    repr != NULL ? PyUnicode_AsUTF8 (repr) : Py_TYPE (obj)->tp_name);
+      Py_XDECREF (repr);
+      return -1;
+    }
+
+  *out_pspec = ((PyGIParamSpec *)obj)->pspec;
+  return 0;
+}
+
+PyObject *
+py_param_spec_from_gtype_name (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj = NULL;
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "Os", &gtype_obj, &name))
+    return NULL;
+
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+  if (gtype == G_TYPE_INVALID || !G_TYPE_IS_OBJECT (gtype))
+    Py_RETURN_NONE;
+
+  gpointer klass = g_type_class_ref (gtype);
+  if (klass == NULL)
+    Py_RETURN_NONE;
+  GParamSpec *pspec = g_object_class_find_property (G_OBJECT_CLASS (klass), name);
+  PyObject *out = pygi_param_spec_new (pspec);
+  g_type_class_unref (klass);
+  return out;
+}
+
+PyObject *
+py_object_class_list_property_names (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &gtype_obj))
+    return NULL;
+
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+  if (gtype == G_TYPE_INVALID || !G_TYPE_IS_OBJECT (gtype))
+    return PyList_New (0);
+
+  gpointer klass = g_type_class_ref (gtype);
+  if (klass == NULL)
+    return PyList_New (0);
+
+  guint n_props = 0;
+  GParamSpec **props = g_object_class_list_properties (G_OBJECT_CLASS (klass), &n_props);
+  PyObject *result = PyList_New ((Py_ssize_t)n_props);
+  if (result == NULL)
+    {
+      g_free (props);
+      g_type_class_unref (klass);
+      return NULL;
+    }
+  for (guint i = 0; i < n_props; i++)
+    {
+      PyObject *name = PyUnicode_FromString (g_param_spec_get_name (props[i]));
+      if (name == NULL)
+        {
+          Py_DECREF (result);
+          g_free (props);
+          g_type_class_unref (klass);
+          return NULL;
+        }
+      PyList_SET_ITEM (result, (Py_ssize_t)i, name);
+    }
+  g_free (props);
+  g_type_class_unref (klass);
+  return result;
+}
+
+PyObject *
+py_type_has_value_table (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &gtype_obj))
+    return NULL;
+
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+
+  return PyBool_FromLong (g_type_value_table_peek (gtype) != NULL);
+}
+
+PyObject *
+py_interface_list_properties (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *gtype_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &gtype_obj))
+    return NULL;
+
+  GType gtype = G_TYPE_INVALID;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+  if (!G_TYPE_IS_INTERFACE (gtype))
+    {
+      PyErr_SetString (PyExc_TypeError, "GType is not an interface");
+      return NULL;
+    }
+
+  gpointer iface = g_type_default_interface_ref (gtype);
+  if (iface == NULL)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "could not reference interface");
+      return NULL;
+    }
+
+  guint n_props = 0;
+  GParamSpec **props = g_object_interface_list_properties (iface, &n_props);
+  PyObject *result = PyList_New (n_props);
+  if (result == NULL)
+    {
+      g_free (props);
+      g_type_default_interface_unref (iface);
+      return NULL;
+    }
+
+  for (guint i = 0; i < n_props; i++)
+    {
+      PyObject *item = pygi_param_spec_new (props[i]);
+      if (item == NULL)
+        {
+          Py_DECREF (result);
+          g_free (props);
+          g_type_default_interface_unref (iface);
+          return NULL;
+        }
+      PyList_SET_ITEM (result, i, item);
+    }
+
+  g_free (props);
+  g_type_default_interface_unref (iface);
+  return result;
+}
+
+
+static GParamSpec *
+param_spec_from_pointer_arg (PyObject *obj)
+{
+  if (PyObject_TypeCheck (obj, &param_spec_type))
+    {
+      PyGIParamSpec *ps = (PyGIParamSpec *)obj;
+      if (ps->pspec == NULL)
+        {
+          PyErr_SetString (PyExc_ValueError, "pspec pointer is NULL");
+          return NULL;
+        }
+      return ps->pspec;
+    }
+  unsigned long long raw = PyLong_AsUnsignedLongLong (obj);
+  if (raw == (unsigned long long)-1 && PyErr_Occurred ())
+    return NULL;
+  if (raw == 0)
+    {
+      PyErr_SetString (PyExc_ValueError, "pspec pointer is NULL");
+      return NULL;
+    }
+  return (GParamSpec *)(uintptr_t)raw;
+}
+
+PyObject *
+py_param_spec_info (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *ptr_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &ptr_obj))
+    return NULL;
+
+  GParamSpec *pspec = param_spec_from_pointer_arg (ptr_obj);
+  if (pspec == NULL)
+    return NULL;
+
+  return Py_BuildValue ("{s:K,s:s,s:z,s:z,s:I,s:K,s:z,s:K}",
+                        "pointer",
+                        (unsigned long long)(uintptr_t)pspec,
+                        "name",
+                        g_param_spec_get_name (pspec),
+                        "nick",
+                        g_param_spec_get_nick (pspec),
+                        "blurb",
+                        g_param_spec_get_blurb (pspec),
+                        "flags",
+                        (unsigned int)pspec->flags,
+                        "value_type",
+                        (unsigned long long)pspec->value_type,
+                        "value_type_name",
+                        g_type_name (pspec->value_type),
+                        "owner_type",
+                        (unsigned long long)pspec->owner_type);
+}
+
+PyObject *
+py_param_spec_default_value (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *ptr_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &ptr_obj))
+    return NULL;
+
+  GParamSpec *pspec = param_spec_from_pointer_arg (ptr_obj);
+  if (pspec == NULL)
+    return NULL;
+
+  const GValue *value = g_param_spec_get_default_value (pspec);
+  if (value == NULL)
+    Py_RETURN_NONE;
+  return pygi_gvalue_value_to_py ((GValue *)value);
+}
+
+static PyObject *
+numeric_info_new (PyObject *minimum, PyObject *maximum, PyObject *default_value)
+{
+  if (minimum == NULL || maximum == NULL || default_value == NULL)
+    {
+      Py_XDECREF (minimum);
+      Py_XDECREF (maximum);
+      Py_XDECREF (default_value);
+      return NULL;
+    }
+
+  PyObject *dict = PyDict_New ();
+  if (dict == NULL)
+    {
+      Py_DECREF (minimum);
+      Py_DECREF (maximum);
+      Py_DECREF (default_value);
+      return NULL;
+    }
+  if (PyDict_SetItemString (dict, "minimum", minimum) < 0
+      || PyDict_SetItemString (dict, "maximum", maximum) < 0
+      || PyDict_SetItemString (dict, "default_value", default_value) < 0)
+    {
+      Py_DECREF (minimum);
+      Py_DECREF (maximum);
+      Py_DECREF (default_value);
+      Py_DECREF (dict);
+      return NULL;
+    }
+
+  Py_DECREF (minimum);
+  Py_DECREF (maximum);
+  Py_DECREF (default_value);
+  return dict;
+}
+
+PyObject *
+py_param_spec_numeric_info (PyObject *m G_GNUC_UNUSED, PyObject *args)
+{
+  PyObject *ptr_obj = NULL;
+  if (!PyArg_ParseTuple (args, "O", &ptr_obj))
+    return NULL;
+
+  GParamSpec *pspec = param_spec_from_pointer_arg (ptr_obj);
+  if (pspec == NULL)
+    return NULL;
+
+  GType value_type = pspec->value_type;
+  if (value_type == G_TYPE_CHAR)
+    {
+      GParamSpecChar *p = G_PARAM_SPEC_CHAR (pspec);
+      return numeric_info_new (PyLong_FromLong (p->minimum),
+                               PyLong_FromLong (p->maximum),
+                               PyLong_FromLong (p->default_value));
+    }
+  if (value_type == G_TYPE_UCHAR)
+    {
+      GParamSpecUChar *p = G_PARAM_SPEC_UCHAR (pspec);
+      return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
+                               PyLong_FromUnsignedLong (p->maximum),
+                               PyLong_FromUnsignedLong (p->default_value));
+    }
+  if (value_type == G_TYPE_INT)
+    {
+      GParamSpecInt *p = G_PARAM_SPEC_INT (pspec);
+      return numeric_info_new (PyLong_FromLong (p->minimum),
+                               PyLong_FromLong (p->maximum),
+                               PyLong_FromLong (p->default_value));
+    }
+  if (value_type == G_TYPE_UINT)
+    {
+      GParamSpecUInt *p = G_PARAM_SPEC_UINT (pspec);
+      return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
+                               PyLong_FromUnsignedLong (p->maximum),
+                               PyLong_FromUnsignedLong (p->default_value));
+    }
+  if (value_type == G_TYPE_LONG)
+    {
+      GParamSpecLong *p = G_PARAM_SPEC_LONG (pspec);
+      return numeric_info_new (PyLong_FromLong (p->minimum),
+                               PyLong_FromLong (p->maximum),
+                               PyLong_FromLong (p->default_value));
+    }
+  if (value_type == G_TYPE_ULONG)
+    {
+      GParamSpecULong *p = G_PARAM_SPEC_ULONG (pspec);
+      return numeric_info_new (PyLong_FromUnsignedLong (p->minimum),
+                               PyLong_FromUnsignedLong (p->maximum),
+                               PyLong_FromUnsignedLong (p->default_value));
+    }
+  if (value_type == G_TYPE_INT64)
+    {
+      GParamSpecInt64 *p = G_PARAM_SPEC_INT64 (pspec);
+      return numeric_info_new (PyLong_FromLongLong (p->minimum),
+                               PyLong_FromLongLong (p->maximum),
+                               PyLong_FromLongLong (p->default_value));
+    }
+  if (value_type == G_TYPE_UINT64)
+    {
+      GParamSpecUInt64 *p = G_PARAM_SPEC_UINT64 (pspec);
+      return numeric_info_new (PyLong_FromUnsignedLongLong (p->minimum),
+                               PyLong_FromUnsignedLongLong (p->maximum),
+                               PyLong_FromUnsignedLongLong (p->default_value));
+    }
+  if (value_type == G_TYPE_FLOAT)
+    {
+      GParamSpecFloat *p = G_PARAM_SPEC_FLOAT (pspec);
+      return numeric_info_new (PyFloat_FromDouble (p->minimum),
+                               PyFloat_FromDouble (p->maximum),
+                               PyFloat_FromDouble (p->default_value));
+    }
+  if (value_type == G_TYPE_DOUBLE)
+    {
+      GParamSpecDouble *p = G_PARAM_SPEC_DOUBLE (pspec);
+      return numeric_info_new (PyFloat_FromDouble (p->minimum),
+                               PyFloat_FromDouble (p->maximum),
+                               PyFloat_FromDouble (p->default_value));
+    }
+
+  PyErr_Format (PyExc_TypeError,
+                "GParamSpec value type %s is not numeric",
+                g_type_name (value_type));
+  return NULL;
+}
+

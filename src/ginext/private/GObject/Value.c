@@ -329,3 +329,212 @@ pygi_py_to_gvalue_property (PyObject *py_value, GValue *out)
   PyErr_Format (PyExc_NotImplementedError, "no GValue conversion for GType %s", g_type_name (vt));
   return -1;
 }
+
+PyObject *
+py_gvalue_get_type (PyObject *m, PyObject *args)
+{
+  (void)m;
+  if (!PyArg_ParseTuple (args, ""))
+    return NULL;
+  return PyLong_FromUnsignedLongLong ((unsigned long long)g_value_get_type ());
+}
+
+PyObject *
+py_gvalue_get_gtype (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  if (!PyArg_ParseTuple (args, "O", &wrapper))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+  return PyLong_FromUnsignedLongLong ((unsigned long long)G_VALUE_TYPE (value));
+}
+
+PyObject *
+py_gvalue_init_value (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  PyObject *gtype_obj;
+  if (!PyArg_ParseTuple (args, "OO", &wrapper, &gtype_obj))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+
+  GType gtype = 0;
+  if (pygi_gtype_from_py_object (gtype_obj, &gtype) != 0)
+    return NULL;
+  if (gtype == 0 || !G_TYPE_IS_VALUE_TYPE (gtype))
+    {
+      PyErr_SetString (PyExc_ValueError, "Invalid GType");
+      return NULL;
+    }
+
+  if (G_VALUE_TYPE (value) != 0)
+    g_value_unset (value);
+  g_value_init (value, gtype);
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_gvalue_unset_value (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  if (!PyArg_ParseTuple (args, "O", &wrapper))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+  if (G_VALUE_TYPE (value) != 0)
+    g_value_unset (value);
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_gvalue_reset_value (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  if (!PyArg_ParseTuple (args, "O", &wrapper))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+  if (G_VALUE_TYPE (value) != 0)
+    g_value_reset (value);
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_gvalue_get_value (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  if (!PyArg_ParseTuple (args, "O", &wrapper))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+  return pygi_gvalue_value_to_py (value);
+}
+
+PyObject *
+py_gvalue_set_value (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *wrapper;
+  PyObject *py_value;
+  if (!PyArg_ParseTuple (args, "OO", &wrapper, &py_value))
+    return NULL;
+  GValue *value = NULL;
+  if (!pygi_gvalue_wrapper_get (wrapper, &value))
+    {
+      PyErr_SetString (PyExc_TypeError, "expected a GObject.Value wrapper");
+      return NULL;
+    }
+  GType gtype = G_VALUE_TYPE (value);
+  if (gtype == 0 || gtype == G_TYPE_INVALID)
+    {
+      PyErr_SetString (PyExc_TypeError, "GObject.Value needs to be initialized first");
+      return NULL;
+    }
+  if (gtype == G_TYPE_STRING && PyBytes_Check (py_value))
+    {
+      PyErr_SetString (PyExc_TypeError, "string GValue expects str or None");
+      return NULL;
+    }
+  GValue tmp = G_VALUE_INIT;
+  if (pygi_py_to_gvalue_targeted (gtype, py_value, &tmp, "GObject.Value") != 0)
+    return NULL;
+  g_value_reset (value);
+  g_value_copy (&tmp, value);
+  g_value_unset (&tmp);
+  Py_RETURN_NONE;
+}
+
+/* Write a primitive into one of a GValue's two data slots. Generic GValue field
+ * access (no GType named): an overlay that knows a fundamental type's storage
+ * (e.g. gst stores a fraction's numerator/denominator in data[0]/data[1].v_int)
+ * uses this to fill a GValue its Python->GValue converter received. */
+PyObject *
+py_gvalue_set_data_int (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *ptr_obj;
+  unsigned int index;
+  int value;
+  if (!PyArg_ParseTuple (args, "OIi", &ptr_obj, &index, &value))
+    return NULL;
+  if (index > 1)
+    {
+      PyErr_SetString (PyExc_IndexError, "GValue data index out of range");
+      return NULL;
+    }
+  void *p = PyLong_AsVoidPtr (ptr_obj);
+  if (p == NULL && PyErr_Occurred ())
+    return NULL;
+  ((GValue *)p)->data[index].v_int = value;
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_gvalue_set_data_uint64 (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *ptr_obj;
+  unsigned int index;
+  unsigned long long value;
+  if (!PyArg_ParseTuple (args, "OIK", &ptr_obj, &index, &value))
+    return NULL;
+  if (index > 1)
+    {
+      PyErr_SetString (PyExc_IndexError, "GValue data index out of range");
+      return NULL;
+    }
+  void *p = PyLong_AsVoidPtr (ptr_obj);
+  if (p == NULL && PyErr_Occurred ())
+    return NULL;
+  ((GValue *)p)->data[index].v_uint64 = (guint64)value;
+  Py_RETURN_NONE;
+}
+
+PyObject *
+py_gvalue_wrap_pointer (PyObject *m, PyObject *args)
+{
+  (void)m;
+  PyObject *ptr_obj;
+  if (!PyArg_ParseTuple (args, "O", &ptr_obj))
+    return NULL;
+  void *value_ptr = PyLong_AsVoidPtr (ptr_obj);
+  if (value_ptr == NULL && PyErr_Occurred ())
+    return NULL;
+  return pygi_gvalue_wrap_pointer ((GValue *)value_ptr);
+}
+
+PyObject *
+py_gstrv_get_type (PyObject *m, PyObject *args)
+{
+  (void)m;
+  if (!PyArg_ParseTuple (args, ""))
+    return NULL;
+  return PyLong_FromUnsignedLongLong ((unsigned long long)g_strv_get_type ());
+}
