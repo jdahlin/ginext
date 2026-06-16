@@ -80,18 +80,6 @@ _MethodDescriptor: TypeAlias = "tuple[CallableInfo, bool]"
 _classes_by_gtype: dict[tuple[str, int], type[Any]] = {}
 
 
-def _method_descriptor(gimeta: private.GIMeta, name: str) -> _MethodDescriptor | None:
-    return cast("_MethodDescriptor | None", gimeta.lookup_method(name))
-
-
-def _method_names(gimeta: private.GIMeta) -> list[str]:
-    return gimeta.list_methods()
-
-
-def _remove_method_descriptor(gimeta: private.GIMeta, name: str) -> bool:
-    return gimeta.remove_method(name)
-
-
 @runtime_checkable
 class _HasProfile(Protocol):
     _profile: abi.ABIProfile
@@ -437,7 +425,7 @@ def _class_has_method(cls: type, name: str) -> bool:
         if name in base.__dict__:
             return True
         gimeta = own_gimeta(base)
-        if gimeta is not None and _method_descriptor(gimeta, name) is not None:
+        if gimeta is not None and gimeta.lookup_method(name) is not None:
             return True
     return False
 
@@ -448,7 +436,7 @@ def _method_from_bases(bases: tuple[type, ...], name: str) -> object | None:
             gimeta = own_gimeta(owner)
             if gimeta is None:
                 continue
-            method_entry = _method_descriptor(gimeta, name)
+            method_entry = cast("_MethodDescriptor | None", gimeta.lookup_method(name))
             if method_entry is None:
                 continue
             method_info, has_self = method_entry
@@ -490,12 +478,14 @@ def _maybe_async_callable(
         if not name.endswith("_async"):
             return None
         base = name[: -len("_async")]
-        finish_entry = _method_descriptor(gimeta, f"{base}_finish")
+        finish_entry = cast(
+            "_MethodDescriptor | None", gimeta.lookup_method(f"{base}_finish")
+        )
         if finish_entry is not None:
             finish_name = f"{base}_finish"
         else:
             best = ""
-            for key in _method_names(gimeta):
+            for key in gimeta.list_methods():
                 if not key.endswith("_finish"):
                     continue
                 stem = key[: -len("_finish")]
@@ -506,7 +496,9 @@ def _maybe_async_callable(
             if not finish_name:
                 return None
     if finish_entry is None:
-        finish_entry = _method_descriptor(gimeta, finish_name)
+        finish_entry = cast(
+            "_MethodDescriptor | None", gimeta.lookup_method(finish_name)
+        )
     if finish_entry is None:
         return None
     finish_info, finish_has_self = finish_entry
@@ -545,9 +537,9 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
         gimeta = own_gimeta(owner)
         if not hasattr(gimeta, "gi_info"):
             continue
-        if not _method_names(gimeta):
+        if not gimeta.list_methods():
             continue
-        method_entry = _method_descriptor(gimeta, name)
+        method_entry = cast("_MethodDescriptor | None", gimeta.lookup_method(name))
         if method_entry is None:
             continue
         method_info, has_self = method_entry
@@ -559,7 +551,7 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
                 has_self=has_self,
             )
         except NotImplementedError:
-            _remove_method_descriptor(gimeta, name)
+            gimeta.remove_method(name)
             return None
         async_wrapped = _maybe_async_callable(
             owner, gimeta, name, method, method_info, has_self
@@ -596,7 +588,7 @@ def _install_gobject_typelib_method(name: str) -> tuple[object, bool] | None:
     gimeta = own_gimeta(obj_cls)
     if gimeta is None:
         return None
-    method_entry = _method_descriptor(gimeta, name)
+    method_entry = cast("_MethodDescriptor | None", gimeta.lookup_method(name))
     if method_entry is None:
         return None
     method_info, has_self = method_entry

@@ -109,16 +109,19 @@ _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
 
 
 def _install_genum_compat_properties() -> None:
+    def _enum_extensions(cls: type) -> dict[str, Any]:
+        return cast(dict[str, Any], cls.gimeta.extensions["enum"])
+
     def _value_name(self: GIEnum) -> str:
-        return getattr(type(self), "_value_names", {}).get(int(self), self.name)
+        names = cast(dict[int, str], _enum_extensions(type(self))["value_names"])
+        return names.get(int(self), self.name)
 
     def _value_nick(self: GIEnum) -> str:
-        return getattr(type(self), "_value_nicks", {}).get(
-            int(self), self.name.lower().replace("_", "-")
-        )
+        nicks = cast(dict[int, str], _enum_extensions(type(self))["value_nicks"])
+        return nicks.get(int(self), self.name.lower().replace("_", "-"))
 
     def _value_names(self: GIFlags) -> list[str]:
-        names: dict[int, str] = getattr(type(self), "_value_names", {})
+        names = cast(dict[int, str], _enum_extensions(type(self))["value_names"])
         return [
             names.get(int(member), member.name or "")
             for member in type(self)
@@ -126,7 +129,7 @@ def _install_genum_compat_properties() -> None:
         ]
 
     def _value_nicks(self: GIFlags) -> list[str]:
-        nicks: dict[int, str] = getattr(type(self), "_value_nicks", {})
+        nicks = cast(dict[int, str], _enum_extensions(type(self))["value_nicks"])
         return [
             nicks.get(int(member), (member.name or "").lower().replace("_", "-"))
             for member in type(self)
@@ -161,8 +164,15 @@ def _install_genum_compat_properties() -> None:
     # excluded from GFlags so test_flags_has_no_gtype remains green.
     _GEnumMeta = type(_GEnum)
     _GFlagsMeta = type(_GFlags)
+    _GIEnumMeta = type(GIEnum)
     _orig_genum_new = _GEnumMeta.__new__
     _orig_gflags_new = _GFlagsMeta.__new__
+    _orig_genum_getattr = _GEnumMeta.__getattr__
+    _orig_gflags_getattr = _GFlagsMeta.__getattr__
+    _orig_gi_enum_getattr = _GIEnumMeta.__getattr__
+    _orig_genum_getattribute = _GEnumMeta.__getattribute__
+    _orig_gflags_getattribute = _GFlagsMeta.__getattribute__
+    _orig_gi_enum_getattribute = _GIEnumMeta.__getattribute__
 
     def _check_compat_declared_type_name(
         kind: str, name: str, bases: tuple[type, ...], namespace: dict[str, Any]
@@ -211,14 +221,66 @@ def _install_genum_compat_properties() -> None:
     def _gflags_subclasscheck(self: type, C: type) -> bool:
         if self is _GFlags:
             try:
-                if type.__subclasscheck__(GIFlags, C) and "__gtype__" in vars(C):
+                if type.__subclasscheck__(GIFlags, C) and hasattr(C, "gimeta"):
                     return True
             except TypeError:
                 pass
         return type.__subclasscheck__(self, C)
 
+    def _compat_gtype(cls: type) -> Any:
+        gimeta = cls.gimeta
+        return compat_gtype_from_raw(int(gimeta.gtype), gimeta.type_name)
+
+    def _genum_getattr(cls: type, name: str) -> Any:
+        if name == "__gtype__":
+            return _compat_gtype(cls)
+        return _orig_genum_getattr(cls, name)
+
+    def _genum_getattribute(cls: type, name: str) -> Any:
+        if name == "__gtype__" and cls is not _GEnum:
+            return _compat_gtype(cls)
+        return _orig_genum_getattribute(cls, name)
+
+    def _gflags_getattr(cls: type, name: str) -> Any:
+        if name == "__gtype__":
+            return _compat_gtype(cls)
+        return _orig_gflags_getattr(cls, name)
+
+    def _gflags_getattribute(cls: type, name: str) -> Any:
+        if name == "__gtype__" and cls is not _GFlags:
+            return _compat_gtype(cls)
+        return _orig_gflags_getattribute(cls, name)
+
+    def _gi_enum_getattr(cls: type, name: str) -> Any:
+        if name == "__info__":
+            info = cls.gimeta.gi_info
+            if info is None:
+                raise AttributeError(name)
+            return info
+        if name == "__gtype__":
+            return _compat_gtype(cls)
+        if name == "__enum_values__":
+            return _enum_extensions(cls)["values"]
+        if name == "__flags_values__":
+            return _enum_extensions(cls)["values"]
+        return _orig_gi_enum_getattr(cls, name)
+
+    def _gi_enum_getattribute(cls: type, name: str) -> Any:
+        if name in {"__info__", "__gtype__", "__enum_values__", "__flags_values__"}:
+            try:
+                return _gi_enum_getattr(cls, name)
+            except AttributeError:
+                pass
+        return _orig_gi_enum_getattribute(cls, name)
+
     _GEnumMeta.__new__ = _compat_genum_new  # type: ignore[assignment]
     _GFlagsMeta.__new__ = _compat_gflags_new  # type: ignore[assignment]
+    _GEnumMeta.__getattr__ = _genum_getattr  # type: ignore[method-assign]
+    _GFlagsMeta.__getattr__ = _gflags_getattr  # type: ignore[method-assign]
+    _GIEnumMeta.__getattr__ = _gi_enum_getattr  # type: ignore[method-assign]
+    _GEnumMeta.__getattribute__ = _genum_getattribute  # type: ignore[method-assign]
+    _GFlagsMeta.__getattribute__ = _gflags_getattribute  # type: ignore[method-assign]
+    _GIEnumMeta.__getattribute__ = _gi_enum_getattribute  # type: ignore[method-assign]
     _GEnumMeta.__subclasscheck__ = _genum_subclasscheck  # type: ignore[attr-defined]
     _GFlagsMeta.__subclasscheck__ = _gflags_subclasscheck  # type: ignore[attr-defined]
 

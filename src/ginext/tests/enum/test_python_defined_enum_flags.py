@@ -26,12 +26,25 @@ for user-defined enum registration.
 from __future__ import annotations
 
 import itertools
+import subprocess
+import sys
+from typing import ClassVar, Protocol, cast
+
+from ginext import private
 
 _type_seq = itertools.count()
 
 
 def _type_name(prefix: str) -> str:
     return f"{prefix}{next(_type_seq)}"
+
+
+class _HasGIMeta(Protocol):
+    gimeta: ClassVar[private.GIMeta]
+
+
+def _gimeta(cls: type[object]) -> private.GIMeta:
+    return cast(type[_HasGIMeta], cls).gimeta
 
 
 def test_enum_gtype() -> None:
@@ -42,9 +55,11 @@ def test_enum_gtype() -> None:
         TWO = 2
         THREE = 3
 
-    assert MyEnum.__gtype__ != GObject.GEnum.__gtype__
-    assert MyEnum.__gtype__.parent == GObject.GEnum.__gtype__
-    assert MyEnum.__gtype__.pytype is MyEnum
+    assert "__gtype__" not in vars(MyEnum)
+    gimeta = _gimeta(MyEnum)
+    assert gimeta.gtype > 255
+    assert gimeta.type_name == "MyEnum"
+    assert gimeta is _gimeta(MyEnum)
 
 
 def test_enum_values() -> None:
@@ -68,7 +83,8 @@ def test_enum_custom_type_name() -> None:
         __gtype_name__ = type_name
         ONE = 1
 
-    assert MyEnum.__gtype__.name == type_name
+    assert "__gtype__" not in vars(MyEnum)
+    assert _gimeta(MyEnum).type_name == type_name
 
 
 def test_flags_gtype() -> None:
@@ -79,9 +95,11 @@ def test_flags_gtype() -> None:
         TWO = 2
         FOUR = 4
 
-    assert MyFlags.__gtype__ != GObject.GFlags.__gtype__
-    assert MyFlags.__gtype__.parent == GObject.GFlags.__gtype__
-    assert MyFlags.__gtype__.pytype is MyFlags
+    assert "__gtype__" not in vars(MyFlags)
+    gimeta = _gimeta(MyFlags)
+    assert gimeta.gtype > 255
+    assert gimeta.type_name == "MyFlags"
+    assert gimeta is _gimeta(MyFlags)
 
 
 def test_flags_values() -> None:
@@ -105,4 +123,22 @@ def test_flags_custom_type_name() -> None:
         __gtype_name__ = type_name
         ONE = 1
 
-    assert MyFlags.__gtype__.name == type_name
+    assert "__gtype__" not in vars(MyFlags)
+    assert _gimeta(MyFlags).type_name == type_name
+
+
+def test_imported_enums_do_not_expose_compat_attrs_in_core() -> None:
+    code = """
+import ginext
+t = ginext._load_namespace("GIMarshallingTests", "1.0")
+for cls, member, names in (
+    (t.GEnum, t.GEnum.VALUE3, ("__gtype__", "__info__", "__enum_values__", "value_name", "value_nick")),
+    (t.Flags, t.Flags.VALUE3, ("__gtype__", "__info__", "__flags_values__", "value_names", "value_nicks", "first_value_name", "first_value_nick")),
+):
+    for name in names:
+        assert not hasattr(cls, name), name
+        assert not hasattr(member, name), name
+    assert "gimeta" not in vars(cls)
+    assert cls.gimeta is cls.gimeta
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)

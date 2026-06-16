@@ -22,7 +22,8 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
+import weakref
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from ginext import private
 
@@ -30,12 +31,38 @@ from ginext import private
 if TYPE_CHECKING:
     from collections.abc import Callable
     from ginext.GIRepository import EnumInfo, FlagsInfo
-    from .abi import NamespaceContext
+    from .abi import ABIProfile, NamespaceContext
 
 
 _ENUM_PICKLE_REGISTRY: dict[int, Any] = {}
 _enum_classes_by_key: dict[tuple[str, str, str, str], type[Any]] = {}
+_enum_gimeta_specs: weakref.WeakKeyDictionary[
+    type[Any],
+    tuple[int, str, object, object, dict[int, str], dict[int, str], dict[int, Any]],
+] = weakref.WeakKeyDictionary()
 _EnumT = TypeVar("_EnumT")
+
+
+def _enum_gimeta(cls: type[Any], name: str) -> object:
+    if name != "gimeta":
+        raise AttributeError(name)
+    spec = _enum_gimeta_specs.get(cls)
+    if spec is None:
+        raise AttributeError(name)
+    gtype, type_name, profile, gi_info, value_names, value_nicks, values = spec
+    if gi_info is None:
+        gimeta = private.GIMeta.from_gtype(gtype, type_name)
+    else:
+        gimeta = private.GIMeta.from_type_name(type_name, gi_info)
+    if profile is not None:
+        gimeta.profile = cast("ABIProfile", profile)
+    gimeta.extensions["enum"] = {
+        "value_names": value_names,
+        "value_nicks": value_nicks,
+        "values": values,
+    }
+    type.__setattr__(cls, "gimeta", gimeta)
+    return gimeta
 
 
 def _register_genum(type_name: str, members: dict[str, int]) -> int:
@@ -46,18 +73,15 @@ def _register_gflags(type_name: str, members: dict[str, int]) -> int:
     return private.register_static(_GFlagsMeta._G_TYPE_FLAGS, type_name, members)
 
 
-def _make_user_gtype(gtype_int: int) -> Any:
-    from .gobject.gtype import compat_gtype_from_raw
-    from .gobject import gobjectclass as _gobjectclass_mod
-
-    GObject = _gobjectclass_mod.gobject_repo()
-    name = GObject.type_name(gtype_int)
-    return compat_gtype_from_raw(gtype_int, name)
-
-
 class _GEnumMeta(enum.EnumType):
     # G_TYPE_ENUM = 48 (fundamental type index 12 << 2)
     _G_TYPE_ENUM: int = 48
+
+    def __getattr__(cls, name: str) -> object:
+        try:
+            return _enum_gimeta(cls, name)
+        except AttributeError:
+            return cast("Any", super()).__getattr__(name)
 
     def __new__(
         mcs: type[_GEnumMeta],
@@ -73,7 +97,15 @@ class _GEnumMeta(enum.EnumType):
         raw_members: dict[str, Any] = dict(cls.__members__)
         members: dict[str, int] = {k: int(v) for k, v in raw_members.items()}
         gtype_int = _register_genum(type_name, members)
-        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
+        _enum_gimeta_specs[cls] = (
+            gtype_int,
+            type_name,
+            None,
+            None,
+            {},
+            {},
+            {},
+        )
         from . import abi, classbuild
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
@@ -81,6 +113,12 @@ class _GEnumMeta(enum.EnumType):
 
 class _GFlagsMeta(enum.EnumType):
     _G_TYPE_FLAGS: int = 52
+
+    def __getattr__(cls, name: str) -> object:
+        try:
+            return _enum_gimeta(cls, name)
+        except AttributeError:
+            return cast("Any", super()).__getattr__(name)
 
     def __new__(
         mcs: type[_GFlagsMeta],
@@ -96,26 +134,22 @@ class _GFlagsMeta(enum.EnumType):
         raw_members_f: dict[str, Any] = dict(cls.__members__)
         members: dict[str, int] = {k: int(v) for k, v in raw_members_f.items()}
         gtype_int = _register_gflags(type_name, members)
-        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
+        value_names = {int(v): k for k, v in raw_members_f.items()}
+        value_nicks = {
+            int(v): k.lower().replace("_", "-") for k, v in raw_members_f.items()
+        }
+        _enum_gimeta_specs[cls] = (
+            gtype_int,
+            type_name,
+            None,
+            None,
+            value_names,
+            value_nicks,
+            dict(_enum_primary_members(cls)),
+        )
         from . import abi, classbuild
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
-
-
-class _GTypeLazy:
-    """Descriptor that lazily initialises __gtype__ for GEnum/GFlags base classes."""
-
-    def __init__(self, gtype_int: int) -> None:
-        self._gtype_int = gtype_int
-        self._cached: Any = None
-
-    def __get__(self, obj: Any, objtype: Any = None) -> Any:
-        if self._cached is None:
-            self._cached = _make_user_gtype(self._gtype_int)
-        return self._cached
-
-    def __set_name__(self, owner: Any, name: str) -> None:
-        pass
 
 
 class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
@@ -126,16 +160,6 @@ class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
     """
 
     __genum_base__ = True
-    # G_TYPE_ENUM = 48 — lazy so GObject namespace isn't loaded at import time
-    __gtype__ = _GTypeLazy(48)
-
-    @property
-    def value_name(self) -> str:
-        return str(self.name)
-
-    @property
-    def value_nick(self) -> str:
-        return str(self.name).lower().replace("_", "-")
 
 
 class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
@@ -146,45 +170,21 @@ class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
     """
 
     __gflags_base__ = True
-    # G_TYPE_FLAGS = 52
-    __gtype__ = _GTypeLazy(52)
-
-    @property
-    def value_names(self) -> list[str]:
-        return [member.name or "" for member in type(self) if member in self]
-
-    @property
-    def value_nicks(self) -> list[str]:
-        return [
-            (member.name or "").lower().replace("_", "-")
-            for member in type(self)
-            if member in self
-        ]
-
-    @property
-    def first_value_name(self) -> str:
-        names = self.value_names
-        return names[0] if names else "0"
-
-    @property
-    def first_value_nick(self) -> str:
-        nicks = self.value_nicks
-        return nicks[0] if nicks else "0"
-
 
 
 def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
     return cast("enum.IntEnum", _ENUM_PICKLE_REGISTRY[class_id](value))
 
 
-class GIEnum(enum.IntEnum):
-    __info__: ClassVar[EnumInfo]
-    gimeta: ClassVar[private.GIMeta]
-    __gtype__: ClassVar[int]
-    __enum_values__: ClassVar[dict[int, enum.IntEnum]]
-    _value_names: ClassVar[dict[int, str]]
-    _value_nicks: ClassVar[dict[int, str]]
+class _GIEnumMeta(enum.EnumType):
+    def __getattr__(cls, name: str) -> object:
+        try:
+            return _enum_gimeta(cls, name)
+        except AttributeError:
+            return cast("Any", super()).__getattr__(name)
 
+
+class GIEnum(enum.IntEnum, metaclass=_GIEnumMeta):
     def __reduce_ex__(self, protocol: object) -> tuple[object, tuple[int, int]]:
         return _enum_reconstruct, (id(type(self)), int(self))
 
@@ -192,59 +192,14 @@ class GIEnum(enum.IntEnum):
         super().__init_subclass__(**kwargs)
         _ENUM_PICKLE_REGISTRY[id(cls)] = cls
 
-    @property
-    def value_name(self) -> str:
-        names = cast("dict[int, str]", getattr(type(self), "_value_names", {}))
-        return names.get(int(self), str(self.name))
 
-    @property
-    def value_nick(self) -> str:
-        nicks = cast("dict[int, str]", getattr(type(self), "_value_nicks", {}))
-        return nicks.get(int(self), str(self.name).lower().replace("_", "-"))
-
-
-class GIFlags(enum.IntFlag):
-    __info__: ClassVar[FlagsInfo]
-    gimeta: ClassVar[private.GIMeta]
-    __gtype__: ClassVar[int]
-    __flags_values__: ClassVar[dict[int, enum.IntFlag]]
-    _value_names: ClassVar[dict[int, str]]
-    _value_nicks: ClassVar[dict[int, str]]
-
+class GIFlags(enum.IntFlag, metaclass=_GIEnumMeta):
     def __reduce_ex__(self, protocol: object) -> tuple[object, tuple[int, int]]:
         return _enum_reconstruct, (id(type(self)), int(self))
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         _ENUM_PICKLE_REGISTRY[id(cls)] = cls
-
-    @property
-    def value_names(self) -> list[str]:
-        names: dict[int, str] = getattr(type(self), "_value_names", {})
-        return [
-            names.get(int(member), member.name or "")
-            for member in type(self)
-            if member in self
-        ]
-
-    @property
-    def value_nicks(self) -> list[str]:
-        nicks: dict[int, str] = getattr(type(self), "_value_nicks", {})
-        return [
-            nicks.get(int(member), (member.name or "").lower().replace("_", "-"))
-            for member in type(self)
-            if member in self
-        ]
-
-    @property
-    def first_value_name(self) -> str:
-        names = self.value_names
-        return names[0] if names else "0"
-
-    @property
-    def first_value_nick(self) -> str:
-        nicks = self.value_nicks
-        return nicks[0] if nicks else "0"
 
 
 class EnumBuilder:
@@ -255,12 +210,10 @@ class EnumBuilder:
 
     def build_enum(self, name: str, info: EnumInfo) -> type[GIEnum]:
         cls = self._build_common(name, info, GIEnum)
-        cls.__enum_values__ = dict(_enum_primary_members(cls))
         return cls
 
     def build_flags(self, name: str, info: FlagsInfo) -> type[GIFlags]:
         cls = self._build_common(name, info, GIFlags)
-        cls.__flags_values__ = dict(_enum_primary_members(cls))
         return cls
 
     def _build_common(
@@ -291,18 +244,24 @@ class EnumBuilder:
             name, members, module=module_name, qualname=name
         )
         assert isinstance(cls, type)
-        cls.__info__ = info
-        if gtype > 255:
-            cls.gimeta = private.GIMeta.from_gtype(gtype, info.get_type_name())
-            cls.gimeta.profile = context.profile
-            cls.__gtype__ = gtype
-        cls._value_names = {
+        values = dict(_enum_primary_members(cls))
+        value_names = {
             value: _enum_c_value_name(context.name, name, raw_name)
             for raw_name, value in raw_members
         }
-        cls._value_nicks = {
+        value_nicks = {
             value: raw_name.replace("_", "-") for raw_name, value in raw_members
         }
+        if gtype > 255:
+            _enum_gimeta_specs[cls] = (
+                gtype,
+                info.get_type_name(),
+                context.profile,
+                info,
+                value_names,
+                value_nicks,
+                values,
+            )
         _install_enum_callable_aliases(self._context, cls, name)
         _enum_classes_by_key[key] = cls
         # The functional IntEnum/IntFlag API constructs the class dynamically
