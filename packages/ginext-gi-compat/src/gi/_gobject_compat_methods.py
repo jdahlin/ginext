@@ -245,38 +245,66 @@ def _is_construct_only(cls: Any, prop_name: str) -> bool:
         return False
 
 
-@overlay.method("Object")
-def set_property(self: Any, name: str, value: object) -> None:
-    prop_name = name.replace("_", "-")
-    attr_name = prop_name.replace("-", "_")
-    descriptor_obj = type(self).__dict__.get(attr_name)
-    # Check for Python-backed descriptor with setter
-    if descriptor_obj is not None and hasattr(type(descriptor_obj), "__set__") and (
-        getattr(descriptor_obj, "fset", None) is not None or getattr(descriptor_obj, "fget", None) is not None
-    ):
-        type(descriptor_obj).__set__(descriptor_obj, self, value)
-        call_notify_override(self, prop_name)
+def _descriptor_for_property(cls: type, prop_name: str) -> object | None:
+    return cls.__dict__.get(prop_name.replace("-", "_"))
+
+
+def _descriptor_handles_set(descriptor: object | None) -> bool:
+    if descriptor is None or not hasattr(type(descriptor), "__set__"):
+        return False
+    descriptor_type = type(descriptor)
+    return (
+        getattr(descriptor_type, "fset", None) is not None
+        or getattr(descriptor_type, "fget", None) is not None
+    )
+
+
+def _set_python_descriptor(
+    obj: Any, prop_name: str, descriptor: object | None, value: object
+) -> bool:
+    if not _descriptor_handles_set(descriptor):
+        return False
+    type(descriptor).__set__(descriptor, obj, value)
+    call_notify_override(obj, prop_name)
+    return True
+
+
+def _coerce_set_property_value(
+    cls: type, prop_name: str, descriptor: object | None, value: object
+) -> object:
+    if getattr(descriptor, "type", None) is str and not isinstance(value, str):
+        return str(value)
+    if hasattr(descriptor, "gimeta"):
+        return value
+
+    pspec = _get_pspec(cls, prop_name)
+    value_type = getattr(pspec, "value_type", None)
+    if getattr(value_type, "name", None) == "gchararray" and not isinstance(value, str):
+        return str(value)
+
+    pspec_info = _get_pspec_numeric_info(cls, prop_name)
+    if pspec_info is not None and prop_name != "unichar":
+        return _coerce_char_value(value, pspec_info)
+    return value
+
+
+def _raise_if_construct_only(cls: type, prop_name: str) -> None:
+    if not _is_construct_only(cls, prop_name):
         return
-    # For C properties, validate/coerce numeric values (char overflow, bytes/str coercion)
-    if getattr(descriptor_obj, "type", None) is str and not isinstance(value, str):
-        value = str(value)
-    if not hasattr(descriptor_obj, "gimeta"):
-        pspec = _get_pspec(type(self), prop_name)
-        if getattr(getattr(pspec, "value_type", None), "name", None) == "gchararray" and not isinstance(value, str):
-            value = str(value)
-        pspec_info = _get_pspec_numeric_info(type(self), prop_name)
-        if pspec_info is not None and prop_name != "unichar":
-            value = _coerce_char_value(value, pspec_info)
-    if _is_construct_only(type(self), prop_name):
-        raise TypeError(
-            f"construct property {prop_name!r} for object "
-            f"{type(self).__name__!r} can't be set after construction"
-        )
+    raise TypeError(
+        f"construct property {prop_name!r} for object "
+        f"{cls.__name__!r} can't be set after construction"
+    )
+
+
+def _set_property_with_compat_fallback(
+    obj: Any, prop_name: str, value: object
+) -> None:
     try:
-        set_property_via_introspection(self, prop_name, value)
+        set_property_via_introspection(obj, prop_name, value)
     except (NotImplementedError, TypeError):
         try:
-            ginext.private.gobject_set_property_by_name(self, prop_name, value)
+            ginext.private.gobject_set_property_by_name(obj, prop_name, value)
         except ValueError as exc:
             raise TypeError(str(exc)) from None
     except AttributeError as exc:
@@ -286,6 +314,18 @@ def set_property(self: Any, name: str, value: object) -> None:
         raise
     except UnicodeEncodeError as exc:
         raise TypeError(str(exc)) from None
+
+
+@overlay.method("Object")
+def set_property(self: Any, name: str, value: object) -> None:
+    prop_name = name.replace("_", "-")
+    cls = type(self)
+    descriptor = _descriptor_for_property(cls, prop_name)
+    if _set_python_descriptor(self, prop_name, descriptor, value):
+        return
+    value = _coerce_set_property_value(cls, prop_name, descriptor, value)
+    _raise_if_construct_only(cls, prop_name)
+    _set_property_with_compat_fallback(self, prop_name, value)
     call_notify_override(self, prop_name)
 
 
