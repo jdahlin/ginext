@@ -34,28 +34,21 @@ repos:
         language: system
         types_or: [python, pyi]
 
-      - id: no-literal-getattr-default
-        name: no literal getattr with default
+      - id: no-literal-getattr
+        name: no getattr with constant string (use direct attribute access)
         language: pygrep
-        entry: 'getattr\([^,\n]+,\s*["''][A-Za-z_][A-Za-z0-9_]*["'']\s*,'
+        entry: 'getattr\([^,\n]+,\s*[''"][A-Za-z_][A-Za-z0-9_]*[''"]'
         types_or: [python, pyi]
         exclude: >-
           (?x)^(
-            conftest\.py|
-            examples/|
-            src/testhelper\.py|
-            src/ginext/__init__\.py|
-            src/ginext/classbuild\.py|
-            src/ginext/gobject\.py|
-            src/ginext/namespace\.py|
-            src/ginext/signal\.py|
-            src/ginext/tests/|
-            src/ginext/_overlays/|
-            src/ginext/overlay/|
-            packages/.*/tests/|
-            packages/ginext-gi-compat/src/gi/|
-            packages/ginext-gtk/src/ginext_gtk/
+            packages/ginext-gi-compat/
           )
+
+      - id: no-unparenthesized-except
+        name: no unparenthesized multi-exception except clause
+        language: pygrep
+        entry: 'except\s+[A-Za-z_][A-Za-z0-9_.]*\s*,\s*[A-Za-z_]'
+        types_or: [python, pyi]
 
       - id: clang-format
         name: clang-format
