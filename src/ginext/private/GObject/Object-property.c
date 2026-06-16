@@ -362,31 +362,6 @@ pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject
   return 0;
 }
 
-PyObject *
-pygi_gobject_set_property_by_name (PyObject *source_arg, const char *name, PyObject *py_value)
-{
-  GObject *source = pygi_gobject_get (source_arg);
-  if (source == NULL)
-    {
-      if (PyErr_ExceptionMatches (PyExc_AttributeError))
-        {
-          PyErr_Clear ();
-          if (PyLong_Check (source_arg))
-            source = (GObject *)PyLong_AsVoidPtr (source_arg);
-        }
-      if (PyErr_Occurred ())
-        return NULL;
-    }
-  if (source == NULL || !G_IS_OBJECT (source))
-    {
-      PyErr_SetString (PyExc_TypeError, "source is not a GObject");
-      return NULL;
-    }
-  if (pygi_gobject_set_property_on_object (source, name, py_value) != 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
-
 static void
 set_shim_not_implemented (const char *message)
 {

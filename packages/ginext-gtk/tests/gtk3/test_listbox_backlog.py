@@ -78,7 +78,7 @@ def test_bind_model_factory_receives_none_user_data(
 
     for v in (1, 2, 3):
         item = Item()
-        item.set_property_by_name("val", v)
+        item.val = v
         store.append(item)
 
     assert [s[0] for s in seen] == [1, 2, 3]
@@ -111,7 +111,7 @@ def test_bind_model_pygobject_arity(namespaces: tuple[Any, Any, Any]) -> None:
 
     lb1.bind_model(m1, f1)
     item1 = Item()
-    item1.set_property_by_name("val", 7)
+    item1.val = 7
     m1.append(item1)
     assert seen1 == [7]
 
@@ -126,7 +126,7 @@ def test_bind_model_pygobject_arity(namespaces: tuple[Any, Any, Any]) -> None:
 
     lb2.bind_model(m2, f2, "tag")
     item2 = Item()
-    item2.set_property_by_name("val", 9)
+    item2.val = 9
     m2.append(item2)
     assert seen2 == [(9, "tag")]
 
@@ -157,7 +157,7 @@ def test_bind_model_factory_return_survives_python_gc(
     # → g_object_is_floating chain repeatedly.
     for v in range(8):
         item = Item()
-        item.set_property_by_name("val", v)
+        item.val = v
         store.append(item)
 
     # If the ref bump is missing, GTK's own logging would already have

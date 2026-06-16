@@ -37,6 +37,7 @@ import itertools
 from typing import Any, cast
 
 import pytest
+from ginext.gobject.properties import set_property_via_introspection
 
 
 _subclass_seq = itertools.count()
@@ -114,7 +115,7 @@ def test_native_property_cache_ignores_replaced_class_attribute(
     assert f.value == "class-value"  # type: ignore[comparison-overlap]
     assert f.get_property_by_name("value") == 1
 
-    f.set_property_by_name("value", 2)
+    set_property_via_introspection(f, "value", 2)
     assert f.get_property_by_name("value") == 2
     assert f.value == "class-value"  # type: ignore[comparison-overlap]
 
@@ -166,7 +167,7 @@ def test_native_property_cache_uses_replacement_data_descriptor(
     assert seen == [9]
     assert f.get_property_by_name("value") == 1
 
-    f.set_property_by_name("value", 4)
+    set_property_via_introspection(f, "value", 4)
     assert f.value == "descriptor-value"  # type: ignore[comparison-overlap]
     assert f.get_property_by_name("value") == 4
 

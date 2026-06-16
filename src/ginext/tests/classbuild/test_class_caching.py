@@ -50,6 +50,6 @@ def test_lookup_by_gtype_returns_cached_class() -> None:
     GType, returning the same class as namespace attribute access."""
     from ginext import Gio
 
-    cls_by_attr = Gio.Cancellable
-    returned = Gio.Cancellable().ref()
+    cls_by_attr = Gio.SimpleAction
+    returned = Gio.SimpleAction.new("demo", None)
     assert type(returned) is cls_by_attr

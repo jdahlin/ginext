@@ -175,6 +175,10 @@ def is_attribute_hidden(ns: str, name: str) -> bool:
     return name in state.hidden_attribute_names.get(ns, ())
 
 
+def is_class_method_hidden(ns: str, class_name: str, name: str) -> bool:
+    return name in state.hidden_class_method_names.get((ns, class_name), ())
+
+
 def install_module_overlay(
     namespace_module: Namespace,
     name: str,

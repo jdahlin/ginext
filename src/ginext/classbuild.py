@@ -539,6 +539,8 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
         gimeta = own_gimeta(owner)
         if not hasattr(gimeta, "gi_info"):
             continue
+        if _is_hidden_typelib_method(owner, name):
+            continue
         if not gimeta.list_methods():
             continue
         method_entry = cast("_MethodDescriptor | None", gimeta.lookup_method(name))
@@ -577,6 +579,22 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
     return None
 
 
+def _is_hidden_typelib_method(owner: type, name: str) -> bool:
+    from .overlay import is_class_method_hidden
+
+    for candidate in owner.__mro__:
+        candidate_gimeta = own_gimeta(candidate)
+        if candidate_gimeta is None:
+            continue
+        namespace = getattr(candidate_gimeta, "namespace", None)
+        ns_name = getattr(namespace, "name", None)
+        if isinstance(ns_name, str) and is_class_method_hidden(
+            ns_name, candidate.__name__, name
+        ):
+            return True
+    return False
+
+
 def _install_gobject_typelib_method(name: str) -> tuple[object, bool] | None:
     _ginext = sys.modules.get("ginext")
     if _ginext is None:
@@ -589,6 +607,8 @@ def _install_gobject_typelib_method(name: str) -> tuple[object, bool] | None:
         return None
     gimeta = own_gimeta(obj_cls)
     if gimeta is None:
+        return None
+    if _is_hidden_typelib_method(obj_cls, name):
         return None
     method_entry = cast("_MethodDescriptor | None", gimeta.lookup_method(name))
     if method_entry is None:

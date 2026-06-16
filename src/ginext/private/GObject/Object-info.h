@@ -114,5 +114,3 @@ pygi_gvalue_set_from_object_property (GValue *value,
                                       const char *name,
                                       PyObject *py_value,
                                       PyGIArgCleanup *nested_cleanup);
-PyObject *
-pygi_gobject_set_property_by_name (PyObject *source_arg, const char *name, PyObject *py_value);
