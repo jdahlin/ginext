@@ -63,7 +63,7 @@ class _CompatProperty(Generic[T]):
     """Standalone compat property descriptor — no Property inheritance.
 
     Provides PyGObject-compatible getter/setter decorator support on top of
-    raw GObject property access (gimeta.get_property / gimeta.set_property).
+    raw GObject property access.
     Registration is driven by duck-typing: C code reads ``default``, ``nick``,
     ``blurb``, ``minimum``, ``maximum``, ``readonly``, ``construct_only``
     directly from the descriptor object.

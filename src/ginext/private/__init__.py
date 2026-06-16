@@ -20,9 +20,8 @@
 
 GIMeta is now a C heap type with `gtype` / `type_name` / `parent` /
 `pspecs` / `prop_ids` properties plus `from_type_name` classmethod and
-`get_property` / `set_property` methods. The previous dataclass wrapper
-has been retired — there's no longer a dict→dataclass round-trip on
-Python subclass registration.
+read-only metadata helpers. The previous dataclass wrapper has been retired;
+there's no longer a dict→dataclass round-trip on Python subclass registration.
 """
 
 from __future__ import annotations
@@ -115,6 +114,9 @@ GObject = None
 GObjectMeta = _gobject.GObjectMeta
 init_gobject = _gobject.init_gobject
 register_gtype_pytype = _gobject.register_gtype_pytype
+register_gobject_subclass = _gobject.register_gobject_subclass
+gobject_get_property = _gobject.gobject_get_property
+gobject_set_property = _gobject.gobject_set_property
 GBoxed = _gobject.GBoxed
 PropertyDescriptor = _gobject.PropertyDescriptor
 build_callable_descriptor = _gobject.build_callable_descriptor
@@ -158,6 +160,8 @@ gstrv_get_type = _gobject.gstrv_get_type
 glib_event_source_new = _gobject.glib_event_source_new
 type_has_value_table = _gobject.type_has_value_table
 register_static = _gobject.register_static
+register_property_type_info = _gobject.register_property_type_info
+register_signal = _gobject.register_signal
 param_spec_info = _gobject.param_spec_info
 param_spec_default_value = _gobject.param_spec_default_value
 param_spec_numeric_info = _gobject.param_spec_numeric_info

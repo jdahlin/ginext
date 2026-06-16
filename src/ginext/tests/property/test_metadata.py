@@ -21,6 +21,7 @@
 
 from typing import Any
 
+import ginext
 import pytest
 
 from ..conftest import BUILTIN_VALUE_TYPES
@@ -70,28 +71,28 @@ def test_gimeta_pspecs_is_snapshot(make_property_class: Any) -> None:
     assert cls.gimeta.pspecs["count"] == original
 
 
-def test_direct_gimeta_get_missing_property_raises(make_property_class: Any) -> None:
+def test_gobject_get_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
     with pytest.raises(AttributeError, match="has no property missing"):
-        cls.gimeta.get_property(cls(), "missing")
+        ginext.private.gobject_get_property(cls.gimeta, cls(), "missing")
 
 
-def test_direct_gimeta_set_missing_property_raises(make_property_class: Any) -> None:
+def test_gobject_set_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
     with pytest.raises(AttributeError, match="has no property missing"):
-        cls.gimeta.set_property(cls(), "missing", 1)
+        ginext.private.gobject_set_property(cls.gimeta, cls(), "missing", 1)
 
 
-def test_direct_gimeta_get_null_gobject_pointer_raises(
+def test_gobject_get_null_gobject_pointer_raises(
     make_property_class: Any,
 ) -> None:
     cls = make_property_class(int)
     obj = cls.__new__(cls)
 
     with pytest.raises(AttributeError, match="wrapper is not bound"):
-        cls.gimeta.get_property(obj, "x")
+        ginext.private.gobject_get_property(cls.gimeta, obj, "x")
 
 
 @pytest.mark.parametrize(
