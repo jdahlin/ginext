@@ -100,6 +100,16 @@ extern PyObject *
 py_param_spec_default_value (PyObject *m, PyObject *args);
 extern PyObject *
 py_param_spec_numeric_info (PyObject *m, PyObject *args);
+extern PyObject *
+py_register_gobject_subclass (PyObject *m, PyObject *args);
+extern PyObject *
+py_gobject_get_property (PyObject *m, PyObject *args);
+extern PyObject *
+py_gobject_set_property (PyObject *m, PyObject *args);
+extern PyObject *
+py_register_property_type_info (PyObject *m, PyObject *args);
+extern PyObject *
+py_register_signal (PyObject *m, PyObject *args);
 extern PyType_Spec PyGIGLibBoxed_spec;
 PyTypeObject *pygi_gboxed_base_type = NULL;
 PyTypeObject *pygi_gobject_type = NULL;
@@ -290,6 +300,9 @@ static PyMethodDef methods[] = {
   { "gvalue_set_data_int", py_gvalue_set_data_int, METH_VARARGS, NULL },
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
   { "gvalue_wrap_pointer", py_gvalue_wrap_pointer, METH_VARARGS, NULL },
+  { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
+  { "gobject_get_property", py_gobject_get_property, METH_VARARGS, NULL },
+  { "gobject_set_property", py_gobject_set_property, METH_VARARGS, NULL },
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },
@@ -298,7 +311,9 @@ static PyMethodDef methods[] = {
   { "param_spec_info", py_param_spec_info, METH_VARARGS, NULL },
   { "param_spec_default_value", py_param_spec_default_value, METH_VARARGS, NULL },
   { "param_spec_numeric_info", py_param_spec_numeric_info, METH_VARARGS, NULL },
-  { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
+  { "register_gobject_subclass", py_register_gobject_subclass, METH_VARARGS, NULL },
+  { "register_property_type_info", py_register_property_type_info, METH_VARARGS, NULL },
+  { "register_signal", py_register_signal, METH_VARARGS, NULL },
   { "register_hook", py_register_hook, METH_VARARGS, NULL },
   { "register_coercion", py_register_coercion, METH_VARARGS, NULL },
   { NULL }

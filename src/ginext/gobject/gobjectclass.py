@@ -30,7 +30,7 @@ One class for two construction paths:
   Python-defined-subclass registration.
 
 - **Python-defined classes** — `class MyObj(GObject): ...`.
-  `__init_subclass__` calls `GIMeta.register_subclass` to allocate a
+  `__init_subclass__` calls into the private subclass registrar to allocate a
   new GType, inherits the parent's signal tables, and registers any
   `GObject.Signal()` descriptors found in `cls.__dict__`.
 

@@ -111,7 +111,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
             compat_type_name = cls.__dict__.get("__gtype_name__")
             if isinstance(compat_type_name, str) and compat_type_name:
                 requested_type_name = compat_type_name
-        cls.gimeta = private.GIMeta.register_subclass(
+        cls.gimeta = private.register_gobject_subclass(
             cls,
             annotations,
             requested_type_name or f"{cls.__module__}+{cls.__name__}".replace(".", "+"),

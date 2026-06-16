@@ -385,14 +385,14 @@ gimeta_info_by_gtype (PyTypeObject *cls G_GNUC_UNUSED, PyObject *args)
   return pygi_object_info_by_gtype ((GType)gtype_arg);
 }
 
-static PyObject *
-gimeta_register_subclass (PyTypeObject *cls G_GNUC_UNUSED, PyObject *args)
+PyObject *
+py_register_gobject_subclass (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *py_cls = NULL;
   PyObject *annotations = NULL;
   PyObject *requested_name_obj = NULL;
   if (!PyArg_ParseTuple (args,
-                         "OO!U:register_subclass",
+                         "OO!U:register_gobject_subclass",
                          &py_cls,
                          &PyDict_Type,
                          &annotations,
@@ -461,18 +461,6 @@ gimeta_param_spec (GIMetaObject *self, PyObject *args)
 }
 
 static PyObject *
-gimeta_register_property_type_info (GIMetaObject *self, PyObject *args)
-{
-  const char *name = NULL;
-  PyObject *property_info = NULL;
-  if (!PyArg_ParseTuple (args, "sO:register_property_type_info", &name, &property_info))
-    return NULL;
-  if (pygi_register_property_type_info_for_gtype (self->gtype, name, property_info) < 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
-
-static PyObject *
 gimeta_install_native_vfunc_attrs (GIMetaObject *self G_GNUC_UNUSED, PyObject *args)
 {
   PyObject *cls = NULL;
@@ -484,9 +472,10 @@ gimeta_install_native_vfunc_attrs (GIMetaObject *self G_GNUC_UNUSED, PyObject *a
   Py_RETURN_NONE;
 }
 
-static PyObject *
-gimeta_register_signal (GIMetaObject *self, PyObject *args)
+PyObject *
+py_register_signal (PyObject *module G_GNUC_UNUSED, PyObject *args)
 {
+  unsigned long long gtype_arg = 0;
   const char *signal_name = NULL;
   unsigned long long return_gtype_arg = 0;
   PyObject *arg_gtypes_tuple = NULL;
@@ -494,7 +483,8 @@ gimeta_register_signal (GIMetaObject *self, PyObject *args)
   PyObject *accumulator_obj = Py_None;
   PyObject *accu_data_obj = Py_None;
   if (!PyArg_ParseTuple (args,
-                         "sKO!|KOO:register_signal",
+                         "KsKO!|KOO:register_signal",
+                         &gtype_arg,
                          &signal_name,
                          &return_gtype_arg,
                          &PyTuple_Type,
@@ -505,7 +495,7 @@ gimeta_register_signal (GIMetaObject *self, PyObject *args)
     return NULL;
 
   guint signal_id = 0;
-  if (pygi_register_signal_for_gtype (self->gtype,
+  if (pygi_register_signal_for_gtype ((GType)gtype_arg,
                                       signal_name,
                                       (GType)return_gtype_arg,
                                       arg_gtypes_tuple,
@@ -736,6 +726,22 @@ gimeta_get_property (GIMetaObject *self G_GNUC_UNUSED, PyObject *args)
   return pygi_gvalue_value_to_py (&priv->props[prop_id - 1]);
 }
 
+PyObject *
+py_gobject_get_property (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  GIMetaObject *gimeta = NULL;
+  PyObject *py_obj = NULL;
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "O!Os:gobject_get_property", &GIMetaType, &gimeta, &py_obj, &name))
+    return NULL;
+  PyObject *method_args = Py_BuildValue ("Os", py_obj, name);
+  if (method_args == NULL)
+    return NULL;
+  PyObject *result = gimeta_get_property (gimeta, method_args);
+  Py_DECREF (method_args);
+  return result;
+}
+
 static PyObject *
 gimeta_set_property (GIMetaObject *self G_GNUC_UNUSED, PyObject *args)
 {
@@ -784,6 +790,29 @@ gimeta_set_property (GIMetaObject *self G_GNUC_UNUSED, PyObject *args)
      * trigger the equivalent emission explicitly. */
   g_object_notify_by_pspec (g_obj, pspec);
   Py_RETURN_NONE;
+}
+
+PyObject *
+py_gobject_set_property (PyObject *module G_GNUC_UNUSED, PyObject *args)
+{
+  GIMetaObject *gimeta = NULL;
+  PyObject *py_obj = NULL;
+  const char *name = NULL;
+  PyObject *value = NULL;
+  if (!PyArg_ParseTuple (args,
+                         "O!OsO:gobject_set_property",
+                         &GIMetaType,
+                         &gimeta,
+                         &py_obj,
+                         &name,
+                         &value))
+    return NULL;
+  PyObject *method_args = Py_BuildValue ("OsO", py_obj, name, value);
+  if (method_args == NULL)
+    return NULL;
+  PyObject *result = gimeta_set_property (gimeta, method_args);
+  Py_DECREF (method_args);
+  return result;
 }
 
 /* ── type machinery: dealloc, getsets, methods, type slots ───────────────── */
@@ -1011,34 +1040,14 @@ static PyMethodDef gimeta_methods[]
           (PyCFunction)gimeta_from_gtype,
           METH_VARARGS | METH_CLASS,
           "Build a GIMeta from a raw GType and optional type name." },
-        { "register_subclass",
-          (PyCFunction)gimeta_register_subclass,
-          METH_VARARGS | METH_CLASS,
-          "Register a Python-defined GObject subclass and return its GIMeta." },
-        { "get_property",
-          (PyCFunction)gimeta_get_property,
-          METH_VARARGS,
-          "Read a property value off a ginext GObject instance." },
         { "param_spec",
           (PyCFunction)gimeta_param_spec,
           METH_VARARGS,
           "Resolve a ParamSpec by canonical GObject property name." },
-        { "set_property",
-          (PyCFunction)gimeta_set_property,
-          METH_VARARGS,
-          "Write a property value on a ginext GObject instance." },
         { "list_property_names",
           (PyCFunction)gimeta_list_property_names,
           METH_NOARGS,
           "List GObject property names for this GType." },
-        { "register_property_type_info",
-          (PyCFunction)gimeta_register_property_type_info,
-          METH_VARARGS,
-          "Cache GI property type info for this GType." },
-        { "register_signal",
-          (PyCFunction)gimeta_register_signal,
-          METH_VARARGS,
-          "Register a Python-defined signal on this GType." },
         { "lookup_method", (PyCFunction)gimeta_lookup_method, METH_VARARGS, NULL },
         { "list_methods", (PyCFunction)gimeta_list_methods, METH_NOARGS, NULL },
         { "remove_method", (PyCFunction)gimeta_remove_method, METH_VARARGS, NULL },

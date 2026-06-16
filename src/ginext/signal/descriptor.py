@@ -53,8 +53,8 @@ class SignalDescriptor:
     `__set_name__` captures the python attribute name (and derives the
     GObject signal name via `_` → `-`). After `__init_subclass__` runs
     register_gobject_subclass, gobject.GObject._register_python_signals
-    iterates these descriptors and calls gimeta.register_signal for
-    each. The resulting signal_id + arg gtypes are stored on the
+    iterates these descriptors and registers each signal. The resulting
+    signal_id + arg gtypes are stored on the
     descriptor; instance access then returns a regular Signal object.
     """
 
@@ -109,7 +109,8 @@ class SignalDescriptor:
             )
         return_gtype = _resolve_signal_gtype(self._return_type)
         self._arg_gtypes = tuple(_resolve_signal_gtype(t) for t in self._arg_types)
-        self._signal_id = gimeta.register_signal(
+        self._signal_id = private.register_signal(
+            gimeta.gtype,
             self._gobject_name,
             return_gtype,
             self._arg_gtypes,

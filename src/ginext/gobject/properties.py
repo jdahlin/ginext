@@ -174,7 +174,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
         # who want the GParamSpec read it via `Foo.gimeta.pspecs[name]`.
         if obj is None:
             return cast("T", self)
-        value = type(obj).gimeta.get_property(obj, self.name)
+        value = private.gobject_get_property(type(obj).gimeta, obj, self.name)
         if _is_gtype_value_type(self.type):
             return cast("T", int(cast("Any", value)))
         return cast("T", value)
@@ -182,7 +182,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
     def __set__(self, obj: "GObject", value: ValueType) -> None:
         if self.readonly:
             raise AttributeError(f"property {self.name!r} is read-only")
-        self.owner.gimeta.set_property(obj, self.name, value)
+        private.gobject_set_property(self.owner.gimeta, obj, self.name, value)
         call_notify_override(obj, self.name.replace("_", "-"))
 
 
@@ -253,14 +253,14 @@ class _PspecProperty:
             return self
         prop_name = self.name.replace("_", "-")
         try:
-            return type(obj).gimeta.get_property(obj, prop_name)
+            return private.gobject_get_property(type(obj).gimeta, obj, prop_name)
         except AttributeError:
             return obj.get_property_by_name(prop_name)
 
     def __set__(self, obj: "GObject", value: object) -> None:
         prop_name = self.name.replace("_", "-")
         try:
-            type(obj).gimeta.set_property(obj, prop_name, value)
+            private.gobject_set_property(type(obj).gimeta, obj, prop_name, value)
         except AttributeError:
             obj.set_property_by_name(prop_name, value)
         call_notify_override(obj, prop_name)

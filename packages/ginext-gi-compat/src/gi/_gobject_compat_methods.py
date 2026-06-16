@@ -160,7 +160,7 @@ def get_property(self: Any, name: str) -> object:
         if isinstance(descriptor, _CompatProperty):
             return descriptor.fget(self)
     try:
-        return type(self).gimeta.get_property(self, prop_name)
+        return ginext.private.gobject_get_property(type(self).gimeta, self, prop_name)
     except AttributeError:
         return self.get_property_by_name(prop_name)
 
@@ -257,7 +257,7 @@ def set_property(self: Any, name: str, value: object) -> None:
         if pspec_info is not None and prop_name != "unichar":
             value = _coerce_char_value(value, pspec_info)
     try:
-        type(self).gimeta.set_property(self, prop_name, value)
+        ginext.private.gobject_set_property(type(self).gimeta, self, prop_name, value)
     except AttributeError as exc:
         msg = str(exc)
         if "construct-only" in msg or "construct_only" in msg:
@@ -632,7 +632,7 @@ def _ref_sink(self: Any) -> None:
 def _compat_property_for_name(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-").removesuffix("-")
     try:
-        return type(self).gimeta.get_property(self, prop_name)
+        return ginext.private.gobject_get_property(type(self).gimeta, self, prop_name)
     except AttributeError:
         try:
             return self.get_property_by_name(prop_name)

@@ -286,7 +286,9 @@ class ClassBuilder:
         for vfunc_info in data["vfuncs"]:
             vfunc_infos[callable_name(vfunc_info)] = vfunc_info
         for property_info in data.get("properties", ()):
-            gimeta.register_property_type_info(property_info.get_name(), property_info)
+            private.register_property_type_info(
+                gimeta.gtype, property_info.get_name(), property_info
+            )
 
         owner_name = self._context.qualified_name(name)
         gimeta.namespace = self._context
