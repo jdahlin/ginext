@@ -902,6 +902,11 @@ callback_array_to_py (PyGICallbackClosure *closure,
       else if (arg->array_elem_tag == GI_TYPE_TAG_INTERFACE)
         {
           GIArgument item_arg = { 0 };
+          if (gi_type_info_is_gvalue (arg->array_elem_info))
+            {
+              item = pygi_gvalue_value_to_py (&((GValue *)base)[i]);
+              goto item_done;
+            }
           if (gi_type_info_is_pointer (arg->array_elem_info))
             {
               item_arg.v_pointer = ((gpointer *)base)[i];
@@ -925,6 +930,7 @@ callback_array_to_py (PyGICallbackClosure *closure,
         }
       else
         item = Py_NewRef (Py_None);
+    item_done:
       if (item == NULL)
         {
           Py_DECREF (list);

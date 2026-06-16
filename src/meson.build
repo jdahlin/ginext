@@ -172,6 +172,7 @@ ginext_files = [
   ['ginext/signal/adapt.py',      'ginext/signal'],
   ['ginext/signal/scoped.py',     'ginext/signal'],
   ['ginext/signal/connection.py', 'ginext/signal'],
+  ['ginext/signal/emission_hook.py', 'ginext/signal'],
   ['ginext/signal/gtype.py',      'ginext/signal'],
   ['ginext/signal/bound.py',      'ginext/signal'],
   ['ginext/signal/descriptor.py', 'ginext/signal'],

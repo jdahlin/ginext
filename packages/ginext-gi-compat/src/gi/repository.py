@@ -37,6 +37,7 @@ from ginext.namespace import Namespace
 from gi._compat_namespace import CompatNamespace
 from ginext.signal.connection import SignalConnection
 from ginext.signal.descriptor import SignalDescriptor
+from ginext.signal.emission_hook import add_emission_hook, remove_emission_hook
 
 
 __path__: list[str] = []
@@ -1387,26 +1388,18 @@ def _gtype_for_signal_target(obj_or_cls: object) -> int:
     return gimeta.gtype
 
 
-def _gimeta_for_signal_target(obj_or_cls: object) -> object:
-    cls = type(obj_or_cls) if isinstance(obj_or_cls, _GObject) else obj_or_cls
-    gimeta = getattr(cls, "gimeta", None)
-    if gimeta is not None:
-        return gimeta
-    return ginext.private.GIMeta.info_by_gtype(_gtype_for_signal_target(obj_or_cls))
-
-
 def _add_emission_hook(
     obj_or_cls: object, detailed_signal: str, callback: object
 ) -> int:
-    gimeta = _gimeta_for_signal_target(obj_or_cls)
-    return gimeta.add_emission_hook(detailed_signal, callback)
+    return add_emission_hook(
+        _gtype_for_signal_target(obj_or_cls), detailed_signal, callback
+    )
 
 
 def _remove_emission_hook(
     obj_or_cls: object, detailed_signal: str, hook_id: int
 ) -> None:
-    gimeta = _gimeta_for_signal_target(obj_or_cls)
-    gimeta.remove_emission_hook(detailed_signal, hook_id)
+    remove_emission_hook(_gtype_for_signal_target(obj_or_cls), detailed_signal, hook_id)
 
 
 def _matches_signal(
