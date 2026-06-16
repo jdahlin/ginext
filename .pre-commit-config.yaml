@@ -44,6 +44,12 @@ repos:
             packages/ginext-gi-compat/
           )
 
+      - id: no-wide-except
+        name: no except clause with 4+ exception types (split into multiple excepts)
+        language: pygrep
+        entry: 'except\s*\(([^,)]+,){3,}'
+        types_or: [python, pyi]
+
       - id: no-unparenthesized-except
         name: no unparenthesized multi-exception except clause
         language: pygrep

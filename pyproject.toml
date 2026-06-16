@@ -336,6 +336,16 @@ extend-select = [
     "PTH108",  # flake8-use-pathlib: os-unlink.
     "PTH110",  # flake8-use-pathlib: os-path-exists.
     "PTH123",  # flake8-use-pathlib: builtin-open.
+    "RUF012",  # Ruff-specific: mutable-class-default (missing ClassVar).
+    "ISC",     # flake8-implicit-str-concat: implicit/explicit string concat.
+    "FURB",    # refurb: modernization (re aliases, or-operator, max/min).
+    # SLOT001 skipped: tuple subclasses don't support nonempty __slots__ in CPython.
+    "UP043",   # pyupgrade: unnecessary default type args.
+    "UP037",   # pyupgrade: remove quotes from type annotations.
+    "UP031",   # pyupgrade: percent-format → f-string.
+    "RET505",  # flake8-return: superfluous else after return.
+    "PERF401", # perflint: manual list-append loop → list comprehension/extend.
+    "B110",    # flake8-bugbear: try-except-pass — silences exceptions; use contextlib.suppress.
 ]
 ignore = [
     "SIM105",  # Explicit narrow except/pass is fine; BLE001/E722 still catch broad catches.

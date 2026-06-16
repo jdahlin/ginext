@@ -53,6 +53,7 @@ def pre_commit_hooks() -> list[dict]:  # type: ignore[type-arg]
 REQUIRED_RUFF_RULES = [
     ("B009", "getattr with constant string — use direct attribute access"),
     ("B010", "setattr with constant string — use direct attribute access"),
+    ("B110", "try-except-pass — use contextlib.suppress instead"),
     ("RUF012", "mutable class-level default without ClassVar"),
 ]
 
@@ -74,6 +75,7 @@ def test_ruff_rule_is_selected(rule: str, reason: str, ruff_config: dict) -> Non
 FORBIDDEN_RUFF_IGNORES = [
     ("B009", "getattr with constant string must not be silenced globally"),
     ("B010", "setattr with constant string must not be silenced globally"),
+    ("B110", "try-except-pass must not be silenced globally"),
 ]
 
 
@@ -91,6 +93,7 @@ def test_ruff_rule_not_globally_ignored(rule: str, reason: str, ruff_config: dic
 REQUIRED_HOOKS = [
     ("no-literal-getattr", "blocks getattr(obj, 'constant') at commit time"),
     ("no-unparenthesized-except", "blocks except X, Y: (must be except (X, Y):)"),
+    ("no-wide-except", "blocks except clauses with 4+ types — split or use a named tuple"),
 ]
 
 

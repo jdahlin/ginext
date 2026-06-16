@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import ginext
 from ginext import features
-from ginext.gobject.gobjectclass import _compat_dispose_state, _obj_signal_for_name
+from ginext.gobject.gobjectclass import _compat_dispose_state
 from ginext.gobject.properties import call_notify_override
 from ginext.overlay.registrar import OverlayRegistrar
 from ginext.signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
@@ -90,8 +90,11 @@ def _compat_finalize_dispose(self: Any) -> None:
     if dispose_state:
         _compat_dispose_state[id(self)] = dispose_state
     try:
+        self.bind_from_c(self)
         base.run_dispose(self)
-    except (AttributeError, RuntimeError, TypeError, ValueError):
+    except (AttributeError, TypeError):
+        pass
+    except (RuntimeError, ValueError):
         pass
     finally:
         _compat_dispose_state.pop(id(self), None)
@@ -165,7 +168,7 @@ def get_property(self: Any, name: str) -> object:
         return self.get_property_by_name(prop_name)
 
 
-def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
+def _coerce_char_value(value: Any, pspec_info: dict | None) -> Any:
     """Coerce and validate a value for a gchar/guchar property pspec.
 
     Returns the coerced value, or raises OverflowError/TypeError on bad input.
@@ -214,7 +217,7 @@ def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
     return value
 
 
-def _get_pspec_numeric_info(cls: Any, prop_name: str) -> "dict | None":
+def _get_pspec_numeric_info(cls: Any, prop_name: str) -> dict | None:
     """Return numeric pspec info (min/max/default) for a C property, or None."""
     try:
         from ginext import private
@@ -284,11 +287,17 @@ class _ParamSpecWrapper:
         object.__setattr__(self, "_pspec", pspec)
         object.__setattr__(self, "_owner_cls", owner_cls)
 
-    def _get_numeric_info(self) -> "dict | None":
+    def _get_pspec_pointer(self) -> int:
+        import ctypes
+        pspec = object.__getattribute__(self, "_pspec")
+        return ctypes.c_ulong.from_address(id(pspec) + 32).value
+
+    def _get_numeric_info(self) -> dict | None:
         try:
             from ginext import private
-            pspec = object.__getattribute__(self, "_pspec")
-            return private.param_spec_numeric_info(pspec)
+            ptr = self._get_pspec_pointer()
+            if ptr:
+                return private.param_spec_numeric_info(ptr)
         except Exception:
             pass
         return None
@@ -341,7 +350,11 @@ class _ParamSpecWrapper:
         return sorted(set(base))
 
     def _gtype_to_class(self, gtype: object) -> object:
-        result = _namespace_find_by_gtype(int(gtype))
+        from ginext.private import _gobject as _ginext_gobject
+        import ginext
+        import sys
+
+        result = _ginext_gobject.namespace_find_by_gtype(int(gtype))
         if result is None:
             raise AttributeError(f"cannot find class for gtype {gtype!r}")
         namespace_name, class_name = result
@@ -351,27 +364,6 @@ class _ParamSpecWrapper:
         if ns_mod is None:
             raise AttributeError(f"namespace {namespace_name!r} not loaded")
         return getattr(ns_mod, class_name)
-
-
-def _namespace_find_by_gtype(gtype: int) -> tuple[str, str] | None:
-    from gi import repository as _gi_repo
-
-    for namespace_name, ns_mod in vars(_gi_repo).items():
-        version = getattr(ns_mod, "_version", None)
-        if version is None:
-            continue
-        try:
-            names = ginext.private.namespace_dir(namespace_name, version)
-        except (AttributeError, TypeError, ValueError):
-            continue
-        for name in names:
-            try:
-                _kind, info = ginext.private.namespace_find(namespace_name, version, name)
-            except (AttributeError, TypeError, ValueError):
-                continue
-            if int(getattr(info, "gtype", 0)) == gtype:
-                return namespace_name, name
-    return None
 
 
 @overlay.method("Object", as_classmethod=True)
@@ -438,7 +430,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
     hyphen_name = name.replace("_", "-")
     underscore_name = hyphen_name.replace("-", "_")
     try:
-        return cast("_BoundSignal", _obj_signal_for_name(self, hyphen_name))
+        return cast("_BoundSignal", self.signal_for_name(hyphen_name))
     except AttributeError:
         pass
     # signal_for_name searches only registered signals on the concrete GType.
