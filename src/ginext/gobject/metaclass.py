@@ -70,7 +70,7 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
     for base in cls.__mro__:
         base_gimeta = own_gimeta(base)
         if base_gimeta is not None:
-            names.update(base_gimeta.method_infos)
+            names.update(base_gimeta.list_methods())
         if not isinstance(base, GObjectMeta):
             continue
         struct_name = base._class_struct_name
@@ -94,7 +94,7 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
     func = attr.__func__ if isinstance(attr, staticmethod | classmethod) else None
     func_name = func.__name__ if isinstance(func, types.FunctionType) else None
     if func_name == "_non_inherited_constructor" or (
-        attr is None and "new" in cls.gimeta.method_infos
+        attr is None and cls.gimeta.has_method("new")
     ):
         names.discard("new")
     return sorted(names)

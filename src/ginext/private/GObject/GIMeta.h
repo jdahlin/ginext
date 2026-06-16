@@ -33,6 +33,18 @@ typedef struct
 
 typedef struct
 {
+  char *name;
+  PyObject *value;
+} GinextObjectMeta;
+
+typedef struct
+{
+  GinextObjectMeta *items;
+  Py_ssize_t len;
+} GinextObjectMetaTable;
+
+typedef struct
+{
   PyObject_HEAD GinextMetaKind kind;
   GType gtype;
   PyObject *type_name; /* str */
@@ -51,11 +63,11 @@ typedef struct
   GinextPropertyMeta *properties;
   Py_ssize_t n_properties;
   PyObject *method_owner_name; /* str qualified owner name or None */
-  PyObject *method_infos; /* dict[str, (GIBaseInfo, has_self)] */
+  GinextObjectMetaTable method_infos; /* name -> (GIBaseInfo, has_self) */
   PyObject *typelib_methods; /* dict[str, callable] */
-  PyObject *signal_infos; /* dict[str, signal_info_or_descriptor] */
-  PyObject *signal_method_backings; /* dict[str, callable] */
-  PyObject *vfunc_infos; /* dict[str, vfunc_info] */
+  GinextObjectMetaTable signal_infos; /* name -> signal_info_or_descriptor */
+  GinextObjectMetaTable signal_method_backings; /* name -> callable */
+  GinextObjectMetaTable vfunc_infos; /* name -> vfunc_info */
   PyObject *extensions; /* dict[str, dict[str, object]] for toolkit metadata */
 } GRegisteredTypeMetaObject;
 

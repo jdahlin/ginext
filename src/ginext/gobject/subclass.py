@@ -136,17 +136,11 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
                 ),
             )
 
-    if not cls.gimeta.signal_infos:
+    if not cls.gimeta.list_signals():
         parent_cls = cls.__bases__[0]
         parent_gimeta = own_gimeta(parent_cls)
-        signal_infos = {} if parent_gimeta is None else parent_gimeta.signal_infos
-        method_backings = (
-            {} if parent_gimeta is None else parent_gimeta.signal_method_backings
-        )
-        vfunc_infos = {} if parent_gimeta is None else parent_gimeta.vfunc_infos
-        cls.gimeta.signal_infos = dict(signal_infos)
-        cls.gimeta.signal_method_backings = dict(method_backings)
-        cls.gimeta.vfunc_infos = dict(vfunc_infos)
+        if parent_gimeta is not None:
+            cls.gimeta.inherit_descriptors_from(parent_gimeta)
         # Python-defined subclasses whose nearest Python ancestor is
         # the root `GObject` won't see notify / other GObject base
         # signals through MRO (the root's table is empty until
@@ -154,12 +148,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
         # those in once on first Python subclass init.
         if not already_built and parent_cls is GObject:
             obj_cls = gobject_repo().Object
-            for k, v in obj_cls.gimeta.signal_infos.items():
-                cls.gimeta.signal_infos.setdefault(k, v)
-            for k, v in obj_cls.gimeta.signal_method_backings.items():
-                cls.gimeta.signal_method_backings.setdefault(k, v)
-            for k, v in obj_cls.gimeta.vfunc_infos.items():
-                cls.gimeta.vfunc_infos.setdefault(k, v)
+            cls.gimeta.inherit_descriptors_from(obj_cls.gimeta)
 
     # Register Python-defined signal descriptors. ClassBuilder-built
     # classes don't have SignalDescriptor instances in their dict, so
@@ -169,7 +158,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
             if attr._is_imported:
                 continue
             attr._register(cls.gimeta)
-            cls.gimeta.signal_infos[attr_name] = attr
+            cls.gimeta.register_python_signal_descriptor(attr_name, attr)
 
     if not already_built and features.is_enabled(features.PYGOBJECT_COMPAT):
         try:
@@ -179,7 +168,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
         else:
             for attr_name, sd in iter_pygobject_signal_descriptors(cls):
                 sd._register(cls.gimeta)
-                cls.gimeta.signal_infos[attr_name] = sd
+                cls.gimeta.register_python_signal_descriptor(attr_name, sd)
 
     if not already_built:
         _surface_inherited_properties(cls, annotations)
@@ -208,7 +197,7 @@ def _surface_inherited_properties(
     # earlier accesses; those should not block the subclass from surfacing the
     # inherited property up front.
     taken = set(vars(cls))
-    taken.update(cls.gimeta.signal_infos)
+    taken.update(cls.gimeta.list_signals())
     inherited_python_properties = set()
     for base in cls.__mro__[1:]:
         try:

@@ -36,6 +36,7 @@ from typing import (
     Any,
     Callable,
     Protocol,
+    TypeAlias,
     TypeVar,
     cast,
     runtime_checkable,
@@ -74,8 +75,25 @@ from .overlay import (
 from .signal.descriptor import SignalDescriptor
 
 _V = TypeVar("_V")
+_MethodDescriptor: TypeAlias = "tuple[CallableInfo, bool]"
 
 _classes_by_gtype: dict[tuple[str, int], type[Any]] = {}
+
+
+def _method_descriptor(gimeta: private.GIMeta, name: str) -> _MethodDescriptor | None:
+    return cast("_MethodDescriptor | None", gimeta.lookup_method(name))
+
+
+def _has_method_descriptor(gimeta: private.GIMeta, name: str) -> bool:
+    return gimeta.has_method(name)
+
+
+def _method_names(gimeta: private.GIMeta) -> list[str]:
+    return gimeta.list_methods()
+
+
+def _remove_method_descriptor(gimeta: private.GIMeta, name: str) -> bool:
+    return gimeta.remove_method(name)
 
 
 @runtime_checkable
@@ -289,10 +307,9 @@ class ClassBuilder:
         owner_name = self._context.qualified_name(name)
         gimeta.namespace = self._context
         gimeta.method_owner_name = owner_name
-        gimeta.method_infos = method_infos
-        gimeta.signal_infos = signal_infos
-        gimeta.signal_method_backings = signal_method_backings
-        gimeta.vfunc_infos = vfunc_infos
+        gimeta.install_descriptors(
+            method_infos, signal_infos, signal_method_backings, vfunc_infos
+        )
 
         if data["namespace"] == "GObject" and name == "Object":
             # Adopt the introspected root onto the single GObject.Object base
@@ -424,7 +441,7 @@ def _class_has_method(cls: type, name: str) -> bool:
         if name in base.__dict__:
             return True
         gimeta = own_gimeta(base)
-        if name in getattr(gimeta, "method_infos", {}):
+        if gimeta is not None and _has_method_descriptor(gimeta, name):
             return True
     return False
 
@@ -433,8 +450,9 @@ def _method_from_bases(bases: tuple[type, ...], name: str) -> object | None:
     for base in bases:
         for owner in base.__mro__:
             gimeta = own_gimeta(owner)
-            method_infos = getattr(gimeta, "method_infos", {})
-            method_entry = method_infos.get(name)
+            if gimeta is None:
+                continue
+            method_entry = _method_descriptor(gimeta, name)
             if method_entry is None:
                 continue
             method_info, has_self = method_entry
@@ -467,7 +485,6 @@ def _maybe_async_callable(
     if async_info is None:
         return None
     finish_name, cb_position = async_info
-    method_infos = getattr(gimeta, "method_infos", {})
     # The typelib may not record the finish function (e.g. GdkPixbuf); fall
     # back to the *_async -> *_finish naming convention. Variants often share
     # one finish (new_from_stream_at_scale_async -> new_from_stream_finish), so
@@ -476,11 +493,11 @@ def _maybe_async_callable(
         if not name.endswith("_async"):
             return None
         base = name[: -len("_async")]
-        if f"{base}_finish" in method_infos:
+        if _has_method_descriptor(gimeta, f"{base}_finish"):
             finish_name = f"{base}_finish"
         else:
             best = ""
-            for key in method_infos:
+            for key in _method_names(gimeta):
                 if not key.endswith("_finish"):
                     continue
                 stem = key[: -len("_finish")]
@@ -490,7 +507,7 @@ def _maybe_async_callable(
                     finish_name, best = key, stem
             if not finish_name:
                 return None
-    finish_entry = method_infos.get(finish_name)
+    finish_entry = _method_descriptor(gimeta, finish_name)
     if finish_entry is None:
         return None
     finish_info, finish_has_self = finish_entry
@@ -529,10 +546,9 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
         gimeta = own_gimeta(owner)
         if not hasattr(gimeta, "gi_info"):
             continue
-        method_infos = getattr(gimeta, "method_infos", {})
-        if not method_infos:
+        if not _method_names(gimeta):
             continue
-        method_entry = method_infos.get(name)
+        method_entry = _method_descriptor(gimeta, name)
         if method_entry is None:
             continue
         method_info, has_self = method_entry
@@ -544,7 +560,7 @@ def install_method_for_class(cls: type, name: str) -> tuple[object, bool] | None
                 has_self=has_self,
             )
         except NotImplementedError:
-            method_infos.pop(name, None)
+            _remove_method_descriptor(gimeta, name)
             return None
         async_wrapped = _maybe_async_callable(
             owner, gimeta, name, method, method_info, has_self
@@ -581,7 +597,7 @@ def _install_gobject_typelib_method(name: str) -> tuple[object, bool] | None:
     gimeta = own_gimeta(obj_cls)
     if gimeta is None:
         return None
-    method_entry = gimeta.method_infos.get(name)
+    method_entry = _method_descriptor(gimeta, name)
     if method_entry is None:
         return None
     method_info, has_self = method_entry

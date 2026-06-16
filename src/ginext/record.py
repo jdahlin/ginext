@@ -279,5 +279,3 @@ def install_method_for_record_class(
 def reset_for_test() -> None:
     _record_classes_by_key.clear()
     _record_classes_by_gtype.clear()
-
-

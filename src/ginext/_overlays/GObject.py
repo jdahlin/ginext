@@ -174,8 +174,8 @@ class _NotifyCompatProxy:
 
 
 def _notify_bound_signal(source: _gobject_root.GObject) -> _BoundSignal:
-    info = GObject.Object.gimeta.signal_infos["notify"]
-    method = GObject.Object.gimeta.signal_method_backings.get("notify")
+    info = GObject.Object.gimeta.lookup_signal("notify")
+    method = GObject.Object.gimeta.lookup_signal_method("notify")
     return _BoundSignal(source, "notify", cast("Any", info), method)
 
 
@@ -313,7 +313,7 @@ def __call__(self: Any) -> Any:
 
 @overlay.method("Object")
 def __dir__(self: Any) -> list[str]:
-    return list(set(dir(type(self))) | set(object.__dir__(self)))
+    return list(set(type.__dir__(type(self))) | set(object.__dir__(self)))
 
 
 @overlay.method("Object")

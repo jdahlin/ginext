@@ -59,8 +59,9 @@ class FundamentalMeta(type):
         names = set(type.__dir__(cls))
         for base in cls.__mro__:
             gimeta = vars(base).get("gimeta")
-            if gimeta is not None:
+            if isinstance(gimeta, private.GIMeta):
+                names.update(gimeta.list_methods())
+            elif gimeta is not None:
                 names.update(gimeta.method_infos)
         return sorted(names)
-
 
