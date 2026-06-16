@@ -158,7 +158,6 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
             if attr._is_imported:
                 continue
             attr._register(cls.gimeta)
-            cls.gimeta.register_python_signal_descriptor(attr_name, attr)
 
     if not already_built and features.is_enabled(features.PYGOBJECT_COMPAT):
         try:

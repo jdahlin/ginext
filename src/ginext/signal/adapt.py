@@ -101,9 +101,21 @@ def _connect_constructor_handler(
     cls = type(owner)
     if not isinstance(cls, _HasGIMeta):
         raise TypeError(f"{type(owner).__name__} has no GObject metadata")
+    from .descriptor import SignalDescriptor
+
     gimeta = cls.gimeta
-    if gimeta.lookup_signal(signal_attr_name) is None:
-        available = sorted(gimeta.list_signals())
+    descriptors: dict[str, SignalDescriptor] = {}
+    for klass in cls.__mro__:
+        for attr in klass.__dict__.values():
+            if isinstance(attr, SignalDescriptor):
+                attr_name = attr.attribute_name()
+                if attr_name is not None:
+                    descriptors[attr_name] = attr
+    if (
+        signal_attr_name not in descriptors
+        and gimeta.lookup_signal(signal_attr_name) is None
+    ):
+        available = sorted({*gimeta.list_signals(), *descriptors})
         close = difflib.get_close_matches(signal_attr_name, available, n=3)
         hint = f"; did you mean {close!r}?" if close else ""
         raise TypeError(

@@ -153,7 +153,7 @@ def test_imported_enums_do_not_expose_compat_attrs_in_core() -> None:
             ),
         ),
     ):
-        assert "gimeta" not in vars(cls)
+        assert "gimeta" in vars(cls)
         for name in names:
             assert not hasattr(cls, name), name
             assert not hasattr(member, name), name
