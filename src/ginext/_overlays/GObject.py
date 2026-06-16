@@ -313,7 +313,7 @@ def __call__(self: Any) -> Any:
 
 @overlay.method("Object")
 def __dir__(self: Any) -> list[str]:
-    return list(set(type.__dir__(type(self))) | set(object.__dir__(self)))
+    return list(set(dir(type(self))) | set(object.__dir__(self)))
 
 
 @overlay.method("Object")

@@ -94,7 +94,7 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
     func = attr.__func__ if isinstance(attr, staticmethod | classmethod) else None
     func_name = func.__name__ if isinstance(func, types.FunctionType) else None
     if func_name == "_non_inherited_constructor" or (
-        attr is None and cls.gimeta.has_method("new")
+        attr is None and cls.gimeta.lookup_method("new") is not None
     ):
         names.discard("new")
     return sorted(names)

@@ -66,12 +66,13 @@ pygi_gimeta_get_type_name (PyObject *gimeta, PyObject **out)
 static inline int
 pygi_gimeta_get_extensions (PyObject *gimeta, PyObject **out)
 {
-  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+  if (!PyObject_TypeCheck (gimeta, &GIMetaType))
     {
-      *out = Py_XNewRef (((GRegisteredTypeMetaObject *)gimeta)->extensions);
-      return 0;
+      PyErr_SetString (PyExc_TypeError, "gimeta must be a GIMeta");
+      return -1;
     }
-  return PyObject_GetOptionalAttrString (gimeta, "extensions", out);
+  *out = Py_XNewRef (((GRegisteredTypeMetaObject *)gimeta)->extensions);
+  return 0;
 }
 
 static inline int

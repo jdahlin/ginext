@@ -567,15 +567,6 @@ gimeta_lookup_method (GIMetaObject *self, PyObject *args)
 }
 
 static PyObject *
-gimeta_has_method (GIMetaObject *self, PyObject *args)
-{
-  const char *name = NULL;
-  if (!PyArg_ParseTuple (args, "s:has_method", &name))
-    return NULL;
-  return PyBool_FromLong (object_table_lookup (&registered_meta (self)->method_infos, name) != NULL);
-}
-
-static PyObject *
 gimeta_list_methods (GIMetaObject *self, PyObject *Py_UNUSED (ignored))
 {
   return object_table_keys (&registered_meta (self)->method_infos);
@@ -598,15 +589,6 @@ gimeta_lookup_signal (GIMetaObject *self, PyObject *args)
   if (!PyArg_ParseTuple (args, "s|O:lookup_signal", &name, &default_value))
     return NULL;
   return descriptor_lookup (&registered_meta (self)->signal_infos, name, default_value);
-}
-
-static PyObject *
-gimeta_has_signal (GIMetaObject *self, PyObject *args)
-{
-  const char *name = NULL;
-  if (!PyArg_ParseTuple (args, "s:has_signal", &name))
-    return NULL;
-  return PyBool_FromLong (object_table_lookup (&registered_meta (self)->signal_infos, name) != NULL);
 }
 
 static PyObject *
@@ -908,9 +890,21 @@ GETSET_OBJ (profile)
   }
 GETSET_REG_OBJ (parent)
 GETSET_REG_OBJ (method_owner_name)
-GETSET_REG_OBJ (typelib_methods)
 GETSET_REG_OBJ (extensions)
 #undef GETSET_REG_OBJ
+
+static PyObject *
+gimeta_get_typelib_methods (GIMetaObject *self, void *closure G_GNUC_UNUSED)
+{
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
+  if (registered->typelib_methods == NULL)
+    {
+      registered->typelib_methods = PyDict_New ();
+      if (registered->typelib_methods == NULL)
+        return NULL;
+    }
+  return Py_NewRef (registered->typelib_methods);
+}
 
 #define GETSET_TABLE(field)                                                                        \
   static PyObject *gimeta_get_##field (GIMetaObject *self, void *closure G_GNUC_UNUSED)            \
@@ -1088,11 +1082,9 @@ static PyMethodDef gimeta_methods[]
           METH_VARARGS,
           "Register a Python-defined signal on this GType." },
         { "lookup_method", (PyCFunction)gimeta_lookup_method, METH_VARARGS, NULL },
-        { "has_method", (PyCFunction)gimeta_has_method, METH_VARARGS, NULL },
         { "list_methods", (PyCFunction)gimeta_list_methods, METH_NOARGS, NULL },
         { "remove_method", (PyCFunction)gimeta_remove_method, METH_VARARGS, NULL },
         { "lookup_signal", (PyCFunction)gimeta_lookup_signal, METH_VARARGS, NULL },
-        { "has_signal", (PyCFunction)gimeta_has_signal, METH_VARARGS, NULL },
         { "list_signals", (PyCFunction)gimeta_list_signals, METH_NOARGS, NULL },
         { "lookup_signal_method", (PyCFunction)gimeta_lookup_signal_method, METH_VARARGS, NULL },
         { "lookup_vfunc", (PyCFunction)gimeta_lookup_vfunc, METH_VARARGS, NULL },
@@ -1160,12 +1152,6 @@ gimeta_new (GType gtype,
       return NULL;
     }
   registered->method_owner_name = Py_NewRef (Py_None);
-  registered->typelib_methods = PyDict_New ();
-  if (!registered->typelib_methods)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
   registered->extensions = PyDict_New ();
   if (!registered->extensions)
     {
