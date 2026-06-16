@@ -161,13 +161,16 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
 
     if not already_built and features.is_enabled(features.PYGOBJECT_COMPAT):
         try:
-            from gi._signalhelper import iter_pygobject_signal_descriptors
+            from gi._signalhelper import (
+                iter_pygobject_signal_descriptors,
+                register_compat_signal_descriptor,
+            )
         except ImportError:
             pass
         else:
             for attr_name, sd in iter_pygobject_signal_descriptors(cls):
                 sd._register(cls.gimeta)
-                cls.gimeta.register_python_signal_descriptor(attr_name, sd)
+                register_compat_signal_descriptor(cls.gimeta, attr_name, sd)
 
     if not already_built:
         _surface_inherited_properties(cls, annotations)

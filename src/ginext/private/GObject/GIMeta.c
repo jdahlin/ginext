@@ -671,23 +671,6 @@ gimeta_inherit_descriptors_from (GIMetaObject *self, PyObject *arg)
   Py_RETURN_NONE;
 }
 
-static PyObject *
-gimeta_register_python_signal_descriptor (GIMetaObject *self, PyObject *args)
-{
-  const char *name = NULL;
-  PyObject *descriptor = NULL;
-  PyObject *method = Py_None;
-  if (!PyArg_ParseTuple (args, "sO|O:register_python_signal_descriptor", &name, &descriptor, &method))
-    return NULL;
-  GRegisteredTypeMetaObject *registered = registered_meta (self);
-  if (object_table_set_item (&registered->signal_infos, name, descriptor) < 0)
-    return NULL;
-  if (method != Py_None
-      && object_table_set_item (&registered->signal_method_backings, name, method) < 0)
-    return NULL;
-  Py_RETURN_NONE;
-}
-
 /* ── property access: walk MRO, find owning gimeta, hit InstancePrivate ─── */
 
 /* Look up (pspec, prop_id) for `name` on one GIMeta. Returns 1 on success,
@@ -1102,10 +1085,6 @@ static PyMethodDef gimeta_methods[]
         { "lookup_vfunc", (PyCFunction)gimeta_lookup_vfunc, METH_VARARGS, NULL },
         { "install_descriptors", (PyCFunction)gimeta_install_descriptors, METH_VARARGS, NULL },
         { "inherit_descriptors_from", (PyCFunction)gimeta_inherit_descriptors_from, METH_O, NULL },
-        { "register_python_signal_descriptor",
-          (PyCFunction)gimeta_register_python_signal_descriptor,
-          METH_VARARGS,
-          NULL },
         { "install_native_vfunc_attrs",
           (PyCFunction)gimeta_install_native_vfunc_attrs,
           METH_VARARGS,

@@ -104,18 +104,15 @@ def _connect_constructor_handler(
     from .descriptor import SignalDescriptor
 
     gimeta = cls.gimeta
-    descriptors: dict[str, SignalDescriptor] = {}
+    descriptor = None
+    normalized = signal_attr_name.replace("-", "_")
     for klass in cls.__mro__:
-        for attr in klass.__dict__.values():
-            if isinstance(attr, SignalDescriptor):
-                attr_name = attr.attribute_name()
-                if attr_name is not None:
-                    descriptors[attr_name] = attr
-    if (
-        signal_attr_name not in descriptors
-        and gimeta.lookup_signal(signal_attr_name) is None
-    ):
-        available = sorted({*gimeta.list_signals(), *descriptors})
+        attr = klass.__dict__.get(normalized)
+        if isinstance(attr, SignalDescriptor):
+            descriptor = attr
+            break
+    if descriptor is None and gimeta.lookup_signal(signal_attr_name) is None:
+        available = sorted(gimeta.list_signals())
         close = difflib.get_close_matches(signal_attr_name, available, n=3)
         hint = f"; did you mean {close!r}?" if close else ""
         raise TypeError(

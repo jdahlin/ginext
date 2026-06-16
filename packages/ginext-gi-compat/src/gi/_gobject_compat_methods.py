@@ -479,6 +479,19 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     return cast("_BoundSignal", bound)
                 break
 
+        from gi._signalhelper import compat_signal_descriptors_for_gimeta
+
+        for base in cls.__mro__:
+            gimeta = getattr(base, "gimeta", None)
+            if gimeta is None:
+                continue
+            sd = compat_signal_descriptors_for_gimeta(gimeta).get(underscore_name)
+            if sd is None:
+                continue
+            bound = sd.__get__(self, cls)
+            if isinstance(bound, _sig_bound.Signal):
+                return cast("_BoundSignal", bound)
+
         # Fall back to searching the MRO class dicts for still-intact SignalDescriptors
         # or PyGObject-compat Signal (str subclass with get_signal_args).
         # Use duck-typing rather than isinstance(val, gi._signalhelper.Signal) so
@@ -501,21 +514,27 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 and hasattr(val, "arg_types")
                 and hasattr(val, "get_signal_args")
             ):
-                # PyGObject Signal (str subclass descriptor).  A ginext
-                # _CompatSignalDescriptor was registered in gimeta.signal_infos
-                # during class building (from __gsignals__) — check there first.
+                # PyGObject Signal (str subclass descriptor). A ginext
+                # _CompatSignalDescriptor was registered in the compat signal
+                # descriptor bucket during class building (from __gsignals__);
+                # check there first.
                 # If missing (Signal defined directly as class attr, not via
                 # __gsignals__), register it now as a _CompatSignalDescriptor.
                 # Use duck-typing instead of isinstance(val, Signal) so that
                 # module reloads (e.g. test fixtures that pop gi._signalhelper
                 # from sys.modules) don't break class identity checks on
                 # existing Signal instances.
-                from gi._signalhelper import _CompatSignalDescriptor, _compat_signal_type
+                from gi._signalhelper import (
+                    _CompatSignalDescriptor,
+                    _compat_signal_type,
+                    register_compat_signal_descriptor,
+                )
 
                 gimeta = getattr(base, "gimeta", None)
                 if gimeta is None:
                     continue
-                sd = gimeta.lookup_signal(underscore_name)
+                signal_descriptors = compat_signal_descriptors_for_gimeta(gimeta)
+                sd = signal_descriptors.get(underscore_name)
                 if sd is None:
                     # Not yet registered — create and register lazily.
                     if not str(val):
@@ -538,7 +557,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     )
                     sd.__set_name__(base, underscore_name)
                     sd._register(gimeta)
-                    gimeta.register_python_signal_descriptor(underscore_name, sd)
+                    register_compat_signal_descriptor(gimeta, underscore_name, sd)
                 bound = sd.__get__(self, cls)
                 if isinstance(bound, _sig_bound.Signal):
                     return cast("_BoundSignal", bound)
