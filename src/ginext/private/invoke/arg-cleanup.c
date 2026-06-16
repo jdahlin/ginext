@@ -78,6 +78,18 @@ pygi_arg_cleanup_clear (PyGIArgCleanup *cleanup)
     case PYGI_ARG_CLEANUP_GTIMEZONE:
       g_time_zone_unref ((GTimeZone *)cleanup->ptr);
       break;
+    case PYGI_ARG_CLEANUP_PROPERTY_GVALUE:
+      {
+        PyGIPropertyGValueCleanup *holder = cleanup->ptr;
+        if (holder != NULL)
+          {
+            if (G_IS_VALUE (&holder->value))
+              g_value_unset (&holder->value);
+            pygi_arg_cleanup_clear (&holder->nested);
+            g_free (holder);
+          }
+        break;
+      }
     case PYGI_ARG_CLEANUP_FFI_CLOSURE:
       pygi_callback_closure_destroy (cleanup->ptr);
       break;

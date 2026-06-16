@@ -256,7 +256,11 @@ py_object_get_property_by_name (PyObject *m, PyObject *args)
 }
 
 int
-pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject *py_value)
+pygi_gvalue_set_from_object_property (GValue *value,
+                                      GObject *source,
+                                      const char *name,
+                                      PyObject *py_value,
+                                      PyGIArgCleanup *nested_cleanup)
 {
   GParamSpec *pspec = g_object_class_find_property (G_OBJECT_GET_CLASS (source), name);
   if (pspec == NULL)
@@ -268,16 +272,13 @@ pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject
       return -1;
     }
 
-  GValue value = G_VALUE_INIT;
   if (G_IS_PARAM_SPEC_UNICHAR (pspec))
     {
       GIArgument arg = { 0 };
       if (pygi_unichar_from_py (py_value, &arg) != 0)
         return -1;
-      g_value_init (&value, pspec->value_type);
-      g_value_set_uint (&value, arg.v_uint32);
-      g_object_set_property (source, name, &value);
-      g_value_unset (&value);
+      g_value_init (value, pspec->value_type);
+      g_value_set_uint (value, arg.v_uint32);
       return 0;
     }
   if (pspec->value_type == G_TYPE_POINTER)
@@ -305,11 +306,12 @@ pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject
                                                      &cleanup);
                   if (rc != 0)
                     return -1;
-                  g_value_init (&value, pspec->value_type);
-                  g_value_set_pointer (&value, list_arg.v_pointer);
-                  g_object_set_property (source, name, &value);
-                  pygi_arg_cleanup_clear (&cleanup);
-                  g_value_unset (&value);
+                  g_value_init (value, pspec->value_type);
+                  g_value_set_pointer (value, list_arg.v_pointer);
+                  if (nested_cleanup != NULL)
+                    *nested_cleanup = cleanup;
+                  else
+                    pygi_arg_cleanup_clear (&cleanup);
                   return 0;
                 }
             }
@@ -330,19 +332,32 @@ pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject
       PyGIArgCleanup cleanup = { 0 };
       if (pygi_ghash_from_py (py_value, type_info, GI_TRANSFER_NOTHING, &hash_arg, &cleanup) != 0)
         return -1;
-      g_value_init (&value, pspec->value_type);
-      g_value_set_boxed (&value, hash_arg.v_pointer);
-      g_object_set_property (source, name, &value);
-      pygi_arg_cleanup_clear (&cleanup);
-      g_value_unset (&value);
+      g_value_init (value, pspec->value_type);
+      g_value_set_boxed (value, hash_arg.v_pointer);
+      if (nested_cleanup != NULL)
+        *nested_cleanup = cleanup;
+      else
+        pygi_arg_cleanup_clear (&cleanup);
       return 0;
     }
-  if (pygi_py_to_gvalue_targeted (pspec->value_type, py_value, &value, "object property") != 0)
+  if (pygi_py_to_gvalue_targeted (pspec->value_type, py_value, value, "object property") != 0)
     {
-      g_value_unset (&value);
+      if (G_IS_VALUE (value))
+        g_value_unset (value);
       return -1;
     }
+  return 0;
+}
+
+int
+pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject *py_value)
+{
+  GValue value = G_VALUE_INIT;
+  PyGIArgCleanup cleanup = { 0 };
+  if (pygi_gvalue_set_from_object_property (&value, source, name, py_value, &cleanup) != 0)
+    return -1;
   g_object_set_property (source, name, &value);
+  pygi_arg_cleanup_clear (&cleanup);
   g_value_unset (&value);
   return 0;
 }
@@ -370,18 +385,6 @@ pygi_gobject_set_property_by_name (PyObject *source_arg, const char *name, PyObj
   if (pygi_gobject_set_property_on_object (source, name, py_value) != 0)
     return NULL;
   Py_RETURN_NONE;
-}
-
-PyObject *
-py_object_set_property_by_name (PyObject *m, PyObject *args)
-{
-  (void)m;
-  PyObject *source_arg;
-  const char *name;
-  PyObject *py_value;
-  if (!PyArg_ParseTuple (args, "OsO", &source_arg, &name, &py_value))
-    return NULL;
-  return pygi_gobject_set_property_by_name (source_arg, name, py_value);
 }
 
 static void

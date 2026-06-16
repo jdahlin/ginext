@@ -297,16 +297,11 @@ def _raise_if_construct_only(cls: type, prop_name: str) -> None:
     )
 
 
-def _set_property_with_compat_fallback(
-    obj: Any, prop_name: str, value: object
-) -> None:
+def _set_property_via_introspection(obj: Any, prop_name: str, value: object) -> None:
     try:
         set_property_via_introspection(obj, prop_name, value)
-    except (NotImplementedError, TypeError):
-        try:
-            ginext.private.gobject_set_property_by_name(obj, prop_name, value)
-        except ValueError as exc:
-            raise TypeError(str(exc)) from None
+    except ValueError as exc:
+        raise TypeError(str(exc)) from None
     except AttributeError as exc:
         msg = str(exc)
         if "construct-only" in msg or "construct_only" in msg:
@@ -325,7 +320,7 @@ def set_property(self: Any, name: str, value: object) -> None:
         return
     value = _coerce_set_property_value(cls, prop_name, descriptor, value)
     _raise_if_construct_only(cls, prop_name)
-    _set_property_with_compat_fallback(self, prop_name, value)
+    _set_property_via_introspection(self, prop_name, value)
     call_notify_override(self, prop_name)
 
 

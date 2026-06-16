@@ -132,14 +132,7 @@ def get_property_via_introspection(obj: "GObject", prop_name: str) -> object:
 def set_property_via_introspection(
     obj: "GObject", prop_name: str, py_value: object
 ) -> None:
-    pspec = type(obj).gimeta.param_spec(prop_name)
-    if pspec is None:
-        raise AttributeError(f"{type(obj).__name__} has no property {prop_name}")
-    pspec = cast("Any", pspec)
-    value = _gobject_value_class()()
-    private.gvalue_init_value(value, pspec.value_type)
-    private.gvalue_set_value(value, py_value)
-    _gobject_set_property_method()(obj, prop_name, value)
+    _gobject_set_property_method()(obj, prop_name, py_value)
 
 
 class PropertyMeta(type):
