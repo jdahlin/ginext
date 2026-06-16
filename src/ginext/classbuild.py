@@ -84,10 +84,6 @@ def _method_descriptor(gimeta: private.GIMeta, name: str) -> _MethodDescriptor |
     return cast("_MethodDescriptor | None", gimeta.lookup_method(name))
 
 
-def _has_method_descriptor(gimeta: private.GIMeta, name: str) -> bool:
-    return gimeta.has_method(name)
-
-
 def _method_names(gimeta: private.GIMeta) -> list[str]:
     return gimeta.list_methods()
 
@@ -441,7 +437,7 @@ def _class_has_method(cls: type, name: str) -> bool:
         if name in base.__dict__:
             return True
         gimeta = own_gimeta(base)
-        if gimeta is not None and _has_method_descriptor(gimeta, name):
+        if gimeta is not None and _method_descriptor(gimeta, name) is not None:
             return True
     return False
 
@@ -485,6 +481,7 @@ def _maybe_async_callable(
     if async_info is None:
         return None
     finish_name, cb_position = async_info
+    finish_entry: _MethodDescriptor | None = None
     # The typelib may not record the finish function (e.g. GdkPixbuf); fall
     # back to the *_async -> *_finish naming convention. Variants often share
     # one finish (new_from_stream_at_scale_async -> new_from_stream_finish), so
@@ -493,7 +490,8 @@ def _maybe_async_callable(
         if not name.endswith("_async"):
             return None
         base = name[: -len("_async")]
-        if _has_method_descriptor(gimeta, f"{base}_finish"):
+        finish_entry = _method_descriptor(gimeta, f"{base}_finish")
+        if finish_entry is not None:
             finish_name = f"{base}_finish"
         else:
             best = ""
@@ -507,7 +505,8 @@ def _maybe_async_callable(
                     finish_name, best = key, stem
             if not finish_name:
                 return None
-    finish_entry = _method_descriptor(gimeta, finish_name)
+    if finish_entry is None:
+        finish_entry = _method_descriptor(gimeta, finish_name)
     if finish_entry is None:
         return None
     finish_info, finish_has_self = finish_entry

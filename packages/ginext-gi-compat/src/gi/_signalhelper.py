@@ -240,7 +240,7 @@ def iter_pygobject_signal_descriptors(
             cls._pygobject_signal_overrides = overrides  # type: ignore[attr-defined]
             attr_name = raw_name.replace("-", "_")
             gimeta = own_gimeta(cls)
-            if gimeta is None or not gimeta.has_signal(attr_name):
+            if gimeta is None or gimeta.lookup_signal(attr_name) is None:
                 raise TypeError(f"cannot override unknown signal {raw_name!r}")
             continue
         if not isinstance(spec, tuple | list) or len(spec) not in (3, 5):

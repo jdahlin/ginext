@@ -56,11 +56,9 @@ from typing import (
 from .. import features
 from .. import private
 from ..signal.adapt import (
-    _SIGNAL_ARG_LIMIT_ATTR,
     _accepted_signal_arg_count,
 )
 from ..signal.bound import Signal as _SignalInstance
-from ..signal.connection import SignalConnection
 from ..signal.descriptor import SignalDescriptor as Signal
 from .metaclass import GObjectMeta as GObjectMeta
 from .resolve import classbuild_module, gobject_repo as gobject_repo
@@ -136,7 +134,7 @@ def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
                 f"on_{signal_attr_name}= must be callable, got {type(callback).__name__}"
             )
         gimeta = type(obj).gimeta
-        if not gimeta.has_signal(signal_attr_name):
+        if gimeta.lookup_signal(signal_attr_name) is None:
             available = sorted(gimeta.list_signals())
             close = difflib.get_close_matches(signal_attr_name, available, n=3)
             hint = f"; did you mean {close!r}?" if close else ""
@@ -190,46 +188,6 @@ def _obj_signal_for_name(self: Any, name: str) -> _SignalInstance:
     return signal
 
 
-def _obj_connect(
-    self: Any,
-    signal_name: str,
-    callback: Callable[..., Any],
-    *user_data: object,
-    **kwargs: object,
-) -> object:
-    if not features.is_enabled(features.OLD_SIGNAL_API):
-        raise TypeError("GObject.connect() is disabled by old_signal_api")
-    if not isinstance(signal_name, str):
-        raise TypeError(f"signal name must be a str, not {type(signal_name).__name__}")
-    if user_data:
-        original_callback = callback
-        signal_arg_limit = _accepted_signal_arg_count(original_callback, len(user_data))
-
-        def callback(*signal_args: object) -> object:
-            return original_callback(*signal_args, *user_data)
-
-        setattr(callback, _SIGNAL_ARG_LIMIT_ATTR, signal_arg_limit)
-    signal = _obj_signal_for_name(self, signal_name)
-    return signal.connect(callback, **cast("Any", kwargs))
-
-
-def _obj_connect_after(
-    self: Any,
-    signal_name: str,
-    callback: Callable[..., Any],
-    *user_data: object,
-    **kwargs: object,
-) -> object:
-    kwargs["after"] = True
-    return _obj_connect(self, signal_name, callback, *user_data, **kwargs)
-
-
-def _obj_disconnect(self: Any, connection: object) -> None:
-    if not isinstance(connection, SignalConnection):
-        raise TypeError("disconnect() expects a SignalConnection")
-    connection.disconnect()
-
-
 def _obj_init_subclass(
     cls: type[GObject], /, type_name: str | None = None, **kwargs: object
 ) -> None:
@@ -279,7 +237,7 @@ def _obj_getattr(self: Any, name: str) -> Any:
                 return compat_property_for_name(name)
             except AttributeError:
                 pass
-    if type(self).gimeta.has_signal(name.replace("-", "_")):
+    if type(self).gimeta.lookup_signal(name.replace("-", "_")) is not None:
         if not features.is_enabled(features.NEW_SIGNAL_API):
             raise AttributeError(name)
         return _obj_signal_for_name(self, name)
@@ -341,9 +299,6 @@ else:
 
 if not TYPE_CHECKING:
     GObject.__init_subclass__ = classmethod(_obj_init_subclass)
-    GObject.connect = _obj_connect
-    GObject.connect_after = _obj_connect_after
-    GObject.disconnect = _obj_disconnect
     private.register_hook("Object.post_init", _finish_construction)
     private.register_hook("Object.getattr", _obj_getattr)
     private.register_hook("Object.setattr", _obj_setattr)
