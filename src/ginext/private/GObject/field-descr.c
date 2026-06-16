@@ -403,31 +403,11 @@ record_class_field_name_reserved (PyObject *cls, const char *name)
       return -1;
     }
 
-  PyObject *method_infos = NULL;
-  if (pygi_gimeta_get_method_infos (gimeta, &method_infos) < 0)
+  int method_contains = pygi_gimeta_method_infos_contains (gimeta, name);
+  if (method_contains != 0)
     {
       Py_DECREF (gimeta);
-      return -1;
-    }
-  if (method_infos == NULL)
-    {
-      if (PyErr_ExceptionMatches (PyExc_AttributeError))
-        PyErr_Clear ();
-      else
-        {
-          Py_DECREF (gimeta);
-          return -1;
-        }
-    }
-  else
-    {
-      int contains = PyMapping_HasKeyString (method_infos, name);
-      Py_DECREF (method_infos);
-      if (contains != 0)
-        {
-          Py_DECREF (gimeta);
-          return contains;
-        }
+      return method_contains;
     }
 
   PyObject *hidden_fields = NULL;

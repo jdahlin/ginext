@@ -64,17 +64,6 @@ pygi_gimeta_get_type_name (PyObject *gimeta, PyObject **out)
 }
 
 static inline int
-pygi_gimeta_get_method_infos (PyObject *gimeta, PyObject **out)
-{
-  if (PyObject_TypeCheck (gimeta, &GIMetaType))
-    {
-      *out = Py_XNewRef (((GRegisteredTypeMetaObject *)gimeta)->method_infos);
-      return 0;
-    }
-  return PyObject_GetOptionalAttrString (gimeta, "method_infos", out);
-}
-
-static inline int
 pygi_gimeta_get_extensions (PyObject *gimeta, PyObject **out)
 {
   if (PyObject_TypeCheck (gimeta, &GIMetaType))
@@ -83,6 +72,30 @@ pygi_gimeta_get_extensions (PyObject *gimeta, PyObject **out)
       return 0;
     }
   return PyObject_GetOptionalAttrString (gimeta, "extensions", out);
+}
+
+static inline int
+pygi_gimeta_method_infos_contains (PyObject *gimeta, const char *name)
+{
+  if (PyObject_TypeCheck (gimeta, &GIMetaType))
+    {
+      GinextObjectMetaTable *table = &((GRegisteredTypeMetaObject *)gimeta)->method_infos;
+      for (Py_ssize_t i = 0; i < table->len; i++)
+        {
+          if (strcmp (table->items[i].name, name) == 0)
+            return 1;
+        }
+      return 0;
+    }
+
+  PyObject *method_infos = NULL;
+  if (PyObject_GetOptionalAttrString (gimeta, "method_infos", &method_infos) < 0)
+    return -1;
+  if (method_infos == NULL)
+    return 0;
+  int contains = PyMapping_HasKeyString (method_infos, name);
+  Py_DECREF (method_infos);
+  return contains;
 }
 
 static inline int

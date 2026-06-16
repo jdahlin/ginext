@@ -102,9 +102,8 @@ def _connect_constructor_handler(
     if not isinstance(cls, _HasGIMeta):
         raise TypeError(f"{type(owner).__name__} has no GObject metadata")
     gimeta = cls.gimeta
-    infos = gimeta.signal_infos
-    if signal_attr_name not in infos:
-        available = sorted(infos)
+    if not gimeta.has_signal(signal_attr_name):
+        available = sorted(gimeta.list_signals())
         close = difflib.get_close_matches(signal_attr_name, available, n=3)
         hint = f"; did you mean {close!r}?" if close else ""
         raise TypeError(

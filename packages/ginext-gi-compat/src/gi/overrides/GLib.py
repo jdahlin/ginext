@@ -94,9 +94,7 @@ def _remove_from_method_infos(cls: type, name: str) -> None:
             gimeta = own_gimeta(owner)
             if gimeta is None:
                 continue
-            method_infos = getattr(gimeta, "method_infos", {})
-            if name in method_infos:
-                del method_infos[name]
+            gimeta.remove_method(name)
     except Exception:
         pass
 

@@ -30,16 +30,22 @@ import threading
 import weakref
 from typing import TYPE_CHECKING, Any, Iterator, Literal, cast
 
+import ginext
+import ginext.private as private
 from ginext.errors import install_gio_error_classes as _install_gio_error_classes
-from ginext import Gio, GLib, private
 from ginext.gobject.gobjectclass import GObject as _GObject
 from ginext_gio._actions import install_application_actions
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from ginext.overlay.registrar import OverlayRegistrar
 
-overlay = Gio.overlay
+Gio = cast("Any", sys.modules["ginext.Gio"])
+GLib = ginext.GLib
+
+
+overlay = cast("OverlayRegistrar", Gio.overlay)
 
 
 @overlay.method("Application", name="__init__")

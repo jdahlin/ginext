@@ -119,6 +119,172 @@ property_table_lookup (GRegisteredTypeMetaObject *self, const char *name)
   return NULL;
 }
 
+static void
+object_table_clear (GinextObjectMetaTable *table)
+{
+  if (table->items == NULL)
+    return;
+  for (Py_ssize_t i = 0; i < table->len; i++)
+    {
+      g_free (table->items[i].name);
+      Py_XDECREF (table->items[i].value);
+    }
+  g_free (table->items);
+  table->items = NULL;
+  table->len = 0;
+}
+
+static GinextObjectMeta *
+object_table_lookup (GinextObjectMetaTable *table, const char *name)
+{
+  for (Py_ssize_t i = 0; i < table->len; i++)
+    {
+      if (strcmp (table->items[i].name, name) == 0)
+        return &table->items[i];
+    }
+  return NULL;
+}
+
+static int
+object_table_set_item (GinextObjectMetaTable *table, const char *name, PyObject *value)
+{
+  GinextObjectMeta *existing = object_table_lookup (table, name);
+  if (existing != NULL)
+    {
+      Py_INCREF (value);
+      Py_SETREF (existing->value, value);
+      return 0;
+    }
+
+  GinextObjectMeta *items = g_renew (GinextObjectMeta, table->items, (gsize)table->len + 1);
+  if (items == NULL)
+    {
+      PyErr_NoMemory ();
+      return -1;
+    }
+  table->items = items;
+  table->items[table->len].name = g_strdup (name);
+  if (table->items[table->len].name == NULL)
+    {
+      PyErr_NoMemory ();
+      return -1;
+    }
+  Py_INCREF (value);
+  table->items[table->len].value = value;
+  table->len++;
+  return 0;
+}
+
+static int
+object_table_remove_item (GinextObjectMetaTable *table, const char *name)
+{
+  for (Py_ssize_t i = 0; i < table->len; i++)
+    {
+      if (strcmp (table->items[i].name, name) != 0)
+        continue;
+      g_free (table->items[i].name);
+      Py_DECREF (table->items[i].value);
+      if (i != table->len - 1)
+        table->items[i] = table->items[table->len - 1];
+      table->len--;
+      if (table->len == 0)
+        {
+          g_free (table->items);
+          table->items = NULL;
+        }
+      return 1;
+    }
+  return 0;
+}
+
+static int
+object_table_update_from_mapping (GinextObjectMetaTable *table, PyObject *mapping)
+{
+  PyObject *items = PyMapping_Items (mapping);
+  if (items == NULL)
+    return -1;
+  PyObject *fast = PySequence_Fast (items, "metadata mapping items must be iterable");
+  Py_DECREF (items);
+  if (fast == NULL)
+    return -1;
+
+  Py_ssize_t n = PySequence_Fast_GET_SIZE (fast);
+  for (Py_ssize_t i = 0; i < n; i++)
+    {
+      PyObject *pair = PySequence_Fast_GET_ITEM (fast, i);
+      if (!PyTuple_Check (pair) || PyTuple_GET_SIZE (pair) != 2)
+        {
+          PyErr_SetString (PyExc_TypeError, "metadata mapping items must be pairs");
+          Py_DECREF (fast);
+          return -1;
+        }
+      PyObject *key = PyTuple_GET_ITEM (pair, 0);
+      const char *name = PyUnicode_AsUTF8 (key);
+      if (name == NULL)
+        {
+          Py_DECREF (fast);
+          return -1;
+        }
+      if (object_table_set_item (table, name, PyTuple_GET_ITEM (pair, 1)) < 0)
+        {
+          Py_DECREF (fast);
+          return -1;
+        }
+    }
+  Py_DECREF (fast);
+  return 0;
+}
+
+static int
+object_table_set_from_mapping (GinextObjectMetaTable *table, PyObject *mapping)
+{
+  GinextObjectMetaTable replacement = { 0 };
+  if (object_table_update_from_mapping (&replacement, mapping) < 0)
+    {
+      object_table_clear (&replacement);
+      return -1;
+    }
+  object_table_clear (table);
+  *table = replacement;
+  return 0;
+}
+
+static PyObject *
+object_table_snapshot (GinextObjectMetaTable *table)
+{
+  PyObject *dict = PyDict_New ();
+  if (dict == NULL)
+    return NULL;
+  for (Py_ssize_t i = 0; i < table->len; i++)
+    {
+      if (PyDict_SetItemString (dict, table->items[i].name, table->items[i].value) < 0)
+        {
+          Py_DECREF (dict);
+          return NULL;
+        }
+    }
+  return dict;
+}
+
+static PyObject *
+object_table_keys (GinextObjectMetaTable *table)
+{
+  PyObject *list = PyList_New (table->len);
+  if (list == NULL)
+    return NULL;
+  for (Py_ssize_t i = 0; i < table->len; i++)
+    {
+      PyObject *name = PyUnicode_FromString (table->items[i].name);
+      if (name == NULL)
+        {
+          Py_DECREF (list);
+          return NULL;
+        }
+      PyList_SET_ITEM (list, i, name);
+    }
+  return list;
+}
+
 static PyObject *
 property_table_pspecs_snapshot (GRegisteredTypeMetaObject *self)
 {
@@ -381,6 +547,165 @@ gimeta_register_signal (GIMetaObject *self, PyObject *args)
   return PyLong_FromUnsignedLong (signal_id);
 }
 
+static PyObject *
+descriptor_lookup (GinextObjectMetaTable *table, const char *name, PyObject *default_value)
+{
+  GinextObjectMeta *item = object_table_lookup (table, name);
+  if (item == NULL)
+    return Py_NewRef (default_value);
+  return Py_NewRef (item->value);
+}
+
+static PyObject *
+gimeta_lookup_method (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  PyObject *default_value = Py_None;
+  if (!PyArg_ParseTuple (args, "s|O:lookup_method", &name, &default_value))
+    return NULL;
+  return descriptor_lookup (&registered_meta (self)->method_infos, name, default_value);
+}
+
+static PyObject *
+gimeta_has_method (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "s:has_method", &name))
+    return NULL;
+  return PyBool_FromLong (object_table_lookup (&registered_meta (self)->method_infos, name) != NULL);
+}
+
+static PyObject *
+gimeta_list_methods (GIMetaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  return object_table_keys (&registered_meta (self)->method_infos);
+}
+
+static PyObject *
+gimeta_remove_method (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "s:remove_method", &name))
+    return NULL;
+  return PyBool_FromLong (object_table_remove_item (&registered_meta (self)->method_infos, name));
+}
+
+static PyObject *
+gimeta_lookup_signal (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  PyObject *default_value = Py_None;
+  if (!PyArg_ParseTuple (args, "s|O:lookup_signal", &name, &default_value))
+    return NULL;
+  return descriptor_lookup (&registered_meta (self)->signal_infos, name, default_value);
+}
+
+static PyObject *
+gimeta_has_signal (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  if (!PyArg_ParseTuple (args, "s:has_signal", &name))
+    return NULL;
+  return PyBool_FromLong (object_table_lookup (&registered_meta (self)->signal_infos, name) != NULL);
+}
+
+static PyObject *
+gimeta_list_signals (GIMetaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  return object_table_keys (&registered_meta (self)->signal_infos);
+}
+
+static PyObject *
+gimeta_lookup_signal_method (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  PyObject *default_value = Py_None;
+  if (!PyArg_ParseTuple (args, "s|O:lookup_signal_method", &name, &default_value))
+    return NULL;
+  return descriptor_lookup (&registered_meta (self)->signal_method_backings, name, default_value);
+}
+
+static PyObject *
+gimeta_lookup_vfunc (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  PyObject *default_value = Py_None;
+  if (!PyArg_ParseTuple (args, "s|O:lookup_vfunc", &name, &default_value))
+    return NULL;
+  return descriptor_lookup (&registered_meta (self)->vfunc_infos, name, default_value);
+}
+
+static PyObject *
+gimeta_install_descriptors (GIMetaObject *self, PyObject *args)
+{
+  PyObject *method_infos = NULL;
+  PyObject *signal_infos = NULL;
+  PyObject *signal_method_backings = NULL;
+  PyObject *vfunc_infos = NULL;
+  if (!PyArg_ParseTuple (args,
+                         "OOOO:install_descriptors",
+                         &method_infos,
+                         &signal_infos,
+                         &signal_method_backings,
+                         &vfunc_infos))
+    return NULL;
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
+  if (object_table_update_from_mapping (&registered->method_infos, method_infos) < 0
+      || object_table_update_from_mapping (&registered->signal_infos, signal_infos) < 0
+      || object_table_update_from_mapping (&registered->signal_method_backings, signal_method_backings) < 0
+      || object_table_update_from_mapping (&registered->vfunc_infos, vfunc_infos) < 0)
+    return NULL;
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+gimeta_inherit_descriptors_from (GIMetaObject *self, PyObject *arg)
+{
+  if (!PyObject_TypeCheck (arg, &GIMetaType))
+    {
+      PyErr_SetString (PyExc_TypeError, "inherit_descriptors_from expects a GIMeta");
+      return NULL;
+    }
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
+  GRegisteredTypeMetaObject *parent = registered_meta ((GIMetaObject *)arg);
+  for (Py_ssize_t i = 0; i < parent->signal_infos.len; i++)
+    {
+      GinextObjectMeta *item = &parent->signal_infos.items[i];
+      if (object_table_set_item (&registered->signal_infos, item->name, item->value) < 0)
+        return NULL;
+    }
+  for (Py_ssize_t i = 0; i < parent->signal_method_backings.len; i++)
+    {
+      GinextObjectMeta *item = &parent->signal_method_backings.items[i];
+      if (object_table_set_item (&registered->signal_method_backings, item->name, item->value) < 0)
+        return NULL;
+    }
+  for (Py_ssize_t i = 0; i < parent->vfunc_infos.len; i++)
+    {
+      GinextObjectMeta *item = &parent->vfunc_infos.items[i];
+      if (object_table_set_item (&registered->vfunc_infos, item->name, item->value) < 0)
+        return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+gimeta_register_python_signal_descriptor (GIMetaObject *self, PyObject *args)
+{
+  const char *name = NULL;
+  PyObject *descriptor = NULL;
+  PyObject *method = Py_None;
+  if (!PyArg_ParseTuple (args, "sO|O:register_python_signal_descriptor", &name, &descriptor, &method))
+    return NULL;
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
+  if (object_table_set_item (&registered->signal_infos, name, descriptor) < 0)
+    return NULL;
+  if (method != Py_None
+      && object_table_set_item (&registered->signal_method_backings, name, method) < 0)
+    return NULL;
+  Py_RETURN_NONE;
+}
+
 /* ── property access: walk MRO, find owning gimeta, hit InstancePrivate ─── */
 
 /* Look up (pspec, prop_id) for `name` on one GIMeta. Returns 1 on success,
@@ -538,11 +863,11 @@ gimeta_dealloc (GIMetaObject *self)
   Py_XDECREF (registered->parent);
   property_table_clear (registered);
   Py_XDECREF (registered->method_owner_name);
-  Py_XDECREF (registered->method_infos);
+  object_table_clear (&registered->method_infos);
   Py_XDECREF (registered->typelib_methods);
-  Py_XDECREF (registered->signal_infos);
-  Py_XDECREF (registered->signal_method_backings);
-  Py_XDECREF (registered->vfunc_infos);
+  object_table_clear (&registered->signal_infos);
+  object_table_clear (&registered->signal_method_backings);
+  object_table_clear (&registered->vfunc_infos);
   Py_XDECREF (registered->extensions);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
@@ -583,13 +908,20 @@ GETSET_OBJ (profile)
   }
 GETSET_REG_OBJ (parent)
 GETSET_REG_OBJ (method_owner_name)
-GETSET_REG_OBJ (method_infos)
 GETSET_REG_OBJ (typelib_methods)
-GETSET_REG_OBJ (signal_infos)
-GETSET_REG_OBJ (signal_method_backings)
-GETSET_REG_OBJ (vfunc_infos)
 GETSET_REG_OBJ (extensions)
 #undef GETSET_REG_OBJ
+
+#define GETSET_TABLE(field)                                                                        \
+  static PyObject *gimeta_get_##field (GIMetaObject *self, void *closure G_GNUC_UNUSED)            \
+  {                                                                                                \
+    return object_table_snapshot (&registered_meta (self)->field);                                 \
+  }
+GETSET_TABLE (method_infos)
+GETSET_TABLE (signal_infos)
+GETSET_TABLE (signal_method_backings)
+GETSET_TABLE (vfunc_infos)
+#undef GETSET_TABLE
 
 static PyObject *
 gimeta_get_pspecs (GIMetaObject *self, void *closure G_GNUC_UNUSED)
@@ -632,13 +964,25 @@ SETSET_OBJ (profile)
     return 0;                                                                                      \
   }
 SETSET_REG_OBJ (method_owner_name)
-SETSET_REG_OBJ (method_infos)
 SETSET_REG_OBJ (typelib_methods)
-SETSET_REG_OBJ (signal_infos)
-SETSET_REG_OBJ (signal_method_backings)
-SETSET_REG_OBJ (vfunc_infos)
 SETSET_REG_OBJ (extensions)
 #undef SETSET_REG_OBJ
+
+#define SETSET_TABLE(field)                                                                        \
+  static int gimeta_set_##field (GIMetaObject *self, PyObject *value, void *closure G_GNUC_UNUSED) \
+  {                                                                                                \
+    if (!value)                                                                                    \
+      {                                                                                            \
+        PyErr_SetString (PyExc_TypeError, #field " cannot be deleted");                            \
+        return -1;                                                                                 \
+      }                                                                                            \
+    return object_table_set_from_mapping (&registered_meta (self)->field, value);                  \
+  }
+SETSET_TABLE (method_infos)
+SETSET_TABLE (signal_infos)
+SETSET_TABLE (signal_method_backings)
+SETSET_TABLE (vfunc_infos)
+#undef SETSET_TABLE
 
 static PyGetSetDef gimeta_getsets[]
     = { { "gtype", (getter)gimeta_get_gtype, NULL, "GType identifier", NULL },
@@ -743,6 +1087,21 @@ static PyMethodDef gimeta_methods[]
           (PyCFunction)gimeta_register_signal,
           METH_VARARGS,
           "Register a Python-defined signal on this GType." },
+        { "lookup_method", (PyCFunction)gimeta_lookup_method, METH_VARARGS, NULL },
+        { "has_method", (PyCFunction)gimeta_has_method, METH_VARARGS, NULL },
+        { "list_methods", (PyCFunction)gimeta_list_methods, METH_NOARGS, NULL },
+        { "remove_method", (PyCFunction)gimeta_remove_method, METH_VARARGS, NULL },
+        { "lookup_signal", (PyCFunction)gimeta_lookup_signal, METH_VARARGS, NULL },
+        { "has_signal", (PyCFunction)gimeta_has_signal, METH_VARARGS, NULL },
+        { "list_signals", (PyCFunction)gimeta_list_signals, METH_NOARGS, NULL },
+        { "lookup_signal_method", (PyCFunction)gimeta_lookup_signal_method, METH_VARARGS, NULL },
+        { "lookup_vfunc", (PyCFunction)gimeta_lookup_vfunc, METH_VARARGS, NULL },
+        { "install_descriptors", (PyCFunction)gimeta_install_descriptors, METH_VARARGS, NULL },
+        { "inherit_descriptors_from", (PyCFunction)gimeta_inherit_descriptors_from, METH_O, NULL },
+        { "register_python_signal_descriptor",
+          (PyCFunction)gimeta_register_python_signal_descriptor,
+          METH_VARARGS,
+          NULL },
         { "install_native_vfunc_attrs",
           (PyCFunction)gimeta_install_native_vfunc_attrs,
           METH_VARARGS,
@@ -781,11 +1140,11 @@ gimeta_new (GType gtype,
   registered->properties = NULL;
   registered->n_properties = 0;
   registered->method_owner_name = NULL;
-  registered->method_infos = NULL;
+  registered->method_infos = (GinextObjectMetaTable){ 0 };
   registered->typelib_methods = NULL;
-  registered->signal_infos = NULL;
-  registered->signal_method_backings = NULL;
-  registered->vfunc_infos = NULL;
+  registered->signal_infos = (GinextObjectMetaTable){ 0 };
+  registered->signal_method_backings = (GinextObjectMetaTable){ 0 };
+  registered->vfunc_infos = (GinextObjectMetaTable){ 0 };
   registered->extensions = NULL;
   GIMetaObject *self = &registered->base;
   self->kind = GINEXT_META_REGISTERED_TYPE;
@@ -801,32 +1160,8 @@ gimeta_new (GType gtype,
       return NULL;
     }
   registered->method_owner_name = Py_NewRef (Py_None);
-  registered->method_infos = PyDict_New ();
-  if (!registered->method_infos)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
   registered->typelib_methods = PyDict_New ();
   if (!registered->typelib_methods)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  registered->signal_infos = PyDict_New ();
-  if (!registered->signal_infos)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  registered->signal_method_backings = PyDict_New ();
-  if (!registered->signal_method_backings)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
-  registered->vfunc_infos = PyDict_New ();
-  if (!registered->vfunc_infos)
     {
       Py_DECREF (self);
       return NULL;

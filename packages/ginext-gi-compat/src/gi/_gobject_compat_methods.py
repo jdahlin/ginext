@@ -515,7 +515,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 gimeta = getattr(base, "gimeta", None)
                 if gimeta is None:
                     continue
-                sd = gimeta.signal_infos.get(underscore_name)
+                sd = gimeta.lookup_signal(underscore_name)
                 if sd is None:
                     # Not yet registered — create and register lazily.
                     if not str(val):
@@ -538,7 +538,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     )
                     sd.__set_name__(base, underscore_name)
                     sd._register(gimeta)
-                    gimeta.signal_infos[underscore_name] = sd
+                    gimeta.register_python_signal_descriptor(underscore_name, sd)
                 bound = sd.__get__(self, cls)
                 if isinstance(bound, _sig_bound.Signal):
                     return cast("_BoundSignal", bound)
