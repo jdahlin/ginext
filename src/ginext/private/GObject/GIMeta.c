@@ -890,8 +890,20 @@ GETSET_OBJ (profile)
   }
 GETSET_REG_OBJ (parent)
 GETSET_REG_OBJ (method_owner_name)
-GETSET_REG_OBJ (extensions)
 #undef GETSET_REG_OBJ
+
+static PyObject *
+gimeta_get_extensions (GIMetaObject *self, void *closure G_GNUC_UNUSED)
+{
+  GRegisteredTypeMetaObject *registered = registered_meta (self);
+  if (registered->extensions == NULL)
+    {
+      registered->extensions = PyDict_New ();
+      if (registered->extensions == NULL)
+        return NULL;
+    }
+  return Py_NewRef (registered->extensions);
+}
 
 static PyObject *
 gimeta_get_typelib_methods (GIMetaObject *self, void *closure G_GNUC_UNUSED)
@@ -1152,11 +1164,5 @@ gimeta_new (GType gtype,
       return NULL;
     }
   registered->method_owner_name = Py_NewRef (Py_None);
-  registered->extensions = PyDict_New ();
-  if (!registered->extensions)
-    {
-      Py_DECREF (self);
-      return NULL;
-    }
   return (PyObject *)self;
 }
