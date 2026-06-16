@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, Callable, overload
 
 from .. import features, private
 from .bound import Signal
+from .emission_hook import add_emission_hook, remove_emission_hook
 from .gtype import _resolve_signal_gtype
 
 if TYPE_CHECKING:
@@ -97,7 +98,7 @@ class SignalDescriptor:
         self._gobject_name = self._explicit_name or name.replace("_", "-")
 
     def _register(self, gimeta: private.GIMeta) -> None:
-        """Resolve arg gtypes and call gimeta.register_signal. Idempotent —
+        """Resolve arg gtypes and register the signal. Idempotent —
         running on a duplicate class is a no-op."""
         if self._signal_id != 0:
             return
@@ -145,12 +146,14 @@ class SignalDescriptor:
     def add_emission_hook(self, callback: Callable[..., Any]) -> int:
         if self._owner_gimeta is None or self._gobject_name is None:
             raise TypeError("signal is not registered")
-        return self._owner_gimeta.add_emission_hook(self._gobject_name, callback)
+        return add_emission_hook(
+            self._owner_gimeta.gtype, self._gobject_name, callback
+        )
 
     def remove_emission_hook(self, hook_id: int) -> None:
         if self._owner_gimeta is None or self._gobject_name is None:
             raise TypeError("signal is not registered")
-        self._owner_gimeta.remove_emission_hook(self._gobject_name, hook_id)
+        remove_emission_hook(self._owner_gimeta.gtype, self._gobject_name, hook_id)
 
     def __repr__(self) -> str:
         types_repr = ", ".join(t.__name__ for t in self._arg_types)

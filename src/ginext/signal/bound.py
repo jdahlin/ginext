@@ -37,6 +37,7 @@ from .adapt import (
     _is_gobject_wrapper,
 )
 from .connection import SignalConnection, UnownedSignalHandlerWarning
+from .emission_hook import add_emission_hook, remove_emission_hook
 from .scoped import _OWNER_UNSET, ScopedCallable, _WeakBoundCallable, static_owner
 
 if TYPE_CHECKING:
@@ -267,7 +268,7 @@ class Signal:
         return default_result if result is None else result
 
     def add_emission_hook(self, callback: Callable[..., Any]) -> int:
-        return type(self._source).gimeta.add_emission_hook(self._name, callback)
+        return add_emission_hook(type(self._source).gimeta.gtype, self._name, callback)
 
     def remove_emission_hook(self, hook_id: int) -> None:
-        type(self._source).gimeta.remove_emission_hook(self._name, hook_id)
+        remove_emission_hook(type(self._source).gimeta.gtype, self._name, hook_id)

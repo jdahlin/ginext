@@ -16,19 +16,10 @@
 
 /* GIMeta — one Python heap object per registered ginext GObject class.
  *
- * The previous dataclass-based GIMeta is replaced by this C type for two
- * reasons:
- *   1. Avoid the dict-serialize/dataclass-construct trip on every
- *      `register_gobject_subclass` return.
- *   2. Put `get_property` / `set_property` on the meta itself — those
- *      are the methods Property.__get__/__set__ trampoline to, and
- *      keeping them next to the gtype/pspecs/prop_ids state they consume
- *      is the natural place for them.
- *
- * Inheritance: get_property/set_property walk type(obj).__mro__ until
- * they find a class whose gimeta declared the property. The MRO walk
- * lives here rather than in the Property descriptor so the lookup stays
- * in C; `pspec->owner_type` then picks out the right InstancePrivate.
+ * The previous dataclass-based GIMeta is replaced by this C type to avoid the
+ * dict-serialize/dataclass-construct trip on every registered subclass. Keep
+ * this object as a metadata view; behavior that acts on instances or signals
+ * belongs on those APIs, with GIMeta only providing the state they need.
  */
 #include "GIMeta.h"
 #include "../GIRepository/ObjectInfo.h"
@@ -467,26 +458,6 @@ gimeta_param_spec (GIMetaObject *self, PyObject *args)
   PyObject *out = pygi_param_spec_new (pspec);
   g_type_class_unref (klass);
   return out;
-}
-
-static PyObject *
-gimeta_add_emission_hook (GIMetaObject *self, PyObject *args)
-{
-  const char *detailed_signal = NULL;
-  PyObject *callback = NULL;
-  if (!PyArg_ParseTuple (args, "sO:add_emission_hook", &detailed_signal, &callback))
-    return NULL;
-  return pygi_signal_add_emission_hook_full (self->gtype, detailed_signal, callback);
-}
-
-static PyObject *
-gimeta_remove_emission_hook (GIMetaObject *self, PyObject *args)
-{
-  const char *detailed_signal = NULL;
-  unsigned long hook_id = 0;
-  if (!PyArg_ParseTuple (args, "sk:remove_emission_hook", &detailed_signal, &hook_id))
-    return NULL;
-  return pygi_signal_remove_emission_hook_full (self->gtype, detailed_signal, (gulong)hook_id);
 }
 
 static PyObject *
@@ -1060,14 +1031,6 @@ static PyMethodDef gimeta_methods[]
           (PyCFunction)gimeta_list_property_names,
           METH_NOARGS,
           "List GObject property names for this GType." },
-        { "add_emission_hook",
-          (PyCFunction)gimeta_add_emission_hook,
-          METH_VARARGS,
-          "Add an emission hook for this GType." },
-        { "remove_emission_hook",
-          (PyCFunction)gimeta_remove_emission_hook,
-          METH_VARARGS,
-          "Remove an emission hook for this GType." },
         { "register_property_type_info",
           (PyCFunction)gimeta_register_property_type_info,
           METH_VARARGS,
