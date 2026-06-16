@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import enum
 import itertools
-from typing import Any, TYPE_CHECKING, Protocol, SupportsInt, runtime_checkable
+from typing import Any, TYPE_CHECKING, Protocol, SupportsInt, cast, runtime_checkable
 
 from ginext import Gst, GLib, GObject
 from ginext.gobject.gobjectclass import GObject as _GObject
@@ -244,23 +244,29 @@ _VALUE_BUILDERS: dict[str, Any] = {
     "GstValueList": _build_value_list,
 }
 
+_GVALUE_HOOKS_INSTALLED = False
+_STRUCTURE_SET_VALUE: Any = None
+
 
 def _install_gvalue_hooks() -> None:
+    global _GVALUE_HOOKS_INSTALLED
+    if _GVALUE_HOOKS_INSTALLED:
+        return
+
     from ginext import private as _private
 
-    serialize = Gst.value_serialize
     wrap_pointer = _private.gvalue_wrap_pointer
-    type_name = GObject.type_name
     set_int = _private.gvalue_set_data_int
     set_uint64 = _private.gvalue_set_data_uint64
 
     def _to_py(gtype: int, ptr: int) -> Any:
+        type_name = GObject.type_name
         builder = _VALUE_BUILDERS.get(type_name(gtype))
         if builder is None:
             raise NotImplementedError(
                 f"GValue return conversion: unsupported GStreamer GType {gtype}"
             )
-        text = serialize(wrap_pointer(ptr))
+        text = Gst.value_serialize(wrap_pointer(ptr))
         if text is None:
             raise NotImplementedError(
                 f"GValue return conversion: could not serialize GStreamer GType {gtype}"
@@ -273,6 +279,7 @@ def _install_gvalue_hooks() -> None:
         # GstBitmask the mask in data[0].v_uint64 (mirroring gst_value_set_*); the
         # containers and the packed ranges still need GStreamer's own setter and
         # are left to the core caller-allocates-GValue path (a follow-up).
+        type_name = GObject.type_name
         name = type_name(gtype)
         if name == "GstFraction":
             set_int(ptr, 0, int(obj.num))
@@ -286,9 +293,29 @@ def _install_gvalue_hooks() -> None:
         )
 
     _private.register_converter(_to_py, _from_py)
+    _GVALUE_HOOKS_INSTALLED = True
 
 
+_install_gvalue_hooks()
 overlay.on_first_access(_install_gvalue_hooks)
+
+
+def _structure_set_value_method() -> Any:
+    global _STRUCTURE_SET_VALUE
+    if _STRUCTURE_SET_VALUE is None:
+        from ginext.method import make_method
+
+        entry = Gst.Structure.gimeta.method_infos.get("set_value")
+        if entry is None:
+            raise AttributeError("Gst.Structure has no method set_value")
+        info, has_self = entry
+        _STRUCTURE_SET_VALUE = make_method(
+            Gst.Structure.gimeta.namespace.load_namespace(),
+            Gst.Structure.gimeta.method_owner_name,
+            info,
+            has_self=has_self,
+        )
+    return _STRUCTURE_SET_VALUE
 
 
 # ---------------------------------------------------------------------------
@@ -575,6 +602,30 @@ def _structure_getitem(self: Any, key: str) -> Any:
 @overlay.method("Structure", name="__setitem__")
 def _structure_setitem(self: Any, key: str, value: Any) -> None:
     self.set_value(key, value)
+
+
+@overlay.method("Structure", name="set_value")
+def _structure_set_value(self: Any, key: str, value: Any) -> None:
+    _install_gvalue_hooks()
+    if isinstance(value, Gst.Fraction):
+        from ginext.gobject.properties import _gobject_value_class
+        from ginext import private
+
+        fraction = cast("_FractionLike", value)
+        gvalue = _gobject_value_class()()
+        private.gvalue_init_value(gvalue, Gst.Fraction.gimeta.gtype)
+        Gst.value_set_fraction(gvalue, int(fraction.num), int(fraction.denom))
+        value = gvalue
+    elif isinstance(value, Gst.Bitmask):
+        from ginext.gobject.properties import _gobject_value_class
+        from ginext import private
+
+        bitmask = cast("_BitmaskLike", value)
+        gvalue = _gobject_value_class()()
+        private.gvalue_init_value(gvalue, Gst.Bitmask.gimeta.gtype)
+        Gst.value_set_bitmask(gvalue, int(bitmask.v))
+        value = gvalue
+    _structure_set_value_method()(self, key, value)
 
 
 @overlay.method("Structure", name="__len__")

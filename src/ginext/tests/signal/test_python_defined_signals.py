@@ -173,20 +173,20 @@ def test_class_signal_emission_hook_fires_for_all_instances() -> None:
         pinged = GObject.Signal()
 
     seen = []
+    first = Source()
+    second = Source()
 
     def hook(obj: Any) -> bool:
         seen.append(obj)
         return True
 
-    hook_id = Source.pinged.add_emission_hook(hook)
+    hook_id = first.pinged.add_emission_hook(hook)
     try:
-        first = Source()
-        second = Source()
         first.pinged.emit()
         second.pinged.emit()
         assert seen == [first, second]
     finally:
-        Source.pinged.remove_emission_hook(hook_id)
+        first.pinged.remove_emission_hook(hook_id)
 
 
 def test_instance_signal_emission_hook_remove() -> None:

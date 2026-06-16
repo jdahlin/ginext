@@ -32,7 +32,6 @@ from typing import TYPE_CHECKING, Any, Callable, overload
 
 from .. import features, private
 from .bound import Signal
-from .emission_hook import add_emission_hook, remove_emission_hook
 from .gtype import _resolve_signal_gtype
 
 if TYPE_CHECKING:
@@ -143,18 +142,6 @@ class SignalDescriptor:
             self._method,
             arg_gtypes=self._arg_gtypes,
         )
-
-    def add_emission_hook(self, callback: Callable[..., Any]) -> int:
-        if self._owner_gimeta is None or self._gobject_name is None:
-            raise TypeError("signal is not registered")
-        return add_emission_hook(
-            self._owner_gimeta.gtype, self._gobject_name, callback
-        )
-
-    def remove_emission_hook(self, hook_id: int) -> None:
-        if self._owner_gimeta is None or self._gobject_name is None:
-            raise TypeError("signal is not registered")
-        remove_emission_hook(self._owner_gimeta.gtype, self._gobject_name, hook_id)
 
     def __repr__(self) -> str:
         types_repr = ", ".join(t.__name__ for t in self._arg_types)

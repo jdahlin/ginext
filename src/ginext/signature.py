@@ -161,6 +161,9 @@ def annotation_for_type(type_info: Any, context: Any) -> Any:
         iface = type_info.get_interface()
         if type(iface).__name__ == "CallbackInfo":
             return _callable_annotation(iface, context)
+        if iface.get_namespace() == "GObject" and iface.get_name() == "Value":
+            if not context.profile.pygobject_compat:
+                return Any
         return _resolve_interface(iface, context)
     if tag == _ERROR:
         try:

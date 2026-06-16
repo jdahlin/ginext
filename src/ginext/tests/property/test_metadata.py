@@ -21,7 +21,6 @@
 
 from typing import Any
 
-import ginext
 import pytest
 
 from ..conftest import BUILTIN_VALUE_TYPES
@@ -75,14 +74,14 @@ def test_gobject_get_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
     with pytest.raises(AttributeError, match="has no property missing"):
-        ginext.private.gobject_get_property(cls.gimeta, cls(), "missing")
+        cls().get_property_by_name("missing")
 
 
 def test_gobject_set_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
     with pytest.raises(AttributeError, match="has no property missing"):
-        ginext.private.gobject_set_property(cls.gimeta, cls(), "missing", 1)
+        cls().set_property_by_name("missing", 1)
 
 
 def test_gobject_get_null_gobject_pointer_raises(
@@ -91,8 +90,8 @@ def test_gobject_get_null_gobject_pointer_raises(
     cls = make_property_class(int)
     obj = cls.__new__(cls)
 
-    with pytest.raises(AttributeError, match="wrapper is not bound"):
-        ginext.private.gobject_get_property(cls.gimeta, obj, "x")
+    with pytest.raises(TypeError, match="source is not a GObject"):
+        obj.get_property_by_name("x")
 
 
 @pytest.mark.parametrize(

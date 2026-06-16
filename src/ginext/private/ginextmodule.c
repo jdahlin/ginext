@@ -103,9 +103,9 @@ py_param_spec_numeric_info (PyObject *m, PyObject *args);
 extern PyObject *
 py_register_gobject_subclass (PyObject *m, PyObject *args);
 extern PyObject *
-py_gobject_get_property (PyObject *m, PyObject *args);
+py_object_get_property_by_name (PyObject *m, PyObject *args);
 extern PyObject *
-py_gobject_set_property (PyObject *m, PyObject *args);
+py_object_set_property_by_name (PyObject *m, PyObject *args);
 extern PyObject *
 py_register_property_type_info (PyObject *m, PyObject *args);
 extern PyObject *
@@ -301,8 +301,8 @@ static PyMethodDef methods[] = {
   { "gvalue_set_data_uint64", py_gvalue_set_data_uint64, METH_VARARGS, NULL },
   { "gvalue_wrap_pointer", py_gvalue_wrap_pointer, METH_VARARGS, NULL },
   { "gobject_add_weak_notify", py_gobject_add_weak_notify, METH_VARARGS, NULL },
-  { "gobject_get_property", py_gobject_get_property, METH_VARARGS, NULL },
-  { "gobject_set_property", py_gobject_set_property, METH_VARARGS, NULL },
+  { "gobject_get_property_by_name", py_object_get_property_by_name, METH_VARARGS, NULL },
+  { "gobject_set_property_by_name", py_object_set_property_by_name, METH_VARARGS, NULL },
   /* DROP-ish: GLib.strv_get_type exists, but GType.STRV is set at gobject.py
            module load where importing GLib is circular — defer that constant first */
   { "gstrv_get_type", py_gstrv_get_type, METH_VARARGS, NULL },

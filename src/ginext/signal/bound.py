@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import inspect
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
+from typing import TYPE_CHECKING, Any, Callable, Protocol, Sequence, cast
 
 from .. import features
 from .adapt import (
@@ -37,7 +37,6 @@ from .adapt import (
     _is_gobject_wrapper,
 )
 from .connection import SignalConnection, UnownedSignalHandlerWarning
-from .emission_hook import add_emission_hook, remove_emission_hook
 from .scoped import _OWNER_UNSET, ScopedCallable, _WeakBoundCallable, static_owner
 
 if TYPE_CHECKING:
@@ -267,8 +266,42 @@ class Signal:
         )
         return default_result if result is None else result
 
+    @staticmethod
+    def _add_emission_hook(
+        gtype: int, detailed_signal: str, callback: Callable[[object], object]
+    ) -> int:
+        from ..gobject.resolve import gobject_repo
+
+        GObject = gobject_repo()
+        ok, signal_id, detail = GObject.signal_parse_name(
+            detailed_signal, gtype, True
+        )
+        if not ok:
+            raise ValueError(f"no such signal: {detailed_signal}")
+
+        def hook(*args: object) -> object:
+            param_values = args[-1] if args else ()
+            if not isinstance(param_values, Sequence):
+                param_values = ()
+            instance = param_values[0] if param_values else None
+            return callback(instance)
+
+        return int(GObject.signal_add_emission_hook(signal_id, detail, hook))
+
+    @staticmethod
+    def _remove_emission_hook(gtype: int, detailed_signal: str, hook_id: int) -> None:
+        from ..gobject.resolve import gobject_repo
+
+        GObject = gobject_repo()
+        ok, signal_id, _detail = GObject.signal_parse_name(
+            detailed_signal, gtype, True
+        )
+        if not ok:
+            raise ValueError(f"no such signal: {detailed_signal}")
+        GObject.signal_remove_emission_hook(signal_id, hook_id)
+
     def add_emission_hook(self, callback: Callable[..., Any]) -> int:
-        return add_emission_hook(type(self._source).gimeta.gtype, self._name, callback)
+        return self._add_emission_hook(type(self._source).gimeta.gtype, self._name, callback)
 
     def remove_emission_hook(self, hook_id: int) -> None:
-        remove_emission_hook(type(self._source).gimeta.gtype, self._name, hook_id)
+        self._remove_emission_hook(type(self._source).gimeta.gtype, self._name, hook_id)
