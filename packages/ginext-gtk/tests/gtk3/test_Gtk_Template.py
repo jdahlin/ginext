@@ -285,7 +285,7 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
 
         def __init__(self, playlist: Any) -> None:
             super().__init__()
-            self.set_property_by_name("playlist", playlist)
+            self.playlist = playlist
             self._label.set_label(playlist.get_property_by_name("title"))
 
     def _factory(playlist: Any, _user_data: Any) -> Any:
@@ -297,7 +297,7 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
 
     for name in ("MostPlayed", "Recent", "Favorites"):
         pl = Playlist()
-        pl.set_property_by_name("title", name)
+        pl.title = name
         model.append(pl)  # type: ignore[arg-type]  # Playlist is a GObject subclass, accepted at runtime
     capfd.readouterr()
 

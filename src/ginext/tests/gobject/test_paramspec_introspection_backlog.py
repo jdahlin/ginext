@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ginext.gobject.properties import PropertyInfo
+from ginext.gobject.properties import PropertyInfo, set_property_via_introspection
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -393,20 +393,20 @@ def test_strv_property_round_trip(GIM: Namespace) -> None:
     Reads come back as a list of str. None clears the value."""
     obj = GIM.PropertiesObject()
 
-    obj.set_property_by_name("some-strv", ["alice", "bob"])
+    set_property_via_introspection(obj, "some-strv", ["alice", "bob"])
     assert obj.get_property_by_name("some-strv") == ["alice", "bob"]
 
     # Tuples and other sequences are accepted.
-    obj.set_property_by_name("some-strv", ("carol", "dave"))
+    set_property_via_introspection(obj, "some-strv", ("carol", "dave"))
     assert obj.get_property_by_name("some-strv") == ["carol", "dave"]
 
     # None clears.
-    obj.set_property_by_name("some-strv", None)
+    set_property_via_introspection(obj, "some-strv", None)
     assert obj.get_property_by_name("some-strv") is None
 
     # Non-str items are rejected with a clear TypeError.
     with pytest.raises(TypeError, match="not a str"):
-        obj.set_property_by_name("some-strv", [1, 2])
+        set_property_via_introspection(obj, "some-strv", [1, 2])
 
 
 # ---------------------------------------------------------------------------

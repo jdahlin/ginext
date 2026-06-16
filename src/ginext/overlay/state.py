@@ -33,6 +33,7 @@ module_overlays: dict[tuple[str, str], ModuleEntry] = {}
 # and _deprecations proxy can expose a mutable view to pygobject-compat code.
 deprecated_entries: dict[tuple[str, str], DeprecatedOverlay] = {}
 hidden_attribute_names: dict[str, set[str]] = {}
+hidden_class_method_names: dict[tuple[str, str], set[str]] = {}
 class_method_overlays: dict[tuple[str, str], dict[str, BodyOverlay]] = {}
 class_bases_overlays: dict[tuple[str, str], ClassBasesOverlay] = {}
 # (namespace, class) -> pygobject-compat constructor overlay (__new__/__init__).

@@ -655,16 +655,6 @@ GObject_get_property_by_name (PyObject *self, PyObject *args)
   return pygi_gobject_get_property_by_name (self, name);
 }
 
-static PyObject *
-GObject_set_property_by_name (PyObject *self, PyObject *args)
-{
-  const char *name = NULL;
-  PyObject *py_value = NULL;
-  if (!PyArg_ParseTuple (args, "sO:set_property_by_name", &name, &py_value))
-    return NULL;
-  return pygi_gobject_set_property_by_name (self, name, py_value);
-}
-
 static PyMethodDef GObject_methods[] = {
   { "is_bound", GObject_is_bound, METH_NOARGS, NULL },
   { "owns_ref", GObject_owns_ref, METH_NOARGS, NULL },
@@ -681,7 +671,6 @@ static PyMethodDef GObject_methods[] = {
   { "handler_id_is_connected", GObject_handler_id_is_connected, METH_VARARGS, NULL },
   { "stop_emission_by_name", GObject_stop_emission_by_name, METH_VARARGS, NULL },
   { "get_property_by_name", GObject_get_property_by_name, METH_VARARGS, NULL },
-  { "set_property_by_name", GObject_set_property_by_name, METH_VARARGS, NULL },
   { "connect_constructor_handler", GObject_connect_constructor_handler, METH_VARARGS, NULL },
   { "signal_is_action", GObject_signal_is_action, METH_VARARGS, NULL },
   { "signal_connect", GObject_signal_connect, METH_VARARGS, NULL },

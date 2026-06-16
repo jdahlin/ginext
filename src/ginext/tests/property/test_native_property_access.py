@@ -60,6 +60,30 @@ def test_introspected_property_writes_as_attribute(Gio: Any) -> None:
     assert action.get_property_by_name("enabled") is False
 
 
+def test_internal_gobject_typelib_methods_stay_hidden(Gio: Any) -> None:
+    from ginext import GObject as GObjectNamespace
+
+    hidden = ("set_property", "get_property", "ref", "unref")
+    missing = object()
+    cached = {
+        name: GObjectNamespace.Object.__dict__.get(name, missing) for name in hidden
+    }
+    for name, value in cached.items():
+        if value is not missing:
+            delattr(GObjectNamespace.Object, name)
+    try:
+        for name in hidden:
+            assert name not in dir(GObjectNamespace.Object)
+
+        action = Gio.SimpleAction.new("act", None)
+        for name in hidden:
+            assert not hasattr(action, name)
+    finally:
+        for name, value in cached.items():
+            if value is not missing:
+                setattr(GObjectNamespace.Object, name, value)
+
+
 def test_dashed_property_name_uses_underscore_attribute(Gio: Any) -> None:
     action = Gio.SimpleAction.new("act", None)
     # The GObject property is "parameter-type"; the attribute is underscored.

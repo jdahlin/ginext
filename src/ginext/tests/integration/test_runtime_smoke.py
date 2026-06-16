@@ -36,11 +36,10 @@ def test_constructs_concrete_gobject_and_invokes_method() -> None:
 def test_gobject_return_uses_cached_class() -> None:
     from ginext import Gio
 
-    cancellable = Gio.Cancellable()
-    ref = cancellable.ref()
+    action = Gio.SimpleAction.new("demo", None)
 
-    assert type(ref) is Gio.Cancellable
-    assert ref.is_cancelled() is False
+    assert type(action) is Gio.SimpleAction
+    assert action.name == "demo"
 
 
 def test_suffixed_import() -> None:

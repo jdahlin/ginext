@@ -23,6 +23,8 @@ from typing import Any
 
 import pytest
 
+from ginext.gobject.properties import set_property_via_introspection
+
 from ..conftest import BUILTIN_VALUE_TYPES
 
 
@@ -81,7 +83,7 @@ def test_gobject_set_missing_property_raises(make_property_class: Any) -> None:
     cls = make_property_class(int)
 
     with pytest.raises(AttributeError, match="has no property missing"):
-        cls().set_property_by_name("missing", 1)
+        set_property_via_introspection(cls(), "missing", 1)
 
 
 def test_gobject_get_null_gobject_pointer_raises(

@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ginext import Gtk
+from ginext.gobject.properties import set_property_via_introspection
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -84,7 +85,7 @@ def create_tag(
 ) -> Gtk.TextTag:
     tag = Gtk.TextTag(name=tag_name) if tag_name is not None else Gtk.TextTag()
     for name, value in properties.items():
-        tag.set_property(name, value)
+        set_property_via_introspection(tag, name, value)
     self.get_tag_table().add(tag)
     return tag
 

@@ -265,6 +265,11 @@ class OverlayRegistrar:
         self._check_typelib_presence(name, expect_present=True)
         state.hidden_attribute_names.setdefault(self._ns_name, set()).add(name)
 
+    def hide_method(self, class_name: str, name: str) -> None:
+        state.hidden_class_method_names.setdefault(
+            (self._ns_name, class_name), set()
+        ).add(name)
+
     def defaults(
         self, class_name: str, method_name: str, **param_defaults: object
     ) -> None:

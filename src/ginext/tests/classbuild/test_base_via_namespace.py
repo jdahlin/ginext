@@ -70,7 +70,5 @@ def test_subclasses_share_wrapper_identity_machinery() -> None:
         pass
 
     obj = MyCancellable()
-    # GObject.Object.ref() returns the same native pointer through invoke,
-    # so qdata should preserve the exact Python wrapper.
-    wrapped_again = obj.ref()
-    assert wrapped_again is obj
+    assert type(obj) is MyCancellable
+    assert isinstance(obj, Gio.Cancellable)

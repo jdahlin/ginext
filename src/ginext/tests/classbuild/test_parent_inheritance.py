@@ -62,7 +62,6 @@ def test_parent_methods_are_callable_on_child_instance() -> None:
     assert cancellable.is_floating() is False
     cancellable.freeze_notify()
     cancellable.thaw_notify()
-    assert cancellable.ref() is cancellable
 
 
 def test_subclassing_imported_class_in_python() -> None:

@@ -33,6 +33,7 @@ like a dataclass) lives in the ``TYPE_CHECKING`` stub.
 
 from __future__ import annotations
 
+import sys
 import types
 from typing import TYPE_CHECKING
 
@@ -71,6 +72,18 @@ def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
         base_gimeta = own_gimeta(base)
         if base_gimeta is not None:
             names.update(base_gimeta.list_methods())
+            namespace = getattr(base_gimeta, "namespace", None)
+            ns_name = getattr(namespace, "name", None)
+            if isinstance(ns_name, str):
+                overlay_state = sys.modules.get("ginext.overlay.state")
+                hidden = (
+                    getattr(overlay_state, "hidden_class_method_names", {}).get(
+                        (ns_name, base.__name__), ()
+                    )
+                    if overlay_state is not None
+                    else ()
+                )
+                names.difference_update(hidden)
         if not isinstance(base, GObjectMeta):
             continue
         struct_name = base._class_struct_name

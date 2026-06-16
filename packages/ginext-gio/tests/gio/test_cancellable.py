@@ -154,19 +154,14 @@ def test_get_current_preserves_wrapper_identity() -> None:
         cancellable.pop_current()
 
 
-def test_ref_return_is_wrapped_to_correct_class() -> None:
+def test_ref_lifecycle_methods_are_hidden() -> None:
     from ginext import Gio
 
     item = Gio.Cancellable()
-    out = item.ref()
-    assert isinstance(out, Gio.Cancellable)
-
-
-def test_ref_return_preserves_wrapper_identity() -> None:
-    from ginext import Gio
-
-    item = Gio.Cancellable()
-    assert item.ref() is item
+    assert "ref" not in dir(Gio.Cancellable)
+    assert "unref" not in dir(Gio.Cancellable)
+    assert not hasattr(item, "ref")
+    assert not hasattr(item, "unref")
 
 
 def test_qdata_weakref_does_not_keep_wrapper_alive() -> None:
@@ -219,16 +214,15 @@ def test_subclass_new_does_not_construct_c_instance() -> None:
     assert inst.is_bound() is False
 
 
-def test_subclass_ref_preserves_python_subclass_identity() -> None:
+def test_subclass_keeps_python_subclass_identity() -> None:
     from ginext import Gio
 
     class MyC(Gio.Cancellable):
         pass
 
     obj = MyC()
-    wrapped_again = obj.ref()
-    assert wrapped_again is obj
-    assert type(wrapped_again) is MyC
+    assert type(obj) is MyC
+    assert isinstance(obj, Gio.Cancellable)
 
 
 def test_not_floating_after_construct() -> None:

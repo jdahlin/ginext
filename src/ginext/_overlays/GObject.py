@@ -45,6 +45,10 @@ if TYPE_CHECKING:
 
 overlay: OverlayRegistrar = GObject.overlay
 overlay.hide_attribute("Value")
+overlay.hide_method("Object", "get_property")
+overlay.hide_method("Object", "set_property")
+overlay.hide_method("Object", "ref")
+overlay.hide_method("Object", "unref")
 
 
 @overlay.method("Object")

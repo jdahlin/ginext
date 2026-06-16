@@ -26,7 +26,9 @@ from ginext.gobject.properties import (
     call_notify_override,
     coerce_property_default,
     gimeta_type_name,
+    get_property_via_introspection,
     own_annotations_dict,
+    set_property_via_introspection,
     unset,
 )
 
@@ -308,7 +310,7 @@ class _CompatProperty(Generic[T]):
             return self.fget(obj)
         if self.fset is not None:
             raise TypeError(f"property {self.name!r} is not readable")
-        return obj.get_property_by_name(self.name.replace("_", "-"))  # type: ignore[attr-defined]
+        return get_property_via_introspection(obj, self.name.replace("_", "-"))
 
     def __set__(self, obj: object, value: object) -> None:
         if self.fset is not None:
@@ -326,7 +328,7 @@ class _CompatProperty(Generic[T]):
         if self.maximum is not None and value > self.maximum:  # type: ignore[operator]
             return
         try:
-            obj.set_property_by_name(self.name.replace("_", "-"), value)  # type: ignore[attr-defined]
+            set_property_via_introspection(obj, self.name.replace("_", "-"), value)
         except (AttributeError, ValueError) as exc:
             raise TypeError(str(exc)) from None
         call_notify_override(obj, self.name.replace("_", "-"))
