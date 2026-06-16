@@ -225,6 +225,58 @@ bind_inout_value (PyGIInvokeFrame *frame,
   return 0;
 }
 
+static gboolean
+is_gobject_set_property_value_arg (PyGICallableDescriptor *descriptor,
+                                   const PyGIArgPlan *ap,
+                                   GITypeInfo *ti)
+{
+  return descriptor->qualified_name != NULL
+         && strcmp (descriptor->qualified_name, "GObject.Object.set_property") == 0
+         && ap->cached_ai != NULL
+         && g_strcmp0 (gi_base_info_get_name ((GIBaseInfo *)ap->cached_ai), "value") == 0
+         && gi_type_info_is_gvalue (ti);
+}
+
+static int
+bind_gobject_set_property_value (PyGIInvokeFrame *frame,
+                                 const PyGIArgPlan *ap,
+                                 PyObject *const *args,
+                                 size_t nargs,
+                                 size_t cleanup_index)
+{
+  if (nargs < 3 || ap->py_arg_index <= 0 || (size_t)ap->py_arg_index >= nargs)
+    {
+      PyErr_SetString (PyExc_TypeError, "set_property() requires instance, property name, and value");
+      return -1;
+    }
+
+  GObject *source = pygi_gobject_get (args[0]);
+  if (source == NULL)
+    return -1;
+
+  PyObject *name_obj = args[(size_t)ap->py_arg_index - 1];
+  const char *property_name = PyUnicode_AsUTF8 (name_obj);
+  if (property_name == NULL)
+    return -1;
+
+  PyGIPropertyGValueCleanup *holder = g_new0 (PyGIPropertyGValueCleanup, 1);
+  if (pygi_gvalue_set_from_object_property (&holder->value,
+                                            source,
+                                            property_name,
+                                            args[ap->py_arg_index],
+                                            &holder->nested)
+      != 0)
+    {
+      g_free (holder);
+      return -1;
+    }
+
+  frame->in_args[ap->in_slot].v_pointer = &holder->value;
+  frame->cleanups[cleanup_index].kind = PYGI_ARG_CLEANUP_PROPERTY_GVALUE;
+  frame->cleanups[cleanup_index].ptr = holder;
+  return 0;
+}
+
 int
 pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                        PyGIInvokeFrame *frame,
@@ -1096,6 +1148,12 @@ pygi_invoke_bind_args (PyGICallableDescriptor *descriptor,
                 mslot.length_type = lap->cached_ti;
                 mslot.length_arg = &frame->in_args[lap->in_slot];
               }
+          }
+        if (is_gobject_set_property_value_arg (descriptor, ap, ti))
+          {
+            if (bind_gobject_set_property_value (frame, ap, args, nargs, i) != 0)
+              return -1;
+            continue;
           }
         /* Some marshalers silently treat None as an empty/NULL
          * container. Reject the shapes known to crash when the slot is

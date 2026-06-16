@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <glib.h>
+#include <glib-object.h>
 
 typedef enum
 {
@@ -39,6 +39,7 @@ typedef enum
   PYGI_ARG_CLEANUP_GDATETIME = 16, /* g_date_time_unref() */
   PYGI_ARG_CLEANUP_GDATE = 17, /* g_date_free() */
   PYGI_ARG_CLEANUP_GTIMEZONE = 18, /* g_time_zone_unref() */
+  PYGI_ARG_CLEANUP_PROPERTY_GVALUE = 19, /* GValue + nested conversion cleanup */
 } PyGIArgCleanupKind;
 
 typedef struct
@@ -47,6 +48,12 @@ typedef struct
   void *ptr;
   gsize n;
 } PyGIArgCleanup;
+
+typedef struct
+{
+  GValue value;
+  PyGIArgCleanup nested;
+} PyGIPropertyGValueCleanup;
 
 /* Free whatever the cleanup record owns, then reset it to PYGI_ARG_CLEANUP_NONE.
  * Safe to call on an already-cleared record. NULL-safe on `cleanup`. */

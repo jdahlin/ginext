@@ -116,7 +116,6 @@ init_gobject = _gobject.init_gobject
 register_gtype_pytype = _gobject.register_gtype_pytype
 register_gobject_subclass = _gobject.register_gobject_subclass
 gobject_get_property_by_name = _gobject.gobject_get_property_by_name
-gobject_set_property_by_name = _gobject.gobject_set_property_by_name
 GBoxed = _gobject.GBoxed
 PropertyDescriptor = _gobject.PropertyDescriptor
 build_callable_descriptor = _gobject.build_callable_descriptor

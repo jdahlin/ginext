@@ -17,6 +17,7 @@
 #pragma once
 
 #include "common.h"
+#include "invoke/arg-cleanup.h"
 
 #include <girepository/girepository.h>
 
@@ -107,5 +108,11 @@ PyObject *
 pygi_gobject_get_property_by_name (PyObject *source_arg, const char *name);
 int
 pygi_gobject_set_property_on_object (GObject *source, const char *name, PyObject *py_value);
+int
+pygi_gvalue_set_from_object_property (GValue *value,
+                                      GObject *source,
+                                      const char *name,
+                                      PyObject *py_value,
+                                      PyGIArgCleanup *nested_cleanup);
 PyObject *
 pygi_gobject_set_property_by_name (PyObject *source_arg, const char *name, PyObject *py_value);
