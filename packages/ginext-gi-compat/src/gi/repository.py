@@ -669,8 +669,10 @@ def _gobject_newv(cls: type, *args: object) -> object:
 
 
 def _register_pyobject_gtype() -> int:
-    """Register a named pointer GType 'PyObject' and return its GType value."""
-    return int(ginext.private.register_static(int(GType.POINTER), "PyObject"))
+    existing = ginext.private.GIMeta.from_type_name("PyObject").gtype
+    if existing != 0:
+        return existing
+    return ginext.private.register_static(int(GType.POINTER), "PyObject")
 
 
 _PYOBJECT_GTYPE: int = _register_pyobject_gtype()

@@ -32,6 +32,21 @@ from .resolve import classbuild_module, gobject_repo
 _compat_gtype_cache: dict[tuple[int, str], type["GType"]] = {}
 
 
+class _LazyGIMeta:
+    def __init__(self, gtype: int, type_name: str, profile: abi.ABIProfile) -> None:
+        self._gtype = gtype
+        self._type_name = type_name
+        self._profile = profile
+
+    def __get__(self, obj: object, objtype: type | None = None) -> private.GIMeta:
+        if objtype is None:
+            raise AttributeError("gimeta must be accessed through a GType class")
+        gimeta = private.GIMeta.from_gtype(self._gtype, self._type_name)
+        gimeta.profile = self._profile
+        setattr(objtype, "gimeta", gimeta)
+        return gimeta
+
+
 class GTypeMeta(type):
     gimeta: private.GIMeta
     gtype_name: str
@@ -52,9 +67,10 @@ class GTypeMeta(type):
         super().__setattr__(name, value)
 
     def __int__(cls) -> int:
-        if not hasattr(cls, "gimeta"):
+        gtype = vars(cls).get("_gtype_value")
+        if gtype is None and not hasattr(cls, "gimeta"):
             raise TypeError("base GType has no concrete GType value")
-        return int(cls.gimeta.gtype)
+        return int(gtype if gtype is not None else cls.gimeta.gtype)
 
     def __index__(cls) -> int:
         return int(cls)
@@ -118,6 +134,8 @@ class GTypeMeta(type):
             if result is not None:
                 return result
         gimeta = vars(cls).get("gimeta")
+        if isinstance(gimeta, _LazyGIMeta):
+            gimeta = None
         profile = gimeta.profile if gimeta is not None else abi.NATIVE
         return classes.get((profile.name, int(cls)))
 
@@ -178,6 +196,7 @@ class GType(metaclass=GTypeMeta):
     OBJECT: ClassVar[type[GType]]
     BOXED: ClassVar[type[GType]]
     POINTER: ClassVar[type[GType]]
+    PYOBJECT: ClassVar[type[GType]]
     STRV: ClassVar[type[GType]]
 
     def __int__(self) -> int:
@@ -193,8 +212,7 @@ def compat_gtype_from_raw(gtype: int, type_name: str) -> type[GType]:
         if (
             isinstance(value, type)
             and issubclass(value, GType)
-            and hasattr(value, "gimeta")
-            and int(value.gimeta.gtype) == int(gtype)
+            and vars(value).get("_gtype_value") == int(gtype)
         ):
             _compat_gtype_cache[key] = value
             return value
@@ -209,13 +227,13 @@ def compat_gtype_from_raw(gtype: int, type_name: str) -> type[GType]:
             (GType,),
             {
                 "__module__": __name__,
-                "gimeta": private.GIMeta.from_gtype(int(gtype), type_name),
+                "_gtype_value": int(gtype),
+                "gimeta": _LazyGIMeta(int(gtype), type_name, abi.NATIVE),
                 "gtype_name": type_name,
                 "is_a": classmethod(_is_a),
             },
         ),
     )
-    wrapper.gimeta.profile = abi.NATIVE
     _compat_gtype_cache[key] = wrapper
     return wrapper
 
@@ -243,13 +261,13 @@ def _gtype_constant_from_value(name: str, gtype: int) -> type[GType]:
         (GType,),
         {
             "__module__": __name__,
-            "gimeta": private.GIMeta.from_gtype(gtype, name),
+            "_gtype_value": gtype,
+            "gimeta": _LazyGIMeta(gtype, name, abi.NATIVE),
             "gtype_name": name,
         },
     )
     cls = cast("Type[GType]", cls)
-    cls.gimeta.profile = abi.NATIVE
-    if cls.gimeta.gtype == 0:
+    if gtype == 0:
         raise RuntimeError(f"unknown GType {name!r}")
     return cls
 
@@ -272,4 +290,8 @@ GType.PARAM = _gtype_constant("GParam")
 GType.OBJECT = _gtype_constant("GObject")
 GType.BOXED = _gtype_constant("GBoxed")
 GType.POINTER = _gtype_constant("gpointer")
+_pyobject_gtype = private.GIMeta.from_type_name("PyObject").gtype
+if _pyobject_gtype == 0:
+    _pyobject_gtype = private.register_static(int(GType.POINTER), "PyObject")
+GType.PYOBJECT = _gtype_constant_from_value("PyObject", _pyobject_gtype)
 GType.STRV = _gtype_constant_from_value("GStrv", int(private.gstrv_get_type()))

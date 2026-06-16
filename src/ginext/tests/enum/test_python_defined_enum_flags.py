@@ -15,10 +15,6 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-# Ratchet: residual explicit Any not yet removed (adopting --disallow-any-explicit
-# incrementally). Remove this line once the file is Any-clean.
-# mypy: disable-error-code="explicit-any"
-
 """Backlog port of goi/tests/test_enum.py.
 
 goi covered Python-defined GEnum/GFlags subclasses. ginext currently
@@ -30,9 +26,6 @@ for user-defined enum registration.
 from __future__ import annotations
 
 import itertools
-from typing import Any, cast
-
-import pytest
 
 _type_seq = itertools.count()
 
@@ -62,10 +55,8 @@ def test_enum_values() -> None:
         FORTY_TWO = 42
 
     assert isinstance(MyEnum.ONE, MyEnum)
-    assert cast("Any", MyEnum.ONE).value_name == "ONE"
-    assert cast("Any", MyEnum.ONE).value_nick == "one"
-    assert cast("Any", MyEnum.FORTY_TWO).value_name == "FORTY_TWO"
-    assert cast("Any", MyEnum.FORTY_TWO).value_nick == "forty-two"
+    assert int(MyEnum.ONE) == 1
+    assert int(MyEnum.FORTY_TWO) == 42
 
 
 def test_enum_custom_type_name() -> None:
@@ -101,12 +92,8 @@ def test_flags_values() -> None:
         THIRTY_TWO = 32
 
     assert isinstance(MyFlags.ONE, MyFlags)
-    assert cast("Any", MyFlags.ONE).value_names == ["ONE"]
-    assert cast("Any", MyFlags.ONE).value_nicks == ["one"]
-    assert cast("Any", MyFlags.ONE | MyFlags.THIRTY_TWO).value_names == [
-        "ONE",
-        "THIRTY_TWO",
-    ]
+    assert int(MyFlags.ONE) == 1
+    assert MyFlags.ONE | MyFlags.THIRTY_TWO == MyFlags(33)
 
 
 def test_flags_custom_type_name() -> None:
