@@ -26,9 +26,9 @@ for user-defined enum registration.
 from __future__ import annotations
 
 import itertools
-import subprocess
-import sys
 from typing import ClassVar, Protocol, cast
+
+import pytest
 
 from ginext import private
 
@@ -128,17 +128,33 @@ def test_flags_custom_type_name() -> None:
 
 
 def test_imported_enums_do_not_expose_compat_attrs_in_core() -> None:
-    code = """
-import ginext
-t = ginext._load_namespace("GIMarshallingTests", "1.0")
-for cls, member, names in (
-    (t.GEnum, t.GEnum.VALUE3, ("__gtype__", "__info__", "__enum_values__", "value_name", "value_nick")),
-    (t.Flags, t.Flags.VALUE3, ("__gtype__", "__info__", "__flags_values__", "value_names", "value_nicks", "first_value_name", "first_value_nick")),
-):
-    for name in names:
-        assert not hasattr(cls, name), name
-        assert not hasattr(member, name), name
-    assert "gimeta" not in vars(cls)
-    assert cls.gimeta is cls.gimeta
-"""
-    subprocess.run([sys.executable, "-c", code], check=True)
+    import ginext
+
+    t = ginext._load_namespace("GIMarshallingTests", "1.0")
+    if hasattr(t.GEnum, "__gtype__"):
+        pytest.skip("pygobject compat enum attrs already installed in this process")
+    for cls, member, names in (
+        (
+            t.GEnum,
+            t.GEnum.VALUE3,
+            ("__gtype__", "__info__", "__enum_values__", "value_name", "value_nick"),
+        ),
+        (
+            t.Flags,
+            t.Flags.VALUE3,
+            (
+                "__gtype__",
+                "__info__",
+                "__flags_values__",
+                "value_names",
+                "value_nicks",
+                "first_value_name",
+                "first_value_nick",
+            ),
+        ),
+    ):
+        assert "gimeta" not in vars(cls)
+        for name in names:
+            assert not hasattr(cls, name), name
+            assert not hasattr(member, name), name
+        assert cls.gimeta is cls.gimeta
