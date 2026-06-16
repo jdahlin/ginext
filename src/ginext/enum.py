@@ -129,6 +129,14 @@ class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
     # G_TYPE_ENUM = 48 — lazy so GObject namespace isn't loaded at import time
     __gtype__ = _GTypeLazy(48)
 
+    @property
+    def value_name(self) -> str:
+        return str(self.name)
+
+    @property
+    def value_nick(self) -> str:
+        return str(self.name).lower().replace("_", "-")
+
 
 class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
     """Base class for Python-defined GObject flags types.
@@ -140,6 +148,28 @@ class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
     __gflags_base__ = True
     # G_TYPE_FLAGS = 52
     __gtype__ = _GTypeLazy(52)
+
+    @property
+    def value_names(self) -> list[str]:
+        return [member.name or "" for member in type(self) if member in self]
+
+    @property
+    def value_nicks(self) -> list[str]:
+        return [
+            (member.name or "").lower().replace("_", "-")
+            for member in type(self)
+            if member in self
+        ]
+
+    @property
+    def first_value_name(self) -> str:
+        names = self.value_names
+        return names[0] if names else "0"
+
+    @property
+    def first_value_nick(self) -> str:
+        nicks = self.value_nicks
+        return nicks[0] if nicks else "0"
 
 
 
