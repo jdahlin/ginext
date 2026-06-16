@@ -167,9 +167,6 @@ def _install_genum_compat_properties() -> None:
     _GIEnumMeta = type(GIEnum)
     _orig_genum_new = _GEnumMeta.__new__
     _orig_gflags_new = _GFlagsMeta.__new__
-    _orig_genum_getattr = _GEnumMeta.__getattr__
-    _orig_gflags_getattr = _GFlagsMeta.__getattr__
-    _orig_gi_enum_getattr = _GIEnumMeta.__getattr__
     _orig_genum_getattribute = _GEnumMeta.__getattribute__
     _orig_gflags_getattribute = _GFlagsMeta.__getattribute__
     _orig_gi_enum_getattribute = _GIEnumMeta.__getattribute__
@@ -231,20 +228,10 @@ def _install_genum_compat_properties() -> None:
         gimeta = cls.gimeta
         return compat_gtype_from_raw(int(gimeta.gtype), gimeta.type_name)
 
-    def _genum_getattr(cls: type, name: str) -> Any:
-        if name == "__gtype__":
-            return _compat_gtype(cls)
-        return _orig_genum_getattr(cls, name)
-
     def _genum_getattribute(cls: type, name: str) -> Any:
         if name == "__gtype__" and cls is not _GEnum:
             return _compat_gtype(cls)
         return _orig_genum_getattribute(cls, name)
-
-    def _gflags_getattr(cls: type, name: str) -> Any:
-        if name == "__gtype__":
-            return _compat_gtype(cls)
-        return _orig_gflags_getattr(cls, name)
 
     def _gflags_getattribute(cls: type, name: str) -> Any:
         if name == "__gtype__" and cls is not _GFlags:
@@ -263,7 +250,7 @@ def _install_genum_compat_properties() -> None:
             return _enum_extensions(cls)["values"]
         if name == "__flags_values__":
             return _enum_extensions(cls)["values"]
-        return _orig_gi_enum_getattr(cls, name)
+        raise AttributeError(name)
 
     def _gi_enum_getattribute(cls: type, name: str) -> Any:
         if name in {"__info__", "__gtype__", "__enum_values__", "__flags_values__"}:
@@ -275,9 +262,6 @@ def _install_genum_compat_properties() -> None:
 
     _GEnumMeta.__new__ = _compat_genum_new  # type: ignore[assignment]
     _GFlagsMeta.__new__ = _compat_gflags_new  # type: ignore[assignment]
-    _GEnumMeta.__getattr__ = _genum_getattr  # type: ignore[method-assign]
-    _GFlagsMeta.__getattr__ = _gflags_getattr  # type: ignore[method-assign]
-    _GIEnumMeta.__getattr__ = _gi_enum_getattr  # type: ignore[method-assign]
     _GEnumMeta.__getattribute__ = _genum_getattribute  # type: ignore[method-assign]
     _GFlagsMeta.__getattribute__ = _gflags_getattribute  # type: ignore[method-assign]
     _GIEnumMeta.__getattribute__ = _gi_enum_getattribute  # type: ignore[method-assign]

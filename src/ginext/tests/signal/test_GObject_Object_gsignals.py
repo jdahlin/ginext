@@ -59,6 +59,7 @@ def test_gobject_signal_descriptor_still_works() -> None:
     class Pinger(GObject.Object, type_name="GoiTestPinger_SignalDescriptor"):
         ping: ClassVar[GObject.Signal] = GObject.Signal()
 
+    assert "ping" not in Pinger.gimeta.signal_infos
     p = Pinger()
     fired = []
     conn = p.ping.connect(lambda *_a: fired.append(True), owner=p)

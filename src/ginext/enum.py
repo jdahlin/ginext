@@ -22,7 +22,6 @@
 from __future__ import annotations
 
 import enum
-import weakref
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from ginext import private
@@ -31,38 +30,25 @@ from ginext import private
 if TYPE_CHECKING:
     from collections.abc import Callable
     from ginext.GIRepository import EnumInfo, FlagsInfo
-    from .abi import ABIProfile, NamespaceContext
+    from .abi import NamespaceContext
 
 
 _ENUM_PICKLE_REGISTRY: dict[int, Any] = {}
 _enum_classes_by_key: dict[tuple[str, str, str, str], type[Any]] = {}
-_enum_gimeta_specs: weakref.WeakKeyDictionary[
-    type[Any],
-    tuple[int, str, object, object, dict[int, str], dict[int, str], dict[int, Any]],
-] = weakref.WeakKeyDictionary()
 _EnumT = TypeVar("_EnumT")
 
 
-def _enum_gimeta(cls: type[Any], name: str) -> object:
-    if name != "gimeta":
-        raise AttributeError(name)
-    spec = _enum_gimeta_specs.get(cls)
-    if spec is None:
-        raise AttributeError(name)
-    gtype, type_name, profile, gi_info, value_names, value_nicks, values = spec
-    if gi_info is None:
-        gimeta = private.GIMeta.from_gtype(gtype, type_name)
-    else:
-        gimeta = private.GIMeta.from_type_name(type_name, gi_info)
-    if profile is not None:
-        gimeta.profile = cast("ABIProfile", profile)
+def _set_enum_extension(
+    gimeta: private.GIMeta,
+    value_names: dict[int, str],
+    value_nicks: dict[int, str],
+    values: dict[int, Any],
+) -> None:
     gimeta.extensions["enum"] = {
         "value_names": value_names,
         "value_nicks": value_nicks,
         "values": values,
     }
-    type.__setattr__(cls, "gimeta", gimeta)
-    return gimeta
 
 
 def _register_genum(type_name: str, members: dict[str, int]) -> int:
@@ -76,12 +62,6 @@ def _register_gflags(type_name: str, members: dict[str, int]) -> int:
 class _GEnumMeta(enum.EnumType):
     # G_TYPE_ENUM = 48 (fundamental type index 12 << 2)
     _G_TYPE_ENUM: int = 48
-
-    def __getattr__(cls, name: str) -> object:
-        try:
-            return _enum_gimeta(cls, name)
-        except AttributeError:
-            return cast("Any", super()).__getattr__(name)
 
     def __new__(
         mcs: type[_GEnumMeta],
@@ -97,15 +77,9 @@ class _GEnumMeta(enum.EnumType):
         raw_members: dict[str, Any] = dict(cls.__members__)
         members: dict[str, int] = {k: int(v) for k, v in raw_members.items()}
         gtype_int = _register_genum(type_name, members)
-        _enum_gimeta_specs[cls] = (
-            gtype_int,
-            type_name,
-            None,
-            None,
-            {},
-            {},
-            {},
-        )
+        gimeta = private.GIMeta.from_gtype(gtype_int, type_name)
+        _set_enum_extension(gimeta, {}, {}, {})
+        type.__setattr__(cls, "gimeta", gimeta)
         from . import abi, classbuild
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
@@ -113,12 +87,6 @@ class _GEnumMeta(enum.EnumType):
 
 class _GFlagsMeta(enum.EnumType):
     _G_TYPE_FLAGS: int = 52
-
-    def __getattr__(cls, name: str) -> object:
-        try:
-            return _enum_gimeta(cls, name)
-        except AttributeError:
-            return cast("Any", super()).__getattr__(name)
 
     def __new__(
         mcs: type[_GFlagsMeta],
@@ -138,15 +106,11 @@ class _GFlagsMeta(enum.EnumType):
         value_nicks = {
             int(v): k.lower().replace("_", "-") for k, v in raw_members_f.items()
         }
-        _enum_gimeta_specs[cls] = (
-            gtype_int,
-            type_name,
-            None,
-            None,
-            value_names,
-            value_nicks,
-            dict(_enum_primary_members(cls)),
+        gimeta = private.GIMeta.from_gtype(gtype_int, type_name)
+        _set_enum_extension(
+            gimeta, value_names, value_nicks, dict(_enum_primary_members(cls))
         )
+        type.__setattr__(cls, "gimeta", gimeta)
         from . import abi, classbuild
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
@@ -176,15 +140,7 @@ def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
     return cast("enum.IntEnum", _ENUM_PICKLE_REGISTRY[class_id](value))
 
 
-class _GIEnumMeta(enum.EnumType):
-    def __getattr__(cls, name: str) -> object:
-        try:
-            return _enum_gimeta(cls, name)
-        except AttributeError:
-            return cast("Any", super()).__getattr__(name)
-
-
-class GIEnum(enum.IntEnum, metaclass=_GIEnumMeta):
+class GIEnum(enum.IntEnum):
     def __reduce_ex__(self, protocol: object) -> tuple[object, tuple[int, int]]:
         return _enum_reconstruct, (id(type(self)), int(self))
 
@@ -193,7 +149,7 @@ class GIEnum(enum.IntEnum, metaclass=_GIEnumMeta):
         _ENUM_PICKLE_REGISTRY[id(cls)] = cls
 
 
-class GIFlags(enum.IntFlag, metaclass=_GIEnumMeta):
+class GIFlags(enum.IntFlag):
     def __reduce_ex__(self, protocol: object) -> tuple[object, tuple[int, int]]:
         return _enum_reconstruct, (id(type(self)), int(self))
 
@@ -253,15 +209,10 @@ class EnumBuilder:
             value: raw_name.replace("_", "-") for raw_name, value in raw_members
         }
         if gtype > 255:
-            _enum_gimeta_specs[cls] = (
-                gtype,
-                info.get_type_name(),
-                context.profile,
-                info,
-                value_names,
-                value_nicks,
-                values,
-            )
+            gimeta = private.GIMeta.from_type_name(info.get_type_name(), info)
+            gimeta.profile = context.profile
+            _set_enum_extension(gimeta, value_names, value_nicks, values)
+            cls.gimeta = gimeta
         _install_enum_callable_aliases(self._context, cls, name)
         _enum_classes_by_key[key] = cls
         # The functional IntEnum/IntFlag API constructs the class dynamically

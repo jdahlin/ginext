@@ -125,6 +125,26 @@ def _run_post_construct_hooks(obj: object) -> None:
             sys.excepthook(type(exc), exc, exc.__traceback__)
 
 
+def _signal_descriptor_for_name(cls: type, name: str) -> Signal | None:
+    normalized = name.replace("-", "_")
+    for owner in cls.__mro__:
+        for attr in owner.__dict__.values():
+            if isinstance(attr, Signal) and attr.matches_name(normalized):
+                return attr
+    return None
+
+
+def _signal_names(cls: type) -> set[str]:
+    names = set(cast("Any", cls).gimeta.list_signals())
+    for owner in cls.__mro__:
+        for attr in owner.__dict__.values():
+            if isinstance(attr, Signal):
+                attr_name = attr.attribute_name()
+                if attr_name is not None:
+                    names.add(attr_name)
+    return names
+
+
 def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
     """Post-bind construction tail: run post-construct hooks, wire on_* handlers."""
     _run_post_construct_hooks(obj)
@@ -134,8 +154,11 @@ def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
                 f"on_{signal_attr_name}= must be callable, got {type(callback).__name__}"
             )
         gimeta = type(obj).gimeta
-        if gimeta.lookup_signal(signal_attr_name) is None:
-            available = sorted(gimeta.list_signals())
+        if (
+            _signal_descriptor_for_name(type(obj), signal_attr_name) is None
+            and gimeta.lookup_signal(signal_attr_name) is None
+        ):
+            available = sorted(_signal_names(type(obj)))
             close = difflib.get_close_matches(signal_attr_name, available, n=3)
             hint = f"; did you mean {close!r}?" if close else ""
             raise TypeError(
@@ -168,6 +191,13 @@ def _obj_signal_for_name(self: Any, name: str) -> _SignalInstance:
         detail = None
     name = name.replace("-", "_")
     cls = type(self)
+    descriptor = _signal_descriptor_for_name(cls, name)
+    if descriptor is not None:
+        signal = descriptor.__get__(self, cls)
+        if isinstance(signal, _SignalInstance):
+            if detail is not None:
+                return signal.detail_signal(detail)
+            return signal
     info = cls.gimeta.lookup_signal(name)
     method = cls.gimeta.lookup_signal_method(name)
     if info is None and cls is GObject:
@@ -237,7 +267,10 @@ def _obj_getattr(self: Any, name: str) -> Any:
                 return compat_property_for_name(name)
             except AttributeError:
                 pass
-    if type(self).gimeta.lookup_signal(name.replace("-", "_")) is not None:
+    if (
+        _signal_descriptor_for_name(type(self), name) is not None
+        or type(self).gimeta.lookup_signal(name.replace("-", "_")) is not None
+    ):
         if not features.is_enabled(features.NEW_SIGNAL_API):
             raise AttributeError(name)
         return _obj_signal_for_name(self, name)

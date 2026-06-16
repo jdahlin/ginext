@@ -120,6 +120,20 @@ class SignalDescriptor:
     def _extra_register_args(self) -> tuple[object, ...]:
         return ()
 
+    def matches_name(self, name: str) -> bool:
+        if self._py_name == name:
+            return True
+        if self._gobject_name is not None and self._gobject_name.replace("-", "_") == name:
+            return True
+        return False
+
+    def attribute_name(self) -> str | None:
+        if self._py_name is not None:
+            return self._py_name
+        if self._gobject_name is not None:
+            return self._gobject_name.replace("-", "_")
+        return None
+
     @overload
     def __get__(self, obj: None, objtype: type | None = None) -> SignalDescriptor: ...
 

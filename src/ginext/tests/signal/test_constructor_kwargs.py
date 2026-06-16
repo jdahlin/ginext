@@ -31,7 +31,7 @@ gobject.GObject).
 import itertools
 import warnings
 
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pytest
 
@@ -119,6 +119,16 @@ def test_python_defined_class_property_plus_handler() -> None:
     assert obj.title == "hello"
     obj.title = "updated"
     assert fires == [1]
+
+
+def test_python_defined_signal_handler_kwarg() -> None:
+    class Item(GObject, type_name=_unique_type_name("SignalItem")):
+        pinged: ClassVar[object] = GObject.Signal()
+
+    fires = []
+    obj = cast("Any", Item)(on_pinged=lambda src: fires.append(src))
+    obj.pinged.emit()
+    assert fires == [obj]
 
 
 def test_handler_kwarg_owner_is_new_instance() -> None:
