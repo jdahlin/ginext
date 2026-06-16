@@ -210,6 +210,21 @@ class _CompatSignalDescriptor(SignalDescriptor):
         return (self._flags, self._accumulator, self._accu_data)
 
 
+def compat_signal_descriptors_for_gimeta(gimeta: object) -> dict[str, SignalDescriptor]:
+    extensions = gimeta.extensions  # type: ignore[attr-defined]
+    compat = extensions.setdefault("compat", {})
+    return cast(
+        "dict[str, SignalDescriptor]",
+        compat.setdefault("signal_descriptors", {}),
+    )
+
+
+def register_compat_signal_descriptor(
+    gimeta: object, attr_name: str, descriptor: SignalDescriptor
+) -> None:
+    compat_signal_descriptors_for_gimeta(gimeta)[attr_name] = descriptor
+
+
 def _compat_signal_type(value_type: object) -> object:
     if value_type is object:
         return _gi.GType.from_name("PyObject")

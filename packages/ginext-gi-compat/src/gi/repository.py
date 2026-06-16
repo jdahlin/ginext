@@ -1243,13 +1243,20 @@ def _install_glib_mainloop_compat(namespace: Namespace) -> None:
 def _signal_descriptors(gtype_or_cls: object) -> dict[str, SignalDescriptor]:
     if not isinstance(gtype_or_cls, type) or not issubclass(gtype_or_cls, _GObject):
         raise TypeError("type must be instantiable or an interface")
-    result = {}
-    for name, info in getattr(
-        getattr(gtype_or_cls, "gimeta", None), "signal_infos", {}
-    ).items():
-        if isinstance(info, SignalDescriptor):
-            result[name] = info
-    return result
+    gimeta = getattr(gtype_or_cls, "gimeta", None)
+    if gimeta is None:
+        return {}
+    compat = gimeta.extensions.get("compat", {})
+    if not isinstance(compat, dict):
+        return {}
+    descriptors = compat.get("signal_descriptors", {})
+    if not isinstance(descriptors, dict):
+        return {}
+    return {
+        name: descriptor
+        for name, descriptor in descriptors.items()
+        if isinstance(descriptor, SignalDescriptor)
+    }
 
 
 def _all_signal_descriptors() -> list[tuple[type, str, SignalDescriptor]]:
