@@ -39,6 +39,7 @@ import sys
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Generic,
     Protocol,
     Type,
@@ -68,6 +69,77 @@ RangeValue: TypeAlias = int | float
 
 unset: Any = object()
 T = TypeVar("T", bound=ValueType)
+_GOBJECT_VALUE_CLASS: type[Any] | None = None
+_GOBJECT_GET_PROPERTY: Callable[..., object] | None = None
+_GOBJECT_SET_PROPERTY: Callable[..., object] | None = None
+
+
+def _gobject_value_class() -> type[Any]:
+    global _GOBJECT_VALUE_CLASS
+    if _GOBJECT_VALUE_CLASS is None:
+        from .resolve import gobject_repo
+
+        GObject = gobject_repo()
+        _kind, info = private.namespace_find("GObject", GObject._version, "Value")
+        _GOBJECT_VALUE_CLASS = GObject._record_builder.build_record(info)
+        if not GObject._profile.pygobject_compat:
+            GObject.__dict__.pop("Value", None)
+    return _GOBJECT_VALUE_CLASS
+
+
+def _gobject_object_method(name: str) -> Callable[..., object]:
+    from ..method import make_method
+    from .resolve import gobject_repo
+
+    GObject = gobject_repo()
+    entry = GObject.Object.gimeta.lookup_method(name)
+    if entry is None:
+        raise AttributeError(f"GObject.Object has no method {name}")
+    info, has_self = entry
+    return make_method(
+        GObject.Object.gimeta.namespace.load_namespace(),
+        GObject.Object.gimeta.method_owner_name,
+        info,
+        has_self=has_self,
+    )
+
+
+def _gobject_get_property_method() -> Callable[..., object]:
+    global _GOBJECT_GET_PROPERTY
+    if _GOBJECT_GET_PROPERTY is None:
+        _GOBJECT_GET_PROPERTY = _gobject_object_method("get_property")
+    return _GOBJECT_GET_PROPERTY
+
+
+def _gobject_set_property_method() -> Callable[..., object]:
+    global _GOBJECT_SET_PROPERTY
+    if _GOBJECT_SET_PROPERTY is None:
+        _GOBJECT_SET_PROPERTY = _gobject_object_method("set_property")
+    return _GOBJECT_SET_PROPERTY
+
+
+def get_property_via_introspection(obj: "GObject", prop_name: str) -> object:
+    pspec = type(obj).gimeta.param_spec(prop_name)
+    if pspec is None:
+        raise AttributeError(f"{type(obj).__name__} has no property {prop_name}")
+    pspec = cast("Any", pspec)
+    value = _gobject_value_class()()
+    private.gvalue_init_value(value, pspec.value_type)
+    _gobject_get_property_method()(obj, prop_name, value)
+    return private.gvalue_get_value(value)
+
+
+def set_property_via_introspection(
+    obj: "GObject", prop_name: str, py_value: object
+) -> None:
+    pspec = type(obj).gimeta.param_spec(prop_name)
+    if pspec is None:
+        raise AttributeError(f"{type(obj).__name__} has no property {prop_name}")
+    pspec = cast("Any", pspec)
+    value = _gobject_value_class()()
+    private.gvalue_init_value(value, pspec.value_type)
+    private.gvalue_set_value(value, py_value)
+    _gobject_set_property_method()(obj, prop_name, value)
 
 
 class PropertyMeta(type):
@@ -174,7 +246,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
         # who want the GParamSpec read it via `Foo.gimeta.pspecs[name]`.
         if obj is None:
             return cast("T", self)
-        value = private.gobject_get_property(type(obj).gimeta, obj, self.name)
+        value = get_property_via_introspection(obj, self.name)
         if _is_gtype_value_type(self.type):
             return cast("T", int(cast("Any", value)))
         return cast("T", value)
@@ -182,7 +254,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
     def __set__(self, obj: "GObject", value: ValueType) -> None:
         if self.readonly:
             raise AttributeError(f"property {self.name!r} is read-only")
-        private.gobject_set_property(self.owner.gimeta, obj, self.name, value)
+        set_property_via_introspection(obj, self.name, value)
         call_notify_override(obj, self.name.replace("_", "-"))
 
 
@@ -252,17 +324,11 @@ class _PspecProperty:
         if obj is None:
             return self
         prop_name = self.name.replace("_", "-")
-        try:
-            return private.gobject_get_property(type(obj).gimeta, obj, prop_name)
-        except AttributeError:
-            return obj.get_property_by_name(prop_name)
+        return get_property_via_introspection(obj, prop_name)
 
     def __set__(self, obj: "GObject", value: object) -> None:
         prop_name = self.name.replace("_", "-")
-        try:
-            private.gobject_set_property(type(obj).gimeta, obj, prop_name, value)
-        except AttributeError:
-            obj.set_property_by_name(prop_name, value)
+        set_property_via_introspection(obj, prop_name, value)
         call_notify_override(obj, prop_name)
 
 

@@ -22,6 +22,7 @@
 #include "marshal/pygi-value.h"
 #include "runtime/class-registry.h"
 #include "GObject/Boxed.h"
+#include "GObject/Fundamental.h"
 #include "GObject/Object.h"
 #include "GObject/Object-info.h"
 #include "GObject/ParamSpec.h"
@@ -1041,11 +1042,30 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
    * G_TYPE_FLAG_INSTANTIATABLE). The unwrap path returns the raw fundamental
    * pointer just like a GObject; g_value_set_instance routes through the
    * type's value table (which calls the type-specific ref). */
+  int hook_result = gvalue_call_from_py_hook (obj, type, value);
+  if (hook_result <= 0)
+    return hook_result;
+
   if (G_TYPE_IS_INSTANTIATABLE (type))
     {
       if (obj == Py_None)
         {
           g_value_set_instance (value, NULL);
+          return 0;
+        }
+      if (pygi_fundamental_check (obj))
+        {
+          GType actual = pygi_fundamental_get_gtype (obj);
+          if (!g_type_is_a (actual, type))
+            {
+              PyErr_Format (PyExc_TypeError,
+                            "%s: %s is not a %s",
+                            context ? context : "<unknown>",
+                            g_type_name (actual),
+                            g_type_name (type));
+              return -1;
+            }
+          g_value_set_instance (value, pygi_fundamental_get_instance (obj));
           return 0;
         }
       GObject *inst = pygi_gobject_get (obj);
@@ -1063,10 +1083,6 @@ pygi_py_to_gvalue_targeted (GType type, PyObject *obj, GValue *value, const char
       g_value_set_instance (value, inst);
       return 0;
     }
-
-  int hook_result = gvalue_call_from_py_hook (obj, type, value);
-  if (hook_result <= 0)
-    return hook_result;
 
   PyErr_Format (PyExc_NotImplementedError,
                 "%s has unsupported GType %s",

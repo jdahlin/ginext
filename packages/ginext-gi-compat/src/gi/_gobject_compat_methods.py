@@ -37,7 +37,11 @@ from typing import TYPE_CHECKING, Any, cast
 import ginext
 from ginext import features
 from ginext.gobject.gobjectclass import _compat_dispose_state, _obj_signal_for_name
-from ginext.gobject.properties import call_notify_override
+from ginext.gobject.properties import (
+    call_notify_override,
+    get_property_via_introspection,
+    set_property_via_introspection,
+)
 from ginext.overlay.registrar import OverlayRegistrar
 from ginext.signal.adapt import _SIGNAL_ARG_LIMIT_ATTR, _accepted_signal_arg_count
 from ginext.signal.bound import Signal as _BoundSignal
@@ -159,10 +163,7 @@ def get_property(self: Any, name: str) -> object:
         from gi._propertyhelper import _CompatProperty
         if isinstance(descriptor, _CompatProperty):
             return descriptor.fget(self)
-    try:
-        return ginext.private.gobject_get_property(type(self).gimeta, self, prop_name)
-    except AttributeError:
-        return self.get_property_by_name(prop_name)
+    return ginext.private.gobject_get_property_by_name(self, prop_name)
 
 
 def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
@@ -234,6 +235,16 @@ def _get_pspec(cls: Any, prop_name: str) -> Any | None:
         return None
 
 
+def _is_construct_only(cls: Any, prop_name: str) -> bool:
+    pspec = _get_pspec(cls, prop_name)
+    if pspec is None:
+        return False
+    try:
+        return bool(ginext.private.param_spec_info(pspec)["flags"] & 8)
+    except Exception:
+        return False
+
+
 @overlay.method("Object")
 def set_property(self: Any, name: str, value: object) -> None:
     prop_name = name.replace("_", "-")
@@ -256,16 +267,23 @@ def set_property(self: Any, name: str, value: object) -> None:
         pspec_info = _get_pspec_numeric_info(type(self), prop_name)
         if pspec_info is not None and prop_name != "unichar":
             value = _coerce_char_value(value, pspec_info)
+    if _is_construct_only(type(self), prop_name):
+        raise TypeError(
+            f"construct property {prop_name!r} for object "
+            f"{type(self).__name__!r} can't be set after construction"
+        )
     try:
-        ginext.private.gobject_set_property(type(self).gimeta, self, prop_name, value)
+        set_property_via_introspection(self, prop_name, value)
+    except (NotImplementedError, TypeError):
+        try:
+            ginext.private.gobject_set_property_by_name(self, prop_name, value)
+        except ValueError as exc:
+            raise TypeError(str(exc)) from None
     except AttributeError as exc:
         msg = str(exc)
         if "construct-only" in msg or "construct_only" in msg:
             raise TypeError(msg) from None
-        try:
-            self.set_property_by_name(prop_name, value)
-        except ValueError as inner:
-            raise TypeError(str(inner)) from None
+        raise
     except UnicodeEncodeError as exc:
         raise TypeError(str(exc)) from None
     call_notify_override(self, prop_name)
@@ -632,12 +650,9 @@ def _ref_sink(self: Any) -> None:
 def _compat_property_for_name(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-").removesuffix("-")
     try:
-        return ginext.private.gobject_get_property(type(self).gimeta, self, prop_name)
+        return ginext.private.gobject_get_property_by_name(self, prop_name)
     except AttributeError:
-        try:
-            return self.get_property_by_name(prop_name)
-        except (AttributeError, TypeError):
-            raise AttributeError(name) from None
+        raise AttributeError(name) from None
 
 
 def _same_callback(left: object, right: object) -> bool:

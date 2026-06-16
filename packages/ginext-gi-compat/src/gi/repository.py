@@ -35,9 +35,9 @@ from ginext.gobject.resolve import own_gimeta
 from ginext.enum import GIEnum, GIFlags, GEnum as _GEnum, GFlags as _GFlags
 from ginext.namespace import Namespace
 from gi._compat_namespace import CompatNamespace
+from ginext.signal.bound import Signal
 from ginext.signal.connection import SignalConnection
 from ginext.signal.descriptor import SignalDescriptor
-from ginext.signal.emission_hook import add_emission_hook, remove_emission_hook
 
 
 __path__: list[str] = []
@@ -1391,7 +1391,7 @@ def _gtype_for_signal_target(obj_or_cls: object) -> int:
 def _add_emission_hook(
     obj_or_cls: object, detailed_signal: str, callback: object
 ) -> int:
-    return add_emission_hook(
+    return Signal._add_emission_hook(
         _gtype_for_signal_target(obj_or_cls), detailed_signal, callback
     )
 
@@ -1399,7 +1399,9 @@ def _add_emission_hook(
 def _remove_emission_hook(
     obj_or_cls: object, detailed_signal: str, hook_id: int
 ) -> None:
-    remove_emission_hook(_gtype_for_signal_target(obj_or_cls), detailed_signal, hook_id)
+    Signal._remove_emission_hook(
+        _gtype_for_signal_target(obj_or_cls), detailed_signal, hook_id
+    )
 
 
 def _matches_signal(

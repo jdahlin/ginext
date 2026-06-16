@@ -972,6 +972,8 @@ apply_to_namespace(GLib)
 def _regex_from_py(obj: object) -> Any:
     import re as _re
 
+    if type(obj).__name__ == "Regex":
+        return obj
     if not isinstance(obj, _re.Pattern):
         raise TypeError(f"expected re.Pattern, not {type(obj).__name__!r}")
     pattern_str = obj.pattern
