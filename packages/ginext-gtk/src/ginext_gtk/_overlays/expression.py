@@ -265,7 +265,7 @@ def _coerce_expression(
 # ---------------------------------------------------------------------------
 
 
-class _ExpressionMixin:
+class ExpressionMixin:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         return None
 
@@ -328,7 +328,7 @@ def _property_expression_new(
     return expression
 
 
-class _PropertyExpressionMixin:
+class PropertyExpressionMixin:
     def __new__(
         cls,
         *parts: Any,
@@ -362,17 +362,17 @@ def _property_expression_overlay_new(
     )
 
 
-class _ConstantExpressionMixin:
+class ConstantExpressionMixin:
     def __new__(cls, value: Any) -> Any:
         return cast("Any", cls).new_for_value(value)
 
 
-class _ObjectExpressionMixin:
+class ObjectExpressionMixin:
     def __new__(cls, obj: Any) -> Any:
         return cast("Any", cls).new(obj)
 
 
-class _TryExpressionMixin:
+class TryExpressionMixin:
     def __new__(cls, *expressions: Any, this_type: type | None = None) -> Any:
         if len(expressions) == 1 and isinstance(expressions[0], (list, tuple)):
             expressions = tuple(expressions[0])
@@ -393,8 +393,8 @@ class _TryExpressionMixin:
 # ---------------------------------------------------------------------------
 
 if Gtk.__version__[0] == 4:
-    overlay.bases("Expression", (_ExpressionMixin,))
-    overlay.bases("PropertyExpression", (_PropertyExpressionMixin,))
-    overlay.bases("ConstantExpression", (_ConstantExpressionMixin,))
-    overlay.bases("ObjectExpression", (_ObjectExpressionMixin,))
-    overlay.bases("TryExpression", (_TryExpressionMixin,))
+    overlay.bases("Expression", (ExpressionMixin,))
+    overlay.bases("PropertyExpression", (PropertyExpressionMixin,))
+    overlay.bases("ConstantExpression", (ConstantExpressionMixin,))
+    overlay.bases("ObjectExpression", (ObjectExpressionMixin,))
+    overlay.bases("TryExpression", (TryExpressionMixin,))

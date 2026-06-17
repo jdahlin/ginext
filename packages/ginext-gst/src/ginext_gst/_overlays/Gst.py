@@ -36,18 +36,18 @@ overlay: OverlayRegistrar = Gst.overlay
 
 
 @runtime_checkable
-class _FractionLike(Protocol):
+class FractionLike(Protocol):
     num: SupportsInt
     denom: SupportsInt
 
 
 @runtime_checkable
-class _BitmaskLike(Protocol):
+class BitmaskLike(Protocol):
     v: int
 
 
 @runtime_checkable
-class _RangeLike(Protocol):
+class RangeLike(Protocol):
     range: range
 
 
@@ -779,7 +779,7 @@ def _fraction_value(self: Any) -> float:
 
 @overlay.method("Fraction", name="__eq__")
 def _fraction_eq(self: Any, other: object) -> bool:
-    if isinstance(other, _FractionLike):
+    if isinstance(other, FractionLike):
         left_num = int(self.num)
         left_denom = int(self.denom)
         right_num = int(other.num)
@@ -790,7 +790,7 @@ def _fraction_eq(self: Any, other: object) -> bool:
 
 @overlay.method("Fraction", name="__ne__")
 def _fraction_ne(self: Any, other: object) -> bool:
-    if not isinstance(other, _FractionLike):
+    if not isinstance(other, FractionLike):
         return True
     left_num = int(self.num)
     left_denom = int(self.denom)
@@ -800,10 +800,10 @@ def _fraction_ne(self: Any, other: object) -> bool:
 
 
 @overlay.method("Fraction", name="__mul__")
-def _fraction_mul(self: _FractionLike, other: object) -> Gst.Fraction:
+def _fraction_mul(self: FractionLike, other: object) -> Gst.Fraction:
     left_num = int(self.num)
     left_denom = int(self.denom)
-    if isinstance(other, _FractionLike):
+    if isinstance(other, FractionLike):
         return Gst.Fraction(left_num * int(other.num), left_denom * int(other.denom))
     if isinstance(other, int):
         return Gst.Fraction(left_num * other, left_denom)
@@ -811,15 +811,15 @@ def _fraction_mul(self: _FractionLike, other: object) -> Gst.Fraction:
 
 
 @overlay.method("Fraction", name="__rmul__")
-def _fraction_rmul(self: _FractionLike, other: object) -> Gst.Fraction:
+def _fraction_rmul(self: FractionLike, other: object) -> Gst.Fraction:
     return _fraction_mul(self, other)
 
 
 @overlay.method("Fraction", name="__truediv__")
-def _fraction_truediv(self: _FractionLike, other: object) -> Gst.Fraction:
+def _fraction_truediv(self: FractionLike, other: object) -> Gst.Fraction:
     left_num = int(self.num)
     left_denom = int(self.denom)
-    if isinstance(other, _FractionLike):
+    if isinstance(other, FractionLike):
         return Gst.Fraction(left_num * int(other.denom), left_denom * int(other.num))
     if isinstance(other, int):
         return Gst.Fraction(left_num, left_denom * other)
@@ -827,7 +827,7 @@ def _fraction_truediv(self: _FractionLike, other: object) -> Gst.Fraction:
 
 
 @overlay.method("Fraction", name="__rtruediv__")
-def _fraction_rtruediv(self: _FractionLike, other: object) -> Gst.Fraction:
+def _fraction_rtruediv(self: FractionLike, other: object) -> Gst.Fraction:
     if isinstance(other, int):
         return Gst.Fraction(int(self.denom) * other, int(self.num))
     raise TypeError(f"{type(other)} is not an int.")
@@ -878,7 +878,7 @@ def _int_range_eq(self: Any, other: object) -> bool:
     current: range = self.range
     if isinstance(other, range):
         return current == other
-    if isinstance(other, _RangeLike):
+    if isinstance(other, RangeLike):
         return current == other.range
     return False
 
@@ -918,7 +918,7 @@ def _int64_range_eq(self: Any, other: object) -> bool:
     current: range = self.range
     if isinstance(other, range):
         return current == other
-    if isinstance(other, _RangeLike):
+    if isinstance(other, RangeLike):
         return current == other.range
     return False
 
@@ -986,13 +986,13 @@ def _bitmask_init(self: Any, v: int) -> None:
 
 
 @overlay.method("Bitmask", name="__str__")
-def _bitmask_str(self: _BitmaskLike) -> str:
+def _bitmask_str(self: BitmaskLike) -> str:
     return hex(self.v)
 
 
 @overlay.method("Bitmask", name="__eq__")
-def _bitmask_eq(self: _BitmaskLike, other: object) -> bool:
-    if isinstance(other, _BitmaskLike):
+def _bitmask_eq(self: BitmaskLike, other: object) -> bool:
+    if isinstance(other, BitmaskLike):
         return bool(self.v == other.v)
     return bool(self.v == other)
 

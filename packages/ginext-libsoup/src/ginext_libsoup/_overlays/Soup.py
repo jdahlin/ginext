@@ -341,7 +341,7 @@ class StreamResponse:
         _raise_for_status(self.message)
 
 
-class _StreamContextManager:
+class StreamContextManager:
     def __init__(self, opener: Callable[[], Awaitable[StreamResponse]]) -> None:
         self._opener = opener
         self._response: StreamResponse | None = None
@@ -470,7 +470,7 @@ def _session_stream(
     params: Mapping[str, object] | Iterable[tuple[str, object]] | None = None,
     io_priority: int = GLib.PRIORITY_DEFAULT,
     cancellable: Gio.Cancellable | None = None,
-) -> _StreamContextManager:
+) -> StreamContextManager:
     """Open a streaming request as an async context manager."""
 
     async def open_stream() -> StreamResponse:
@@ -488,7 +488,7 @@ def _session_stream(
             cancellable=cancellable,
         )
 
-    return _StreamContextManager(open_stream)
+    return StreamContextManager(open_stream)
 
 
 async def _session_get(
@@ -622,7 +622,7 @@ class AsyncClient:
         params: Mapping[str, object] | Iterable[tuple[str, object]] | None = None,
         io_priority: int = GLib.PRIORITY_DEFAULT,
         cancellable: Gio.Cancellable | None = None,
-    ) -> _StreamContextManager:
+    ) -> StreamContextManager:
         """Open a streaming response as an async context manager."""
 
         async def open_stream() -> StreamResponse:
@@ -640,7 +640,7 @@ class AsyncClient:
                 cancellable=cancellable,
             )
 
-        return _StreamContextManager(open_stream)
+        return StreamContextManager(open_stream)
 
     async def request(
         self,
