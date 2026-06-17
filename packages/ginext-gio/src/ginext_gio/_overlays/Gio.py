@@ -520,14 +520,14 @@ class _AsyncFileInfos:
         return self
 
     async def __anext__(self) -> Any:
-        from ginext.aio import _AsyncOperation
+        from ginext.aio import AsyncOperation
 
         if self._index >= len(self._buffer):
             if self._done:
                 raise StopAsyncIteration
             self._buffer = cast(
                 "list[Any]",
-                await _AsyncOperation(
+                await AsyncOperation(
                     lambda callback: self._enumerator.next_files_async(
                         self._batch_size, 0, None, callback
                     ),
@@ -822,9 +822,9 @@ def menu_model_iter(self: Any) -> Iterator[Any]:
 
 @overlay.replace
 def bus_get(fn: Any, bus_type: Any, cancellable: Any = None) -> Any:
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
-    return _AsyncOperation(
+    return AsyncOperation(
         lambda cb: fn(bus_type, cancellable, cb),
         lambda r: Gio.bus_get_finish(cast("Any", r)),
     )
@@ -847,7 +847,7 @@ class _DBusProxyMethodCall:
         self._method_name = method_name
 
     def __call__(self, *args: Any, flags: int = 0, timeout: int = -1) -> Any:
-        from ginext.aio import _AsyncOperation
+        from ginext.aio import AsyncOperation
 
         if args and isinstance(args[0], str):
             signature, rest = args[0], args[1:]
@@ -859,7 +859,7 @@ class _DBusProxyMethodCall:
 
         proxy = self._proxy
         method = self._method_name
-        return _AsyncOperation(
+        return AsyncOperation(
             lambda cb: proxy.call(method, arg_variant, flags, timeout, None, cb),
             lambda r: _unpack_dbus_result(proxy.call_finish(r)),
         )
@@ -903,9 +903,9 @@ def new_for_bus(
     interface_name: Any,
     cancellable: Any = None,
 ) -> Any:
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
-    return _AsyncOperation(
+    return AsyncOperation(
         lambda cb: fn(
             bus_type, flags, info, name, object_path, interface_name, cancellable, cb
         ),

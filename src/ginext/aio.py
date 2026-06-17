@@ -149,7 +149,7 @@ def _coerce_async_value(value: object) -> object:
     return value
 
 
-class _AsyncOperation:
+class AsyncOperation:
     """Awaitable wrapping a GIO async operation and its finish function.
 
     ``start(callback)`` kicks off the GIO ``*_async`` call with our ready

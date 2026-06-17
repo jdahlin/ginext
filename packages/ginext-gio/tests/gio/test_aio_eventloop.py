@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from collections.abc import Coroutine, Generator
     from pathlib import Path
 
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
 import pytest
 
@@ -48,8 +48,8 @@ def _run(coro: Coroutine[object, object, T]) -> T:
     return asyncio.run(coro, loop_factory=aio.EventLoop)
 
 
-def _load_bytes_op(file: object) -> _AsyncOperation:
-    """An _AsyncOperation over g_file_load_bytes_async / _finish."""
+def _load_bytes_op(file: object) -> AsyncOperation:
+    """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
     def start(callback: object) -> None:
@@ -59,7 +59,7 @@ def _load_bytes_op(file: object) -> _AsyncOperation:
         raw = file.load_bytes_finish(result)
         return bytes(raw[0].get_data())
 
-    return aio._AsyncOperation(start, finish)
+    return aio.AsyncOperation(start, finish)
 
 
 @pytest.fixture
@@ -203,7 +203,7 @@ def test_create_task_then_await(host_file: tuple[object, bytes]) -> None:
             other += 1
         return task.result(), other
 
-    async def _wrap(awaitable: _AsyncOperation) -> object:
+    async def _wrap(awaitable: AsyncOperation) -> object:
         return await awaitable
 
     data, other = _run(main())
@@ -230,7 +230,7 @@ def test_task_cancellation_raises_cancelled_error(
 
     from ginext import aio
 
-    op = aio._AsyncOperation(start, finish, cancel=cancellable.cancel)
+    op = aio.AsyncOperation(start, finish, cancel=cancellable.cancel)
 
     async def main() -> object:
         async def runner() -> object:

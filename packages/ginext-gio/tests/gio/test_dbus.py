@@ -118,7 +118,7 @@ def session_bus(_dbus_daemon: _Bus) -> Generator[Gio.DBusConnection]:
     async def _connect() -> Gio.DBusConnection:
         return cast(
             "Gio.DBusConnection",
-            await aio._AsyncOperation(
+            await aio.AsyncOperation(
                 _start_connect,
                 lambda r: ginext.private.invoke(
                     "Gio", "DBusConnection.new_for_address_finish", r
@@ -133,7 +133,7 @@ def session_bus(_dbus_daemon: _Bus) -> Generator[Gio.DBusConnection]:
         ginext.private.invoke("Gio", "DBusConnection.close", conn, None, cb)
 
     async def _close() -> object:
-        return await aio._AsyncOperation(
+        return await aio.AsyncOperation(
             _start_close,
             lambda r: ginext.private.invoke(
                 "Gio", "DBusConnection.close_finish", conn, r
@@ -169,7 +169,7 @@ def dbus_proxy(session_bus: Gio.DBusConnection) -> Generator[Gio.DBusProxy]:
         )
 
     async def _make() -> Gio.DBusProxy:
-        return await aio._AsyncOperation(
+        return await aio.AsyncOperation(
             _start_make,
             lambda r: Gio.DBusProxy.new_finish(r),  # type: ignore[arg-type]  # r is AsyncResult at runtime
         )
@@ -404,7 +404,7 @@ def test_signal_subscribe_receives_signal(session_bus: Gio.DBusConnection) -> No
             )
 
         async def _request_name() -> object:
-            return await aio._AsyncOperation(
+            return await aio.AsyncOperation(
                 _start_request,
                 lambda r: session_bus.call_finish(r),
             )
@@ -511,7 +511,7 @@ def test_register_object_dispatches_method_call(
         ):
             result = cast(
                 "GLib.Variant",
-                await aio._AsyncOperation(
+                await aio.AsyncOperation(
                     _start_echo,
                     lambda r: session_bus.call_finish(r),
                 ),

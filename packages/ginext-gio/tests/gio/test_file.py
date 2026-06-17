@@ -48,7 +48,7 @@ def _unlink_with_retry(path: str) -> None:
 if TYPE_CHECKING:
     from collections.abc import Generator
     from ginext import Gio, GLib
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
 import pytest
 
@@ -264,7 +264,7 @@ def test_delete(tmp_gfile: tuple[Gio.File, Gio.FileIOStream]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Async File operations (ginext.aio _AsyncOperation over GIO async/finish
+# Async File operations (ginext.aio AsyncOperation over GIO async/finish
 # pairs), driven by asyncio.run(..., loop_factory=aio.EventLoop).
 # ---------------------------------------------------------------------------
 
@@ -283,8 +283,8 @@ def hello_file() -> Generator[tuple[Gio.File, bytes]]:
         _unlink_with_retry(path)
 
 
-def _load_bytes_op(file: Gio.File, cancellable: object = None) -> _AsyncOperation:
-    """An _AsyncOperation over g_file_load_bytes_async / _finish."""
+def _load_bytes_op(file: Gio.File, cancellable: object = None) -> AsyncOperation:
+    """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
     def start(callback: Callable[[object, object], None]) -> None:
@@ -295,7 +295,7 @@ def _load_bytes_op(file: Gio.File, cancellable: object = None) -> _AsyncOperatio
         gb: GLib.Bytes = raw[0]
         return bytes(gb.get_data())
 
-    return aio._AsyncOperation(
+    return aio.AsyncOperation(
         start,
         finish,
         cancel=cancellable.cancel if cancellable else None,  # type: ignore[union-attr]
@@ -378,7 +378,7 @@ def test_asyncio_task_cancel_propagates_to_cancellable(
 def test_await_completes_under_aio_eventloop(
     hello_file: tuple[Gio.File, bytes],
 ) -> None:
-    """_AsyncOperation's asyncio branch resolves to completion when driven by the
+    """AsyncOperation's asyncio branch resolves to completion when driven by the
     native aio.EventLoop. Exercises the loop.create_future() /
     call_soon_threadsafe path the native runner tests don't reach."""
     import asyncio

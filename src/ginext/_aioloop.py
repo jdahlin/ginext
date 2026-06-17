@@ -54,7 +54,7 @@ from typing import Any, Protocol
 from . import GLib, private
 
 
-class _SupportsFileno(Protocol):
+class SupportsFileno(Protocol):
     def fileno(self) -> int: ...
 
 
@@ -62,7 +62,7 @@ class _SupportsFileno(Protocol):
 # imported from `_typeshed.FileDescriptorLike`, which does not exist at runtime
 # — and this alias is used as a ``Mapping[...]`` base, which is evaluated
 # eagerly even under PEP 563.
-FileDescriptorLike = int | _SupportsFileno
+FileDescriptorLike = int | SupportsFileno
 
 __all__ = ["EventLoop"]
 
@@ -76,11 +76,11 @@ class _EventSource(GLib.Source):
         return private.glib_event_source_new(cls)
 
 
-class _Source(_EventSource):
+class Source(_EventSource):
     """A GSource that polls the loop's registered fds and dispatches one
     asyncio `_run_once` iteration when fds are ready or a timeout is due."""
 
-    def __init__(self, selector: _Selector) -> None:
+    def __init__(self, selector: Selector) -> None:
         super().__init__()
         self._dispatching = False
         self.set_can_recurse(False)
@@ -130,7 +130,7 @@ class _Source(_EventSource):
         return ready
 
 
-class _FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
+class FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
     def __init__(self, fd_to_key: dict[int, selectors.SelectorKey]) -> None:
         self._fd_to_key = fd_to_key
 
@@ -147,15 +147,15 @@ class _FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
         return iter(self._fd_to_key)
 
 
-class _Selector(selectors.BaseSelector):
+class Selector(selectors.BaseSelector):
     """A selector that registers asyncio's fds with GLib instead of polling."""
 
     def __init__(self, loop: EventLoop) -> None:
         self._loop = loop
         self._fd_to_key: dict[int, selectors.SelectorKey] = {}
         self._fd_to_tag: dict[int, int] = {}
-        self._source: _Source | None = _Source(self)
-        self._map: _FileObjectMapping = _FileObjectMapping(self._fd_to_key)
+        self._source: Source | None = Source(self)
+        self._map: FileObjectMapping = FileObjectMapping(self._fd_to_key)
 
     def attach(self) -> None:
         assert self._source is not None
@@ -164,7 +164,7 @@ class _Selector(selectors.BaseSelector):
     def detach(self) -> None:
         if self._source is not None and hash(self._source):
             self._source.destroy()
-        self._source = _Source(self)
+        self._source = Source(self)
         self._fd_to_tag.clear()
         for key in self._fd_to_key.values():
             self._register_key(key)
@@ -235,7 +235,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         self._main_loop = GLib.MainLoop.new(self._context, False)
         self._may_iterate = False
         self._quit_funcs: list[Callable[[], object]] = []
-        super().__init__(_Selector(self))
+        super().__init__(Selector(self))
         # _run_once floors timeouts to 0; keep a small resolution so we do not
         # busy-loop on sub-millisecond timers.
         self._clock_resolution = 1e-3
