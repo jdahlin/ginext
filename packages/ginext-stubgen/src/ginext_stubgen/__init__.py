@@ -784,6 +784,9 @@ class Parser:
             )
         array_el = parent.find("gi:array", NS)
         if array_el is not None:
+            child_type = array_el.find("gi:type", NS)
+            if child_type is not None and child_type.get("name") == "guint8":
+                return "bytes"
             inner = self._type_expr(
                 array_el, widen_enums=widen_enums, allow_pathlike=allow_pathlike
             )
@@ -1330,6 +1333,8 @@ def _widen_glib_bytes_input(type_expr: str) -> str:
         if widened == base:
             return type_expr
         return f"{widened} | None"
+    if type_expr == "bytes":
+        return "bytes | list[int]"
     if type_expr == "Bytes":
         return "bytes | Bytes"
     if type_expr == "GLib.Bytes":
