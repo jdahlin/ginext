@@ -187,7 +187,7 @@ class TestNativeSignals:
             "from ginext.GObject import SignalConnection, Signal, SignalMethod, "
             "DetailedSignal" in native
         )
-        assert "class Signal(Generic[_SigO, _SigP, _SigR]):" not in native
+        assert "class Signal(Generic[SigO, _SigP, SigR]):" not in native
 
     def test_no_string_connect_overloads_in_native(self, native: str) -> None:
         assert "def connect(self, signal: Literal[" not in native

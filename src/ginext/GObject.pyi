@@ -39,9 +39,9 @@ from ginext.private import GIMeta
 
 from .signal.connection import SignalConnection as SignalConnection
 
-_SigO = TypeVar("_SigO")
+SigO = TypeVar("SigO")
 _SigP = _ParamSpec("_SigP")
-_SigR = TypeVar("_SigR")
+SigR = TypeVar("SigR")
 
 # These are re-exported from gi.repository.GObject; callers use the generated
 # stubs in build/stubs/ginext/GObject.pyi for precise types.
@@ -52,8 +52,8 @@ SignalFlags: Any = ...
 ParamFlags: Any = ...
 
 
-class Signal(Generic[_SigO, _SigP, _SigR]):
-    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
+class Signal(Generic[SigO, _SigP, SigR]):
+    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> SigR: ...
     def connect(
         self,
         handler: Callable[..., object],
@@ -66,11 +66,11 @@ class Signal(Generic[_SigO, _SigP, _SigR]):
         self,
         handler: Callable[..., object],
     ) -> SignalConnection: ...
-    def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> _SigR: ...
+    def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> SigR: ...
     def disconnect(self, connection: SignalConnection) -> None: ...
-class DetailedSignal(Signal[_SigO, _SigP, _SigR]):
+class DetailedSignal(Signal[SigO, _SigP, SigR]):
     @overload
-    def __call__(self, detail: str | Any) -> "Signal[_SigO, _SigP, _SigR]": ...
+    def __call__(self, detail: str | Any) -> "Signal[SigO, _SigP, SigR]": ...
     @overload
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 

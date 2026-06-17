@@ -1605,9 +1605,9 @@ class Emitter:
             self.lines.append("")
             return
 
-        self.lines.append("_SigO = TypeVar('_SigO')")
+        self.lines.append("SigO = TypeVar('SigO')")
         self.lines.append("_SigP = _ParamSpec('_SigP')")
-        self.lines.append("_SigR = TypeVar('_SigR')")
+        self.lines.append("SigR = TypeVar('SigR')")
         self.lines.append("")
         # In .pyi stubs, properties are declared as bare typed attributes;
         # @property is not needed and triggers [untyped-decorator].
@@ -1630,10 +1630,10 @@ class Emitter:
         # Signal = connect/emit only.
         # SignalMethod = also callable (method-backed signals).
         # DetailedSignal = callable with a detail key → returns scoped Signal.
-        self.lines.append("class Signal(Generic[_SigO, _SigP, _SigR]):")
+        self.lines.append("class Signal(Generic[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) "
-            "-> _SigR: ..."
+            "-> SigR: ..."
         )
         self.lines.append(
             "    def connect(self, handler: Callable[..., object], *, after: bool = ..., once: bool = ..., owner: Any = ...) -> SignalConnection: ..."
@@ -1643,21 +1643,21 @@ class Emitter:
         )
         self.lines.append(
             "    def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> "
-            "_SigR: ..."
+            "SigR: ..."
         )
         self.lines.append(
             "    def disconnect(self, connection: SignalConnection) -> None: ..."
         )
-        self.lines.append("class SignalMethod(Signal[_SigO, _SigP, _SigR]):")
+        self.lines.append("class SignalMethod(Signal[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) "
-            "-> _SigR: ..."
+            "-> SigR: ..."
         )
         self.lines.append("")
-        self.lines.append("class DetailedSignal(Signal[_SigO, _SigP, _SigR]):")
+        self.lines.append("class DetailedSignal(Signal[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, detail: str | GObject.Property) -> "
-            "'Signal[_SigO, _SigP, _SigR]': ..."
+            "'Signal[SigO, _SigP, SigR]': ..."
         )
         self.lines.append("")
 
