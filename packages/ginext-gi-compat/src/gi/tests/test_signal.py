@@ -608,7 +608,7 @@ class CM(GObject.GObject):
     testprop = GObject.Property(type=int)
 
 
-class _TestCMarshaller(unittest.TestCase):
+class TestCMarshaller(unittest.TestCase):
     def setUp(self):
         self.obj = CM()
         testhelper.connectcallbacks(self.obj)
@@ -728,7 +728,7 @@ class _TestCMarshaller(unittest.TestCase):
         self.assertEqual(self.obj.emit("test-gvalue-ret", GObject.TYPE_STRING), "hello")
 
 
-class TestCMarshaller(_TestCMarshaller, unittest.TestCase):
+class TestCMarshaller(TestCMarshaller, unittest.TestCase):
     pass
 
 
@@ -940,7 +940,7 @@ class TestSignalConnectors(unittest.TestCase):
         self.assertEqual(self.value, 3)
 
 
-class _ConnectDataTestBase:
+class ConnectDataTestBase:
     # Notes:
     #  - self.Object is overridden in sub-classes.
     #  - Numeric suffixes indicate the number of user data args passed in.
@@ -1040,7 +1040,7 @@ class _ConnectDataTestBase:
             )
 
 
-class TestConnectDataNonIntrospected(_ConnectDataTestBase, unittest.TestCase):
+class TestConnectDataNonIntrospected(ConnectDataTestBase, unittest.TestCase):
     # This tests connect_data with non-introspected signals
     # (created in Python in this case).
     class Object(GObject.Object):
@@ -1052,7 +1052,7 @@ class TestConnectDataNonIntrospected(_ConnectDataTestBase, unittest.TestCase):
         )
 
 
-class TestConnectDataIntrospected(_ConnectDataTestBase, unittest.TestCase):
+class TestConnectDataIntrospected(ConnectDataTestBase, unittest.TestCase):
     # This tests connect_data with introspected signals brought in from Regress.
     Object = Regress.TestObj
 
@@ -1392,7 +1392,7 @@ class TestIntrospectedSignalsIssue158(unittest.TestCase):
         gc_thread.join()
 
 
-class _ConnectObjectTestBase:
+class ConnectObjectTestBase:
     # Notes:
     #  - self.Object is overridden in sub-classes.
     #  - Numeric suffixes indicate the number of user data args passed in.
@@ -1466,7 +1466,7 @@ class _ConnectObjectTestBase:
         self.assertEqual(data2, "mydata2")
 
 
-class TestConnectGObjectNonIntrospected(_ConnectObjectTestBase, unittest.TestCase):
+class TestConnectGObjectNonIntrospected(ConnectObjectTestBase, unittest.TestCase):
     # This tests connect_object with non-introspected signals
     # (created in Python in this case).
     class Object(GObject.Object):
@@ -1482,7 +1482,7 @@ class TestConnectGObjectNonIntrospected(_ConnectObjectTestBase, unittest.TestCas
         pass
 
 
-class TestConnectGObjectIntrospected(_ConnectObjectTestBase, unittest.TestCase):
+class TestConnectGObjectIntrospected(ConnectObjectTestBase, unittest.TestCase):
     # This tests connect_object with introspected signals brought in from Regress.
     Object = Regress.TestObj
 
@@ -1491,7 +1491,7 @@ class TestConnectGObjectIntrospected(_ConnectObjectTestBase, unittest.TestCase):
         pass
 
 
-class TestConnectPyObjectNonIntrospected(_ConnectObjectTestBase, unittest.TestCase):
+class TestConnectPyObjectNonIntrospected(ConnectObjectTestBase, unittest.TestCase):
     # This tests connect_object with non-introspected signals
     # (created in Python in this case).
     class Object(GObject.Object):
@@ -1506,7 +1506,7 @@ class TestConnectPyObjectNonIntrospected(_ConnectObjectTestBase, unittest.TestCa
     SwapObject = object
 
 
-class TestConnectPyObjectIntrospected(_ConnectObjectTestBase, unittest.TestCase):
+class TestConnectPyObjectIntrospected(ConnectObjectTestBase, unittest.TestCase):
     # This tests connect_object with introspected signals brought in from Regress.
     Object = Regress.TestObj
 
@@ -1514,7 +1514,7 @@ class TestConnectPyObjectIntrospected(_ConnectObjectTestBase, unittest.TestCase)
     SwapObject = object
 
 
-class _RefCountTestBase:
+class RefCountTestBase:
     # NOTE: ref counts are always one more than expected because the getrefcount()
     # function adds a ref for the input argument.
 
@@ -1657,7 +1657,7 @@ class _RefCountTestBase:
         self.assertFalse(obj.handler_is_connected(handler_id))
 
 
-class TestRefCountsNonIntrospected(_RefCountTestBase, unittest.TestCase):
+class TestRefCountsNonIntrospected(RefCountTestBase, unittest.TestCase):
     class Object(GObject.Object):
         sig_with_int64_prop = GObject.Signal(
             return_type=GObject.TYPE_INT64,
@@ -1666,7 +1666,7 @@ class TestRefCountsNonIntrospected(_RefCountTestBase, unittest.TestCase):
         )
 
 
-class TestRefCountsIntrospected(_RefCountTestBase, unittest.TestCase):
+class TestRefCountsIntrospected(RefCountTestBase, unittest.TestCase):
     Object = Regress.TestObj
 
 

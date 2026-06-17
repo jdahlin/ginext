@@ -38,12 +38,12 @@ from ginext import private
 from gi.repository import GLib
 
 
-class _EventSource(GLib.Source):
+class EventSource(GLib.Source):
     def __new__(cls, *args, **kwargs):
         return private.glib_event_source_new(cls)
 
 
-class _IdleSource(_EventSource):
+class IdleSource(EventSource):
     """Internal helper source for idle task handling
 
     The only advantage is that we can keep the source around.
@@ -99,7 +99,7 @@ class GLibTask(asyncio.Task):
         return GLibTask(coro, loop=loop, **kwargs)
 
 
-class _GLibEventLoopMixin:
+class GLibEventLoopMixin:
     """Base functionally required for both proactor and selector.
 
     The proactor/selector is always available through _selector, and we assume
@@ -209,7 +209,7 @@ class _GLibEventLoopMixin:
                     self._quit_funcs[-1]()
             return
 
-        # cpython >= 3.13 has _run_forever_setup (see also _GLibEventLoopRunMixin)
+        # cpython >= 3.13 has _run_forever_setup (see also GLibEventLoopRunMixin)
         if hasattr(self, "_run_forever_setup"):
             self._run_forever_setup()
         else:
@@ -229,7 +229,7 @@ class _GLibEventLoopMixin:
             assert not self._selector._source._dispatching
             self._may_iterate = True
             self._selector.attach()
-            self._idle_source = _IdleSource(self)
+            self._idle_source = IdleSource(self)
             self._idle_source.attach(self._context)
             self._idle_source.set_name("GLibEventLoop._idle_source")
             if self._idle_tasks:
@@ -402,7 +402,7 @@ class _GLibEventLoopMixin:
             self._ctx_was_set = False
 
 
-class _GLibEventLoopRunMixin:
+class GLibEventLoopRunMixin:
     # This class exists so we don't need to copy the ProactorEventLoop.run_forever,
     # instead, we change the MRO using a metaclass, so that super() sees this class
     # when called in ProactorEventLoop.run_forever.
@@ -427,7 +427,7 @@ class _GLibEventLoopRunMixin:
             self._main_loop.run()
 
 
-class _SourceBase(_EventSource):
+class SourceBase(EventSource):
     """Common Source functionality for both unix and win32"""
 
     def __init__(self, selector):
@@ -471,7 +471,7 @@ class _SourceBase(_EventSource):
         return ready
 
 
-class _SelectorMixin:
+class SelectorMixin:
     """A Mixin for common functionality of the Selector and Proactor."""
 
     def __init__(self, context, loop):
@@ -502,7 +502,7 @@ if sys.platform != "win32":
     from gi.repository import GLibUnix
 
     class GLibEventLoop(
-        _GLibEventLoopMixin, _GLibEventLoopRunMixin, asyncio.SelectorEventLoop
+        GLibEventLoopMixin, GLibEventLoopRunMixin, asyncio.SelectorEventLoop
     ):
         """An asyncio event loop that runs the python mainloop inside GLib.
 
@@ -532,7 +532,7 @@ if sys.platform != "win32":
         # The rest is done by the mixin which overrides run_forever to simply
         # iterate the main context.
         def __init__(self, main_context=None):
-            _GLibEventLoopMixin.__init__(self, main_context)
+            GLibEventLoopMixin.__init__(self, main_context)
 
             # _UnixSelectorEventLoop uses _signal_handlers, we could do the same,
             # with the difference that close() would clean up the handlers for us.
@@ -621,7 +621,7 @@ if sys.platform != "win32":
             return fileobj
         return fileobj.fileno()
 
-    class _Source(_SourceBase):
+    class _Source(SourceBase):
         def prepare(self):
             timeout = self._loop()._get_timeout_ms()
 
@@ -676,7 +676,7 @@ if sys.platform != "win32":
         def __iter__(self):
             return iter(self.fd_dict)
 
-    class _Selector(_SelectorMixin, selectors.BaseSelector):
+    class _Selector(SelectorMixin, selectors.BaseSelector):
         """A Selector for gi.events.GLibEventLoop registering python IO with GLib."""
 
         def __init__(self, context, loop):
@@ -752,17 +752,17 @@ else:
     class _PushRunMixinBackMeta(type):
         # This metaclass changes the MRO so that when run_forever is called, it
         # first calls asyncio.ProactorEventLoop and then chains into
-        # _GLibEventLoopRunMixin.run_forever using super().
+        # GLibEventLoopRunMixin.run_forever using super().
         # The alternative would be to copy asyncio.ProactorEventLoop.run_forever
         def mro(cls):
             mro = type.mro(cls)
-            idx = mro.index(_GLibEventLoopRunMixin)
+            idx = mro.index(GLibEventLoopRunMixin)
 
             return [*mro[:idx], mro[idx + 1], mro[idx], *mro[idx + 2 :]]
 
     class GLibEventLoop(
-        _GLibEventLoopMixin,
-        _GLibEventLoopRunMixin,
+        GLibEventLoopMixin,
+        GLibEventLoopRunMixin,
         asyncio.ProactorEventLoop,
         metaclass=_PushRunMixinBackMeta,
     ):
@@ -773,7 +773,7 @@ else:
 
         # This is based on the Windows ProactorEventLoop
         def __init__(self, main_context=None):
-            _GLibEventLoopMixin.__init__(self, main_context)
+            GLibEventLoopMixin.__init__(self, main_context)
 
             proactor = _Proactor(self._context, self)
             # Sets both self._proactor and self._selector to the proactor
@@ -785,7 +785,7 @@ else:
             # Use our custom Task subclass
             self._task_factory = GLibTask._factory
 
-    class _Source(_SourceBase):
+    class _Source(SourceBase):
         def __init__(self, proactor):
             super().__init__(proactor)
 
@@ -823,7 +823,7 @@ else:
 
             return self._loop()._get_timeout_ms() == 0
 
-    class _Proactor(_SelectorMixin, asyncio.IocpProactor):
+    class _Proactor(SelectorMixin, asyncio.IocpProactor):
         """A Proactor for gi.events.GLibEventLoop registering python IO with GLib."""
 
         def __init__(self, context, loop):

@@ -169,7 +169,7 @@ def find_vfunc_conflict_in_bases(vfunc, bases):
     return None
 
 
-class _GObjectMetaBase(type):
+class GObjectMetaBase(type):
     """Metaclass for automatically registering GObject classes."""
 
     def __new__(cls, name, bases, namespace, **kwargs):
@@ -199,10 +199,10 @@ class _GObjectMetaBase(type):
         _gi.type_register(cls, namespace.get("__gtype_name__"))
 
 
-_gi._install_metaclass(_GObjectMetaBase)
+_gi._install_metaclass(GObjectMetaBase)
 
 
-class GObjectMeta(_GObjectMetaBase, MetaClassHelper):
+class GObjectMeta(GObjectMetaBase, MetaClassHelper):
     """Meta class used for GI GObject based types."""
 
     def __init__(cls, name, bases, dict_):

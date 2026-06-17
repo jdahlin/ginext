@@ -189,7 +189,7 @@ def install_signals(cls: type) -> None:
             setattr(cls, func_name, signal.func)
 
 
-class _CompatSignalDescriptor(SignalDescriptor):
+class CompatSignalDescriptor(SignalDescriptor):
     def __init__(
         self,
         *arg_types: type,
@@ -258,7 +258,7 @@ def iter_pygobject_signal_descriptors(
         signal_name = raw_name.replace("_", "-")
         resolved_arg_types = tuple(_compat_signal_type(t) for t in arg_types)
         resolved_return_type = _compat_signal_type(return_type)
-        descriptor = _CompatSignalDescriptor(
+        descriptor = CompatSignalDescriptor(
             *cast("tuple[type, ...]", resolved_arg_types),
             name=signal_name,
             return_type=cast("type | None", resolved_return_type),

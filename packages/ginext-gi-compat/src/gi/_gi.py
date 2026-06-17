@@ -141,14 +141,14 @@ import ginext.GIRepository as _gir
 from ginext import private as _private
 
 
-class _InfoWrapperMeta(type):
+class InfoWrapperMeta(type):
     _ctype: type = object
 
     def __init__(
         cls, name: str, bases: tuple, namespace: dict, **kwargs: object
     ) -> None:
         super().__init__(name, bases, namespace, **kwargs)
-        if bases and any(isinstance(b, _InfoWrapperMeta) for b in bases):
+        if bases and any(isinstance(b, InfoWrapperMeta) for b in bases):
             try:
                 type.__delattr__(cls, "__module__")
             except AttributeError:
@@ -202,7 +202,7 @@ def _wrap_list_with_container(
     return [w for i in infos if (w := _wrap_info(i, container)) is not None]
 
 
-class RepositoryInfo(metaclass=_InfoWrapperMeta):
+class RepositoryInfo(metaclass=InfoWrapperMeta):
     __slots__ = ("namespace", "name", "kind", "info", "_container")
     _ctype: type = object
 

@@ -154,7 +154,7 @@ def emit(self: Any, signal_name: str, *args: object) -> object:
 def get_property(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-")
     attr_name = prop_name.replace("-", "_")
-    # Only delegate to _CompatProperty getters (not generic Python property objects)
+    # Only delegate to CompatProperty getters (not generic Python property objects)
     # so that get_property() always reads GObject native storage for plain properties.
     descriptor = type(self).__dict__.get(attr_name)
     if (
@@ -162,9 +162,9 @@ def get_property(self: Any, name: str) -> object:
         and hasattr(descriptor, "fget")
         and descriptor.fget is not None
     ):
-        from gi._propertyhelper import _CompatProperty
+        from gi._propertyhelper import CompatProperty
 
-        if isinstance(descriptor, _CompatProperty):
+        if isinstance(descriptor, CompatProperty):
             return descriptor.fget(self)
     try:
         return type(self).gimeta.get_property(self, prop_name)
@@ -278,7 +278,7 @@ def get_properties(self: Any, *names: str) -> tuple[object, ...]:
     return tuple(self.get_property(name) for name in names)
 
 
-class _ParamSpecWrapper:
+class ParamSpecWrapper:
     """Wraps a ginext ParamSpec, adding flags_class / enum_class for compat."""
 
     __slots__ = ("_pspec", "_owner_cls")
@@ -406,7 +406,7 @@ def find_property(cls: Any, name: str) -> object:
     pspec = cls.gimeta.param_spec(prop_name)
     if pspec is None:
         raise AttributeError(f"no property '{name}'")
-    return _ParamSpecWrapper(pspec, owner_cls=cls)
+    return ParamSpecWrapper(pspec, owner_cls=cls)
 
 
 @overlay.method("Object")
@@ -513,16 +513,16 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 and hasattr(val, "get_signal_args")
             ):
                 # PyGObject Signal (str subclass descriptor).  A ginext
-                # _CompatSignalDescriptor was registered in gimeta.signal_infos
+                # CompatSignalDescriptor was registered in gimeta.signal_infos
                 # during class building (from __gsignals__) — check there first.
                 # If missing (Signal defined directly as class attr, not via
-                # __gsignals__), register it now as a _CompatSignalDescriptor.
+                # __gsignals__), register it now as a CompatSignalDescriptor.
                 # Use duck-typing instead of isinstance(val, Signal) so that
                 # module reloads (e.g. test fixtures that pop gi._signalhelper
                 # from sys.modules) don't break class identity checks on
                 # existing Signal instances.
                 from gi._signalhelper import (
-                    _CompatSignalDescriptor,
+                    CompatSignalDescriptor,
                     _compat_signal_type,
                 )
 
@@ -542,7 +542,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     resolved_ret = cast(
                         "type | None", _compat_signal_type(val.return_type)
                     )
-                    sd = _CompatSignalDescriptor(
+                    sd = CompatSignalDescriptor(
                         *resolved_args,
                         name=signal_name,
                         return_type=resolved_ret,
@@ -751,7 +751,7 @@ def handler_unblock_by_func(self: Any, callback: Callable[..., Any]) -> int:
     return count
 
 
-class _PythonBinding:
+class PythonBinding:
     """Pure-Python binding that applies transform functions via signal connections."""
 
     def __init__(
@@ -850,7 +850,7 @@ def _make_compat_bind_property(gobject_cls: Any) -> None:
         transform_from: Any,
         user_data: Any,
     ) -> object:
-        return _PythonBinding(
+        return PythonBinding(
             source,
             source_property,
             target,

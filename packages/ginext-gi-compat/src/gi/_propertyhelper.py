@@ -62,7 +62,7 @@ T = TypeVar("T")
 _unset_sentinel = unset
 
 
-class _CompatProperty(Generic[T]):
+class CompatProperty(Generic[T]):
     """Standalone compat property descriptor — no Property inheritance.
 
     Provides PyGObject-compatible getter/setter decorator support on top of
@@ -323,17 +323,17 @@ class _CompatProperty(Generic[T]):
             if doc:
                 self.blurb = doc
 
-    def __call__(self, getter: object) -> _CompatProperty[T]:
+    def __call__(self, getter: object) -> CompatProperty[T]:
         if not callable(getter):
             raise TypeError("GObject.Property getter must be callable")
         self.fget = getter
         self._infer_type_from_getter()
         return self
 
-    def getter(self, getter: object) -> _CompatProperty[T]:
+    def getter(self, getter: object) -> CompatProperty[T]:
         return self(getter)
 
-    def setter(self, setter: object) -> _CompatProperty[T]:
+    def setter(self, setter: object) -> CompatProperty[T]:
         if not callable(setter):
             raise TypeError("GObject.Property setter must be callable")
         self.fset = setter
@@ -408,7 +408,7 @@ if TYPE_CHECKING:
         minimum: RangeValue | None = None,
         getter: Any = None,
         setter: Any = None,
-    ) -> _CompatProperty[Any]: ...
+    ) -> CompatProperty[Any]: ...
 
     def CompatProperty(
         value_type: type[T] | None = None,
@@ -417,14 +417,14 @@ if TYPE_CHECKING:
     ) -> Any: ...
 
 else:
-    CompatProperty = _CompatProperty
+    CompatProperty = CompatProperty
 
 
 def install_properties(cls: type) -> None:
     properties = {
         name: attr
         for name, attr in cls.__dict__.items()
-        if isinstance(attr, (PropertyBase, _CompatProperty))
+        if isinstance(attr, (PropertyBase, CompatProperty))
     }
     if not properties:
         return

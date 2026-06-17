@@ -54,12 +54,12 @@ class ClassPropsProxy:
         object.__setattr__(self, "_cls", cls)
 
     def __getattr__(self, name: str) -> Any:
-        from gi._gobject_compat_methods import _ParamSpecWrapper
+        from gi._gobject_compat_methods import ParamSpecWrapper
 
         canon = name.replace("_", "-")
         for pspec in _list_properties(self._cls):
             if pspec.name == canon or pspec.name.replace("-", "_") == name:
-                return _ParamSpecWrapper(pspec, owner_cls=self._cls)
+                return ParamSpecWrapper(pspec, owner_cls=self._cls)
         raise AttributeError(f"{self._cls.__name__} has no property {name!r}")
 
     def __setattr__(self, name: str, value: Any) -> None:

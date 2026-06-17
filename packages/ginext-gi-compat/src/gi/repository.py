@@ -74,7 +74,7 @@ def _gtype_from_pspec_ctypes(pspec: Any) -> type[GType]:
     return compat_gtype_from_raw(raw_gtype, type_name)
 
 
-class _GTypeCompatMeta(type):
+class GTypeCompatMeta(type):
     def __instancecheck__(cls, instance: Any) -> bool:
         from ginext.gobject.gtype import GTypeMeta
 
@@ -90,7 +90,7 @@ class _GTypeCompatMeta(type):
         return type.__subclasscheck__(cls, subclass)
 
 
-class GTypeCompat(metaclass=_GTypeCompatMeta):
+class GTypeCompat(metaclass=GTypeCompatMeta):
     """Compat GType factory: GType(obj) extracts the GType of obj."""
 
     def __new__(cls, obj: Any = None) -> Any:  # type: ignore[misc]
@@ -644,13 +644,13 @@ def _gobject_new(gtype_or_cls: object, **properties: object) -> object:
     if isinstance(gtype_or_cls, type):
         # Coerce property values to match declared property types (pygobject compat)
         if properties:
-            from gi._propertyhelper import _CompatProperty
+            from gi._propertyhelper import CompatProperty
 
             coerced = {}
             for k, v in properties.items():
                 desc = getattr(gtype_or_cls, k, None)
                 if (
-                    isinstance(desc, _CompatProperty)
+                    isinstance(desc, CompatProperty)
                     and desc.type is str
                     and not isinstance(v, str)
                 ):
@@ -1519,7 +1519,7 @@ def __getattr__(name: str) -> Any:
     elif name == "Gtk":
         _install_gtk_compat(namespace)
     extra_attrs = _apply_overrides(name, namespace)
-    proxy = _NamespaceModuleProxy(namespace, extra_attrs)
+    proxy = NamespaceModuleProxy(namespace, extra_attrs)
     # Replace the globals entry with the proxy so attribute access goes through
     # the proxy (types.ModuleType subclass, optional deprecation warnings).
     # sys.modules keeps the raw namespace so ginext internals still find it.
@@ -1530,7 +1530,7 @@ def __getattr__(name: str) -> Any:
 import types as _types
 
 
-class _NamespaceModuleProxy(_types.ModuleType):
+class NamespaceModuleProxy(_types.ModuleType):
     """Wraps a ginext namespace as a types.ModuleType so isinstance checks pass.
 
     ``__getattr__`` is stored as ``functools.partial(getattr, ns)`` in the
