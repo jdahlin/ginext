@@ -74,9 +74,7 @@ class DetailedSignal(Signal[SigO, _SigP, SigR]):
     @overload
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
-Signal = Signal
 SignalMethod = Signal
-DetailedSignal = DetailedSignal
 
 class HandlerBlockContext:
     def __init__(self, obj: Object, handler_id: int) -> None: ...
