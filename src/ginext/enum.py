@@ -40,11 +40,11 @@ EnumT = TypeVar("EnumT")
 
 
 def _register_genum(type_name: str, members: dict[str, int]) -> int:
-    return private.register_static(_GEnumMeta._G_TYPE_ENUM, type_name, members)
+    return private.register_static(GEnumMeta._G_TYPE_ENUM, type_name, members)
 
 
 def _register_gflags(type_name: str, members: dict[str, int]) -> int:
-    return private.register_static(_GFlagsMeta._G_TYPE_FLAGS, type_name, members)
+    return private.register_static(GFlagsMeta._G_TYPE_FLAGS, type_name, members)
 
 
 def _make_user_gtype(gtype_int: int) -> Any:
@@ -56,17 +56,17 @@ def _make_user_gtype(gtype_int: int) -> Any:
     return compat_gtype_from_raw(gtype_int, name)
 
 
-class _GEnumMeta(enum.EnumType):
+class GEnumMeta(enum.EnumType):
     # G_TYPE_ENUM = 48 (fundamental type index 12 << 2)
     _G_TYPE_ENUM: int = 48
 
     def __new__(
-        mcs: type[_GEnumMeta],
+        mcs: type[GEnumMeta],
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
         **kwargs: Any,
-    ) -> _GEnumMeta:
+    ) -> GEnumMeta:
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)  # type: ignore[arg-type]
         if not any(getattr(b, "__genum_base__", False) for b in bases):
             return cls
@@ -81,16 +81,16 @@ class _GEnumMeta(enum.EnumType):
         return cls
 
 
-class _GFlagsMeta(enum.EnumType):
+class GFlagsMeta(enum.EnumType):
     _G_TYPE_FLAGS: int = 52
 
     def __new__(
-        mcs: type[_GFlagsMeta],
+        mcs: type[GFlagsMeta],
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
         **kwargs: Any,
-    ) -> _GFlagsMeta:
+    ) -> GFlagsMeta:
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)  # type: ignore[arg-type]
         if not any(getattr(b, "__gflags_base__", False) for b in bases):
             return cls
@@ -105,7 +105,7 @@ class _GFlagsMeta(enum.EnumType):
         return cls
 
 
-class _GTypeLazy:
+class GTypeLazy:
     """Descriptor that lazily initialises __gtype__ for GEnum/GFlags base classes."""
 
     def __init__(self, gtype_int: int) -> None:
@@ -121,7 +121,7 @@ class _GTypeLazy:
         pass
 
 
-class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
+class GEnum(int, enum.ReprEnum, metaclass=GEnumMeta):
     """Base class for Python-defined GObject enum types.
 
     Subclass this and define integer members; the metaclass registers the
@@ -130,10 +130,10 @@ class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
 
     __genum_base__ = True
     # G_TYPE_ENUM = 48 — lazy so GObject namespace isn't loaded at import time
-    __gtype__ = _GTypeLazy(48)
+    __gtype__ = GTypeLazy(48)
 
 
-class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
+class GFlags(enum.IntFlag, metaclass=GFlagsMeta):
     """Base class for Python-defined GObject flags types.
 
     Subclass this and define integer members; the metaclass registers the
@@ -142,7 +142,7 @@ class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
 
     __gflags_base__ = True
     # G_TYPE_FLAGS = 52
-    __gtype__ = _GTypeLazy(52)
+    __gtype__ = GTypeLazy(52)
 
 
 def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
