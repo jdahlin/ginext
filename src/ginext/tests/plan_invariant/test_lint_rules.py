@@ -137,4 +137,4 @@ def test_no_noqa_b009_in_sources() -> None:
         for lineno, line in enumerate(path.read_text().splitlines(), 1):
             if pattern.search(line):
                 violations.append(f"{path.relative_to(_ROOT)}:{lineno}: {line.strip()}")
-    assert not violations, "Found # noqa: B009 suppressions:\n" + "\n".join(violations)
+    assert not violations, "Found noqa-B009 suppressions:\n" + "\n".join(violations)
