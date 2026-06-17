@@ -21,14 +21,14 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from ginext.tests.conftest import _MakeSubclass
+from ginext.tests.conftest import MakeSubclass
 
 if TYPE_CHECKING:
-    from ginext.GObject import Object as _GObjectBase
+    from ginext.GObject import Object as GObjectBase
 
 
 def test_two_level_subclass_registers_distinct_gtype(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         a: int = Property(default=1)  # type: ignore[operator]
@@ -41,7 +41,7 @@ def test_two_level_subclass_registers_distinct_gtype(
 
 
 def test_subclass_pspecs_only_lists_locally_declared(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         inherited: int = Property(default=1)  # type: ignore[operator]
@@ -53,7 +53,7 @@ def test_subclass_pspecs_only_lists_locally_declared(
     assert set(B.gimeta.pspecs) == {"own"}
 
 
-def test_three_level_parent_chain(GObject: type[_GObjectBase]) -> None:
+def test_three_level_parent_chain(GObject: type[GObjectBase]) -> None:
     class A(GObject):
         pass
 
@@ -68,7 +68,7 @@ def test_three_level_parent_chain(GObject: type[_GObjectBase]) -> None:
     assert A.gimeta.parent is GObject
 
 
-def test_subclass_prop_ids_restart_from_one(GObject: type[_GObjectBase], Property: object) -> None:
+def test_subclass_prop_ids_restart_from_one(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):
         a1: int = Property()  # type: ignore[operator]
         a2: int = Property()  # type: ignore[operator]
@@ -81,7 +81,7 @@ def test_subclass_prop_ids_restart_from_one(GObject: type[_GObjectBase], Propert
 
 
 def test_two_subclasses_of_same_parent_dont_collide(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class Base(GObject):
         x: int = Property(default=0)  # type: ignore[operator]
@@ -98,7 +98,7 @@ def test_two_subclasses_of_same_parent_dont_collide(
 
 
 def test_multiple_inheritance_picks_first_base(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         a: int = Property()  # type: ignore[operator]
@@ -113,7 +113,7 @@ def test_multiple_inheritance_picks_first_base(
     assert set(C.gimeta.pspecs) == {"c"}
 
 
-def test_read_inherited_property_default(GObject: type[_GObjectBase], Property: object) -> None:
+def test_read_inherited_property_default(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):
         x: int = Property(default=42)  # type: ignore[operator]
 
@@ -123,7 +123,7 @@ def test_read_inherited_property_default(GObject: type[_GObjectBase], Property: 
     assert B().x == 42
 
 
-def test_write_inherited_property_then_read(GObject: type[_GObjectBase], Property: object) -> None:
+def test_write_inherited_property_then_read(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):
         x: int = Property(default=0)  # type: ignore[operator]
 
@@ -136,7 +136,7 @@ def test_write_inherited_property_then_read(GObject: type[_GObjectBase], Propert
 
 
 def test_own_and_inherited_properties_dont_alias(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         x: int = Property(default=10)  # type: ignore[operator]
@@ -152,7 +152,7 @@ def test_own_and_inherited_properties_dont_alias(
 
 
 def test_inherited_property_independent_per_instance(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         x: int = Property(default=0)  # type: ignore[operator]
@@ -166,7 +166,7 @@ def test_inherited_property_independent_per_instance(
 
 
 def test_three_level_chain_all_properties_accessible(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         a_val: int = Property(default=1)  # type: ignore[operator]
@@ -186,7 +186,7 @@ def test_three_level_chain_all_properties_accessible(
 
 
 def test_five_level_chain(
-    make_subclass: _MakeSubclass, Property: object, GObject: type[_GObjectBase]
+    make_subclass: MakeSubclass, Property: object, GObject: type[GObjectBase]
 ) -> None:
     classes: list[object] = [GObject]
     for index in range(5):
@@ -203,7 +203,7 @@ def test_five_level_chain(
         assert getattr(obj, f"f{index}") == index
 
 
-def test_inheritance_with_mixed_types(GObject: type[_GObjectBase], Property: object) -> None:
+def test_inheritance_with_mixed_types(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):
         name: str = Property(default="alice")  # type: ignore[operator]
 
@@ -218,7 +218,7 @@ def test_inheritance_with_mixed_types(GObject: type[_GObjectBase], Property: obj
 
 
 def test_inherited_readonly_still_rejects_write(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         ro: int = Property(default=1, readonly=True)  # type: ignore[operator]
@@ -232,7 +232,7 @@ def test_inherited_readonly_still_rejects_write(
 
 
 def test_inherited_property_type_check_on_set(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         x: int = Property(default=0)  # type: ignore[operator]
@@ -246,7 +246,7 @@ def test_inherited_property_type_check_on_set(
 
 
 def test_subclass_redeclares_parent_property_name(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):
         x: int = Property(default=1)  # type: ignore[operator]
@@ -260,7 +260,7 @@ def test_subclass_redeclares_parent_property_name(
 
 
 def test_property_from_interface_can_be_overridden(
-    GObject: type[_GObjectBase], Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     from ginext import Gio
 
