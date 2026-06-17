@@ -47,11 +47,11 @@ def _css_data_bytes(data: str | bytes | bytearray, length: int) -> bytes:
 def _gtk_auto_init() -> None:
     # init_check is version-polymorphic (GTK3 takes argv, GTK4 takes none);
     # resolve it dynamically so either arity type-checks.
-    init_check = getattr(Gtk, "init_check")
+    init_check = Gtk.init_check
     ok = init_check([]) if Gtk.__version__[0] == 3 else init_check()
     if isinstance(ok, tuple):
         ok = ok[0]
-    setattr(Gtk, "_ginext_display_available", bool(ok))
+    Gtk._ginext_display_available = bool(ok)
 
 
 overlay.on_first_access(

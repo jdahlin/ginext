@@ -83,6 +83,7 @@ def _reset_ginext_features() -> Generator[None]:
     finally:
         ginext.features.reset_for_test()
 
+
 # Use the local (non-D-Bus) GIO backends for the whole test session, so file
 # operations never spin up the gvfs/volume-monitor backends (which would open a
 # session-bus connection of their own). GLib's own gdbus tests do the same.
@@ -185,8 +186,8 @@ def _suppress_editable_rebuild() -> tuple[list[str] | None, str | None]:
         modules = getattr(finder_obj, "_top_level_modules", None) or ()
         if "ginext" not in modules:
             continue
-        build_path = getattr(finder_obj, "_build_path")
-        ninja_cmd = getattr(finder_obj, "_build_cmd")
+        build_path = finder_obj._build_path
+        ninja_cmd = finder_obj._build_cmd
         break
 
     if build_path is None:
@@ -287,7 +288,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 subprocess.run(
                     ninja_cmd, cwd=build_path, stdout=subprocess.DEVNULL, check=True
                 )
-            except (OSError, subprocess.SubprocessError):
+            except OSError, subprocess.SubprocessError:
                 pass
     finally:
         if saved is not None:
@@ -519,7 +520,7 @@ def pytest_collection_modifyitems(
 @pytest.fixture(autouse=True)
 def _reset_scoped_defaults_state(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     path = request.node.path.as_posix()
     needs_defaults = "/defaults/" in path
     needs_namespace = "/namespace/" in path
@@ -564,7 +565,7 @@ def _reset_scoped_defaults_state(
 @pytest.fixture(autouse=True)
 def _force_native_signal_surface(
     request: pytest.FixtureRequest,
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     path = request.node.path.as_posix()
     if "/features/" in path:
         yield
@@ -597,7 +598,9 @@ def unique_type_name() -> Callable[[str], str]:
 
 
 @pytest.fixture
-def make_subclass(GObject: object, unique_type_name: Callable[[str], str]) -> _MakeSubclass:
+def make_subclass(
+    GObject: object, unique_type_name: Callable[[str], str]
+) -> _MakeSubclass:
     def _make(
         fields: dict[str, tuple[type, object]] | None = None,
         *,
@@ -605,7 +608,7 @@ def make_subclass(GObject: object, unique_type_name: Callable[[str], str]) -> _M
         prefix: str = "Sub",
         attrs: dict[str, object] | None = None,
     ) -> type:
-        base = base or cast(type, GObject)
+        base = base or cast("type", GObject)
         fields = fields or {}
         annotations = {name: typ for name, (typ, _) in fields.items()}
         body: dict[str, object] = {"__annotations__": annotations}
@@ -619,7 +622,9 @@ def make_subclass(GObject: object, unique_type_name: Callable[[str], str]) -> _M
 
 
 @pytest.fixture
-def make_property_class(make_subclass: _MakeSubclass, Property: object) -> _MakePropertyClass:
+def make_property_class(
+    make_subclass: _MakeSubclass, Property: object
+) -> _MakePropertyClass:
     def _make(
         annotation: type,
         *,
@@ -629,7 +634,7 @@ def make_property_class(make_subclass: _MakeSubclass, Property: object) -> _Make
         **property_kwargs: object,
     ) -> type:
         return make_subclass(
-            {name: (annotation, cast(_PropertyFactory, Property)(**property_kwargs))},
+            {name: (annotation, cast("_PropertyFactory", Property)(**property_kwargs))},
             base=base,
             prefix=prefix,
         )

@@ -130,7 +130,7 @@ def _callback_positional_arity(callback: Callable[..., Any]) -> _CallbackArity |
     """
     try:
         sig = inspect.signature(callback)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     required = 0
     accepted = 0

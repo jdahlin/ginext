@@ -47,7 +47,9 @@ class _TerminalAppLike(Protocol):
     def run(self, argv: list[str]) -> int: ...
 
 
-def _spin_main_context(predicate: Callable[[], bool], *, timeout_ms: int = 1000) -> bool:
+def _spin_main_context(
+    predicate: Callable[[], bool], *, timeout_ms: int = 1000
+) -> bool:
     context = GLib.MainContext.default()
     deadline = time.monotonic() + (timeout_ms / 1000)
     while time.monotonic() < deadline:
@@ -67,7 +69,7 @@ def _require_gtk4_display(wayland: object) -> None:
 
 
 def test_terminal_runtime_activation_opens_real_tabs(
-    monkeypatch: "MonkeyPatch",
+    monkeypatch: MonkeyPatch,
     tmp_path: object,
     wayland: object,
 ) -> None:
@@ -77,7 +79,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
     monkeypatch.setenv("SHELL", "/bin/sh")
 
     terminal_app = importlib.import_module("examples.terminal.app")
-    app_cls = getattr(terminal_app, "TerminalApp")
+    app_cls = terminal_app.TerminalApp
 
     monkeypatch.setattr(
         terminal_app,
@@ -85,7 +87,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
         f"org.ginext.TerminalRuntimeTest{os.getpid()}.t{uuid.uuid4().hex}",
     )
 
-    app = cast(_TerminalAppLike, app_cls())
+    app = cast("_TerminalAppLike", app_cls())
     observed: dict[str, int] = {}
 
     def drive_activations() -> bool:
@@ -97,7 +99,9 @@ def test_terminal_runtime_activation_opens_real_tabs(
             return True
 
         observed["initial_pages"] = window.tab_view.get_n_pages()
-        Gtk.NamedAction.new("win.new-tab").activate(0, cast("Gtk.Widget", terminal), None)
+        Gtk.NamedAction.new("win.new-tab").activate(
+            0, cast("Gtk.Widget", terminal), None
+        )
         observed["after_shortcut_pages"] = window.tab_view.get_n_pages()
         return False
 

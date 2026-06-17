@@ -201,9 +201,7 @@ def test_list_store_setitem_negative_index(
     assert list_store[:] == [replacement]
 
 
-def test_list_store_setitem_slice(
-    list_store: Any, list_store_item: Any
-) -> None:
+def test_list_store_setitem_slice(list_store: Any, list_store_item: Any) -> None:
     a = list_store_item()
     b = list_store_item()
     list_store.append(a)

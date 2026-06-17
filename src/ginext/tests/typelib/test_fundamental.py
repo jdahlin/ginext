@@ -173,7 +173,7 @@ def test_construct_then_drop(regress: Namespace) -> None:
 )
 def test_primitive_fundamental_bitmask(regress: Namespace) -> None:
     bm = regress.Bitmask(2)
-    assert getattr(bm, "v") == 2
+    assert bm.v == 2
 
 
 # ---------------------------------------------------------------------------

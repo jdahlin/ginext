@@ -64,7 +64,7 @@ class Signal:
 
     def __init__(
         self,
-        source: "GObject",
+        source: GObject,
         name: str,
         info: SignalInfo | None,
         method: Callable[..., Any] | None = None,
@@ -96,7 +96,7 @@ class Signal:
             )
         return 0
 
-    def _detail_signal(self, detail: object) -> "Signal":
+    def _detail_signal(self, detail: object) -> Signal:
         from ..gobject.properties import PropertyBase as Property
 
         self._source_ptr()
@@ -116,10 +116,10 @@ class Signal:
             arg_gtypes=self._arg_gtypes,
         )
 
-    def detail_signal(self, detail: object) -> "Signal":
+    def detail_signal(self, detail: object) -> Signal:
         return self._detail_signal(detail)
 
-    def __getitem__(self, detail: object) -> "Signal":
+    def __getitem__(self, detail: object) -> Signal:
         return self._detail_signal(detail)
 
     def __call__(self, *args: object, **kwargs: object) -> object:

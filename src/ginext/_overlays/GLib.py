@@ -70,7 +70,7 @@ def _register_glib_unix_deprecations() -> None:
             "GLibUnix", version, profile=_ginext.abi.PYGOBJECT
         )
         unix_names = set(private.namespace_dir("GLibUnix", version))
-    except (ImportError, AttributeError, LookupError):
+    except ImportError, AttributeError, LookupError:
         # GLibUnix is absent on non-Unix platforms (e.g. Windows uses GLibWin32).
         return
     overlay.deprecated("UnixPipe", GLibUnix.Pipe, "GLibUnix.Pipe")
@@ -240,9 +240,7 @@ def child_watch_add(fn: Any, *args: Any, **kwargs: Any) -> Any:
 
 
 @overlay.replace
-def log_set_writer_func(
-    fn: Any, func: object = None, user_data: object = None
-) -> None:
+def log_set_writer_func(fn: Any, func: object = None, user_data: object = None) -> None:
     """Install a log writer function with an optional user_data argument."""
     fn(func, user_data)
 

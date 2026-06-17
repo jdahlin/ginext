@@ -43,7 +43,7 @@ _RUNTIME: str | None = None
 def _load_state(state_path: pathlib.Path) -> dict[str, object] | None:
     try:
         state = json.loads(state_path.read_text())
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    except FileNotFoundError, json.JSONDecodeError, OSError:
         return None
     if not isinstance(state, dict):
         return None

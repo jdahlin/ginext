@@ -345,10 +345,12 @@ extend-select = [
     "UP031",   # pyupgrade: percent-format → f-string.
     "RET505",  # flake8-return: superfluous else after return.
     "PERF401", # perflint: manual list-append loop → list comprehension/extend.
-    "B110",    # flake8-bugbear: try-except-pass — silences exceptions; use contextlib.suppress.
+    "S110",    # flake8-bandit: try-except-pass — silences exceptions; use contextlib.suppress.
 ]
 ignore = [
     "SIM105",  # Explicit narrow except/pass is fine; BLE001/E722 still catch broad catches.
+    "ISC001",  # Conflict with ruff formatter (implicit string concat in parens).
+    "FURB110", # Superfluous: same as SIM105 (try-except-pass → contextlib.suppress).
 ]
 
 [tool.ruff.lint.flake8-builtins]
@@ -401,6 +403,7 @@ ignore-names = [
 
 [tool.ruff.lint.per-file-ignores]
 "stubs/**/*.pyi" = ["A002", "E501", "F401"]
+"packages/ginext-gi-compat/**/*.py" = ["RUF012", "SLOT001"]
 "scripts/*.py" = ["BLE001"]
 "src/ginext/_aioloop.py" = ["SLF001"]
 "src/ginext/aio.py" = ["BLE001", "F822", "SLF001"]

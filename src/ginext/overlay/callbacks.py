@@ -105,7 +105,7 @@ def bind_callback_types(
     resolved = tuple(_resolve_callback_arg_gtype(arg_type) for arg_type in arg_types)
     try:
         setattr(target, _BOUND_ATTR, resolved)
-    except (AttributeError, TypeError):
+    except AttributeError, TypeError:
         pass
     return callback
 

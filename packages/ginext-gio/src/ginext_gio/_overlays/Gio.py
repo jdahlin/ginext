@@ -180,9 +180,9 @@ def _register_gio_unix_deprecations() -> None:
         GioUnix = _ginext._load_namespace(
             "GioUnix", version, profile=_ginext.abi.PYGOBJECT
         )
-    except (ImportError, LookupError):
+    except ImportError, LookupError:
         return
-    except (AttributeError, RuntimeError):
+    except AttributeError, RuntimeError:
         return
     # GioUnix exposes a platform-dependent subset of these symbols: e.g.
     # DesktopAppInfo and the Unix{Input,Output}Stream types are absent on
@@ -328,9 +328,7 @@ def _validate_list_store_item(store: Any, item: Any) -> None:
     from ginext import GObject as _GObjectNS
 
     if not isinstance(item, private.GObject):
-        raise TypeError(
-            f"Expected a GObject, got {type(item).__name__!r}"
-        )
+        raise TypeError(f"Expected a GObject, got {type(item).__name__!r}")
     item_type = store.get_item_type()
     item_gtype = getattr(getattr(type(item), "gimeta", None), "gtype", None)
     if item_gtype is None or not _GObjectNS.type_is_a(item_gtype, item_type):
@@ -399,7 +397,9 @@ def insert_sorted(self: Any, item: Any, compare_func: Any, *user_data: Any) -> i
 
 
 @overlay.method("ListStore")
-def find_with_equal_func(self: Any, item: Any, equal_func: Any, *user_data: Any) -> tuple[bool, int]:
+def find_with_equal_func(
+    self: Any, item: Any, equal_func: Any, *user_data: Any
+) -> tuple[bool, int]:
     for i, stored in enumerate(self):
         if equal_func(stored, item, *user_data):
             return True, i

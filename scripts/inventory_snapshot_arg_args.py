@@ -84,7 +84,7 @@ def main(argv: list[str]) -> int:
             for prior in json.loads(args.out.read_text()):
                 if prior.get("skip_reason"):
                     prior_skips[prior["qualified"]] = prior["skip_reason"]
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             pass
     entries: list[dict[str, Any]] = []
     for jpath in sorted(args.inventory_dir.glob("*.json")):

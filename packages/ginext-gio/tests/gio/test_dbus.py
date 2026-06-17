@@ -70,7 +70,7 @@ class _Bus:
 
 
 @pytest.fixture(scope="module")
-def _dbus_daemon(dbus_session_bus: str) -> Generator[_Bus, None, None]:
+def _dbus_daemon(dbus_session_bus: str) -> Generator[_Bus]:
     """Hand out the address of the private session dbus-daemon.
 
     Backed by the session-scoped ``dbus_session_bus`` fixture (in the gio
@@ -84,7 +84,7 @@ def _dbus_daemon(dbus_session_bus: str) -> Generator[_Bus, None, None]:
 
 
 @pytest.fixture
-def session_bus(_dbus_daemon: _Bus) -> Generator[object, None, None]:
+def session_bus(_dbus_daemon: _Bus) -> Generator[object]:
     """Per-test D-Bus connection to the private bus.
 
     Uses new_for_address instead of bus_get so each test gets a fresh,
@@ -140,7 +140,7 @@ def session_bus(_dbus_daemon: _Bus) -> Generator[object, None, None]:
 
 
 @pytest.fixture
-def dbus_proxy(session_bus: object) -> Generator[object, None, None]:
+def dbus_proxy(session_bus: object) -> Generator[object]:
     """Per-test DBusProxy to org.freedesktop.DBus.
 
     Uses DBusProxy.new (explicit connection) instead of new_for_bus so it
@@ -212,8 +212,8 @@ def _assert_live_session_connection(conn: object) -> None:
     # ginext.Gio.DBusConnection for the same GType, since the two namespaces do
     # not share wrapped classes. get_unique_name() is unique to a live
     # GDBusConnection, so it proves bus_get resolved to a real, open connection.
-    assert getattr(conn, "get_unique_name")().startswith(":")
-    assert not getattr(conn, "is_closed")()
+    assert conn.get_unique_name().startswith(":")
+    assert not conn.is_closed()
 
 
 def test_bus_get_resolves_to_dbus_connection(session_bus: object) -> None:
@@ -240,12 +240,12 @@ def test_bus_get_under_eventloop(session_bus: object) -> None:
 
 
 def test_proxy_getattr_returns_callable(dbus_proxy: object) -> None:
-    call = getattr(dbus_proxy, "ListNames")
+    call = dbus_proxy.ListNames
     assert callable(call)
 
 
 def test_proxy_method_call_returns_awaitable(dbus_proxy: object) -> None:
-    op = getattr(dbus_proxy, "ListNames")()
+    op = dbus_proxy.ListNames()
     assert hasattr(op, "__await__")
 
 
@@ -254,7 +254,7 @@ def test_proxy_method_no_args_resolves_to_list(dbus_proxy: object) -> None:
     from ginext import aio
 
     async def main() -> object:
-        return await getattr(dbus_proxy, "ListNames")()
+        return await dbus_proxy.ListNames()
 
     result = asyncio.run(main(), loop_factory=aio.EventLoop)
     assert isinstance(result, list)
@@ -266,7 +266,7 @@ def test_proxy_method_with_args_resolves(dbus_proxy: object) -> None:
     from ginext import aio
 
     async def main() -> object:
-        return await getattr(dbus_proxy, "GetNameOwner")("(s)", _DBUS_BUS_NAME)
+        return await dbus_proxy.GetNameOwner("(s)", _DBUS_BUS_NAME)
 
     owner = asyncio.run(main(), loop_factory=aio.EventLoop)
     assert isinstance(owner, str)
@@ -277,7 +277,7 @@ def test_proxy_method_raises_on_unknown_name(dbus_proxy: object) -> None:
     from ginext import GLib, aio
 
     async def main() -> object:
-        return await getattr(dbus_proxy, "GetNameOwner")("(s)", "com.does.not.exist")
+        return await dbus_proxy.GetNameOwner("(s)", "com.does.not.exist")
 
     with pytest.raises(GLib.Error):
         asyncio.run(main(), loop_factory=aio.EventLoop)
@@ -289,7 +289,7 @@ def test_proxy_method_call_under_eventloop(dbus_proxy: object) -> None:
     from ginext import aio
 
     async def main() -> object:
-        return await getattr(dbus_proxy, "ListNames")()
+        return await dbus_proxy.ListNames()
 
     result = asyncio.run(main(), loop_factory=aio.EventLoop)
     assert isinstance(result, list)
@@ -300,7 +300,7 @@ def test_proxy_method_call_under_eventloop(dbus_proxy: object) -> None:
 
 def test_proxy_getitem_missing_property_raises_key_error(dbus_proxy: object) -> None:
     with pytest.raises(KeyError):
-        _ = getattr(dbus_proxy, "__getitem__")("NoSuchProperty")
+        _ = dbus_proxy.__getitem__("NoSuchProperty")
 
 
 # ── DBusConnection.signal_subscribe ──────────────────────────────────────────
@@ -308,7 +308,7 @@ def test_proxy_getitem_missing_property_raises_key_error(dbus_proxy: object) -> 
 
 def test_signal_subscribe_returns_token(session_bus: object) -> None:
 
-    token = getattr(session_bus, "signal_subscribe")(
+    token = session_bus.signal_subscribe(
         _DBUS_BUS_NAME,
         _DBUS_IFACE,
         "NameAcquired",
@@ -316,12 +316,12 @@ def test_signal_subscribe_returns_token(session_bus: object) -> None:
         lambda *a: None,
     )
     assert token is not None
-    getattr(token, "cancel")()
+    token.cancel()
 
 
 def test_signal_subscribe_token_is_context_manager(session_bus: object) -> None:
 
-    with getattr(session_bus, "signal_subscribe")(
+    with session_bus.signal_subscribe(
         _DBUS_BUS_NAME,
         _DBUS_IFACE,
         "NameAcquired",
@@ -334,17 +334,17 @@ def test_signal_subscribe_token_is_context_manager(session_bus: object) -> None:
 def test_signal_subscribe_unsubscribes_on_context_exit(session_bus: object) -> None:
     """After exiting the context, the subscription id is gone from the bus."""
 
-    with getattr(session_bus, "signal_subscribe")(
+    with session_bus.signal_subscribe(
         _DBUS_BUS_NAME,
         _DBUS_IFACE,
         "NameAcquired",
         _DBUS_OBJ_PATH,
         lambda *a: None,
     ) as token:
-        sub_id = getattr(token, "subscription_id")
+        sub_id = token.subscription_id
 
     # Unsubscribing an already-unsubscribed id should be a no-op (not raise).
-    getattr(session_bus, "signal_unsubscribe")(sub_id)
+    session_bus.signal_unsubscribe(sub_id)
 
 
 def test_signal_subscribe_receives_signal(session_bus: object) -> None:
@@ -362,11 +362,16 @@ def test_signal_subscribe_receives_signal(session_bus: object) -> None:
     received: list[object] = []
 
     def on_signal(
-        conn: object, sender: object, path: object, iface: object, signal: object, params: object
+        conn: object,
+        sender: object,
+        path: object,
+        iface: object,
+        signal: object,
+        params: object,
     ) -> None:
-        received.append(getattr(params, "unpack")())
+        received.append(params.unpack())
 
-    with getattr(session_bus, "signal_subscribe")(
+    with session_bus.signal_subscribe(
         None,
         _DBUS_IFACE,
         "NameOwnerChanged",
@@ -375,7 +380,7 @@ def test_signal_subscribe_receives_signal(session_bus: object) -> None:
     ):
 
         def _start_request(cb: Callable[[object, object], None]) -> None:
-            getattr(session_bus, "call")(
+            session_bus.call(
                 _DBUS_BUS_NAME,
                 _DBUS_OBJ_PATH,
                 _DBUS_IFACE,
@@ -391,7 +396,7 @@ def test_signal_subscribe_receives_signal(session_bus: object) -> None:
         async def _request_name() -> object:
             return await aio._AsyncOperation(
                 _start_request,
-                lambda r: getattr(session_bus, "call_finish")(r),
+                lambda r: session_bus.call_finish(r),
             )
 
         asyncio.run(_request_name(), loop_factory=aio.EventLoop)
@@ -406,20 +411,20 @@ def test_register_object_returns_token(session_bus: object) -> None:
     from ginext import Gio
 
     info = Gio.DBusNodeInfo.new_for_xml(_ECHO_XML)
-    token = getattr(session_bus, "register_object")(
+    token = session_bus.register_object(
         "/com/example/echo",
         info.interfaces[0],
         lambda *a: None,
     )
     assert token is not None
-    getattr(token, "cancel")()
+    token.cancel()
 
 
 def test_register_object_token_is_context_manager(session_bus: object) -> None:
     from ginext import Gio
 
     info = Gio.DBusNodeInfo.new_for_xml(_ECHO_XML)
-    with getattr(session_bus, "register_object")(
+    with session_bus.register_object(
         "/com/example/echo2",
         info.interfaces[0],
         lambda *a: None,
@@ -432,7 +437,7 @@ def test_register_object_unregisters_on_context_exit(session_bus: object) -> Non
     from ginext import Gio
 
     info = Gio.DBusNodeInfo.new_for_xml(_ECHO_XML)
-    with getattr(session_bus, "register_object")(
+    with session_bus.register_object(
         "/com/example/echo3",
         info.interfaces[0],
         lambda *a: None,
@@ -440,12 +445,12 @@ def test_register_object_unregisters_on_context_exit(session_bus: object) -> Non
         pass
 
     # Same path must be re-registerable (unregister happened).
-    token = getattr(session_bus, "register_object")(
+    token = session_bus.register_object(
         "/com/example/echo3",
         info.interfaces[0],
         lambda *a: None,
     )
-    getattr(token, "cancel")()
+    token.cancel()
 
 
 def test_register_object_dispatches_method_call(session_bus: object) -> None:
@@ -464,12 +469,12 @@ def test_register_object_dispatches_method_call(session_bus: object) -> None:
         invocation: object,
     ) -> None:
         if method == "Echo":
-            (text,) = getattr(params, "unpack")()
-            getattr(invocation, "return_value")(GLib.Variant("(s)", (text,)))
+            (text,) = params.unpack()
+            invocation.return_value(GLib.Variant("(s)", (text,)))
 
     def _start_echo(cb: Callable[[object, object], None]) -> None:
-        unique = getattr(session_bus, "get_unique_name")()
-        getattr(session_bus, "call")(
+        unique = session_bus.get_unique_name()
+        session_bus.call(
             unique,
             "/com/example/echo4",
             "com.example.Echo",
@@ -483,16 +488,16 @@ def test_register_object_dispatches_method_call(session_bus: object) -> None:
         )
 
     async def main() -> object:
-        with getattr(session_bus, "register_object")(
+        with session_bus.register_object(
             "/com/example/echo4",
             info.interfaces[0],
             handle_method,
         ):
             result = await aio._AsyncOperation(
                 _start_echo,
-                lambda r: getattr(session_bus, "call_finish")(r),
+                lambda r: session_bus.call_finish(r),
             )
-        return getattr(result, "unpack")()
+        return result.unpack()
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == ("ping",)
 

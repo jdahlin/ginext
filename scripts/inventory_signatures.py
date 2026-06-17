@@ -262,7 +262,7 @@ def collect_supported_types(
     for path in json_paths:
         try:
             data = json.loads(path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         ns = data.get("namespace")
         ver = data.get("version", "")
@@ -376,7 +376,7 @@ def main(argv: list[str]) -> int:
     for path in json_paths:
         try:
             data = json.loads(path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         ns = data.get("namespace")
         ver = data.get("version", "")

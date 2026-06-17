@@ -12,6 +12,7 @@ class PyGTKDeprecationWarning(DeprecationWarning):
 def _remove_from_method_infos(cls: type, name: str) -> None:
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:
@@ -66,7 +67,9 @@ if _Editable is not None:
     _raw_editable_insert_text = _Editable.insert_text
 
     def _editable_insert_text(self, text, position):
-        return _raw_editable_insert_text(self, text, len(text.encode("utf-8")), position)
+        return _raw_editable_insert_text(
+            self, text, len(text.encode("utf-8")), position
+        )
 
     _Editable.insert_text = _editable_insert_text
     _remove_from_method_infos(_Editable, "insert_text")
@@ -80,7 +83,7 @@ if _Widget is not None:
         # ginext returns a ResultTuple: (ret_bool, dest_x, dest_y)
         try:
             ret = result[0]
-        except (TypeError, IndexError):
+        except TypeError, IndexError:
             return result
         if not ret:
             return None
@@ -105,6 +108,7 @@ if _Window is not None:
 
 _Dialog = Gtk.Dialog
 if _Dialog is not None:
+
     def _dialog_add_buttons(self, *args):
         if len(args) % 2 != 0:
             raise ValueError("add_buttons requires an even number of arguments")

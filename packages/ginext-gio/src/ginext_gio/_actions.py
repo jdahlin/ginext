@@ -56,7 +56,7 @@ def _gtk_bucket(owner: object) -> dict[str, object] | None:
     return None
 
 
-def install_application_actions(app: "Gio.Application") -> None:
+def install_application_actions(app: Gio.Application) -> None:
     from ginext import Gio
 
     specs_by_name: dict[str, ActionSpec] = {}

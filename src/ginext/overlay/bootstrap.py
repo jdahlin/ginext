@@ -81,7 +81,7 @@ def _load_overlay_module_from_path(
 
 def _load_overlay_module_from_entry_point(
     overlay_module: str, ns_name: str
-) -> "_types.ModuleType | None":
+) -> _types.ModuleType | None:
     paths = _overlay_entry_points()
     if ns_name not in paths:
         return None
@@ -101,7 +101,7 @@ def _load_overlay_module_from_entry_point(
 
 def _load_overlay_module_from_env_path(
     overlay_module: str, ns_name: str
-) -> "_types.ModuleType | None":
+) -> _types.ModuleType | None:
     overlay_path_env = os.environ.get("GINEXT_OVERLAY_PATH")
     if not overlay_path_env:
         return None
@@ -116,7 +116,7 @@ def _load_overlay_module_from_env_path(
 
 def _load_overlay_module_from_package_file(
     overlay_module: str, ns_name: str
-) -> "_types.ModuleType | None":
+) -> _types.ModuleType | None:
     ginext = sys.modules["ginext"]
     package_file = getattr(ginext, "__file__", None)
     if package_file is None:

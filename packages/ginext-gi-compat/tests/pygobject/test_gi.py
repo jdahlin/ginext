@@ -3260,6 +3260,7 @@ class TestInterfaces(unittest.TestCase):
 
     def test_subclass_override(self):
         self.create_test_interface_impl()  # ensure class attribute is set
+
         class TestInterfaceImplD(TestInterfaces.TestInterfaceImpl):
             val2 = None
 

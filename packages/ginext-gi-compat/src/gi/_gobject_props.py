@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 def _list_properties(cls: type) -> list[Any]:
     try:
         from ginext.gobject.properties import PropertyInfo
+
         result = cls.list_properties()  # type: ignore[attr-defined]
         # list_properties now returns PropertyInfo wrappers; unwrap to raw pspecs
         # so compat code that calls GType(pspec) or reads pspec.value_type directly works.
@@ -54,6 +55,7 @@ class ClassPropsProxy:
 
     def __getattr__(self, name: str) -> Any:
         from gi._gobject_compat_methods import _ParamSpecWrapper
+
         canon = name.replace("_", "-")
         for pspec in _list_properties(self._cls):
             if pspec.name == canon or pspec.name.replace("-", "_") == name:
@@ -75,9 +77,9 @@ class ClassPropsProxy:
 
 class PropsProxy:
     __slots__ = ("_obj",)
-    _obj: "GObject"
+    _obj: GObject
 
-    def __init__(self, obj: "GObject") -> None:
+    def __init__(self, obj: GObject) -> None:
         super().__setattr__("_obj", obj)
 
     def __getattr__(self, name: str) -> object:
@@ -99,7 +101,9 @@ class PropsProxy:
         return iter(_list_properties(type(self._obj)))
 
     def __dir__(self) -> list[str]:
-        return sorted(p.name.replace("-", "_") for p in _list_properties(type(self._obj)))
+        return sorted(
+            p.name.replace("-", "_") for p in _list_properties(type(self._obj))
+        )
 
 
 class PropsDescriptor:

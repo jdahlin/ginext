@@ -154,6 +154,8 @@ def register_converter(to_py, from_py):
         register_hook("gvalue.to_py", to_py)
     if from_py is not None:
         register_hook("gvalue.from_py", from_py)
+
+
 gstrv_get_type = _gobject.gstrv_get_type
 glib_event_source_new = _gobject.glib_event_source_new
 type_has_value_table = _gobject.type_has_value_table
@@ -167,4 +169,5 @@ register_coercion = _gobject.register_coercion
 
 def preload_shared_library(path: str) -> None:
     import ctypes
+
     ctypes.CDLL(path)

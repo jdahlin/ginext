@@ -125,7 +125,7 @@ def _run_post_construct_hooks(obj: object) -> None:
             sys.excepthook(type(exc), exc, exc.__traceback__)
 
 
-def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
+def _finish_construction(obj: GObject, handlers: dict[str, object]) -> None:
     """Post-bind construction tail: run post-construct hooks, wire on_* handlers."""
     _run_post_construct_hooks(obj)
     for signal_attr_name, callback in handlers.items():
@@ -287,7 +287,6 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         ) -> None: ...
         def __setattr__(self, name: str, value: object) -> None: ...
         def __getattr__(self, name: str) -> Any: ...
-
 
 
 if TYPE_CHECKING:

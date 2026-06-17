@@ -26,7 +26,7 @@ _GI_MODULES = ("gi", "gi.repository", "gi.module", "gi._gi", "gi._signalhelper")
 
 
 @pytest.fixture(autouse=True)
-def _clean_features(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
+def _clean_features(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
     import sys
 
     import ginext

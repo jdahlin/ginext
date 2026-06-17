@@ -92,9 +92,9 @@ def _compat_finalize_dispose(self: Any) -> None:
     try:
         self.bind_from_c(self)
         base.run_dispose(self)
-    except (AttributeError, TypeError):
+    except AttributeError, TypeError:
         pass
-    except (RuntimeError, ValueError):
+    except RuntimeError, ValueError:
         pass
     finally:
         _compat_dispose_state.pop(id(self), None)
@@ -158,8 +158,13 @@ def get_property(self: Any, name: str) -> object:
     # Only delegate to _CompatProperty getters (not generic Python property objects)
     # so that get_property() always reads GObject native storage for plain properties.
     descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(descriptor, "fget") and descriptor.fget is not None:
+    if (
+        descriptor is not None
+        and hasattr(descriptor, "fget")
+        and descriptor.fget is not None
+    ):
         from gi._propertyhelper import _CompatProperty
+
         if isinstance(descriptor, _CompatProperty):
             return descriptor.fget(self)
     try:
@@ -183,9 +188,7 @@ def _coerce_char_value(value: Any, pspec_info: dict | None) -> Any:
     # bytes → int
     if isinstance(value, (bytes, bytearray)):
         if len(value) != 1:
-            raise TypeError(
-                f"cannot marshal bytes of length {len(value)!r} as gchar"
-            )
+            raise TypeError(f"cannot marshal bytes of length {len(value)!r} as gchar")
         b = value[0]
         # For signed char: bytes values ≥128 are interpreted as negative
         value = b if (minimum is None or minimum >= 0) else (b if b < 128 else b - 256)
@@ -221,6 +224,7 @@ def _get_pspec_numeric_info(cls: Any, prop_name: str) -> dict | None:
     """Return numeric pspec info (min/max/default) for a C property, or None."""
     try:
         from ginext import private
+
         pspec = cls.gimeta.param_spec(prop_name)
         if pspec is None:
             return None
@@ -236,8 +240,13 @@ def set_property(self: Any, name: str, value: object) -> None:
     attr_name = prop_name.replace("-", "_")
     # Check for Python-backed descriptor with setter
     descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(type(descriptor), "__set__") and (
-        getattr(descriptor, "fset", None) is not None or getattr(descriptor, "fget", None) is not None
+    if (
+        descriptor is not None
+        and hasattr(type(descriptor), "__set__")
+        and (
+            getattr(descriptor, "fset", None) is not None
+            or getattr(descriptor, "fget", None) is not None
+        )
     ):
         type(descriptor).__set__(descriptor, self, value)
         call_notify_override(self, prop_name)
@@ -279,6 +288,7 @@ class _ParamSpecWrapper:
     def __class__(self) -> type:
         try:
             from gi.repository import GObject as _GObj
+
             return _GObj.ParamSpec
         except Exception:
             return type(self._pspec)
@@ -289,12 +299,14 @@ class _ParamSpecWrapper:
 
     def _get_pspec_pointer(self) -> int:
         import ctypes
+
         pspec = object.__getattribute__(self, "_pspec")
         return ctypes.c_ulong.from_address(id(pspec) + 32).value
 
     def _get_numeric_info(self) -> dict | None:
         try:
             from ginext import private
+
             ptr = self._get_pspec_pointer()
             if ptr:
                 return private.param_spec_numeric_info(ptr)
@@ -316,12 +328,14 @@ class _ParamSpecWrapper:
         if name == "flags":
             try:
                 from ginext import private
+
                 ptr = self._get_pspec_pointer()
                 if ptr:
                     ps_info = private.param_spec_info(ptr)
                     raw_flags = ps_info.get("flags", 0)
                     try:
                         from gi.repository import GObject as _GO
+
                         return _GO.ParamFlags(raw_flags)
                     except Exception:
                         return raw_flags
@@ -342,17 +356,23 @@ class _ParamSpecWrapper:
 
     def __dir__(self) -> list:
         base = dir(type(self)) + [
-            "owner_type", "flags_class", "enum_class",
-            "flags", "name", "nick", "blurb", "value_type",
-            "default_value", "minimum", "maximum",
+            "owner_type",
+            "flags_class",
+            "enum_class",
+            "flags",
+            "name",
+            "nick",
+            "blurb",
+            "value_type",
+            "default_value",
+            "minimum",
+            "maximum",
         ]
         base += dir(object.__getattribute__(self, "_pspec"))
         return sorted(set(base))
 
     def _gtype_to_class(self, gtype: object) -> object:
         from ginext.private import _gobject as _ginext_gobject
-        import ginext
-        import sys
 
         result = _ginext_gobject.namespace_find_by_gtype(int(gtype))
         if result is None:
@@ -360,6 +380,7 @@ class _ParamSpecWrapper:
         namespace_name, class_name = result
         # Find the already-loaded namespace module (any profile).
         from gi import repository as _gi_repo
+
         ns_mod = getattr(_gi_repo, namespace_name, None)
         if ns_mod is None:
             raise AttributeError(f"namespace {namespace_name!r} not loaded")
@@ -487,7 +508,10 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 # module reloads (e.g. test fixtures that pop gi._signalhelper
                 # from sys.modules) don't break class identity checks on
                 # existing Signal instances.
-                from gi._signalhelper import _CompatSignalDescriptor, _compat_signal_type
+                from gi._signalhelper import (
+                    _CompatSignalDescriptor,
+                    _compat_signal_type,
+                )
 
                 gimeta = getattr(base, "gimeta", None)
                 if gimeta is None:
@@ -543,9 +567,7 @@ def __repr__(self: Any) -> str:
     name = type(self).__name__
     if not self.is_bound():
         return f"<{module}.{name} object at 0x{id(self):x} ({type_name} unbound)>"
-    return (
-        f"<{module}.{name} object at 0x{id(self):x} ({type_name} at 0x{id(self):x})>"
-    )
+    return f"<{module}.{name} object at 0x{id(self):x} ({type_name} at 0x{id(self):x})>"
 
 
 @overlay.method("Object")
@@ -581,7 +603,7 @@ def _compat_property_for_name(self: Any, name: str) -> object:
     except AttributeError:
         try:
             return self.get_property_by_name(prop_name)
-        except (AttributeError, TypeError):
+        except AttributeError, TypeError:
             raise AttributeError(name) from None
 
 
@@ -766,6 +788,7 @@ class _PythonBinding:
         self._handlers.append((weakref.ref(source), hid))
 
         if bidirectional:
+
             def _on_target(obj: Any, pspec: Any) -> None:
                 if not self._active or self._updating:
                     return

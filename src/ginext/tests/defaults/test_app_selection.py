@@ -95,7 +95,7 @@ def test_explicit_app_resolves_ambiguity(monkeypatch: pytest.MonkeyPatch) -> Non
     # because distA doesn't actually exist on disk).
     try:
         ginext.defaults.load_app_defaults()
-    except (LookupError, ImportError):
+    except LookupError, ImportError:
         pass
     except RuntimeError as exc:
         assert "ambig" not in str(exc).lower()

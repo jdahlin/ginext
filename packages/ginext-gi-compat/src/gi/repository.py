@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import enum
 import functools
 import math
 import struct
@@ -47,11 +46,12 @@ _CTYPES_C_SIZE_T: Any = None
 _CTYPES_C_VOID_P: Any = None
 
 
-def _gtype_from_pspec_ctypes(pspec: Any) -> "type[GType]":
+def _gtype_from_pspec_ctypes(pspec: Any) -> type[GType]:
     """Extract the GType of a GParamSpec by reading the C struct pointer chain."""
     global _CTYPES_IMPORTED, _CTYPES_GOBLIB, _CTYPES_C_SIZE_T, _CTYPES_C_VOID_P
     if not _CTYPES_IMPORTED:
         import ctypes
+
         _CTYPES_GOBLIB = ctypes.cdll.LoadLibrary("libgobject-2.0.so.0")
         _CTYPES_GOBLIB.g_type_name.restype = ctypes.c_char_p
         _CTYPES_GOBLIB.g_type_name.argtypes = [ctypes.c_size_t]
@@ -60,6 +60,7 @@ def _gtype_from_pspec_ctypes(pspec: Any) -> "type[GType]":
         _CTYPES_IMPORTED = True
 
     import re
+
     m = re.search(r"at 0x([0-9a-fA-F]+)", repr(pspec))
     if not m:
         raise TypeError(f"Cannot extract GType from {pspec!r}")
@@ -104,7 +105,7 @@ class GTypeCompat(metaclass=_GTypeCompatMeta):
         return GType.from_name(name)  # type: ignore[attr-defined]
 
 
-def _compat_gtype_from_object(obj: Any) -> "type[GType]":
+def _compat_gtype_from_object(obj: Any) -> type[GType]:
     """Extract GType from various object types for pygobject compat."""
     import ginext.private as _priv
 
@@ -112,6 +113,7 @@ def _compat_gtype_from_object(obj: Any) -> "type[GType]":
         raw = obj
         name_bytes = _CTYPES_GOBLIB if False else None  # not used
         import ginext as _ginext
+
         type_name = _ginext.GObject.type_name(raw)
         return compat_gtype_from_raw(raw, type_name)
     # GParamSpec from ginext.private
@@ -122,8 +124,12 @@ def _compat_gtype_from_object(obj: Any) -> "type[GType]":
         return _gtype_from_pspec_ctypes(obj)
     gimeta = getattr(type(obj), "gimeta", None) or getattr(obj, "gimeta", None)
     if gimeta is not None:
-        return compat_gtype_from_raw(int(gimeta.gtype), getattr(gimeta, "type_name", ""))
+        return compat_gtype_from_raw(
+            int(gimeta.gtype), getattr(gimeta, "type_name", "")
+        )
     raise TypeError(f"Cannot convert {type(obj).__name__!r} to GType")
+
+
 _GULONG_MAX = (1 << (struct.calcsize("L") * 8)) - 1
 _MISSING = object()
 _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
@@ -556,7 +562,6 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
     # _gobject_compat_methods is already imported eagerly at module level;
     # this import is kept for the side-effect of registering overlays in case
     # the module was somehow not yet imported (defensive).
-    from . import _gobject_compat_methods  # noqa: F401  (registers overlays)
 
     install_class_overlay(gobject_cls, "GObject", "Object")
 
@@ -584,7 +589,11 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
         result = install_method_for_class(gobject_cls, _method_name)
         if result is not None:
             _native, _ = result
-            setattr(gobject_cls, _method_name, _wrap_connect_for_old_signal_api(_native, after=_after))
+            setattr(
+                gobject_cls,
+                _method_name,
+                _wrap_connect_for_old_signal_api(_native, after=_after),
+            )
 
     # Wrap __init__ to coerce str/bytes kwargs for gchar/guchar C properties
     # before they reach the C tp_init (which can't handle str/bytes for char types).
@@ -592,11 +601,17 @@ def _install_gobject_signal_methods(gobject_cls: Any) -> None:
 
     def _gobject_init_compat(self: Any, **kwargs: Any) -> None:
         if kwargs:
-            from gi._gobject_compat_methods import _coerce_char_value, _get_pspec_numeric_info
+            from gi._gobject_compat_methods import (
+                _coerce_char_value,
+                _get_pspec_numeric_info,
+            )
+
             coerced: dict[str, Any] = {}
             for k, v in kwargs.items():
                 if isinstance(v, (str, bytes, bytearray)):
-                    pspec_info = _get_pspec_numeric_info(type(self), k.replace("_", "-"))
+                    pspec_info = _get_pspec_numeric_info(
+                        type(self), k.replace("_", "-")
+                    )
                     if pspec_info is not None:
                         v = _coerce_char_value(v, pspec_info)
                 coerced[k] = v
@@ -630,10 +645,15 @@ def _gobject_new(gtype_or_cls: object, **properties: object) -> object:
         # Coerce property values to match declared property types (pygobject compat)
         if properties:
             from gi._propertyhelper import _CompatProperty
+
             coerced = {}
             for k, v in properties.items():
                 desc = getattr(gtype_or_cls, k, None)
-                if isinstance(desc, _CompatProperty) and desc.type is str and not isinstance(v, str):
+                if (
+                    isinstance(desc, _CompatProperty)
+                    and desc.type is str
+                    and not isinstance(v, str)
+                ):
                     coerced[k] = str(v)
                 else:
                     coerced[k] = v
@@ -675,7 +695,9 @@ def _old_signal_api_connect(
         raise TypeError("connect() requires a handler as second argument")
     callback = args[1]
     if not callable(callback):
-        raise TypeError(f"connect() handler must be callable, got {type(callback).__name__}")
+        raise TypeError(
+            f"connect() handler must be callable, got {type(callback).__name__}"
+        )
     user_data = args[2:]
     signal = cast("Any", self).signal_for_name(signal_name)
     if user_data:
@@ -704,8 +726,8 @@ def _wrap_connect_for_old_signal_api(
             return _old_signal_api_connect(self, *args, after=after, **kwargs)
         if args and isinstance(args[0], str):
             raise TypeError(
-                f"connect() called with a signal-name string but the "
-                f"old_signal_api feature is not enabled"
+                "connect() called with a signal-name string but the "
+                "old_signal_api feature is not enabled"
             )
         return cast("Any", original_connect)(self, *args, **kwargs)
 
@@ -729,7 +751,7 @@ def _resolve_gtype_for_compat(arg: object) -> int:
         if gtype_attr is not None:
             try:
                 return int(gtype_attr)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 pass
         return -1
     cls = type(arg)
@@ -933,11 +955,14 @@ def _install_glib_spawn_async_compat(namespace: Namespace) -> None:
             _func = child_setup
             _data = user_data
             if user_data is not None:
+
                 def setup() -> None:
                     _func(_data)
             else:
+
                 def setup() -> None:
                     _func()
+
         ok, raw_pid, stdin_fd, stdout_fd, stderr_fd = raw_spawn_async_with_pipes(
             working_directory=working_directory,
             argv=argv,
@@ -1100,12 +1125,14 @@ def _install_gtk_compat(namespace: Namespace) -> object:
             )
             if isinstance(ok, tuple):
                 ok = ok[0]
-        except (AttributeError, RuntimeError, TypeError):
+        except AttributeError, RuntimeError, TypeError:
             ok = False
         namespace._ginext_display_available = bool(ok)
 
     adj_cls = getattr(namespace, "Adjustment", None)
-    if adj_cls is not None and not getattr(adj_cls, "_pygobject_compat_adjustment", False):
+    if adj_cls is not None and not getattr(
+        adj_cls, "_pygobject_compat_adjustment", False
+    ):
         raw_adj_init = adj_cls.__init__
 
         def _adj_init(
@@ -1118,7 +1145,9 @@ def _install_gtk_compat(namespace: Namespace) -> object:
             page_size: float = 0.0,
         ) -> None:
             raw_adj_init(self)
-            self.configure(value, lower, upper, step_increment, page_increment, page_size)  # type: ignore[attr-defined]
+            self.configure(
+                value, lower, upper, step_increment, page_increment, page_size
+            )  # type: ignore[attr-defined]
 
         adj_cls.__init__ = _adj_init
         adj_cls._pygobject_compat_adjustment = True
@@ -1302,7 +1331,7 @@ def _signal_parse_name(
     return signal_id, detail
 
 
-def _connection_signal_id(connection: "SignalConnection", cls: type) -> int:
+def _connection_signal_id(connection: SignalConnection, cls: type) -> int:
     name = connection.signal_name.split("::", 1)[0]
     return _signal_lookup(name, cls)
 
@@ -1512,7 +1541,7 @@ class _NamespaceModuleProxy(_types.ModuleType):
     def __init__(
         self,
         ns: Any,
-        extra_attrs: "dict[str, Any] | None" = None,
+        extra_attrs: dict[str, Any] | None = None,
     ) -> None:
         _types.ModuleType.__init__(self, ns.__name__)
         self.__dict__["_ns"] = ns
@@ -1552,17 +1581,14 @@ class _NamespaceModuleProxy(_types.ModuleType):
     def __dir__(self) -> list[str]:
         ns = self.__dict__.get("_ns")
         extra_attrs: dict[str, Any] = self.__dict__.get("_extra_attrs", {})
-        return sorted(
-            set(dir(ns) if ns is not None else [])
-            | set(extra_attrs.keys())
-        )
+        return sorted(set(dir(ns) if ns is not None else []) | set(extra_attrs.keys()))
 
     def __repr__(self) -> str:
         ns = self.__dict__.get("_ns")
         return repr(ns) if ns is not None else _types.ModuleType.__repr__(self)
 
 
-def _apply_overrides(name: str, namespace: Any) -> "dict[str, Any]":
+def _apply_overrides(name: str, namespace: Any) -> dict[str, Any]:
     """Load gi/overrides/<name>.py and apply exported symbols to namespace.
 
     Returns extra_attrs: __all__ items from the override that the proxy should
@@ -1570,6 +1596,7 @@ def _apply_overrides(name: str, namespace: Any) -> "dict[str, Any]":
     the typelib value remains accessible via get_introspection_module()).
     """
     import importlib
+
     try:
         override_mod = importlib.import_module(f"gi.overrides.{name}")
     except ImportError:

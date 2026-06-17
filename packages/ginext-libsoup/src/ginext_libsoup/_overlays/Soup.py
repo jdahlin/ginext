@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping, MutableMapping
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+)
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -464,6 +472,7 @@ def _session_stream(
     cancellable: Gio.Cancellable | None = None,
 ) -> _StreamContextManager:
     """Open a streaming request as an async context manager."""
+
     async def open_stream() -> StreamResponse:
         request = _request_from_session(
             method,
@@ -615,6 +624,7 @@ class AsyncClient:
         cancellable: Gio.Cancellable | None = None,
     ) -> _StreamContextManager:
         """Open a streaming response as an async context manager."""
+
         async def open_stream() -> StreamResponse:
             request = self.build_request(
                 method,

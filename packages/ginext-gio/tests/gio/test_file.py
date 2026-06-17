@@ -44,6 +44,7 @@ def _unlink_with_retry(path: str) -> None:
     with contextlib.suppress(FileNotFoundError, PermissionError):
         Path(path).unlink()
 
+
 if TYPE_CHECKING:
     from collections.abc import Generator
     from ginext.aio import _AsyncOperation
@@ -211,7 +212,7 @@ def test_file_enumerator_is_typed_wrapper() -> None:
 
 
 @pytest.fixture
-def tmp_gfile() -> Generator[tuple[object, object], None, None]:
+def tmp_gfile() -> Generator[tuple[object, object]]:
     from ginext import Gio
 
     file, stream = Gio.File.new_tmp("TestGFile.XXXXXX")
@@ -267,7 +268,7 @@ def test_delete(tmp_gfile: tuple[object, object]) -> None:
 
 
 @pytest.fixture
-def hello_file() -> Generator[tuple[object, bytes], None, None]:
+def hello_file() -> Generator[tuple[object, bytes]]:
     from ginext import Gio
 
     payload = b"hello\0world\x7f!"
@@ -280,7 +281,7 @@ def hello_file() -> Generator[tuple[object, bytes], None, None]:
         _unlink_with_retry(path)
 
 
-def _load_bytes_op(file: object, cancellable: object = None) -> "_AsyncOperation":
+def _load_bytes_op(file: object, cancellable: object = None) -> _AsyncOperation:
     """An _AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
@@ -291,7 +292,9 @@ def _load_bytes_op(file: object, cancellable: object = None) -> "_AsyncOperation
         return bytes(file.load_bytes_finish(result)[0].get_data())  # type: ignore[attr-defined]
 
     return aio._AsyncOperation(
-        start, finish, cancel=cancellable.cancel if cancellable else None  # type: ignore[attr-defined]
+        start,
+        finish,
+        cancel=cancellable.cancel if cancellable else None,  # type: ignore[attr-defined]
     )
 
 
@@ -318,7 +321,9 @@ def test_await_matches_blocking_load_bytes(hello_file: tuple[object, bytes]) -> 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == blocking
 
 
-def test_native_cancellation_surfaces_gio_error(hello_file: tuple[object, bytes]) -> None:
+def test_native_cancellation_surfaces_gio_error(
+    hello_file: tuple[object, bytes],
+) -> None:
     """Native side cancels the work -> the await raises a GLib.Error that
     matches G_IO_ERROR_CANCELLED (the catch-all; the Gio.CancelledError
     subclass only exists when GERROR_BUILTIN_EXCEPTIONS is on)."""
@@ -382,7 +387,7 @@ def test_await_completes_under_aio_eventloop(hello_file: tuple[object, bytes]) -
 
 
 @pytest.fixture
-def populated_dir() -> Generator[tuple[object, set[str]], None, None]:
+def populated_dir() -> Generator[tuple[object, set[str]]]:
     from ginext import Gio
 
     path = tempfile.mkdtemp(prefix="ginext-iterdir-")

@@ -24,7 +24,10 @@ def test_font_description_getters_setters_and_string_forms() -> None:
     assert desc.to_string() == "Sans Bold Italic Condensed Small-Caps 12"
     assert desc.to_filename() == "sans_bold_italic_condensed_small-caps_12"
     assert str(desc) == "Sans Bold Italic Condensed Small-Caps 12"
-    assert repr(desc) == "Pango.FontDescription('Sans Bold Italic Condensed Small-Caps 12')"
+    assert (
+        repr(desc)
+        == "Pango.FontDescription('Sans Bold Italic Condensed Small-Caps 12')"
+    )
 
 
 def test_font_description_copy_hash_and_better_match() -> None:

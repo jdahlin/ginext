@@ -12,6 +12,7 @@ def _remove_from_method_infos(cls: type, name: str) -> None:
     """Remove a method from ginext's lazy-install list so our patch isn't overwritten."""
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:

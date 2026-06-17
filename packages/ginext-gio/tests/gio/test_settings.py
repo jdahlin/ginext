@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -65,7 +65,9 @@ def _schema_source() -> Gio.SettingsSchemaSource:
     from ginext import Gio
 
     parent = Gio.SettingsSchemaSource.get_default()
-    source = Gio.SettingsSchemaSource.new_from_directory(str(_SCHEMA_DIR), parent, False)
+    source = Gio.SettingsSchemaSource.new_from_directory(
+        str(_SCHEMA_DIR), parent, False
+    )
     assert source is not None
     return source
 
@@ -80,7 +82,7 @@ def _schema(schema_id: str = _SCHEMA_ID) -> Gio.SettingsSchema:
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _settings_env() -> Generator[None, None, None]:
+def _settings_env() -> Generator[None]:
     """Point GSettings at the in-memory backend and local schema bundle."""
     old_backend = os.environ.get("GSETTINGS_BACKEND")
     old_schema = os.environ.get("GSETTINGS_SCHEMA_DIR")

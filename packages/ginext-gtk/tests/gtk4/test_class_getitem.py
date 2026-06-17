@@ -14,18 +14,18 @@ def test_list_model_wrappers_support_class_getitem(
     selection_model_type: type[Gtk.SelectionModel[Gtk.StringObject]] = (
         Gtk.SelectionModel[Gtk.StringObject]
     )
-    section_model_type: type[Gtk.SectionModel[Gtk.StringObject]] = (
-        Gtk.SectionModel[Gtk.StringObject]
-    )
+    section_model_type: type[Gtk.SectionModel[Gtk.StringObject]] = Gtk.SectionModel[
+        Gtk.StringObject
+    ]
     single_selection_type: type[Gtk.SingleSelection[Gtk.StringObject]] = (
         Gtk.SingleSelection[Gtk.StringObject]
     )
     multi_selection_type: type[Gtk.MultiSelection[Gtk.StringObject]] = (
         Gtk.MultiSelection[Gtk.StringObject]
     )
-    no_selection_type: type[Gtk.NoSelection[Gtk.StringObject]] = (
-        Gtk.NoSelection[Gtk.StringObject]
-    )
+    no_selection_type: type[Gtk.NoSelection[Gtk.StringObject]] = Gtk.NoSelection[
+        Gtk.StringObject
+    ]
     filter_list_model_type: type[Gtk.FilterListModel[Gtk.StringObject]] = (
         Gtk.FilterListModel[Gtk.StringObject]
     )

@@ -148,9 +148,11 @@ def test_public_close_button_survives_window_rewrap(
     assert active is not None
     active.close_button.clicked()
     assert _spin_until(
-        lambda: active.button_count == 1
-        and active.close_count == 1
-        and active.tab_view.get_n_pages() == 1
+        lambda: (
+            active.button_count == 1
+            and active.close_count == 1
+            and active.tab_view.get_n_pages() == 1
+        )
     )
     assert active.button_count == 1
     assert active.close_count == 1

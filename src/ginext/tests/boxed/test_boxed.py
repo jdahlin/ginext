@@ -78,7 +78,9 @@ def test_boxed_struct_field_assignment(gm: Namespace) -> None:
         (None, None),
     ],
 )
-def test_boxed_struct_utf8_field_round_trip(gm: Namespace, value: str | None, expected: str | None) -> None:
+def test_boxed_struct_utf8_field_round_trip(
+    gm: Namespace, value: str | None, expected: str | None
+) -> None:
     struct = gm.BoxedStruct()
 
     struct.string_ = value
@@ -120,7 +122,9 @@ def test_option_entry_arg_field_rejects_non_int() -> None:
     ],
     ids=["plain", "empty", "non-ascii", "none"],
 )
-def test_option_entry_long_name_round_trip(value: str | None, expected: str | None) -> None:
+def test_option_entry_long_name_round_trip(
+    value: str | None, expected: str | None
+) -> None:
     from ginext import GLib
 
     option_entry = GLib.OptionEntry()

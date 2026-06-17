@@ -22,8 +22,6 @@ def test_popup_layout_copies_and_updates_anchor_state() -> None:
     copy = layout.copy()
 
     assert copy.equal(layout) is True
-    assert copy.get_anchor_hints() == (
-        Gdk.AnchorHints.FLIP_X | Gdk.AnchorHints.FLIP_Y
-    )
+    assert copy.get_anchor_hints() == (Gdk.AnchorHints.FLIP_X | Gdk.AnchorHints.FLIP_Y)
     assert copy.get_offset() == (3, 4)
     assert copy.get_shadow_width() == (1, 2, 3, 4)

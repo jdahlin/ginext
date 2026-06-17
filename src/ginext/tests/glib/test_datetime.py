@@ -65,7 +65,9 @@ def datetime_property_class(GLib: Any) -> Any:
 # --- DateTime -------------------------------------------------------------
 
 
-def test_property_accepts_aware_datetime(datetime_property_class: Any, GLib: Any) -> None:
+def test_property_accepts_aware_datetime(
+    datetime_property_class: Any, GLib: Any
+) -> None:
     obj = datetime_property_class()
 
     obj.dt = datetime.datetime(
@@ -88,7 +90,9 @@ def test_property_datetime_preserves_named_zone(
 ) -> None:
     obj = datetime_property_class()
 
-    obj.dt = datetime.datetime(2026, 1, 1, 12, tzinfo=zoneinfo.ZoneInfo("Europe/Stockholm"))
+    obj.dt = datetime.datetime(
+        2026, 1, 1, 12, tzinfo=zoneinfo.ZoneInfo("Europe/Stockholm")
+    )
 
     assert isinstance(obj.dt, GLib.DateTime)
     assert obj.dt.get_timezone().get_identifier() == "Europe/Stockholm"

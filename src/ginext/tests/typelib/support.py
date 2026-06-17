@@ -20,7 +20,9 @@ from __future__ import annotations
 from ginext.namespace import Namespace
 
 
-def open_namespace_for_test(call_mode: str, name: str, version: str = "1.0") -> Namespace:
+def open_namespace_for_test(
+    call_mode: str, name: str, version: str = "1.0"
+) -> Namespace:
     import ginext
 
     return ginext._load_namespace(name, version)

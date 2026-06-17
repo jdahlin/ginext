@@ -11,6 +11,7 @@ _raw_find_property = _ObjectClass.find_property
 def _remove_from_method_infos(cls: type, name: str) -> None:
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:

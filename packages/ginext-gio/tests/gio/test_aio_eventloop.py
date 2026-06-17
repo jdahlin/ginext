@@ -53,17 +53,17 @@ def _load_bytes_op(file: object) -> _AsyncOperation:
     from ginext import aio
 
     def start(callback: object) -> None:
-        getattr(file, "load_bytes_async")(None, callback)
+        file.load_bytes_async(None, callback)
 
     def finish(result: object) -> bytes:
-        raw = getattr(file, "load_bytes_finish")(result)
-        return bytes(getattr(raw[0], "get_data")())
+        raw = file.load_bytes_finish(result)
+        return bytes(raw[0].get_data())
 
     return aio._AsyncOperation(start, finish)
 
 
 @pytest.fixture
-def host_file(tmp_path: Path) -> Generator[tuple[object, bytes], None, None]:
+def host_file(tmp_path: Path) -> Generator[tuple[object, bytes]]:
     from ginext import Gio
 
     path = tmp_path / "host_file"
@@ -131,7 +131,9 @@ def test_call_soon_runs_callback() -> None:
 # -- concurrency: other tasks running -----------------------------------------
 
 
-def test_gather_runs_two_coroutines_to_completion(host_file: tuple[object, bytes]) -> None:
+def test_gather_runs_two_coroutines_to_completion(
+    host_file: tuple[object, bytes],
+) -> None:
     file, expected = host_file
 
     async def counter(n: int) -> int:
@@ -212,17 +214,19 @@ def test_create_task_then_await(host_file: tuple[object, bytes]) -> None:
 # -- cancellation under the real loop -----------------------------------------
 
 
-def test_task_cancellation_raises_cancelled_error(host_file: tuple[object, bytes]) -> None:
+def test_task_cancellation_raises_cancelled_error(
+    host_file: tuple[object, bytes],
+) -> None:
     from ginext import Gio
 
     file, _expected = host_file
     cancellable = Gio.Cancellable()
 
     def start(callback: object) -> None:
-        getattr(file, "load_bytes_async")(cancellable, callback)
+        file.load_bytes_async(cancellable, callback)
 
     def finish(result: object) -> object:
-        return getattr(file, "load_bytes_finish")(result)
+        return file.load_bytes_finish(result)
 
     from ginext import aio
 
@@ -257,7 +261,9 @@ def test_socket_round_trip_on_glib_loop() -> None:
     from ginext import aio
 
     async def main() -> bytes:
-        async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        async def handle(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
             writer.write(b"echo:" + await reader.readline())
             await writer.drain()
             writer.close()

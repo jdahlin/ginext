@@ -76,6 +76,7 @@ class _GEnumMeta(enum.EnumType):
         gtype_int = _register_genum(type_name, members)
         cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
         from . import abi, classbuild
+
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
 
@@ -99,6 +100,7 @@ class _GFlagsMeta(enum.EnumType):
         gtype_int = _register_gflags(type_name, members)
         cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
         from . import abi, classbuild
+
         classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
         return cls
 
@@ -141,7 +143,6 @@ class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
     __gflags_base__ = True
     # G_TYPE_FLAGS = 52
     __gtype__ = _GTypeLazy(52)
-
 
 
 def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
@@ -262,29 +263,17 @@ class EnumBuilder:
             name, members, module=module_name, qualname=name
         )
         assert isinstance(cls, type)
-        setattr(cls, "__info__", info)
+        cls.__info__ = info
         if gtype > 255:
-            setattr(
-                cls,
-                "gimeta",
-                types.SimpleNamespace(gtype=gtype, profile=context.profile),
-            )
-            setattr(cls, "__gtype__", gtype)
-        setattr(
-            cls,
-            "_value_names",
-            {
+            cls.gimeta = types.SimpleNamespace(gtype=gtype, profile=context.profile)
+            cls.__gtype__ = gtype
+        cls._value_names = {
             value: _enum_c_value_name(context.name, name, raw_name)
             for raw_name, value in raw_members
-            },
-        )
-        setattr(
-            cls,
-            "_value_nicks",
-            {
+        }
+        cls._value_nicks = {
             value: raw_name.replace("_", "-") for raw_name, value in raw_members
-            },
-        )
+        }
         _install_enum_callable_aliases(self._context, cls, name)
         _enum_classes_by_key[key] = cls
         # The functional IntEnum/IntFlag API constructs the class dynamically

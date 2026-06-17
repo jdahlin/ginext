@@ -126,7 +126,10 @@ def _load_namespace_for_c(namespace_name: str) -> object:
 
 
 from ginext import private as _private_hooks
-_private_hooks.register_hook("class_from_namespace_profile", _class_from_namespace_profile)
+
+_private_hooks.register_hook(
+    "class_from_namespace_profile", _class_from_namespace_profile
+)
 _private_hooks.register_hook("load_namespace", _load_namespace_for_c)
 
 

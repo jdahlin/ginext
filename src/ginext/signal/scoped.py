@@ -150,7 +150,7 @@ class ScopedCallable:
 
     def __init__(
         self,
-        owner: "GObject",
+        owner: GObject,
         callback: Callable[..., Any],
         *args: object,
         **kwargs: object,

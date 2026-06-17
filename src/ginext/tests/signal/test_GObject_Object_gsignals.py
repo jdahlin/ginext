@@ -37,8 +37,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import pytest
-
 
 def test_gsignals_dict_ignored_in_native_mode() -> None:
     from ginext import GObject

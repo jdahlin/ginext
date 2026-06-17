@@ -58,6 +58,8 @@ if TYPE_CHECKING:
     class _InterfaceInfoWithPrerequisites(Protocol):
         def get_n_prerequisites(self) -> int: ...
         def get_prerequisite(self, index: int) -> ObjectInfo | InterfaceInfo: ...
+
+
 from .fundamental import Fundamental, FundamentalMeta
 from .gobject.gobjectclass import (
     GInterface,
@@ -114,7 +116,7 @@ class ClassBuilder:
     def __init__(self, context: abi.NamespaceContext):
         self._context = context
 
-    def _namespace_for_data(self, data: dict[str, Any]) -> "Namespace":
+    def _namespace_for_data(self, data: dict[str, Any]) -> Namespace:
         ns = sys.modules["ginext"]._load_namespace(
             data["namespace"], data["version"], profile=self._context.profile
         )
@@ -126,7 +128,7 @@ class ClassBuilder:
         name: str,
         *,
         is_interface: bool,
-        info: "ObjectInfo | InterfaceInfo",
+        info: ObjectInfo | InterfaceInfo,
     ) -> tuple[type, tuple[type, ...]]:
         parent_info = data["parent"]
         parent_cls: type
@@ -169,9 +171,7 @@ class ClassBuilder:
 
         return parent_cls, (*extra_bases, parent_cls)
 
-    def build_object_or_interface(
-        self, info: "ObjectInfo | InterfaceInfo"
-    ) -> type[Any]:
+    def build_object_or_interface(self, info: ObjectInfo | InterfaceInfo) -> type[Any]:
         from ginext.GIRepository import InterfaceInfo
 
         data = info.object_info()
@@ -304,7 +304,9 @@ class ClassBuilder:
                     continue
                 setattr(cls, attr_name, attr_value)
             cls._gobject_root_adopted = True
-        elif issubclass(parent_cls, Fundamental) and not issubclass(parent_cls, GObject):
+        elif issubclass(parent_cls, Fundamental) and not issubclass(
+            parent_cls, GObject
+        ):
             cls = cast("type[Any]", FundamentalMeta(name, bases, attrs))
         else:
             cls = cast("type[Any]", type(name, bases, attrs))
@@ -672,15 +674,15 @@ def method_for_instance(obj: object, name: str) -> object | None:
     if descriptor_get is not None:
         try:
             bound = descriptor_get(method, obj, type(obj))
-        except (AttributeError, TypeError, SystemError):
+        except AttributeError, TypeError, SystemError:
             bound = None
         if bound is not None:
             return cast("object", bound)
     return types.MethodType(cast("Any", method), obj)
 
 
-
 from . import private as _private
+
 _private.register_hook("Fundamental.getattr", method_for_instance)
 _private.register_hook("Object.wrap", wrapper_type_for_gtype)
 del _private

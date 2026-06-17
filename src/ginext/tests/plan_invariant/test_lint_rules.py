@@ -53,12 +53,14 @@ def pre_commit_hooks() -> list[dict]:  # type: ignore[type-arg]
 REQUIRED_RUFF_RULES = [
     ("B009", "getattr with constant string — use direct attribute access"),
     ("B010", "setattr with constant string — use direct attribute access"),
-    ("B110", "try-except-pass — use contextlib.suppress instead"),
+    ("S110", "try-except-pass — use contextlib.suppress instead"),
     ("RUF012", "mutable class-level default without ClassVar"),
 ]
 
 
-@pytest.mark.parametrize("rule,reason", REQUIRED_RUFF_RULES, ids=[r for r, _ in REQUIRED_RUFF_RULES])
+@pytest.mark.parametrize(
+    "rule,reason", REQUIRED_RUFF_RULES, ids=[r for r, _ in REQUIRED_RUFF_RULES]
+)
 def test_ruff_rule_is_selected(rule: str, reason: str, ruff_config: dict) -> None:  # type: ignore[type-arg]
     selected = ruff_config.get("extend-select", [])
     # A rule is covered if it or its prefix category is selected
@@ -75,12 +77,16 @@ def test_ruff_rule_is_selected(rule: str, reason: str, ruff_config: dict) -> Non
 FORBIDDEN_RUFF_IGNORES = [
     ("B009", "getattr with constant string must not be silenced globally"),
     ("B010", "setattr with constant string must not be silenced globally"),
-    ("B110", "try-except-pass must not be silenced globally"),
+    ("S110", "try-except-pass must not be silenced globally"),
 ]
 
 
-@pytest.mark.parametrize("rule,reason", FORBIDDEN_RUFF_IGNORES, ids=[r for r, _ in FORBIDDEN_RUFF_IGNORES])
-def test_ruff_rule_not_globally_ignored(rule: str, reason: str, ruff_config: dict) -> None:  # type: ignore[type-arg]
+@pytest.mark.parametrize(
+    "rule,reason", FORBIDDEN_RUFF_IGNORES, ids=[r for r, _ in FORBIDDEN_RUFF_IGNORES]
+)
+def test_ruff_rule_not_globally_ignored(
+    rule: str, reason: str, ruff_config: dict
+) -> None:  # type: ignore[type-arg]
     ignored = ruff_config.get("ignore", [])
     assert rule not in ignored, (
         f"ruff rule {rule!r} must not appear in [tool.ruff.lint] ignore. "
@@ -93,13 +99,20 @@ def test_ruff_rule_not_globally_ignored(rule: str, reason: str, ruff_config: dic
 REQUIRED_HOOKS = [
     ("no-literal-getattr", "blocks getattr(obj, 'constant') at commit time"),
     ("no-unparenthesized-except", "blocks except X, Y: (must be except (X, Y):)"),
-    ("no-wide-except", "blocks except clauses with 4+ types — split or use a named tuple"),
+    (
+        "no-wide-except",
+        "blocks except clauses with 4+ types — split or use a named tuple",
+    ),
 ]
 
 
-@pytest.mark.parametrize("hook_id,reason", REQUIRED_HOOKS, ids=[h for h, _ in REQUIRED_HOOKS])
+@pytest.mark.parametrize(
+    "hook_id,reason", REQUIRED_HOOKS, ids=[h for h, _ in REQUIRED_HOOKS]
+)
 def test_pre_commit_hook_present(
-    hook_id: str, reason: str, pre_commit_hooks: list[dict]  # type: ignore[type-arg]
+    hook_id: str,
+    reason: str,
+    pre_commit_hooks: list[dict],  # type: ignore[type-arg]
 ) -> None:
     ids = [h["id"] for h in pre_commit_hooks]
     assert hook_id in ids, (

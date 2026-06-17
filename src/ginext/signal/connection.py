@@ -73,7 +73,7 @@ class SignalConnection:
 
     def __init__(
         self,
-        source: "GObject",
+        source: GObject,
         handler_id: int,
         signal_name: str,
         callback: Callable[..., Any],
@@ -115,7 +115,7 @@ class SignalConnection:
         return self._signal_name
 
     @property
-    def source(self) -> "GObject | None":
+    def source(self) -> GObject | None:
         return self._source_ref()
 
     @property
@@ -160,7 +160,7 @@ class SignalConnection:
         self._handler_id = 0
 
     @contextlib.contextmanager
-    def blocked(self) -> "Generator[SignalConnection, None, None]":
+    def blocked(self) -> Generator[SignalConnection]:
         """Block the handler for the duration of the `with` block.
 
         Other connections to the same signal still fire; only this

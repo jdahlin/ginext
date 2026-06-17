@@ -96,7 +96,7 @@ def rebuild_editable(
                 continue
             try:
                 subprocess.run(cmd, cwd=path, stdout=subprocess.DEVNULL, check=True)
-            except (OSError, subprocess.SubprocessError):
+            except OSError, subprocess.SubprocessError:
                 pass
     finally:
         if saved is not None:

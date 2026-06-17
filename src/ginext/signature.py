@@ -122,7 +122,7 @@ def _resolve_interface(iface_info: Any, context: Any) -> Any:
     try:
         namespace = _resolve_namespace(iface_info.namespace, context)
         return getattr(namespace, iface_info.name)
-    except (AttributeError, ImportError):
+    except AttributeError, ImportError:
         return Any
 
 
@@ -148,7 +148,7 @@ def annotation_for_type(type_info: Any, context: Any) -> Any:
     if tag == _GTYPE:
         try:
             return _resolve_namespace("GObject", context).GType
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             return Any
     if tag in (_ARRAY, _GLIST, _GSLIST):
         # Subscripting with a runtime type object is exactly the intent here.
@@ -165,7 +165,7 @@ def annotation_for_type(type_info: Any, context: Any) -> Any:
     if tag == _ERROR:
         try:
             return _resolve_namespace("GLib", context).Error
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             return Any
     return Any
 
@@ -292,4 +292,5 @@ def callable_signature(gimeta: Any) -> inspect.Signature:
 
 
 from ginext import private as _private_hooks
+
 _private_hooks.register_hook("callable_signature", callable_signature)

@@ -68,7 +68,7 @@ __all__ = ["EventLoop"]
 
 
 def _fileobj_to_fd(fileobj: FileDescriptorLike) -> int:
-    return fileobj if isinstance(fileobj, int) else getattr(fileobj, "fileno")()
+    return fileobj if isinstance(fileobj, int) else fileobj.fileno()
 
 
 class _EventSource(GLib.Source):
@@ -80,7 +80,7 @@ class _Source(_EventSource):
     """A GSource that polls the loop's registered fds and dispatches one
     asyncio `_run_once` iteration when fds are ready or a timeout is due."""
 
-    def __init__(self, selector: "_Selector") -> None:
+    def __init__(self, selector: _Selector) -> None:
         super().__init__()
         self._dispatching = False
         self.set_can_recurse(False)
@@ -150,7 +150,7 @@ class _FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
 class _Selector(selectors.BaseSelector):
     """A selector that registers asyncio's fds with GLib instead of polling."""
 
-    def __init__(self, loop: "EventLoop") -> None:
+    def __init__(self, loop: EventLoop) -> None:
         self._loop = loop
         self._fd_to_key: dict[int, selectors.SelectorKey] = {}
         self._fd_to_tag: dict[int, int] = {}
@@ -246,18 +246,18 @@ class EventLoop(asyncio.SelectorEventLoop):
         return float(self._glib.get_monotonic_time()) / 1_000_000
 
     def _get_timeout_ms(self) -> int:
-        if getattr(self, "_ready"):
+        if self._ready:
             return 0
-        scheduled = getattr(self, "_scheduled")
+        scheduled = self._scheduled
         if scheduled:
-            timeout = int((getattr(scheduled[0], "_when") - self.time()) * 1000)
-            return timeout if timeout >= 0 else 0
+            timeout = int((scheduled[0]._when - self.time()) * 1000)
+            return max(timeout, 0)
         return -1
 
     # -- running --------------------------------------------------------------
 
     @contextmanager
-    def running(self, quit_func: Callable[[], object]) -> Generator[None, None, None]:
+    def running(self, quit_func: Callable[[], object]) -> Generator[None]:
         self._quit_funcs.append(quit_func)
         if self.is_running():
             try:
@@ -265,21 +265,21 @@ class EventLoop(asyncio.SelectorEventLoop):
             finally:
                 self._quit_funcs.pop()
             return
-        getattr(self, "_run_forever_setup")()
+        self._run_forever_setup()
         try:
             self._may_iterate = True
-            getattr(getattr(self, "_selector"), "attach")()
+            self._selector.attach()
             yield
         finally:
             self._may_iterate = False
-            getattr(getattr(self, "_selector"), "detach")()
-            getattr(self, "_run_forever_cleanup")()
+            self._selector.detach()
+            self._run_forever_cleanup()
             self._quit_funcs.pop()
 
     def _glib_dispatch(self) -> None:
         self._may_iterate = False
         try:
-            getattr(self, "_run_once")()
+            self._run_once()
         finally:
             self._may_iterate = True
 
@@ -295,7 +295,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         handlers) are driven by the application's loop — no second loop runs.
         """
         with self.running(self._main_loop.quit):
-            return int(getattr(app, "run")(argv))
+            return int(app.run(argv))
 
     def stop(self) -> None:
         if self._quit_funcs:

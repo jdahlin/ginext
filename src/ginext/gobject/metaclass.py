@@ -34,7 +34,6 @@ like a dataclass) lives in the ``TYPE_CHECKING`` stub.
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING
 
 from .. import features, private
 from .gtype import compat_gtype_from_raw
@@ -45,7 +44,7 @@ def _is_root_gobject_class(cls: type) -> bool:
     return "_gobject_is_root" in cls.__dict__
 
 
-def _gobjectmeta_getattr(cls: "GObjectMeta", name: str) -> object:
+def _gobjectmeta_getattr(cls: GObjectMeta, name: str) -> object:
     """Class-level __getattr__: lazily build+install an introspected method on
     first access (the metatype's tp_getattro calls this on a lookup miss)."""
     if name == "__gtype__" and features.is_enabled(features.PYGOBJECT_COMPAT):
@@ -55,6 +54,7 @@ def _gobjectmeta_getattr(cls: "GObjectMeta", name: str) -> object:
             return compat_gtype_from_raw(int(gimeta.gtype), type_name)
     if name == "Signal" and _is_root_gobject_class(cls):
         from ..signal.descriptor import SignalDescriptor
+
         return SignalDescriptor
     found = classbuild_module().install_method_for_class(cls, name)
     if found is not None:
@@ -63,7 +63,7 @@ def _gobjectmeta_getattr(cls: "GObjectMeta", name: str) -> object:
     raise AttributeError(name)
 
 
-def _gobjectmeta_dir(cls: "GObjectMeta") -> list[str]:
+def _gobjectmeta_dir(cls: GObjectMeta) -> list[str]:
     names = set(type.__dir__(cls))
     if not _is_root_gobject_class(cls):
         names.discard("Signal")

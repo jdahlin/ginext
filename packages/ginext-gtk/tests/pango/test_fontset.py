@@ -18,5 +18,8 @@ def probe_fontset_metrics_and_font_lookup() -> bool:
     assert fontset.get_font(65) is not None
     return True
 
+
 def test_fontset_exposes_metrics_and_font_lookup() -> None:
-    assert run_subprocess_probe(__file__, "probe_fontset_metrics_and_font_lookup") is True
+    assert (
+        run_subprocess_probe(__file__, "probe_fontset_metrics_and_font_lookup") is True
+    )

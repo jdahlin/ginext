@@ -59,7 +59,7 @@ class NamedReturn(tuple[Any, ...]):
 
     _names: tuple[str, ...]
 
-    def __new__(cls, items: tuple[Any, ...], names: tuple[str, ...]) -> "NamedReturn":
+    def __new__(cls, items: tuple[Any, ...], names: tuple[str, ...]) -> NamedReturn:
         obj = super().__new__(cls, items)
         obj._names = tuple(names)
         return obj
@@ -67,7 +67,7 @@ class NamedReturn(tuple[Any, ...]):
     def __getattr__(self, name: str) -> Any:
         try:
             index = self._names.index(name)
-        except (AttributeError, ValueError):
+        except AttributeError, ValueError:
             raise AttributeError(name) from None
         return self[index]
 
@@ -103,7 +103,7 @@ def install() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         base_policy = type(asyncio.get_event_loop_policy())
 
-        def new_event_loop(self: object) -> "EventLoop":
+        def new_event_loop(self: object) -> EventLoop:
             return EventLoop()
 
         policy_cls = type(
@@ -216,7 +216,7 @@ def _bind(fn: Callable[..., Any], obj: object, objtype: object) -> Callable[...,
         return partial(fn, obj)
     try:
         bound = descriptor_get(fn, obj, objtype)
-    except (AttributeError, TypeError, SystemError):
+    except AttributeError, TypeError, SystemError:
         bound = None
     if bound is None or bound is fn:
         return partial(fn, obj)
@@ -287,7 +287,7 @@ class AsyncCallable:
     def __repr__(self) -> str:
         return f"<AsyncCallable {self._owner_repr}>"
 
-    def __get__(self, obj: object, objtype: object = None) -> "AsyncCallable":
+    def __get__(self, obj: object, objtype: object = None) -> AsyncCallable:
         if obj is None or not self._has_self:
             return self
         return AsyncCallable(

@@ -282,7 +282,7 @@ class _GLibEventLoopMixin:
             # The time is floor'ed here.
             # Python dispatches everything ready within the next _clock_resolution.
             timeout = int((self._scheduled[0]._when - self.time()) * 1000)
-            return timeout if timeout >= 0 else 0
+            return max(timeout, 0)
 
         return -1
 

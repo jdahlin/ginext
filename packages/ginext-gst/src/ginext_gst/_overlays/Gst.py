@@ -234,11 +234,15 @@ def _build_fraction_range(text: str) -> Any:
 _VALUE_BUILDERS: dict[str, Any] = {
     "GstFraction": _parse_fraction,
     "GstBitmask": lambda text: Gst.Bitmask(int(text, 16)),
-    "GstIntRange": lambda text: Gst.IntRange(range(*(int(n) for n in _range_parts(text)))),
+    "GstIntRange": lambda text: Gst.IntRange(
+        range(*(int(n) for n in _range_parts(text)))
+    ),
     "GstInt64Range": lambda text: Gst.Int64Range(
         range(*(int(n) for n in _range_parts(text)))
     ),
-    "GstDoubleRange": lambda text: Gst.DoubleRange(*(float(n) for n in _range_parts(text))),
+    "GstDoubleRange": lambda text: Gst.DoubleRange(
+        *(float(n) for n in _range_parts(text))
+    ),
     "GstFractionRange": _build_fraction_range,
     "GstValueArray": _build_value_array,
     "GstValueList": _build_value_list,
@@ -559,7 +563,7 @@ def _structure_new(cls: type, arg: str | Any, **kwargs: Any) -> Any:
         for k, v in kwargs.items():
             struct.set_value(k, v)
         return struct
-    elif isinstance(arg, Gst.Structure):
+    if isinstance(arg, Gst.Structure):
         return arg.copy()
     raise TypeError("wrong arguments when creating GstStructure object")
 
@@ -633,15 +637,15 @@ def _caps_new(
 ) -> Any:
     if arg is None:
         return Gst.Caps.new_empty()
-    elif isinstance(arg, str):
+    if isinstance(arg, str):
         return Gst.Caps.from_string(arg)
-    elif isinstance(arg, Gst.Caps):
+    if isinstance(arg, Gst.Caps):
         return arg.copy()
-    elif isinstance(arg, Gst.Structure):
+    if isinstance(arg, Gst.Structure):
         res = Gst.Caps.new_empty()
         res.append_structure(arg.copy())
         return res
-    elif isinstance(arg, (list, tuple)):
+    if isinstance(arg, (list, tuple)):
         res = Gst.Caps.new_empty()
         for s in arg:
             res.append_structure(s.copy())
@@ -874,7 +878,7 @@ def _int_range_eq(self: Any, other: object) -> bool:
     current: range = self.range
     if isinstance(other, range):
         return current == other
-    elif isinstance(other, _RangeLike):
+    if isinstance(other, _RangeLike):
         return current == other.range
     return False
 
@@ -914,7 +918,7 @@ def _int64_range_eq(self: Any, other: object) -> bool:
     current: range = self.range
     if isinstance(other, range):
         return current == other
-    elif isinstance(other, _RangeLike):
+    if isinstance(other, _RangeLike):
         return current == other.range
     return False
 

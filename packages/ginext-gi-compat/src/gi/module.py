@@ -19,52 +19,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import ginext
-from ginext import private
 
 # Import everything from _gi (our C-shim layer) so callers can use either module.
 from ._gi import (
     Repository,
-    RepositoryInfo,
-    BaseInfoWrapper,
-    CallableInfoWrapper,
-    FunctionInfoWrapper,
-    VFuncInfoWrapper,
-    SignalInfoWrapper,
-    CallbackInfoWrapper,
-    RegisteredTypeInfoWrapper,
-    ObjectInfoWrapper,
-    InterfaceInfoWrapper,
-    StructInfoWrapper,
-    UnionInfoWrapper,
-    EnumInfoWrapper,
-    FieldInfoWrapper,
-    ArgInfoWrapper,
-    TypeInfoWrapper,
-    ConstantInfoWrapper,
-    PropertyInfoWrapper,
-    _INFO_WRAPPER_MAP,
-    _wrap_info,
-    _wrap_list,
-    _wrap_list_with_container,
-    # pygobject-compat aliases
-    BaseInfo,
-    CallableInfo,
-    FunctionInfo,
-    VFuncInfo,
-    SignalInfo,
-    CallbackInfo,
-    RegisteredTypeInfo,
-    ObjectInfo,
-    InterfaceInfo,
-    StructInfo,
-    UnionInfo,
-    EnumInfo,
-    FieldInfo,
-    ArgInfo,
-    TypeInfo,
-    ConstantInfo,
-    PropertyInfo,
 )
 
 _introspection_modules: dict[str, object] = {}
@@ -74,6 +32,7 @@ repository = Repository.get_default()
 
 def get_introspection_module(namespace: str) -> Any:
     import sys
+
     cached = _introspection_modules.get(namespace)
     if cached is not None:
         return cached
@@ -81,6 +40,7 @@ def get_introspection_module(namespace: str) -> Any:
     # the raw namespace).  We then return the raw namespace, not the proxy, so
     # callers like gi.overrides.load_overrides() see the typelib values.
     from gi import repository as gi_repository
+
     getattr(gi_repository, namespace)
     raw = sys.modules.get(f"gi.repository.{namespace}")
     if raw is not None:

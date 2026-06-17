@@ -53,7 +53,7 @@ class _Handler(BaseHTTPRequestHandler):
         return
 
 
-def _run(coro: "Coroutine[object, object, None]") -> None:
+def _run(coro: Coroutine[object, object, None]) -> None:
     from ginext import aio
 
     asyncio.run(coro, loop_factory=aio.EventLoop)
@@ -79,6 +79,7 @@ def test_async_client_get() -> None:
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             async with Soup.AsyncClient(headers={"X-Test": "client"}) as client:
                 response = await client.get(
@@ -152,13 +153,16 @@ def test_session_get_and_stream() -> None:
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             session = Soup.Session()
             response = await session.get(f"{_server_url(server)}/hello")
             assert response.status_code == 200
             assert response.json()["path"] == "/hello"
 
-            async with session.stream("GET", f"{_server_url(server)}/stream") as streamed:
+            async with session.stream(
+                "GET", f"{_server_url(server)}/stream"
+            ) as streamed:
                 assert streamed.status_code == 200
                 assert streamed.headers["Content-Type"] == "application/octet-stream"
                 assert await streamed.read(5) == b"strea"
@@ -183,6 +187,7 @@ def test_native_session_async_methods_work_directly() -> None:
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             session = Soup.Session()
             message = Soup.Message.new("GET", f"{_server_url(server)}/hello")

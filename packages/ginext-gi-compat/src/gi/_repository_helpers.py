@@ -19,7 +19,10 @@ _gerror_gtype: int | None = None
 def _sync_paths(repo: Any) -> None:
     global _path_state
 
-    state = (os.environ.get("GI_TYPELIB_PATH", ""), os.environ.get("LD_LIBRARY_PATH", ""))
+    state = (
+        os.environ.get("GI_TYPELIB_PATH", ""),
+        os.environ.get("LD_LIBRARY_PATH", ""),
+    )
     if state == _path_state:
         return
 

@@ -50,7 +50,7 @@ overlay.hide_attribute("Value")
 @overlay.method("Object")
 def scoped(
     self: _gobject_root.GObject,
-    callback: "Callable[..., object]",
+    callback: Callable[..., object],
     *args: object,
     **kwargs: object,
 ) -> ScopedCallable:
@@ -150,7 +150,7 @@ class _NotifySignalSelector:
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | "_PropertyDetail") -> _BoundSignal:
+    def __call__(self, detail: str | _PropertyDetail) -> _BoundSignal:
         signal = _notify_bound_signal(self._source)
         return signal.detail_signal(detail)
 
@@ -161,7 +161,7 @@ class _NotifyCompatProxy:
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | "_PropertyDetail") -> object:
+    def __call__(self, detail: str | _PropertyDetail) -> object:
         from .. import private
 
         return private.invoke("GObject", "Object.notify", self._source, str(detail))
@@ -447,7 +447,7 @@ def _resolve_to_gtype(arg: object) -> int:
     if isinstance(arg, GTypeMeta):
         try:
             return int(arg)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             pass
         return -1
 

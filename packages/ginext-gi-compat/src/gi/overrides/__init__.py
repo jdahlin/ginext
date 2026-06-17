@@ -19,6 +19,7 @@ import gi.repository
 
 # support overrides in different directories than our gi module
 from pkgutil import extend_path
+
 __path__ = extend_path(__path__, __name__)
 
 
@@ -101,7 +102,7 @@ def load_overrides(introspection_module: object) -> object:
     for var in override_all:
         try:
             item = getattr(override_mod, var)
-        except (AttributeError, TypeError):
+        except AttributeError, TypeError:
             continue
         setattr(proxy, var, item)
 
@@ -128,7 +129,7 @@ def override(type_: Any) -> Any:
         raise TypeError(f"func must be a gi function, got {type_}")
 
     try:
-        info = getattr(type_, "__info__")
+        info = type_.__info__
     except AttributeError:
         raise TypeError(
             f"Can not override a type {type_.__name__}, which is not in a gobject "
@@ -160,6 +161,7 @@ def strip_boolean_result(
     fail_ret: object = None,
 ) -> Callable[..., Any]:
     """Translate method's return value for stripping off success flag."""
+
     @functools.wraps(method)
     def wrapped(*args: object, **kwargs: object) -> object:
         ret = method(*args, **kwargs)
@@ -170,24 +172,29 @@ def strip_boolean_result(
         if exc_type:
             raise exc_type(exc_str or "call failed")
         return fail_ret
+
     return wrapped
 
 
 def wrap_list_store_sort_func(func: Callable[..., Any]) -> Callable[..., Any]:
     from gi._gi import pygobject_new_full
+
     def wrap(a: object, b: object, *user_data: object) -> object:
         a = pygobject_new_full(a, False)
         b = pygobject_new_full(b, False)
         return func(a, b, *user_data)
+
     return wrap
 
 
 def wrap_list_store_equal_func(func: Callable[..., Any]) -> Callable[..., Any]:
     from gi._gi import pygobject_new_full
+
     def wrap(a: object, b: object, *user_data: object) -> object:
         a = pygobject_new_full(a, False)
         b = pygobject_new_full(b, False)
         return func(a, b, *user_data)
+
     return wrap
 
 

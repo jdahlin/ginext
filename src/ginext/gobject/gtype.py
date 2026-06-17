@@ -30,7 +30,7 @@ from typing import ClassVar, Type, cast
 from .. import abi, features, private
 from .resolve import classbuild_module, gobject_repo
 
-_compat_gtype_cache: dict[tuple[int, str], type["GType"]] = {}
+_compat_gtype_cache: dict[tuple[int, str], type[GType]] = {}
 
 
 class GTypeMeta(type):
@@ -82,7 +82,7 @@ class GTypeMeta(type):
         return f"<GType {cls.gtype_name} ({int(cls)})>"
 
     @property
-    def parent(cls) -> "type[GType] | None":
+    def parent(cls) -> type[GType] | None:
         GObject = gobject_repo()
         p = int(GObject.type_parent(int(cls)))
         if p == 0:

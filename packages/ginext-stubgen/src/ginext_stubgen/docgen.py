@@ -52,8 +52,8 @@ _TYPE_SIGIL_RE = re.compile(r"#([A-Z][A-Za-z0-9_]+)\b")
 _CONST_SIGIL_RE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)\b")
 _ARG_SIGIL_RE = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)\b")
 # Old pango/C inline code blocks: |[ <!-- language="C" --> ... ]|
-_PANGO_FENCE_RE = re.compile(r"\|\[(?:\s*<!--.*?-->)?(.*?)\]\|", re.S)
-_FENCE_RE = re.compile(r"```.*?```", re.S)
+_PANGO_FENCE_RE = re.compile(r"\|\[(?:\s*<!--.*?-->)?(.*?)\]\|", re.DOTALL)
+_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 _IMAGE_RE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
 # A Markdown link whose target is a legacy gtk-doc HTML page (the doc text
@@ -185,9 +185,7 @@ class DocEmitter:
                 "link": {"type": "doc", "id": f"{ns.name}/index"},
             }
             cat_path = ns_dir / "_category_.json"
-            cat_path.write_text(
-                json.dumps(category, indent=2) + "\n", encoding="utf-8"
-            )
+            cat_path.write_text(json.dumps(category, indent=2) + "\n", encoding="utf-8")
             written.append(cat_path)
 
         written.append(self._write_namespace_index(ns, ns_dir))

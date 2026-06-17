@@ -14,6 +14,7 @@ overridden via environment:
 Usage:  python tools/win/run_tests.py src/ginext/tests/gobject -q
         (any trailing args are passed through to pytest)
 """
+
 from __future__ import annotations
 
 import os
@@ -29,10 +30,14 @@ TEST_TYPELIBS = BUILD / "packages" / "typelib"
 
 # vcpkg install tree: prefer the one build-env.ps1 resolved (manifest mode's
 # vcpkg_installed vs classic), exported as GINEXT_VCPKG_INSTALLED.
-_INSTALLED = os.environ.get("GINEXT_VCPKG_INSTALLED") or rf"C:\dev\vcpkg\installed\{_TRIPLET}"
+_INSTALLED = (
+    os.environ.get("GINEXT_VCPKG_INSTALLED") or rf"C:\dev\vcpkg\installed\{_TRIPLET}"
+)
 VCPKG_BIN = Path(os.environ.get("GINEXT_VCPKG_BIN", str(Path(_INSTALLED) / "bin")))
 CORE_TYPELIBS = Path(
-    os.environ.get("GINEXT_CORE_TYPELIBS", str(Path(_INSTALLED) / "lib" / "girepository-1.0"))
+    os.environ.get(
+        "GINEXT_CORE_TYPELIBS", str(Path(_INSTALLED) / "lib" / "girepository-1.0")
+    )
 )
 
 

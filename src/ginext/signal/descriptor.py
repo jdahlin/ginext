@@ -82,7 +82,7 @@ class SignalDescriptor:
         name: str,
         info: SignalInfo,
         method: Callable[..., Any],
-    ) -> "SignalDescriptor":
+    ) -> SignalDescriptor:
         descriptor = cls(name=name.replace("_", "-"))
         descriptor._py_name = name
         descriptor._gobject_name = name.replace("_", "-")

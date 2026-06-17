@@ -55,7 +55,7 @@ needs_display = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="module")
-def Gtk() -> Generator[types.ModuleType, None, None]:
+def Gtk() -> Generator[types.ModuleType]:
     import ginext
 
     ginext.features.set_enabled(ginext.features.OLD_SIGNAL_API, True)
@@ -73,13 +73,13 @@ def buf(Gtk: types.ModuleType) -> object:
 
 @pytest.fixture
 def tagged_buf(Gtk: Namespace, buf: object) -> tuple[object, object]:
-    tag = getattr(buf, "create_tag")("title", font="Sans 18")
+    tag = buf.create_tag("title", font="Sans 18")
     return buf, tag
 
 
 def _text(buf: object) -> object:
-    start, end = getattr(buf, "get_bounds")()
-    return getattr(buf, "get_text")(start, end, False)
+    start, end = buf.get_bounds()
+    return buf.get_text(start, end, False)
 
 
 def _starts_tag(Gtk: Namespace) -> _StartsTagFn:
@@ -87,7 +87,7 @@ def _starts_tag(Gtk: Namespace) -> _StartsTagFn:
     fn: _StartsTagFn | None = getattr(Gtk.TextIter, "starts_tag", None)
     if fn is not None:
         return fn
-    begins: _StartsTagFn = getattr(Gtk.TextIter, "begins_tag")
+    begins: _StartsTagFn = Gtk.TextIter.begins_tag
     return begins
 
 
@@ -98,21 +98,21 @@ def _starts_tag(Gtk: Namespace) -> _StartsTagFn:
 
 @needs_display
 def test_tag_table_present(buf: object) -> None:
-    assert getattr(buf, "get_tag_table")() is not None
+    assert buf.get_tag_table() is not None
 
 
 @needs_display
 def test_create_tag_sets_properties(tagged_buf: tuple[object, object]) -> None:
     _, tag = tagged_buf
-    assert getattr(tag, "get_property")("name") == "title"
-    assert getattr(tag, "get_property")("font") == "Sans 18"
+    assert tag.get_property("name") == "title"
+    assert tag.get_property("font") == "Sans 18"
 
 
 @needs_display
 def test_create_tag_anonymous(buf: object) -> None:
-    tag = getattr(buf, "create_tag")(None, font="Sans 12")
-    assert getattr(tag, "get_property")("name") is None
-    assert getattr(tag, "get_property")("font") == "Sans 12"
+    tag = buf.create_tag(None, font="Sans 12")
+    assert tag.get_property("name") is None
+    assert tag.get_property("font") == "Sans 12"
 
 
 # --------------------------------------------------------------------------
@@ -122,9 +122,9 @@ def test_create_tag_anonymous(buf: object) -> None:
 
 @needs_display
 def test_create_mark_default_gravity(buf: object) -> None:
-    start, _ = getattr(buf, "get_bounds")()
-    mark = getattr(buf, "create_mark")(None, start)
-    assert getattr(mark, "get_left_gravity")() is False
+    start, _ = buf.get_bounds()
+    mark = buf.create_mark(None, start)
+    assert mark.get_left_gravity() is False
 
 
 # --------------------------------------------------------------------------
@@ -135,27 +135,27 @@ def test_create_mark_default_gravity(buf: object) -> None:
 @needs_display
 @pytest.mark.parametrize("text", ["Hello Jane Hello Bob", "", "single line"])
 def test_set_text_default_length(buf: object, text: str) -> None:
-    getattr(buf, "set_text")(text)
+    buf.set_text(text)
     assert _text(buf) == text
 
 
 @needs_display
 def test_insert_default_length(buf: object) -> None:
-    getattr(buf, "set_text")("")
-    _, end = getattr(buf, "get_bounds")()
-    getattr(buf, "insert")(end, "HelloHello")
-    getattr(buf, "insert")(end, " Bob")
+    buf.set_text("")
+    _, end = buf.get_bounds()
+    buf.insert(end, "HelloHello")
+    buf.insert(end, " Bob")
     assert _text(buf) == "HelloHello Bob"
 
 
 @needs_display
 def test_insert_at_cursor_default_length(buf: object) -> None:
-    getattr(buf, "set_text")("HelloHello Bob")
-    _, end = getattr(buf, "get_bounds")()
-    cursor_iter = getattr(end, "copy")()
-    getattr(cursor_iter, "backward_chars")(9)
-    getattr(buf, "place_cursor")(cursor_iter)
-    getattr(buf, "insert_at_cursor")(" Jane ")
+    buf.set_text("HelloHello Bob")
+    _, end = buf.get_bounds()
+    cursor_iter = end.copy()
+    cursor_iter.backward_chars(9)
+    buf.place_cursor(cursor_iter)
+    buf.insert_at_cursor(" Jane ")
     assert _text(buf) == "Hello Jane Hello Bob"
 
 
@@ -166,20 +166,20 @@ def test_insert_at_cursor_default_length(buf: object) -> None:
 
 @needs_display
 def test_get_selection_bounds_empty(buf: object) -> None:
-    getattr(buf, "set_text")("Hello Jane Hello Bob")
-    assert getattr(buf, "get_selection_bounds")() == ()
+    buf.set_text("Hello Jane Hello Bob")
+    assert buf.get_selection_bounds() == ()
 
 
 @needs_display
 def test_get_selection_bounds_after_select_range(buf: object) -> None:
-    getattr(buf, "set_text")("Hello Jane Hello Bob")
-    start, end = getattr(buf, "get_bounds")()
-    getattr(buf, "select_range")(start, end)
-    sel = getattr(buf, "get_selection_bounds")()
+    buf.set_text("Hello Jane Hello Bob")
+    start, end = buf.get_bounds()
+    buf.select_range(start, end)
+    sel = buf.get_selection_bounds()
     assert len(sel) == 2
     sel_start, sel_end = sel
-    assert getattr(sel_start, "equal")(start)
-    assert getattr(sel_end, "equal")(end)
+    assert sel_start.equal(start)
+    assert sel_end.equal(end)
 
 
 # --------------------------------------------------------------------------
@@ -189,24 +189,26 @@ def test_get_selection_bounds_after_select_range(buf: object) -> None:
 
 @needs_display
 def test_insert_with_tags_no_tags(buf: object) -> None:
-    getattr(buf, "insert_with_tags")(getattr(buf, "get_start_iter")(), "HelloHello")
+    buf.insert_with_tags(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
 def test_insert_with_tags_by_name_no_tags(buf: object) -> None:
-    getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello")
+    buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
-def test_insert_with_tags_applies_tag(Gtk: Namespace, tagged_buf: tuple[object, object]) -> None:
+def test_insert_with_tags_applies_tag(
+    Gtk: Namespace, tagged_buf: tuple[object, object]
+) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "insert_with_tags")(getattr(buf, "get_start_iter")(), "HelloHello", tag)
-    start, _ = getattr(buf, "get_bounds")()
+    buf.insert_with_tags(buf.get_start_iter(), "HelloHello", tag)
+    start, _ = buf.get_bounds()
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start, tag)
-    assert getattr(start, "has_tag")(tag)
+    assert start.has_tag(tag)
 
 
 @needs_display
@@ -214,17 +216,17 @@ def test_insert_with_tags_by_name_applies_tag(
     Gtk: Namespace, tagged_buf: tuple[object, object]
 ) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello", "title")
-    start, _ = getattr(buf, "get_bounds")()
+    buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "title")
+    start, _ = buf.get_bounds()
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start, tag)
-    assert getattr(start, "has_tag")(tag)
+    assert start.has_tag(tag)
 
 
 @needs_display
 def test_insert_with_tags_by_name_unknown_raises(buf: object) -> None:
     with pytest.raises(ValueError):
-        getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello", "nope")
+        buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "nope")
 
 
 # --------------------------------------------------------------------------
@@ -235,16 +237,16 @@ def test_insert_with_tags_by_name_unknown_raises(buf: object) -> None:
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
 def test_insert_rejects_non_string(buf: object, bad: object) -> None:
-    start, _ = getattr(buf, "get_bounds")()
+    start, _ = buf.get_bounds()
     with pytest.raises(TypeError):
-        getattr(buf, "insert")(start, bad)
+        buf.insert(start, bad)
 
 
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
 def test_insert_at_cursor_rejects_non_string(buf: object, bad: object) -> None:
     with pytest.raises(TypeError):
-        getattr(buf, "insert_at_cursor")(bad)
+        buf.insert_at_cursor(bad)
 
 
 # --------------------------------------------------------------------------
@@ -253,51 +255,55 @@ def test_insert_at_cursor_rejects_non_string(buf: object, bad: object) -> None:
 
 
 @needs_display
-def test_text_iter_tag_boundaries(Gtk: Namespace, tagged_buf: tuple[object, object]) -> None:
+def test_text_iter_tag_boundaries(
+    Gtk: Namespace, tagged_buf: tuple[object, object]
+) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "set_text")("Hello Jane Hello Bob")
-    start, end = getattr(buf, "get_bounds")()
-    getattr(start, "forward_chars")(10)
-    getattr(buf, "apply_tag")(tag, start, end)
+    buf.set_text("Hello Jane Hello Bob")
+    start, end = buf.get_bounds()
+    start.forward_chars(10)
+    buf.apply_tag(tag, start, end)
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start)
-    assert getattr(end, "ends_tag")()
-    assert getattr(start, "toggles_tag")()
-    assert getattr(end, "toggles_tag")()
-    getattr(start, "backward_chars")(1)
+    assert end.ends_tag()
+    assert start.toggles_tag()
+    assert end.toggles_tag()
+    start.backward_chars(1)
     assert not starts_tag(start)
-    assert not getattr(start, "ends_tag")()
-    assert not getattr(start, "toggles_tag")()
+    assert not start.ends_tag()
+    assert not start.toggles_tag()
 
 
 @needs_display
 def test_text_iter_forward_search_misses_case_sensitive(buf: object) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")
-    it = getattr(buf, "get_iter_at_offset")(0)
-    assert getattr(it, "forward_search")("world", 0, None) is None
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
+    assert it.forward_search("world", 0, None) is None
 
 
 @needs_display
-def test_text_iter_forward_search_case_sensitive_hit(Gtk: Namespace, buf: object) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")
-    it = getattr(buf, "get_iter_at_offset")(0)
+def test_text_iter_forward_search_case_sensitive_hit(
+    Gtk: Namespace, buf: object
+) -> None:
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
     assert isinstance(it, Gtk.TextIter)
-    match = getattr(it, "forward_search")("World", 0, None)
+    match = it.forward_search("World", 0, None)
     assert match is not None
     start, end = match
-    assert getattr(start, "get_offset")() == 6
-    assert getattr(end, "get_offset")() == 11
+    assert start.get_offset() == 6
+    assert end.get_offset() == 11
 
 
 @needs_display
 def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: object) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")
-    it = getattr(buf, "get_iter_at_offset")(0)
-    match = getattr(it, "forward_search")("world", Gtk.TextSearchFlags.CASE_INSENSITIVE, None)
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
+    match = it.forward_search("world", Gtk.TextSearchFlags.CASE_INSENSITIVE, None)
     assert match is not None
     start, end = match
-    assert getattr(start, "get_offset")() == 6
-    assert getattr(end, "get_offset")() == 11
+    assert start.get_offset() == 6
+    assert end.get_offset() == 11
 
 
 # --------------------------------------------------------------------------
@@ -308,14 +314,16 @@ def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: object) 
 
 @needs_display
 def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
-    def relocate_to_end(buffer: object, location: object, text: object, length: object) -> None:
-        getattr(location, "assign")(getattr(buffer, "get_end_iter")())
+    def relocate_to_end(
+        buffer: object, location: object, text: object, length: object
+    ) -> None:
+        location.assign(buffer.get_end_iter())
 
-    getattr(buf, "set_text")("first line\n")
-    getattr(buf, "connect")("insert-text", relocate_to_end, owner=buf)
-    getattr(buf, "place_cursor")(getattr(buf, "get_start_iter")())
-    getattr(buf, "insert_at_cursor")("second line\n")
-    assert getattr(buf, "get_property")("text") == "first line\nsecond line\n"
+    buf.set_text("first line\n")
+    buf.connect("insert-text", relocate_to_end, owner=buf)
+    buf.place_cursor(buf.get_start_iter())
+    buf.insert_at_cursor("second line\n")
+    assert buf.get_property("text") == "first line\nsecond line\n"
 
 
 # --------------------------------------------------------------------------
@@ -325,8 +333,8 @@ def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
 
 @needs_display
 def test_backward_find_char_walks_in_reverse(buf: object) -> None:
-    getattr(buf, "set_text")("abc")
-    end = getattr(buf, "get_iter_at_line")(99)
+    buf.set_text("abc")
+    end = buf.get_iter_at_line(99)
     if isinstance(end, tuple):  # goi sometimes returns (bool, iter)
         end = end[1]
     seen: list[object] = []
@@ -335,7 +343,7 @@ def test_backward_find_char_walks_in_reverse(buf: object) -> None:
         seen.append(ch)
         return ch == "a"
 
-    assert getattr(end, "backward_find_char")(pred)
+    assert end.backward_find_char(pred)
     assert seen == ["c", "b", "a"]
 
 

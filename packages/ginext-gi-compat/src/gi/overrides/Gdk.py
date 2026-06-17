@@ -46,6 +46,7 @@ def _rgba_hash(self) -> int:
 def _remove_from_method_infos(cls: type, name: str) -> None:
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:
@@ -71,6 +72,7 @@ __all__.append("RGBA")
 # FileList: add __len__ and __getitem__ using get_files()
 _FileList = getattr(_Gdk, "FileList", None)
 if _FileList is not None:
+
     def _filelist_len(self) -> int:
         return len(self.get_files())
 
@@ -92,7 +94,9 @@ try:
     _PaintableFlags = _Gdk.PaintableFlags
     if not hasattr(_PaintableFlags, "SIZE") and hasattr(_PaintableFlags, "STATIC_SIZE"):
         _PaintableFlags.SIZE = _PaintableFlags.STATIC_SIZE
-    if not hasattr(_PaintableFlags, "CONTENTS") and hasattr(_PaintableFlags, "STATIC_CONTENTS"):
+    if not hasattr(_PaintableFlags, "CONTENTS") and hasattr(
+        _PaintableFlags, "STATIC_CONTENTS"
+    ):
         _PaintableFlags.CONTENTS = _PaintableFlags.STATIC_CONTENTS
 except AttributeError:
     pass

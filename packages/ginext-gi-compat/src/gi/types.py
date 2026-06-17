@@ -103,7 +103,7 @@ class MetaClassHelper:
 
             if vfunc_info is None:
                 vfunc_info = find_vfunc_info_in_interface(
-                    cls.__bases__, vfunc_name[len("do_"):]
+                    cls.__bases__, vfunc_name[len("do_") :]
                 )
 
             if vfunc_info is not None:
@@ -247,9 +247,10 @@ class GObjectMeta(_GObjectMetaBase, MetaClassHelper):
 
         try:
             from .docstring import generate_doc_string
+
             if cls.__module__.startswith(("gi.repository.", "gi.overrides")):
                 return generate_doc_string(cls.__info__)
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             pass
 
         return None
@@ -323,8 +324,9 @@ class StructMeta(type, MetaClassHelper):
             return ""
         try:
             from .docstring import generate_doc_string
+
             return generate_doc_string(cls.__info__)
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             return None
 
 

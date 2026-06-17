@@ -60,7 +60,9 @@ def namespaces(gim: Namespace, regress: Namespace) -> dict[str, Namespace]:
     return {"gim": gim, "regress": regress}
 
 
-def _resolve(namespaces: dict[str, Namespace], ns: str, target: str) -> Callable[..., object]:
+def _resolve(
+    namespaces: dict[str, Namespace], ns: str, target: str
+) -> Callable[..., object]:
     result: object = namespaces[ns]
     for part in target.split("."):
         result = getattr(result, part)

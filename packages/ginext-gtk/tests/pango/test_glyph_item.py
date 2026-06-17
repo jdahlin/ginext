@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ginext import Pango
 
+
 def test_glyph_item_accepts_item_and_glyph_string_fields() -> None:
     glyph_item = Pango.GlyphItem()
     glyph_item.item = Pango.Item.new()

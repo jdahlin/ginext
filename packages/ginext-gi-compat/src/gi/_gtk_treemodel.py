@@ -42,6 +42,7 @@ class TreeModelRow:
     def __init__(self, model: Any, iter_or_path: Any) -> None:
         self.model = model
         import gi.repository
+
         _Gtk = getattr(gi.repository, "Gtk", None)
         if _Gtk is None:
             import gi
@@ -50,12 +51,13 @@ class TreeModelRow:
         TreePathType = _Gtk.TreePath
 
         if not hasattr(model, "get_iter"):
-            raise TypeError(
-                f"expected Gtk.TreeModel, got {type(model).__name__}"
-            )
+            raise TypeError(f"expected Gtk.TreeModel, got {type(model).__name__}")
         if isinstance(iter_or_path, TreePathType):
             self.iter = model.get_iter(iter_or_path)
-        elif isinstance(iter_or_path, TreeIterType) or type(iter_or_path).__name__ == "TreeIter":
+        elif (
+            isinstance(iter_or_path, TreeIterType)
+            or type(iter_or_path).__name__ == "TreeIter"
+        ):
             self.iter = iter_or_path
         else:
             raise TypeError(
@@ -68,30 +70,30 @@ class TreeModelRow:
         return self.model.get_path(self.iter)
 
     @property
-    def next(self) -> "TreeModelRow | None":
+    def next(self) -> TreeModelRow | None:
         return self.get_next()
 
     @property
-    def previous(self) -> "TreeModelRow | None":
+    def previous(self) -> TreeModelRow | None:
         return self.get_previous()
 
     @property
-    def parent(self) -> "TreeModelRow | None":
+    def parent(self) -> TreeModelRow | None:
         return self.get_parent()
 
-    def get_next(self) -> "TreeModelRow | None":
+    def get_next(self) -> TreeModelRow | None:
         next_iter = self.model.iter_next(self.iter)
         if next_iter:
             return TreeModelRow(self.model, next_iter)
         return None
 
-    def get_previous(self) -> "TreeModelRow | None":
+    def get_previous(self) -> TreeModelRow | None:
         prev_iter = self.model.iter_previous(self.iter)
         if prev_iter:
             return TreeModelRow(self.model, prev_iter)
         return None
 
-    def get_parent(self) -> "TreeModelRow | None":
+    def get_parent(self) -> TreeModelRow | None:
         parent_iter = self.model.iter_parent(self.iter)
         if parent_iter:
             return TreeModelRow(self.model, parent_iter)
@@ -106,15 +108,21 @@ class TreeModelRow:
             return self.model.get_value(self.iter, key)
         if isinstance(key, slice):
             start, stop, step = key.indices(self.model.get_n_columns())
-            return [self.model.get_value(self.iter, i) for i in range(start, stop, step)]
+            return [
+                self.model.get_value(self.iter, i) for i in range(start, stop, step)
+            ]
         if isinstance(key, tuple):
             return [self[k] for k in key]
-        raise TypeError(f"indices must be integers, slice or tuple, not {type(key).__name__}")
+        raise TypeError(
+            f"indices must be integers, slice or tuple, not {type(key).__name__}"
+        )
 
     def _set_value(self, col: int, value: Any) -> None:
         model = self.model
         iter_ = self.iter
-        if not hasattr(model, "set_value") and hasattr(model, "convert_iter_to_child_iter"):
+        if not hasattr(model, "set_value") and hasattr(
+            model, "convert_iter_to_child_iter"
+        ):
             iter_ = model.convert_iter_to_child_iter(iter_)
             model = model.get_model()
         model.set_value(iter_, col, value)
@@ -143,7 +151,9 @@ class TreeModelRow:
             for k, v in zip(key, value):
                 self[k] = v
         else:
-            raise TypeError(f"indices must be an integer, slice or tuple, not {type(key).__name__}")
+            raise TypeError(
+                f"indices must be an integer, slice or tuple, not {type(key).__name__}"
+            )
 
     def _convert_negative_index(self, index: int) -> int:
         new_index = self.model.get_n_columns() + index
@@ -151,7 +161,7 @@ class TreeModelRow:
             raise IndexError(f"column index is out of bounds: {index:d}")
         return new_index
 
-    def iterchildren(self) -> "TreeModelRowIter":
+    def iterchildren(self) -> TreeModelRowIter:
         child_iter = self.model.iter_children(self.iter)
         return TreeModelRowIter(self.model, child_iter)
 
@@ -179,7 +189,7 @@ class TreeModelRowIter:
         self.iter = self.model.iter_next(self.iter)
         return row
 
-    def __iter__(self) -> "TreeModelRowIter":
+    def __iter__(self) -> TreeModelRowIter:
         return self
 
 
@@ -198,7 +208,12 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
     _raw_iter_parent = tree_model_cls.iter_parent
     _raw_get_iter_from_string = tree_model_cls.get_iter_from_string
 
-    def _strip2(method: Any, exc_type: Any = None, exc_str: str | None = None, fail_ret: Any = None) -> Any:
+    def _strip2(
+        method: Any,
+        exc_type: Any = None,
+        exc_str: str | None = None,
+        fail_ret: Any = None,
+    ) -> Any:
         return strip_boolean_result(method, exc_type, exc_str, fail_ret)
 
     tree_model_cls.get_iter_first = _strip2(_raw_get_iter_first)
@@ -211,9 +226,16 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
 
     def _tm_get_iter(self: Any, path: Any) -> Any:
         from ginext import Gtk as _Gtk
+
         if not isinstance(path, _Gtk.TreePath):
-            path = _Gtk.TreePath.new_from_string(str(path) if not isinstance(path, str) else path)
-        success, aiter = type(self).__mro__[1].get_iter(self, path) if False else _raw_get_iter_impl(self, path)
+            path = _Gtk.TreePath.new_from_string(
+                str(path) if not isinstance(path, str) else path
+            )
+        success, aiter = (
+            type(self).__mro__[1].get_iter(self, path)
+            if False
+            else _raw_get_iter_impl(self, path)
+        )
         if not success:
             raise ValueError(f"invalid tree path '{path}'")
         return aiter
@@ -222,6 +244,7 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
 
     def _tm_get_iter2(self: Any, path: Any) -> Any:
         from ginext import Gtk as _Gtk
+
         if not isinstance(path, _Gtk.TreePath):
             if isinstance(path, int):
                 path = _Gtk.TreePath.new_from_string(str(path))
@@ -300,7 +323,7 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
             aiter = key
             self.remove(aiter)
             return
-        elif isinstance(key, int) and key < 0:
+        if isinstance(key, int) and key < 0:
             index = len(self) + key
             if index < 0:
                 raise IndexError(f"row index is out of bounds: {key:d}")
@@ -317,6 +340,7 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
 
     def _tm_convert_value(self: Any, column: int, value: Any) -> Any:
         import ginext
+
         GObject = ginext._load_namespace("GObject", "2.0", profile=ginext.abi.PYGOBJECT)
         if isinstance(value, GObject.Value):
             return value
@@ -352,10 +376,13 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
                 if value is not None:
                     self.set_value(treeiter, i, value)
         else:
-            raise TypeError(f"row must be a list, tuple, or dict, not {type(row).__name__}")
+            raise TypeError(
+                f"row must be a list, tuple, or dict, not {type(row).__name__}"
+            )
 
     def _tm_sort_new_with_model(self: Any) -> Any:
         import ginext
+
         Gtk = ginext._load_namespace("Gtk", "3.0")
         return Gtk.TreeModelSort.new_with_model(self)
 
@@ -384,6 +411,7 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
 
     def _coerce_path(path: Any) -> Any:
         from ginext import Gtk as _Gtk
+
         if isinstance(path, _Gtk.TreePath):
             return path
         if isinstance(path, int):
@@ -399,7 +427,12 @@ def _install_treemodel_compat(tree_model_cls: Any, gtk_namespace: Any) -> None:
     # Gtk.TreePath.  Before overriding, save the original SignalDescriptors so
     # _compat_signal_for_name can still find them for connect() lookups.
     _saved_sds: dict = {}
-    for _sname in ("row_changed", "row_deleted", "row_has_child_toggled", "row_inserted"):
+    for _sname in (
+        "row_changed",
+        "row_deleted",
+        "row_has_child_toggled",
+        "row_inserted",
+    ):
         _sd = tree_model_cls.__dict__.get(_sname)
         if _sd is not None:
             _saved_sds[_sname] = _sd
@@ -442,21 +475,28 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
     _raw_insert_after = list_store_cls.insert_after
     _raw_set_value_c = list_store_cls.set_value
 
-    def _ls_insert_with_values_compat(self: Any, position: int, columns: Any, values: Any) -> Any:
+    def _ls_insert_with_values_compat(
+        self: Any, position: int, columns: Any, values: Any
+    ) -> Any:
         """pygobject-compatible insert_with_values(pos, columns, values) with raw Python values.
 
         Inserts atomically without emitting row-changed (only row-inserted).
         """
         import ginext as _gi
+
         _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
         _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
-        _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+        _gi.GObject.signal_handlers_block_matched(
+            self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+        )
         try:
             treeiter = _raw_insert(self, position)
             for col, val in zip(columns, values):
                 _raw_set_value_c(self, treeiter, col, self._convert_value(col, val))
         finally:
-            _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            _gi.GObject.signal_handlers_unblock_matched(
+                self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+            )
         return treeiter
 
     def _ls_insert_with_values(self: Any, position: int, row: Any) -> Any:
@@ -503,23 +543,30 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
 
     def _ls_set(self: Any, treeiter: Any, *args: Any) -> None:
         import ginext as _gi
+
         _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
         _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
 
         def _set_lists(cols: Any, vals: Any) -> None:
             if len(cols) != len(vals):
-                raise TypeError("The number of columns do not match the number of values")
+                raise TypeError(
+                    "The number of columns do not match the number of values"
+                )
             for col_num, value in zip(cols, vals):
                 if not isinstance(col_num, int):
                     raise TypeError("Expected integer argument for column.")
                 if not isinstance(col_num, int):
                     raise TypeError("Expected integer argument for column.")
-                _raw_set_value_c(self, treeiter, col_num, self._convert_value(col_num, value))
+                _raw_set_value_c(
+                    self, treeiter, col_num, self._convert_value(col_num, value)
+                )
 
         if args:
             if isinstance(args[0], int):
                 if len(args) % 2 != 0:
-                    raise TypeError("Expected even number of arguments (column, value, ...)")
+                    raise TypeError(
+                        "Expected even number of arguments (column, value, ...)"
+                    )
                 pairs = list(zip(args[::2], args[1::2]))
             elif isinstance(args[0], (tuple, list)):
                 if len(args) != 2:
@@ -528,14 +575,22 @@ def _install_list_store_compat(list_store_cls: Any) -> None:
             elif isinstance(args[0], dict):
                 pairs = list(args[0].items())
             else:
-                raise TypeError("Argument list must be in the form of (column, value, ...), ((columns,...), (values, ...)) or {column: value}.")
+                raise TypeError(
+                    "Argument list must be in the form of (column, value, ...), ((columns,...), (values, ...)) or {column: value}."
+                )
             # Block row-changed during multi-column set, then emit once
-            _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            _gi.GObject.signal_handlers_block_matched(
+                self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+            )
             try:
                 for col_num, value in pairs:
-                    _raw_set_value_c(self, treeiter, col_num, self._convert_value(col_num, value))
+                    _raw_set_value_c(
+                        self, treeiter, col_num, self._convert_value(col_num, value)
+                    )
             finally:
-                _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+                _gi.GObject.signal_handlers_unblock_matched(
+                    self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+                )
             # Emit row-changed once after all values are set
             if pairs:
                 path = self.get_path(treeiter)
@@ -568,22 +623,31 @@ def _install_tree_store_compat(tree_store_cls: Any) -> None:
     _raw_insert_after = tree_store_cls.insert_after
     _raw_set_value_c = tree_store_cls.set_value
 
-    def _ts_insert_with_values_compat(self: Any, parent: Any, position: int, columns: Any, values: Any) -> Any:
+    def _ts_insert_with_values_compat(
+        self: Any, parent: Any, position: int, columns: Any, values: Any
+    ) -> Any:
         import ginext as _gi
+
         _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
         _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
-        _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+        _gi.GObject.signal_handlers_block_matched(
+            self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+        )
         try:
             treeiter = _raw_insert(self, parent, position)
             for col, val in zip(columns, values):
                 _raw_set_value_c(self, treeiter, col, self._convert_value(col, val))
         finally:
-            _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            _gi.GObject.signal_handlers_unblock_matched(
+                self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+            )
         return treeiter
 
     def _ts_insert_with_values(self: Any, parent: Any, position: int, row: Any) -> Any:
         row_vals, columns = self._convert_row(row)
-        return _ts_insert_with_values_compat(self, parent, position, list(columns), row_vals)
+        return _ts_insert_with_values_compat(
+            self, parent, position, list(columns), row_vals
+        )
 
     def _ts_do_insert(self: Any, parent: Any, position: int, row: Any) -> Any:
         if row is not None:
@@ -627,33 +691,46 @@ def _install_tree_store_compat(tree_store_cls: Any) -> None:
 
     def _ts_set(self: Any, treeiter: Any, *args: Any) -> None:
         import ginext as _gi
+
         _MATCH_ID = int(_gi.GObject.SignalMatchType.ID)
         _rc_sig_id = _gi.GObject.signal_lookup("row-changed", type(self))
 
         if args:
             if isinstance(args[0], int):
                 if len(args) % 2 != 0:
-                    raise TypeError("Expected even number of arguments (column, value, ...)")
+                    raise TypeError(
+                        "Expected even number of arguments (column, value, ...)"
+                    )
                 pairs = list(zip(args[::2], args[1::2]))
             elif isinstance(args[0], (tuple, list)):
                 if len(args) != 2:
                     raise TypeError("Too many arguments")
                 if len(args[0]) != len(args[1]):
-                    raise TypeError("The number of columns do not match the number of values")
+                    raise TypeError(
+                        "The number of columns do not match the number of values"
+                    )
                 pairs = list(zip(args[0], args[1]))
             elif isinstance(args[0], dict):
                 pairs = list(args[0].items())
             else:
-                raise TypeError("Argument list must be in the form of (column, value, ...), ((columns,...), (values, ...)) or {column: value}.")
+                raise TypeError(
+                    "Argument list must be in the form of (column, value, ...), ((columns,...), (values, ...)) or {column: value}."
+                )
             for col_num, _v in pairs:
                 if not isinstance(col_num, int):
                     raise TypeError("Expected integer argument for column.")
-            _gi.GObject.signal_handlers_block_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+            _gi.GObject.signal_handlers_block_matched(
+                self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+            )
             try:
                 for col_num, value in pairs:
-                    _raw_set_value_c(self, treeiter, col_num, self._convert_value(col_num, value))
+                    _raw_set_value_c(
+                        self, treeiter, col_num, self._convert_value(col_num, value)
+                    )
             finally:
-                _gi.GObject.signal_handlers_unblock_matched(self, _MATCH_ID, signal_id=_rc_sig_id, detail=0)
+                _gi.GObject.signal_handlers_unblock_matched(
+                    self, _MATCH_ID, signal_id=_rc_sig_id, detail=0
+                )
             if pairs:
                 path = self.get_path(treeiter)
                 if path is not None:
@@ -667,7 +744,9 @@ def _install_tree_store_compat(tree_store_cls: Any) -> None:
     tree_store_cls.set_value = _ts_set_value
     tree_store_cls.set = _ts_set
 
-    if _raw_insert_with_valuesv is not None and not hasattr(tree_store_cls, "insert_with_values"):
+    if _raw_insert_with_valuesv is not None and not hasattr(
+        tree_store_cls, "insert_with_values"
+    ):
         tree_store_cls.insert_with_values = _raw_insert_with_valuesv
 
     tree_store_cls._pygobject_compat_treestore_methods = True
@@ -677,15 +756,21 @@ def _install_tree_sortable_compat(sortable_cls: Any) -> None:
     if getattr(sortable_cls, "_pygobject_compat_treesortable", False):
         return
     _raw_get_sort = sortable_cls.get_sort_column_id
-    sortable_cls.get_sort_column_id = strip_boolean_result(_raw_get_sort, fail_ret=(None, None))
+    sortable_cls.get_sort_column_id = strip_boolean_result(
+        _raw_get_sort, fail_ret=(None, None)
+    )
 
     _raw_set_sort_func = sortable_cls.set_sort_func
     _raw_set_default_sort_func = sortable_cls.set_default_sort_func
 
-    def _set_sort_func(self: Any, sort_column_id: int, sort_func: Any, user_data: Any = None) -> None:
+    def _set_sort_func(
+        self: Any, sort_column_id: int, sort_func: Any, user_data: Any = None
+    ) -> None:
         _raw_set_sort_func(self, sort_column_id, sort_func, user_data)
 
-    def _set_default_sort_func(self: Any, sort_func: Any, user_data: Any = None) -> None:
+    def _set_default_sort_func(
+        self: Any, sort_func: Any, user_data: Any = None
+    ) -> None:
         _raw_set_default_sort_func(self, sort_func, user_data)
 
     sortable_cls.set_sort_func = _set_sort_func
@@ -716,7 +801,7 @@ def _install_treepath_compat(tree_path_cls: Any) -> None:
             raise TypeError(f"could not parse subscript '{path}' as a tree path")
         try:
             return _raw_new_from_string(path_str)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             raise TypeError(f"could not parse subscript '{path}' as a tree path")
 
     tree_path_cls.__new__ = staticmethod(_tp_new)
@@ -781,7 +866,9 @@ def _install_treeviewcolumn_compat(tvc_cls: Any) -> None:
 
     _raw_tvc_init = tvc_cls.__init__
 
-    def _tvc_init(self: Any, title: str = "", cell_renderer: Any = None, **attributes: Any) -> None:
+    def _tvc_init(
+        self: Any, title: str = "", cell_renderer: Any = None, **attributes: Any
+    ) -> None:
         _raw_tvc_init(self, title=title)
         if cell_renderer is not None:
             self.pack_start(cell_renderer, True)
@@ -793,11 +880,14 @@ def _install_treeviewcolumn_compat(tvc_cls: Any) -> None:
 
     _raw_set_cell_data_func = tvc_cls.set_cell_data_func
 
-    def _set_cell_data_func(self: Any, cell_renderer: Any, func: Any, func_data: Any = None) -> None:
+    def _set_cell_data_func(
+        self: Any, cell_renderer: Any, func: Any, func_data: Any = None
+    ) -> None:
         _raw_set_cell_data_func(self, cell_renderer, func, func_data)
 
     def _set_attributes(self: Any, cell_renderer: Any, **attributes: Any) -> None:
         import ginext
+
         Gtk = ginext._load_namespace("Gtk", "3.0")
         Gtk.CellLayout.clear_attributes(self, cell_renderer)
         for name, value in attributes.items():
@@ -814,9 +904,13 @@ def _install_treeview_compat(tv_cls: Any) -> None:
         return
 
     _raw_set_cursor = tv_cls.set_cursor
-    _raw_insert_column_with_attributes = getattr(tv_cls, "insert_column_with_attributes", None)
+    _raw_insert_column_with_attributes = getattr(
+        tv_cls, "insert_column_with_attributes", None
+    )
 
-    def _set_cursor(self: Any, path: Any, column: Any = None, start_editing: bool = False) -> None:
+    def _set_cursor(
+        self: Any, path: Any, column: Any = None, start_editing: bool = False
+    ) -> None:
         _raw_set_cursor(self, path, column, start_editing)
 
     _raw_scroll_to_cell = tv_cls.scroll_to_cell
@@ -835,6 +929,7 @@ def _install_treeview_compat(tv_cls: Any) -> None:
         self: Any, position: int, title: str, cell: Any, **attributes: Any
     ) -> Any:
         import ginext
+
         Gtk = ginext._load_namespace("Gtk", "3.0")
         tv_col = Gtk.TreeViewColumn()
         tv_col.set_title(title)
@@ -872,6 +967,7 @@ def _install_treeselection_compat(sel_cls: Any) -> None:
     def _select_path(self: Any, path: Any) -> None:
         if not type(path).__name__ == "TreePath":
             import ginext
+
             Gtk = ginext._load_namespace("Gtk", "3.0")
             if isinstance(path, int):
                 path = Gtk.TreePath.new_from_string(str(path))

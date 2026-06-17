@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="session")
-def dbus_session_bus() -> Generator[str, None, None]:
+def dbus_session_bus() -> Generator[str]:
     if shutil.which("dbus-daemon") is None:
         pytest.skip("dbus-daemon not available")
 
