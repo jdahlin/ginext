@@ -39,7 +39,7 @@ _SKIP_NAMESPACES = {"GIRepository"}
 
 
 @dataclass
-class _NSOverlay:
+class NSOverlay:
     helper_classes: dict[str, str] = field(default_factory=dict)
     module_lines: list[str] = field(default_factory=list)
     # Names of module-level functions/constants replaced by the overlay; the
@@ -52,7 +52,7 @@ class _NSOverlay:
 
 def harvest_overlays(roots: list[Path]) -> dict[str, dict[str, Any]]:
     """Return ``{namespace: overlay_dict}`` harvested from the overlay files."""
-    per_ns: dict[str, _NSOverlay] = {}
+    per_ns: dict[str, NSOverlay] = {}
     for path in _discover(roots):
         ns = path.stem
         if ns in _SKIP_NAMESPACES:
@@ -61,7 +61,7 @@ def harvest_overlays(roots: list[Path]) -> dict[str, dict[str, Any]]:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except OSError, SyntaxError:
             continue
-        acc = per_ns.setdefault(ns, _NSOverlay())
+        acc = per_ns.setdefault(ns, NSOverlay())
         _harvest_module(tree, acc)
     return {ns: dct for ns, acc in per_ns.items() if (dct := _to_overlay_dict(acc))}
 
@@ -79,7 +79,7 @@ def _discover(roots: list[Path]) -> list[Path]:
 # --------------------------------------------------------------------------
 
 
-def _harvest_module(tree: ast.Module, acc: _NSOverlay) -> None:
+def _harvest_module(tree: ast.Module, acc: NSOverlay) -> None:
     helper_defs: dict[str, ast.ClassDef] = {
         node.name: node for node in tree.body if isinstance(node, ast.ClassDef)
     }
@@ -110,7 +110,7 @@ def _harvest_module(tree: ast.Module, acc: _NSOverlay) -> None:
 
 
 def _harvest_decorated_fn(
-    fn: ast.FunctionDef, acc: _NSOverlay, rendered: list[str]
+    fn: ast.FunctionDef, acc: NSOverlay, rendered: list[str]
 ) -> None:
     for deco in fn.decorator_list:
         kind = _overlay_decorator(deco)
@@ -155,7 +155,7 @@ def _harvest_decorated_fn(
 
 def _harvest_call(
     call: ast.Call,
-    acc: _NSOverlay,
+    acc: NSOverlay,
     rendered: list[str],
     module_functions: dict[str, ast.FunctionDef],
 ) -> None:
@@ -373,7 +373,7 @@ def _word_in(name: str, text: str) -> bool:
 # --------------------------------------------------------------------------
 
 
-def _to_overlay_dict(acc: _NSOverlay) -> dict[str, Any]:
+def _to_overlay_dict(acc: NSOverlay) -> dict[str, Any]:
     out: dict[str, Any] = {}
     prelude_parts: list[str] = []
     prelude_parts.extend(acc.helper_classes.values())

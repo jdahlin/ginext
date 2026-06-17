@@ -144,7 +144,7 @@ class FreezeNotifyContext:
         return False
 
 
-class _NotifySignalSelector:
+class NotifySignalSelector:
     __slots__ = ("_source",)
 
     def __init__(self, source: _gobject_root.GObject) -> None:
@@ -155,7 +155,7 @@ class _NotifySignalSelector:
         return signal.detail_signal(detail)
 
 
-class _NotifyCompatProxy:
+class NotifyCompatProxy:
     __slots__ = ("_source",)
 
     def __init__(self, source: _gobject_root.GObject) -> None:
@@ -186,12 +186,12 @@ def freeze_notify(fn: Any, self: Any) -> FreezeNotifyContext:
 
 
 @overlay.property("Object")
-def notify(self: _gobject_root.GObject) -> _NotifySignalSelector | _NotifyCompatProxy:
+def notify(self: _gobject_root.GObject) -> NotifySignalSelector | NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
     if features.is_enabled(features.PYGOBJECT_COMPAT):
-        return _NotifyCompatProxy(self)
-    return _NotifySignalSelector(self)
+        return NotifyCompatProxy(self)
+    return NotifySignalSelector(self)
 
 
 class HandlerBlockContext:
@@ -345,12 +345,12 @@ def _root_freeze_notify(self: _gobject_root.GObject) -> FreezeNotifyContext:
 
 def _root_notify(
     self: _gobject_root.GObject,
-) -> _NotifySignalSelector | _NotifyCompatProxy:
+) -> NotifySignalSelector | NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
     if features.is_enabled(features.PYGOBJECT_COMPAT):
-        return _NotifyCompatProxy(self)
-    return _NotifySignalSelector(self)
+        return NotifyCompatProxy(self)
+    return NotifySignalSelector(self)
 
 
 def _root_bind_property(
