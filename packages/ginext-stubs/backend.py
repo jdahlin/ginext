@@ -31,7 +31,9 @@ def _repo_root() -> Path:
 
 
 def _generated_stub_dir() -> Path:
-    return _repo_root() / "build" / "stubs" / "ginext"
+    # Generate stubs into packages/ginext-stubs/ginext/ so hatchling's
+    # force-include picks them up for the wheel.
+    return Path(__file__).resolve().parent / "ginext"
 
 
 def _generate_stubs(*, force: bool = False) -> None:
