@@ -105,7 +105,7 @@ def test_issue_219_closure_handle_does_not_retain_bound_method_owner() -> None:
     in Gtk apps — must not pin `obj`. Without weakening, the GClosure
     holds the bound method which strongly references its __self__, so
     `obj` survives until the source is finalized. With weakening,
-    Signal.connect substitutes a _WeakBoundCallable that holds the
+    Signal.connect substitutes a WeakBoundCallable that holds the
     function side strongly and __self__ weakly, so `obj` can be
     collected as soon as user code drops its references."""
 

@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ..overlay import OverlayRegistrar
-    from ..signal.bound import _PropertyDetail
+    from ..signal.bound import PropertyDetail
     from ..signal.connection import SignalConnection
 
 
@@ -150,7 +150,7 @@ class _NotifySignalSelector:
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | _PropertyDetail) -> _BoundSignal:
+    def __call__(self, detail: str | PropertyDetail) -> _BoundSignal:
         signal = _notify_bound_signal(self._source)
         return signal.detail_signal(detail)
 
@@ -161,7 +161,7 @@ class _NotifyCompatProxy:
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | _PropertyDetail) -> object:
+    def __call__(self, detail: str | PropertyDetail) -> object:
         from .. import private
 
         return private.invoke("GObject", "Object.notify", self._source, str(detail))
