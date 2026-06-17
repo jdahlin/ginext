@@ -101,7 +101,7 @@ def test_gio_file_replace_contents_writes() -> None:
         Gio.File
         file = Gio.file_new_for_path(path)
         file.replace_contents(
-            b"replaced\n",  # type: ignore[arg-type]  # replace_contents accepts bytes at runtime
+            b"replaced\n",
             None,
             False,
             Gio.FileCreateFlags.NONE,
