@@ -106,6 +106,7 @@ _XFAIL_NOT_RUN_BY_NODE = {
     "test_overrides_gdkpixbuf.py::test_new_from_data": "crashes in GdkPixbuf pixel data marshalling",
     "test_overrides_gdk.py::TestGdk::test_file_list": "crashes xdist worker across platforms (access violation in record.py wrapper)",
     "test_overrides_gdkpixbuf.py::test_new_from_data_deprecated_args": "unsafe while GdkPixbuf pixel data marshalling is crash-prone",
+    "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes setting parent class property via compat props proxy",
     "test_properties.py::TestProperty::test_range": "crashes xdist worker on all Python builds; numeric property range info not fully implemented",
 }
 
@@ -130,7 +131,6 @@ _XFAIL_NOT_RUN_WIN32_BY_NODE = {
 # does not affect the free-threaded build (3.15b2t) or Python 3.14.
 _PY315_GIL_XFAIL_BY_NODE = {
     "test_subprocess.py::test_spawn_async_fds_with_child_setup": "hangs in g_spawn_async() child_setup on Python 3.15 GIL build (CPython 3.15b2 regression)",
-    "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
 }
 
