@@ -70,7 +70,7 @@ def _register_glib_unix_deprecations() -> None:
             "GLibUnix", version, profile=_ginext.abi.PYGOBJECT
         )
         unix_names = set(private.namespace_dir("GLibUnix", version))
-    except ImportError, AttributeError, LookupError:
+    except (ImportError, AttributeError, LookupError):
         # GLibUnix is absent on non-Unix platforms (e.g. Windows uses GLibWin32).
         return
     overlay.deprecated("UnixPipe", GLibUnix.Pipe, "GLibUnix.Pipe")

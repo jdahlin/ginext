@@ -31,8 +31,8 @@ def test_two_level_subclass_registers_distinct_gtype(
     class B(A):
         b: int = Property(default=2)  # type: ignore[operator]
 
-    assert A.gimeta.gtype != B.gimeta.gtype
-    assert A.gimeta.gtype != GObject.gimeta.gtype
+    assert A.gimeta.gtype != B.gimeta.gtype  # type: ignore[attr-defined]
+    assert A.gimeta.gtype != GObject.gimeta.gtype  # type: ignore[attr-defined]
 
 
 def test_subclass_pspecs_only_lists_locally_declared(
@@ -44,8 +44,8 @@ def test_subclass_pspecs_only_lists_locally_declared(
     class B(A):
         own: int = Property(default=2)  # type: ignore[operator]
 
-    assert set(A.gimeta.pspecs) == {"inherited"}
-    assert set(B.gimeta.pspecs) == {"own"}
+    assert set(A.gimeta.pspecs) == {"inherited"}  # type: ignore[attr-defined]
+    assert set(B.gimeta.pspecs) == {"own"}  # type: ignore[attr-defined]
 
 
 def test_three_level_parent_chain(GObject: object) -> None:
@@ -58,9 +58,9 @@ def test_three_level_parent_chain(GObject: object) -> None:
     class C(B):
         pass
 
-    assert C.gimeta.parent is B
-    assert B.gimeta.parent is A
-    assert A.gimeta.parent is GObject
+    assert C.gimeta.parent is B  # type: ignore[attr-defined]
+    assert B.gimeta.parent is A  # type: ignore[attr-defined]
+    assert A.gimeta.parent is GObject  # type: ignore[attr-defined]
 
 
 def test_subclass_prop_ids_restart_from_one(GObject: object, Property: object) -> None:
@@ -71,8 +71,8 @@ def test_subclass_prop_ids_restart_from_one(GObject: object, Property: object) -
     class B(A):
         b1: int = Property()  # type: ignore[operator]
 
-    assert A.gimeta.prop_ids == {"a1": 1, "a2": 2}
-    assert B.gimeta.prop_ids == {"b1": 1}
+    assert A.gimeta.prop_ids == {"a1": 1, "a2": 2}  # type: ignore[attr-defined]
+    assert B.gimeta.prop_ids == {"b1": 1}  # type: ignore[attr-defined]
 
 
 def test_two_subclasses_of_same_parent_dont_collide(
@@ -87,9 +87,9 @@ def test_two_subclasses_of_same_parent_dont_collide(
     class Right(Base):
         right_value: int = Property(default=2)  # type: ignore[operator]
 
-    assert Left.gimeta.gtype != Right.gimeta.gtype
-    assert Left.gimeta.parent is Base
-    assert Right.gimeta.parent is Base
+    assert Left.gimeta.gtype != Right.gimeta.gtype  # type: ignore[attr-defined]
+    assert Left.gimeta.parent is Base  # type: ignore[attr-defined]
+    assert Right.gimeta.parent is Base  # type: ignore[attr-defined]
 
 
 def test_multiple_inheritance_picks_first_base(
