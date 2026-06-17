@@ -75,7 +75,7 @@ from .overlay import (
 )
 from .signal.descriptor import SignalDescriptor
 
-_V = TypeVar("_V")
+V = TypeVar("V")
 
 _classes_by_gtype: dict[tuple[str, int], type[Any]] = {}
 
@@ -100,8 +100,8 @@ def _merge_class_dict_attr(
     return merged
 
 
-def _merge_gimeta_attr(bases: tuple[type, ...], attr_name: str) -> dict[str, _V]:
-    merged: dict[str, _V] = {}
+def _merge_gimeta_attr(bases: tuple[type, ...], attr_name: str) -> dict[str, V]:
+    merged: dict[str, V] = {}
     for base in reversed(bases):
         gimeta = own_gimeta(base)
         if gimeta is None:

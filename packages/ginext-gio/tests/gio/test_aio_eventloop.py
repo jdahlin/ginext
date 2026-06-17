@@ -39,10 +39,10 @@ if TYPE_CHECKING:
 
 import pytest
 
-_T = TypeVar("_T")
+T = TypeVar("T")
 
 
-def _run(coro: Coroutine[object, object, _T]) -> _T:
+def _run(coro: Coroutine[object, object, T]) -> T:
     from ginext import aio
 
     return asyncio.run(coro, loop_factory=aio.EventLoop)

@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 _ENUM_PICKLE_REGISTRY: dict[int, Any] = {}
 _enum_classes_by_key: dict[tuple[str, str, str, str], type[Any]] = {}
-_EnumT = TypeVar("_EnumT")
+EnumT = TypeVar("EnumT")
 
 
 def _register_genum(type_name: str, members: dict[str, int]) -> int:
@@ -239,13 +239,13 @@ class EnumBuilder:
         self,
         name: str,
         info: EnumInfo | FlagsInfo,
-        base: type[_EnumT],
-    ) -> type[_EnumT]:
+        base: type[EnumT],
+    ) -> type[EnumT]:
         context = self._context
         key = (context.profile.name, context.name, context.version, name)
         cached = _enum_classes_by_key.get(key)
         if cached is not None:
-            return cast("type[_EnumT]", cached)
+            return cast("type[EnumT]", cached)
 
         members: dict[str, int] = {}
         raw_members = info.members
@@ -279,7 +279,7 @@ class EnumBuilder:
         # The functional IntEnum/IntFlag API constructs the class dynamically
         # (cls is built above via the untyped functional form), so narrow the
         # built class back to the requested base here.
-        return cast("type[_EnumT]", cls)
+        return cast("type[EnumT]", cls)
 
 
 def _enum_primary_members(cls: type[Any]) -> dict[int, Any]:

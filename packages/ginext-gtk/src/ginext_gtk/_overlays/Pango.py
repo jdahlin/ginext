@@ -55,16 +55,16 @@ class _MoveCursorVisually(NamedTuple):
     new_trailing: int
 
 
-_ResultTuple = TypeVar("_ResultTuple")
+ResultTuple = TypeVar("ResultTuple")
 
 
 overlay: OverlayRegistrar = Pango.overlay
 
 
 def _named_result(
-    result_type: type[_ResultTuple],
+    result_type: type[ResultTuple],
     value: object,
-) -> _ResultTuple:
+) -> ResultTuple:
     field_names = getattr(result_type, "_fields", None)
     if not isinstance(field_names, tuple):
         raise TypeError(f"{result_type!r} is not a NamedTuple type")
