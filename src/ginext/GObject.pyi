@@ -35,7 +35,7 @@ from typing import (
 )
 
 from gi.repository import GObject as _CompatGObject
-from ginext.private import GIMeta as _GIMeta
+from ginext.private import GIMeta
 
 from .signal.connection import SignalConnection as SignalConnection
 
@@ -103,7 +103,7 @@ class GFlags(int):
     __gtype__: ClassVar[Any]
 
 class Object(_CompatGObject.Object):  # type: ignore[misc, name-defined]
-    gimeta: ClassVar[_GIMeta]
+    gimeta: ClassVar[GIMeta]
     def __init_subclass__(cls, *, type_name: str = ..., **kwargs: object) -> None: ...
     __gtype_name__: Final[str]
     notify: "DetailedSignal[Self, Any, None]"

@@ -1579,7 +1579,7 @@ class Emitter:
                 "from ginext.overlay.registrar import "
                 "OverlayRegistrar as _OverlayRegistrar"
             )
-            self.lines.append("from ginext.private import GIMeta as _GIMeta")
+            self.lines.append("from ginext.private import GIMeta")
             self.lines.append("")
             self.lines.append("overlay: _OverlayRegistrar")
             # ginext exposes the underlying typelib version as a tuple on every namespace.
@@ -1799,7 +1799,7 @@ class Emitter:
         # ginext's metaclass attaches `.gimeta` (GIMeta) to every built class;
         # it is read off the class object (`cls.gimeta`), so declare a ClassVar.
         if self.mode != "gi" and _take("gimeta"):
-            self.lines.append("    gimeta: ClassVar[_GIMeta]")
+            self.lines.append("    gimeta: ClassVar[GIMeta]")
             body_started = True
         for prop in klass.properties:
             if not _take(prop.py_name):
