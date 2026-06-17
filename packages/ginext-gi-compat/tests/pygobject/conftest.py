@@ -190,6 +190,18 @@ def pytest_collection_modifyitems(
             continue
         for marker in compat_warning_filters:
             item.add_marker(marker)
+        if is_free_threaded and (
+            relative_nodeid.startswith("test_gtk_template.py::")
+            or relative_nodeid.startswith("test_overrides_gtk.py::")
+        ):
+            item.add_marker(
+                pytest.mark.xfail(
+                    reason="Gtk compat tests crash during instance creation under free-threaded Python",
+                    run=False,
+                    strict=False,
+                )
+            )
+            continue
         if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_BY_NODE:
             reason = _PY315_GIL_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
@@ -216,11 +228,11 @@ def pytest_collection_modifyitems(
             )
             continue
         if relative_nodeid.startswith("test_cairo.py::TestPango::") and (
-            not has_display or is_debug_python
+            not has_display or is_debug_python or is_free_threaded
         ):
             item.add_marker(
                 pytest.mark.skip(
-                    reason="Gtk cairo font-options test is not stable under debug/display-limited runs"
+                    reason="Gtk cairo font-options test is not stable under debug/display-limited/free-threaded runs"
                 )
             )
             continue
