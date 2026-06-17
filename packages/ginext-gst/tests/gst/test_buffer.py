@@ -12,11 +12,11 @@ import pytest
 from ginext.namespace import Namespace
 
 if TYPE_CHECKING:
-    import ginext.Gst as _Gst
+    import ginext.Gst as GstTypes
 
 
-def _make_buffer(Gst: Namespace, payload: bytes) -> _Gst.Buffer:
-    buf: _Gst.Buffer = Gst.Buffer.new_allocate(None, len(payload), None)
+def _make_buffer(Gst: Namespace, payload: bytes) -> GstTypes.Buffer:
+    buf: GstTypes.Buffer = Gst.Buffer.new_allocate(None, len(payload), None)
     buf.fill(0, payload)
     return buf
 

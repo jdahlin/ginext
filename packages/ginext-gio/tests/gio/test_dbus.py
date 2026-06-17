@@ -173,7 +173,7 @@ def dbus_proxy(session_bus: Gio.DBusConnection) -> Generator[Gio.DBusProxy]:
             "Gio.DBusProxy",
             await aio.AsyncOperation(
                 _start_make,
-                lambda r: Gio.DBusProxy.new_finish(r),  # type: ignore[arg-type]  # r is AsyncResult at runtime
+                lambda r: Gio.DBusProxy.new_finish(r),  # r is AsyncResult at runtime
             ),
         )
 

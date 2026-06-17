@@ -40,11 +40,13 @@ from ginext.signal.adapt import _make_arg_adapter
 
 if TYPE_CHECKING:
     import ginext.Gio as Gio
+    from ginext import SignalConnection
 
 
-def _connect(cancellable: Gio.Cancellable, cb: object) -> Gio.SignalConnection:
+def _connect(cancellable: Gio.Cancellable, cb: object) -> SignalConnection:
     """Connect a handler with static_owner to skip the warning."""
-    return cancellable.cancelled.connect(cb, owner=ginext.static_owner)
+    conn: SignalConnection = cancellable.cancelled.connect(cb, owner=ginext.static_owner)
+    return conn
 
 
 def test_zero_arg_lambda(cancellable: Gio.Cancellable) -> None:
@@ -157,7 +159,7 @@ def test_old_connect_user_data_uses_original_callback_arity(
     action = Gio.SimpleAction(name="arity-test")
     seen = []
     # old_signal_api returns SignalConnection; stub types connect() -> int
-    conn: Gio.SignalConnection = action.connect(
+    conn: SignalConnection = action.connect(
         "notify::enabled", lambda tag: seen.append(tag), "tag"
     )
     action.set_enabled(False)

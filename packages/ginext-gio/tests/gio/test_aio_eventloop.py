@@ -29,6 +29,7 @@ import asyncio
 import asyncio.streams
 import contextlib
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
@@ -36,7 +37,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from ginext.aio import AsyncOperation
-    import ginext.Gio as _Gio
+    import ginext.Gio as Gio
+    from ginext.Gio import AsyncResult
 
 import pytest
 
@@ -49,14 +51,14 @@ def _run(coro: Coroutine[object, object, T]) -> T:
     return asyncio.run(coro, loop_factory=aio.EventLoop)
 
 
-def _load_bytes_op(file: _Gio.File) -> AsyncOperation:
+def _load_bytes_op(file: Gio.File) -> AsyncOperation[bytes]:
     """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
-    def start(callback: object) -> None:
+    def start(callback: Callable[[object, object], None]) -> None:
         file.load_bytes_async(None, callback)
 
-    def finish(result: object) -> bytes:
+    def finish(result: AsyncResult) -> bytes:
         raw = file.load_bytes_finish(result)
         return bytes(raw[0].get_data())
 
@@ -64,7 +66,7 @@ def _load_bytes_op(file: _Gio.File) -> AsyncOperation:
 
 
 @pytest.fixture
-def host_file(tmp_path: Path) -> Generator[tuple[_Gio.File, bytes]]:
+def host_file(tmp_path: Path) -> Generator[tuple[Gio.File, bytes]]:
     from ginext import Gio
 
     path = tmp_path / "host_file"
@@ -92,7 +94,7 @@ def test_exception_propagates_out_of_run() -> None:
         _run(main())
 
 
-def test_await_gio_op_completes(host_file: tuple[_Gio.File, bytes]) -> None:
+def test_await_gio_op_completes(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> object:
@@ -133,7 +135,7 @@ def test_call_soon_runs_callback() -> None:
 
 
 def test_gather_runs_two_coroutines_to_completion(
-    host_file: tuple[_Gio.File, bytes],
+    host_file: tuple[Gio.File, bytes],
 ) -> None:
     file, expected = host_file
 
@@ -154,7 +156,7 @@ def test_gather_runs_two_coroutines_to_completion(
 
 
 def test_background_task_progresses_while_awaiting_io(
-    host_file: tuple[_Gio.File, bytes],
+    host_file: tuple[Gio.File, bytes],
 ) -> None:
     """A background task keeps running while the foreground awaits real GIO
     I/O — proves the loop interleaves tasks, not just drains one."""
@@ -183,7 +185,7 @@ def test_background_task_progresses_while_awaiting_io(
     assert all(r == expected for r in results)
 
 
-def test_many_concurrent_gio_ops(host_file: tuple[_Gio.File, bytes]) -> None:
+def test_many_concurrent_gio_ops(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> list[object]:
@@ -193,7 +195,7 @@ def test_many_concurrent_gio_ops(host_file: tuple[_Gio.File, bytes]) -> None:
     assert results == [expected] * 10
 
 
-def test_create_task_then_await(host_file: tuple[_Gio.File, bytes]) -> None:
+def test_create_task_then_await(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> tuple[object, int]:
@@ -204,7 +206,7 @@ def test_create_task_then_await(host_file: tuple[_Gio.File, bytes]) -> None:
             other += 1
         return task.result(), other
 
-    async def _wrap(awaitable: AsyncOperation) -> object:
+    async def _wrap(awaitable: AsyncOperation[bytes]) -> bytes:
         return await awaitable
 
     data, other = _run(main())
@@ -216,17 +218,17 @@ def test_create_task_then_await(host_file: tuple[_Gio.File, bytes]) -> None:
 
 
 def test_task_cancellation_raises_cancelled_error(
-    host_file: tuple[_Gio.File, bytes],
+    host_file: tuple[Gio.File, bytes],
 ) -> None:
     from ginext import Gio
 
     file, _expected = host_file
     cancellable = Gio.Cancellable()
 
-    def start(callback: object) -> None:
+    def start(callback: Callable[[object, object], None]) -> None:
         file.load_bytes_async(cancellable, callback)
 
-    def finish(result: object) -> object:
+    def finish(result: AsyncResult) -> object:
         return file.load_bytes_finish(result)
 
     from ginext import aio

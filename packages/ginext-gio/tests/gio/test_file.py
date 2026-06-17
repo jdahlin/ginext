@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from ginext import Gio, GLib
     from ginext.aio import AsyncOperation
+    from ginext.Gio import AsyncResult
 
 import pytest
 
@@ -113,7 +114,7 @@ def test_query_info_keyword_shape_errors() -> None:
 
     file = Gio.File.new_for_path("/tmp")
     with pytest.raises(TypeError) as exc_info:
-        file.query_info(  # type: ignore[misc]  # testing runtime rejection: multiple values for 'attributes'
+        file.query_info(
             "standard::name",
             attributes="standard::type",
             flags=Gio.FileQueryInfoFlags.NONE,
@@ -131,7 +132,7 @@ def test_query_info_defaults_flags_and_cancellable(tmp_path: Path) -> None:
 
     file = Gio.File.new_for_path(str(tmp_path))
     # flags defaults to NONE, cancellable is an omittable trailing nullable
-    info = file.query_info("standard::name")  # type: ignore[call-arg]  # overlay provides default for flags
+    info = file.query_info("standard::name")
     assert info.get_name() == tmp_path.name
 
 
@@ -139,7 +140,7 @@ def test_query_info_default_flags_matches_explicit(tmp_path: Path) -> None:
     from ginext import Gio
 
     file = Gio.File.new_for_path(str(tmp_path))
-    implicit = file.query_info("standard::name")  # type: ignore[call-arg]  # overlay provides default for flags
+    implicit = file.query_info("standard::name")
     explicit = file.query_info("standard::name", Gio.FileQueryInfoFlags.NONE, None)
     assert implicit.get_name() == explicit.get_name()
 
@@ -148,7 +149,7 @@ def test_enumerate_children_defaults_flags() -> None:
     from ginext import Gio
 
     file = Gio.File.new_for_path("./")
-    enumerator = file.enumerate_children("standard::name")  # type: ignore[call-arg]  # overlay provides default for flags
+    enumerator = file.enumerate_children("standard::name")
     assert isinstance(enumerator, Gio.FileEnumerator)
 
 
@@ -157,7 +158,7 @@ def test_default_flags_does_not_break_kwarg_collision_error() -> None:
 
     file = Gio.File.new_for_path("/tmp")
     with pytest.raises(TypeError) as exc_info:
-        file.query_info("standard::name", attributes="standard::type")  # type: ignore[misc, call-arg]  # testing runtime rejection: multiple values for 'attributes'
+        file.query_info("standard::name", attributes="standard::type")
     assert (
         str(exc_info.value)
         == "query_info() got multiple values for keyword argument 'attributes'"
@@ -175,7 +176,7 @@ def test_copy_defaults_flags() -> None:
         source = Gio.File.new_for_path(src)
         target = Gio.File.new_for_path(dst)
         # flags defaults to NONE; cancellable and progress_callback omitted
-        assert source.copy(target) is True  # type: ignore[call-arg]  # overlay provides default for flags
+        assert source.copy(target) is True
         assert target.query_exists() is True
     finally:
         Path(src).unlink()
@@ -282,14 +283,14 @@ def hello_file() -> Generator[tuple[Gio.File, bytes]]:
         _unlink_with_retry(path)
 
 
-def _load_bytes_op(file: Gio.File, cancellable: Any = None) -> AsyncOperation:
+def _load_bytes_op(file: Gio.File, cancellable: Any = None) -> AsyncOperation[bytes]:
     """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
     def start(callback: Callable[[object, object], None]) -> None:
         file.load_bytes_async(cancellable, callback)
 
-    def finish(result: object) -> bytes:
+    def finish(result: AsyncResult) -> bytes:
         raw = file.load_bytes_finish(result)
         gb: GLib.Bytes = raw[0]
         return bytes(gb.get_data())
@@ -369,7 +370,7 @@ def test_asyncio_task_cancel_propagates_to_cancellable(
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        return cancellable.is_cancelled()
+        return bool(cancellable.is_cancelled())
 
     assert asyncio.run(main()) is True
 

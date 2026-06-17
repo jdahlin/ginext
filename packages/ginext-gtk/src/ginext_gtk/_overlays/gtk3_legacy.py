@@ -154,16 +154,20 @@ if Gtk.__version__[0] == 3:
 if Gtk.__version__[0] == 3:
 
     @overlay.method("Editable")
-    def insert_text(self: _Editable, text: str, position: int) -> object:
-        # Call the GIR method directly by bypassing the overlay descriptor.
+    def insert_text(
+        fn: Callable[[_Editable, str, int, int], object],
+        self: _Editable,
+        text: str,
+        position: int,
+    ) -> object:
         # GTK3 Editable.insert_text has a different signature (text, n_chars, position).
-        insert: Callable[[_Editable, str, int, int], object] = Gtk.Editable.insert_text  # type: ignore[assignment]
-        return insert(self, text, -1, position)
+        return fn(self, text, -1, position)
 
     @overlay.method("Editable")
-    def get_selection_bounds(self: _Editable) -> tuple[int, int] | tuple[()]:
-        get_bounds: Callable[[_Editable], tuple[bool, int, int]] = Gtk.Editable.get_selection_bounds  # type: ignore[assignment]
-        ok, start, end = get_bounds(self)
+    def get_selection_bounds(
+        fn: Callable[[_Editable], tuple[bool, int, int]], self: _Editable
+    ) -> tuple[int, int] | tuple[()]:
+        ok, start, end = fn(self)
         return () if not ok else (start, end)
 
 

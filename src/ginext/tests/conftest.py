@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from ginext.gobject.gtype import GType as GTypeClass
     from ginext.GObject import Object as GObjectBase
-    import ginext.Gio as _Gio
+    import ginext.Gio
 
 
 class _MesonpyFinder(Protocol):
@@ -435,21 +435,20 @@ def GType() -> type[GTypeClass]:
 
 
 @pytest.fixture(scope="session")
-def GLib() -> types.ModuleType:
-    from ginext import GLib
-
-    return GLib
+def GLib() -> object:
+    import ginext.GLib as _m
+    return _m
 
 
 @pytest.fixture(scope="session")
-def Gio() -> types.ModuleType:
-    from ginext import Gio
-
-    return Gio
+def Gio() -> object:
+    import ginext.Gio as _m
+    return _m
 
 
 @pytest.fixture
-def cancellable(Gio: types.ModuleType) -> _Gio.Cancellable:
+def cancellable() -> ginext.Gio.Cancellable:
+    from ginext import Gio
     return Gio.Cancellable()
 
 
