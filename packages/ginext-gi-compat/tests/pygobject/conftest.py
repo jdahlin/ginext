@@ -23,7 +23,6 @@ import pytest
 
 
 _XFAIL_BY_NODE = {
-    "test_everything.py::TestBoxed::test_boxed": "boxed property wrapper identity is unstable in the combined compat run",
     "test_glib.py::TestGLib::test_main_context_query": "marshalling not implemented",
     "test_gobject.py::TestGObjectAPI::test_call_method_uninitialized_instance": "TypeError instead of RuntimeError; fixing would break native gobject test",
     "test_gobject.py::TestReferenceCounting::test_floating": "missing pygobject compat attribute",
@@ -140,6 +139,10 @@ _FREE_THREADED_XFAIL_BY_NODE = {
     "test_gtk_template.py::test_main_example": "Gtk template child binding is unstable under free-threaded Python",
 }
 
+_FREE_THREADED_XFAIL_NOT_RUN_BY_NODE = {
+    "test_signal.py::TestGSignalsError::test_invalid_type": "crashes xdist worker under free-threaded Python",
+}
+
 # macOS-specific failures: tests that rely on Linux .so.0 library naming which
 # doesn't exist on macOS (libraries use .dylib there).
 _DARWIN_XFAIL_BY_NODE = {
@@ -204,6 +207,10 @@ def pytest_collection_modifyitems(
         ):
             reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
+            continue
+        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE:
+            reason = _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if is_debug_python and relative_nodeid in _XFAIL_NOT_RUN_DEBUG_BY_NODE:
             reason = _XFAIL_NOT_RUN_DEBUG_BY_NODE[relative_nodeid]
