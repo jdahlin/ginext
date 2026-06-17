@@ -337,6 +337,7 @@ _XFAIL_NOT_RUN_BY_NODE = {
     "test_overrides_glib.py::test_io_add_watch_get_args": "crashes in IOChannel constructor not implemented",
     "test_overrides_glib.py::test_iochannel": "unsafe while IOChannel marshalling is crash-prone",
     "test_overrides_glib.py::test_iochannel_write": "crashes in IOChannel shutdown marshalling",
+    "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes setting parent class property via compat props proxy",
 }
 
 
@@ -354,7 +355,6 @@ _FREE_THREADED_XFAIL_BY_NODE = {
 
 _PY315_GIL_XFAIL_NOT_RUN_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
-    "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
 }
 
 
