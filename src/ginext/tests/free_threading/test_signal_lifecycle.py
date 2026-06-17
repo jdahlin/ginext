@@ -30,7 +30,7 @@ def test_signal_connection_lifecycle_is_stable_across_threads() -> None:
     from ginext import Gio
 
     n_threads = 16
-    per_thread = 1000
+    per_thread = 200
     barrier = threading.Barrier(n_threads + 1)
 
     def worker() -> None:

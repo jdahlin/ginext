@@ -17,17 +17,11 @@
 
 from __future__ import annotations
 
-import pytest
-
 from . import support
 
 pytestmark = support.pytestmark
 
 
-@pytest.mark.xfail(
-    reason="concurrent namespace load can create multiple Namespace objects or crash",
-    strict=True,
-)
 def test_concurrent_namespace_load_is_singleton() -> None:
     code = r"""
 import sys
@@ -74,10 +68,6 @@ if len(unique_ids) != 1:
     assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
-@pytest.mark.xfail(
-    reason="concurrent first access can build duplicate Python classes for one GType",
-    strict=True,
-)
 def test_concurrent_namespace_first_access_builds_one_class_per_gtype() -> None:
     code = r"""
 import sys
@@ -132,10 +122,6 @@ for name, ids in ids_by_name.items():
     assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
-@pytest.mark.xfail(
-    reason="concurrent first access can build duplicate Python record classes",
-    strict=True,
-)
 def test_concurrent_record_first_access_builds_one_class_per_gtype() -> None:
     code = r"""
 import sys
@@ -190,10 +176,6 @@ for name, ids in ids_by_name.items():
     assert proc.returncode == 0, proc.stderr or proc.stdout
 
 
-@pytest.mark.xfail(
-    reason="concurrent first access can build duplicate Python enum classes",
-    strict=True,
-)
 def test_concurrent_enum_first_access_builds_one_class_per_type() -> None:
     code = r"""
 import sys

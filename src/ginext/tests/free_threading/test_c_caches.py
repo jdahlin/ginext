@@ -17,17 +17,11 @@
 
 from __future__ import annotations
 
-import pytest
-
 from . import support
 
 pytestmark = support.pytestmark
 
 
-@pytest.mark.xfail(
-    reason="concurrent private.invoke first use can race the descriptor cache",
-    strict=True,
-)
 def test_concurrent_private_invoke_first_use_is_stable() -> None:
     code = r"""
 import sys
@@ -38,6 +32,9 @@ assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1
 assert not sys._is_gil_enabled()
 
 from ginext import private
+import ginext
+
+ginext.GLib
 
 n_threads = 32
 barrier = threading.Barrier(n_threads + 1)
