@@ -1260,6 +1260,10 @@ def _signal_descriptors(gtype_or_cls: object) -> dict[str, SignalDescriptor]:
     }
 
 
+def _descriptor_signal_id(descriptor: SignalDescriptor) -> int:
+    return int(getattr(descriptor, "_signal_id", 0) or 0)
+
+
 def _all_signal_descriptors() -> list[tuple[type, str, SignalDescriptor]]:
     pending = list(_GObject.__subclasses__())
     seen = set()
@@ -1284,9 +1288,9 @@ def _signal_list_names(gtype_or_cls: object) -> tuple[str, ...]:
 
 def _signal_list_ids(gtype_or_cls: object) -> tuple[int, ...]:
     return tuple(
-        descriptor._signal_id
+        signal_id
         for descriptor in _signal_descriptors(gtype_or_cls).values()
-        if descriptor._signal_id
+        if (signal_id := _descriptor_signal_id(descriptor))
     )
 
 
@@ -1298,7 +1302,7 @@ def _signal_lookup(name: str, gtype_or_cls: object) -> int:
         if attr_name == normalized or descriptor._gobject_name == name.replace(
             "_", "-"
         ):
-            return descriptor._signal_id
+            return _descriptor_signal_id(descriptor)
     # Fall back to native typelib lookup for C-defined signals.
     gtype = getattr(getattr(gtype_or_cls, "gimeta", None), "gtype", None) or int(
         getattr(gtype_or_cls, "__gtype__", 0)
@@ -1316,7 +1320,7 @@ def _signal_name(signal_id: int) -> str | None:
     if signal_id == 0:
         return None
     for _cls, name, descriptor in _all_signal_descriptors():
-        if descriptor._signal_id == signal_id:
+        if _descriptor_signal_id(descriptor) == signal_id:
             return descriptor._gobject_name or name.replace("_", "-")
     return None
 
@@ -1336,7 +1340,7 @@ def _signal_query(
             return None
 
     for cls, name, descriptor in _all_signal_descriptors():
-        if descriptor._signal_id != signal_id:
+        if _descriptor_signal_id(descriptor) != signal_id:
             continue
         signal_name = descriptor._gobject_name or name.replace("_", "-")
         flags = getattr(
