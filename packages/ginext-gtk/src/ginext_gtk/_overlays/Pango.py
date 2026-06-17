@@ -28,29 +28,29 @@ if TYPE_CHECKING:
     Script = object
 
 
-class _ScriptIterRange(NamedTuple):
+class ScriptIterRange(NamedTuple):
     start: str
     end: str
     script: object
 
 
-class _LayoutPixelSize(NamedTuple):
+class LayoutPixelSize(NamedTuple):
     width: int
     height: int
 
 
-class _XyToIndex(NamedTuple):
+class XyToIndex(NamedTuple):
     inside: bool
     index_: int
     trailing: int
 
 
-class _IndexToLineX(NamedTuple):
+class IndexToLineX(NamedTuple):
     line: int
     x_pos: int
 
 
-class _MoveCursorVisually(NamedTuple):
+class MoveCursorVisually(NamedTuple):
     new_index: int
     new_trailing: int
 
@@ -179,34 +179,34 @@ def load_fontset(
 @overlay.method("ScriptIter", name="get_range")
 def _script_iter_get_range(
     fn: Callable[[object], object], self: object
-) -> _ScriptIterRange:
-    return _named_result(_ScriptIterRange, fn(self))
+) -> ScriptIterRange:
+    return _named_result(ScriptIterRange, fn(self))
 
 
 @overlay.method("Layout", name="get_pixel_size")
 def _layout_get_pixel_size(
     fn: Callable[[object], object], self: object
-) -> _LayoutPixelSize:
-    return _named_result(_LayoutPixelSize, fn(self))
+) -> LayoutPixelSize:
+    return _named_result(LayoutPixelSize, fn(self))
 
 
 @overlay.method("Layout", name="get_size")
-def _layout_get_size(fn: Callable[[object], object], self: object) -> _LayoutPixelSize:
-    return _named_result(_LayoutPixelSize, fn(self))
+def _layout_get_size(fn: Callable[[object], object], self: object) -> LayoutPixelSize:
+    return _named_result(LayoutPixelSize, fn(self))
 
 
 @overlay.method("Layout", name="xy_to_index")
 def _layout_xy_to_index(
     fn: Callable[[object, int, int], object], self: object, x: int, y: int
-) -> _XyToIndex:
-    return _named_result(_XyToIndex, fn(self, x, y))
+) -> XyToIndex:
+    return _named_result(XyToIndex, fn(self, x, y))
 
 
 @overlay.method("Layout", name="index_to_line_x")
 def _layout_index_to_line_x(
     fn: Callable[[object, int, bool], object], self: object, index: int, trailing: bool
-) -> _IndexToLineX:
-    return _named_result(_IndexToLineX, fn(self, index, trailing))
+) -> IndexToLineX:
+    return _named_result(IndexToLineX, fn(self, index, trailing))
 
 
 @overlay.method("Layout", name="move_cursor_visually")
@@ -217,8 +217,8 @@ def _layout_move_cursor_visually(
     old_index: int,
     old_trailing: int,
     direction: int,
-) -> _MoveCursorVisually:
+) -> MoveCursorVisually:
     return _named_result(
-        _MoveCursorVisually,
+        MoveCursorVisually,
         fn(self, strong, old_index, old_trailing, direction),
     )
