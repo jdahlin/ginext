@@ -347,7 +347,6 @@ _XFAIL_NOT_RUN_DEBUG_BY_NODE = {
 
 
 _FREE_THREADED_XFAIL_BY_NODE = {
-    "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "refcount assertion is unstable in free-threaded Python builds",
     "test_gtk_template.py::test_init_template_second_instance": "Gtk template child binding is unstable under free-threaded Python",
     "test_gtk_template.py::test_internal_child": "Gtk template child binding is unstable under free-threaded Python",
     "test_gtk_template.py::test_main_example": "Gtk template child binding is unstable under free-threaded Python",
@@ -383,11 +382,16 @@ def pytest_collection_modifyitems(
         sys, "_is_gil_enabled", lambda: True
     )()
     is_free_threaded = not getattr(sys, "_is_gil_enabled", lambda: True)()
+    is_xdist_worker = bool(os.environ.get("PYTEST_XDIST_WORKER"))
     for item in items:
         _, sep, relative_nodeid = item.nodeid.rpartition("/gi/tests/")
         if not sep:
             continue
-        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_BY_NODE:
+        if (
+            is_free_threaded
+            and not is_xdist_worker
+            and relative_nodeid in _FREE_THREADED_XFAIL_BY_NODE
+        ):
             reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
             continue
