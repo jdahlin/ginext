@@ -138,6 +138,55 @@ _FREE_THREADED_XFAIL_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "refcount assertion is unstable in free-threaded Python builds",
 }
 
+_FREE_THREADED_XFAIL_NOT_RUN_BY_NODE = {
+    "test_gtk_template.py::test_allow_init_template_call": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_finalization_of_custom_child_objects": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_from_file": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_from_resource": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_from_string_bytes": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_handler_class_staticmethod": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_handler_swapped_not_supported": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_init_template_second_instance": "Gtk template child binding is unstable under free-threaded Python",
+    "test_gtk_template.py::test_internal_child": "Gtk template child binding is unstable under free-threaded Python",
+    "test_gtk_template.py::test_main_example": "Gtk template child binding is unstable under free-threaded Python",
+    "test_gtk_template.py::test_missing_handler_callback": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_multiple_init_template_calls": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_nonexist_handler": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_property_override": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_python_class_hierarchy": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_signal_handler_with_object_does_not_leak_memory": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_gtk_template.py::test_template_hierarchy": "crashes in Gtk template instance creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_about_dialog": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_buttons": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_dialog_add_buttons": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_dialog_base": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_dialog_classes": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_dialog_deprecation_stacklevels": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_dialog_deprecations": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_editable": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_file_chooser_dialog": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_file_chooser_dialog_default_action": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_iconview": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_label": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_message_dialog": "crashes in Gtk dialog creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_scrolledwindow": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_tree_view_drag_content_formats_gtk4": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_viewport": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_widget_drag_methods_gtk4": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_widget_iterable": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestGtk::test_window_gtk4": "crashes in Gtk window creation under free-threaded Python",
+    "test_overrides_gtk.py::TestSignals::test_overlay_child_position": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_scroll_to_cell": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_tree_selection": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_tree_view": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_tree_view_add_column_with_attributes": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_tree_view_column_set_attributes": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestTreeView::test_tree_view_column": "crashes in Gtk tree view creation under free-threaded Python",
+    "test_overrides_gtk.py::TestWidget::test_translate_coordinates": "crashes in Gtk widget creation under free-threaded Python",
+    "test_overrides_gtk.py::test_button_focus_on_click": "crashes in Gtk button creation under free-threaded Python",
+    "test_overrides_gtk.py::test_wrapper_toggle_refs": "crashes in Gtk subclass widget creation under free-threaded Python",
+}
+
 # macOS-specific failures: tests that rely on Linux .so.0 library naming which
 # doesn't exist on macOS (libraries use .dylib there).
 _DARWIN_XFAIL_BY_NODE = {
@@ -190,17 +239,9 @@ def pytest_collection_modifyitems(
             continue
         for marker in compat_warning_filters:
             item.add_marker(marker)
-        if is_free_threaded and (
-            relative_nodeid.startswith("test_gtk_template.py::")
-            or relative_nodeid.startswith("test_overrides_gtk.py::")
-        ):
-            item.add_marker(
-                pytest.mark.xfail(
-                    reason="Gtk compat tests crash during instance creation under free-threaded Python",
-                    run=False,
-                    strict=False,
-                )
-            )
+        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE:
+            reason = _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_BY_NODE:
             reason = _PY315_GIL_XFAIL_BY_NODE[relative_nodeid]
