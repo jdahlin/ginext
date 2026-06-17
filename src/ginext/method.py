@@ -31,9 +31,14 @@ from typing import TYPE_CHECKING, cast
 from . import private
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
     from .abi import NamespaceContext
     from .namespace import Namespace
     from ginext.GIRepository import CallableInfo, FunctionInfo
+
+    class _SupportsObjclass(Protocol):
+        __objclass__: type[object]
 
 
 class PackedUserData(tuple[object, ...]):
@@ -238,7 +243,7 @@ def _attach_callable_metadata(
 
 def attach_owner_metadata(method: object, owner: type[object]) -> object:
     try:
-        setattr(method, "__objclass__", owner)
+        cast("_SupportsObjclass", method).__objclass__ = owner
     except (AttributeError, TypeError):
         pass
     return method

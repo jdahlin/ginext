@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable, Iterable, Iterator
-from typing import TYPE_CHECKING, NamedTuple, TypeVar, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar, cast
 
 from ginext import Pango
 from ginext import features
@@ -18,14 +18,14 @@ from ginext import features
 if TYPE_CHECKING:
     from ginext.overlay.registrar import OverlayRegistrar
 
-    TabArray = object
-    TabAlign = object
-    AttrList = object
-    Attribute = object
-    FontDescription = object
-    Language = object
-    Context = object
-    Script = object
+    TabArray = Any
+    TabAlign = Any
+    AttrList = Any
+    Attribute = Any
+    FontDescription = Any
+    Language = Any
+    Context = Any
+    Script = Any
 
 
 class ScriptIterRange(NamedTuple):
@@ -75,7 +75,7 @@ def _named_result(
 
 @overlay.method("TabArray", name="__len__")
 def _tab_array_len(self: TabArray) -> int:
-    return int(getattr(self, "get_size")())  # noqa: B009
+    return int(self.get_size())
 
 
 @overlay.method("TabArray", name="__getitem__")
@@ -85,7 +85,7 @@ def _tab_array_getitem(self: TabArray, index: int) -> tuple[TabAlign, int]:
         index += size
     if index < 0 or index >= size:
         raise IndexError(index)
-    align, location = getattr(self, "get_tab")(index)  # noqa: B009
+    align, location = self.get_tab(index)
     return align, int(location)
 
 
@@ -97,22 +97,22 @@ def _tab_array_iter(self: TabArray) -> Iterator[tuple[TabAlign, int]]:
 
 @overlay.method("TabArray", name="__repr__")
 def _tab_array_repr(self: TabArray) -> str:
-    return f"Pango.TabArray({list(_tab_array_iter(self))!r}, pixels={getattr(self, 'get_positions_in_pixels')()!r})"  # noqa: B009
+    return f"Pango.TabArray({list(_tab_array_iter(self))!r}, pixels={self.get_positions_in_pixels()!r})"
 
 
 @overlay.method("AttrList", name="__len__")
 def _attr_list_len(self: AttrList) -> int:
-    return len(getattr(self, "get_attributes")())  # noqa: B009
+    return len(self.get_attributes())
 
 
 @overlay.method("AttrList", name="__iter__")
 def _attr_list_iter(self: AttrList) -> Iterator[Attribute]:
-    yield from getattr(self, "get_attributes")()  # noqa: B009
+    yield from self.get_attributes()
 
 
 @overlay.method("AttrList", name="__repr__")
 def _attr_list_repr(self: AttrList) -> str:
-    return f"Pango.AttrList({getattr(self, 'to_string')()!r})"  # noqa: B009
+    return f"Pango.AttrList({self.to_string()!r})"
 
 
 @overlay.method("FontDescription", name="__new__", as_staticmethod=True)
@@ -129,7 +129,7 @@ def _font_description_new(
     # must be built by its constructor; allocating it as a bare record yields an
     # undersized struct whose fields read out of bounds.
     if string is None:
-        return cast("FontDescription", getattr(cls, "new")())  # noqa: B009
+        return cast("FontDescription", cls.new())
     # Mirror RecordBase.__new__'s compat deprecation; the shared message is
     # matched by the pyproject filterwarnings.
     if features.is_enabled(features.PYGOBJECT_COMPAT):
@@ -167,7 +167,7 @@ def load_fontset(
 ) -> object:
     fontset = fn(self, *args, **kwargs)
     if fontset is not None:
-        fontset._ginext_keepalive_context = self
+        setattr(fontset, "_ginext_keepalive_context", self)  # noqa: B010
     return fontset
 
 

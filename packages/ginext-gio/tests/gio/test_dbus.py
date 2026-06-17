@@ -411,7 +411,7 @@ def test_signal_subscribe_receives_signal(session_bus: Gio.DBusConnection) -> No
         async def _request_name() -> object:
             return await aio.AsyncOperation(
                 _start_request,
-                lambda r: getattr(session_bus, "call_finish")(r),  # noqa: B009
+                lambda r: session_bus.call_finish(r),
             )
 
         asyncio.run(_request_name(), loop_factory=aio.EventLoop)
@@ -518,7 +518,7 @@ def test_register_object_dispatches_method_call(
                 "GLib.Variant",
                 await aio.AsyncOperation(
                     _start_echo,
-                    lambda r: getattr(session_bus, "call_finish")(r),  # noqa: B009
+                    lambda r: session_bus.call_finish(r),
                 ),
             )
         return result.unpack()

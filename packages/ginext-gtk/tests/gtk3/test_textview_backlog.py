@@ -30,7 +30,7 @@ Module-scoped Gtk-4.0 requirement so all tests share one toolkit init.
 from __future__ import annotations
 
 import os
-import types
+
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
@@ -38,6 +38,8 @@ import pytest
 from ginext.namespace import Namespace
 
 if TYPE_CHECKING:
+    import types
+    import ginext.Gtk as _Gtk
     from collections.abc import Generator
 
 
@@ -64,19 +66,19 @@ def Gtk() -> Generator[types.ModuleType]:
 
 
 @pytest.fixture
-def buf(Gtk: types.ModuleType) -> object:
+def buf(Gtk: types.ModuleType) -> _Gtk.TextBuffer:
     return Gtk.TextBuffer()
 
 
 @pytest.fixture
-def tagged_buf(Gtk: Namespace, buf: object) -> tuple[object, object]:
-    tag = getattr(buf, "create_tag")("title", font="Sans 18")  # noqa: B009
+def tagged_buf(Gtk: Namespace, buf: _Gtk.TextBuffer) -> tuple[_Gtk.TextBuffer, _Gtk.TextTag]:
+    tag = buf.create_tag("title", font="Sans 18")
     return buf, tag
 
 
-def _text(buf: object) -> object:
-    start, end = getattr(buf, "get_bounds")()  # noqa: B009
-    return getattr(buf, "get_text")(start, end, False)  # noqa: B009
+def _text(buf: _Gtk.TextBuffer) -> object:
+    start, end = buf.get_bounds()
+    return buf.get_text(start, end, False)
 
 
 def _starts_tag(Gtk: Namespace) -> StartsTagFn:
@@ -84,7 +86,7 @@ def _starts_tag(Gtk: Namespace) -> StartsTagFn:
     fn: StartsTagFn | None = getattr(Gtk.TextIter, "starts_tag", None)
     if fn is not None:
         return fn
-    begins: StartsTagFn = getattr(Gtk.TextIter, "begins_tag")  # noqa: B009
+    begins: StartsTagFn = Gtk.TextIter.begins_tag
     return begins
 
 
@@ -94,22 +96,22 @@ def _starts_tag(Gtk: Namespace) -> StartsTagFn:
 
 
 @needs_display
-def test_tag_table_present(buf: object) -> None:
-    assert getattr(buf, "get_tag_table")() is not None  # noqa: B009
+def test_tag_table_present(buf: _Gtk.TextBuffer) -> None:
+    assert buf.get_tag_table() is not None
 
 
 @needs_display
-def test_create_tag_sets_properties(tagged_buf: tuple[object, object]) -> None:
+def test_create_tag_sets_properties(tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]) -> None:
     _, tag = tagged_buf
-    assert getattr(tag, "get_property_by_name")("name") == "title"  # noqa: B009
-    assert getattr(tag, "get_property_by_name")("font") == "Sans 18"  # noqa: B009
+    assert tag.get_property_by_name("name") == "title"
+    assert tag.get_property_by_name("font") == "Sans 18"
 
 
 @needs_display
-def test_create_tag_anonymous(buf: object) -> None:
-    tag = getattr(buf, "create_tag")(None, font="Sans 12")  # noqa: B009
-    assert getattr(tag, "get_property_by_name")("name") is None  # noqa: B009
-    assert getattr(tag, "get_property_by_name")("font") == "Sans 12"  # noqa: B009
+def test_create_tag_anonymous(buf: _Gtk.TextBuffer) -> None:
+    tag = buf.create_tag(None, font="Sans 12")
+    assert tag.get_property_by_name("name") is None
+    assert tag.get_property_by_name("font") == "Sans 12"
 
 
 # --------------------------------------------------------------------------
@@ -118,10 +120,10 @@ def test_create_tag_anonymous(buf: object) -> None:
 
 
 @needs_display
-def test_create_mark_default_gravity(buf: object) -> None:
-    start, _ = getattr(buf, "get_bounds")()  # noqa: B009
-    mark = getattr(buf, "create_mark")(None, start)  # noqa: B009
-    assert getattr(mark, "get_left_gravity")() is False  # noqa: B009
+def test_create_mark_default_gravity(buf: _Gtk.TextBuffer) -> None:
+    start, _ = buf.get_bounds()
+    mark = buf.create_mark(None, start)
+    assert mark.get_left_gravity() is False
 
 
 # --------------------------------------------------------------------------
@@ -131,28 +133,28 @@ def test_create_mark_default_gravity(buf: object) -> None:
 
 @needs_display
 @pytest.mark.parametrize("text", ["Hello Jane Hello Bob", "", "single line"])
-def test_set_text_default_length(buf: object, text: str) -> None:
-    getattr(buf, "set_text")(text)  # noqa: B009
+def test_set_text_default_length(buf: _Gtk.TextBuffer, text: str) -> None:
+    buf.set_text(text)
     assert _text(buf) == text
 
 
 @needs_display
-def test_insert_default_length(buf: object) -> None:
-    getattr(buf, "set_text")("")  # noqa: B009
-    _, end = getattr(buf, "get_bounds")()  # noqa: B009
-    getattr(buf, "insert")(end, "HelloHello")  # noqa: B009
-    getattr(buf, "insert")(end, " Bob")  # noqa: B009
+def test_insert_default_length(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("")
+    _, end = buf.get_bounds()
+    buf.insert(end, "HelloHello")
+    buf.insert(end, " Bob")
     assert _text(buf) == "HelloHello Bob"
 
 
 @needs_display
-def test_insert_at_cursor_default_length(buf: object) -> None:
-    getattr(buf, "set_text")("HelloHello Bob")  # noqa: B009
-    _, end = getattr(buf, "get_bounds")()  # noqa: B009
-    cursor_iter = getattr(end, "copy")()  # noqa: B009
-    getattr(cursor_iter, "backward_chars")(9)  # noqa: B009
-    getattr(buf, "place_cursor")(cursor_iter)  # noqa: B009
-    getattr(buf, "insert_at_cursor")(" Jane ")  # noqa: B009
+def test_insert_at_cursor_default_length(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("HelloHello Bob")
+    _, end = buf.get_bounds()
+    cursor_iter = end.copy()
+    cursor_iter.backward_chars(9)
+    buf.place_cursor(cursor_iter)
+    buf.insert_at_cursor(" Jane ")
     assert _text(buf) == "Hello Jane Hello Bob"
 
 
@@ -162,21 +164,21 @@ def test_insert_at_cursor_default_length(buf: object) -> None:
 
 
 @needs_display
-def test_get_selection_bounds_empty(buf: object) -> None:
-    getattr(buf, "set_text")("Hello Jane Hello Bob")  # noqa: B009
-    assert getattr(buf, "get_selection_bounds")() == ()  # noqa: B009
+def test_get_selection_bounds_empty(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("Hello Jane Hello Bob")
+    assert buf.get_selection_bounds() == ()
 
 
 @needs_display
-def test_get_selection_bounds_after_select_range(buf: object) -> None:
-    getattr(buf, "set_text")("Hello Jane Hello Bob")  # noqa: B009
-    start, end = getattr(buf, "get_bounds")()  # noqa: B009
-    getattr(buf, "select_range")(start, end)  # noqa: B009
-    sel = getattr(buf, "get_selection_bounds")()  # noqa: B009
+def test_get_selection_bounds_after_select_range(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("Hello Jane Hello Bob")
+    start, end = buf.get_bounds()
+    buf.select_range(start, end)
+    sel = buf.get_selection_bounds()
     assert len(sel) == 2
     sel_start, sel_end = sel
-    assert getattr(sel_start, "equal")(start)  # noqa: B009
-    assert getattr(sel_end, "equal")(end)  # noqa: B009
+    assert sel_start.equal(start)
+    assert sel_end.equal(end)
 
 
 # --------------------------------------------------------------------------
@@ -185,45 +187,45 @@ def test_get_selection_bounds_after_select_range(buf: object) -> None:
 
 
 @needs_display
-def test_insert_with_tags_no_tags(buf: object) -> None:
-    getattr(buf, "insert_with_tags")(getattr(buf, "get_start_iter")(), "HelloHello")  # noqa: B009
+def test_insert_with_tags_no_tags(buf: _Gtk.TextBuffer) -> None:
+    buf.insert_with_tags(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
-def test_insert_with_tags_by_name_no_tags(buf: object) -> None:
-    getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello")  # noqa: B009
+def test_insert_with_tags_by_name_no_tags(buf: _Gtk.TextBuffer) -> None:
+    buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
 def test_insert_with_tags_applies_tag(
-    Gtk: Namespace, tagged_buf: tuple[object, object]
+    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
 ) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "insert_with_tags")(getattr(buf, "get_start_iter")(), "HelloHello", tag)  # noqa: B009
-    start, _ = getattr(buf, "get_bounds")()  # noqa: B009
+    buf.insert_with_tags(buf.get_start_iter(), "HelloHello", tag)
+    start, _ = buf.get_bounds()
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start, tag)
-    assert getattr(start, "has_tag")(tag)  # noqa: B009
+    assert start.has_tag(tag)
 
 
 @needs_display
 def test_insert_with_tags_by_name_applies_tag(
-    Gtk: Namespace, tagged_buf: tuple[object, object]
+    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
 ) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello", "title")  # noqa: B009
-    start, _ = getattr(buf, "get_bounds")()  # noqa: B009
+    buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "title")
+    start, _ = buf.get_bounds()
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start, tag)
-    assert getattr(start, "has_tag")(tag)  # noqa: B009
+    assert start.has_tag(tag)
 
 
 @needs_display
-def test_insert_with_tags_by_name_unknown_raises(buf: object) -> None:
+def test_insert_with_tags_by_name_unknown_raises(buf: _Gtk.TextBuffer) -> None:
     with pytest.raises(ValueError):
-        getattr(buf, "insert_with_tags_by_name")(getattr(buf, "get_start_iter")(), "HelloHello", "nope")  # noqa: B009
+        buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "nope")
 
 
 # --------------------------------------------------------------------------
@@ -233,17 +235,17 @@ def test_insert_with_tags_by_name_unknown_raises(buf: object) -> None:
 
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
-def test_insert_rejects_non_string(buf: object, bad: object) -> None:
-    start, _ = getattr(buf, "get_bounds")()  # noqa: B009
+def test_insert_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) -> None:
+    start, _ = buf.get_bounds()
     with pytest.raises(TypeError):
-        getattr(buf, "insert")(start, bad)  # noqa: B009
+        buf.insert(start, bad)
 
 
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
-def test_insert_at_cursor_rejects_non_string(buf: object, bad: object) -> None:
+def test_insert_at_cursor_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) -> None:
     with pytest.raises(TypeError):
-        getattr(buf, "insert_at_cursor")(bad)  # noqa: B009
+        buf.insert_at_cursor(bad)
 
 
 # --------------------------------------------------------------------------
@@ -253,54 +255,54 @@ def test_insert_at_cursor_rejects_non_string(buf: object, bad: object) -> None:
 
 @needs_display
 def test_text_iter_tag_boundaries(
-    Gtk: Namespace, tagged_buf: tuple[object, object]
+    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
 ) -> None:
     buf, tag = tagged_buf
-    getattr(buf, "set_text")("Hello Jane Hello Bob")  # noqa: B009
-    start, end = getattr(buf, "get_bounds")()  # noqa: B009
-    getattr(start, "forward_chars")(10)  # noqa: B009
-    getattr(buf, "apply_tag")(tag, start, end)  # noqa: B009
+    buf.set_text("Hello Jane Hello Bob")
+    start, end = buf.get_bounds()
+    start.forward_chars(10)
+    buf.apply_tag(tag, start, end)
     starts_tag = _starts_tag(Gtk)
     assert starts_tag(start)
-    assert getattr(end, "ends_tag")()  # noqa: B009
-    assert getattr(start, "toggles_tag")()  # noqa: B009
-    assert getattr(end, "toggles_tag")()  # noqa: B009
-    getattr(start, "backward_chars")(1)  # noqa: B009
+    assert end.ends_tag()
+    assert start.toggles_tag()
+    assert end.toggles_tag()
+    start.backward_chars(1)
     assert not starts_tag(start)
-    assert not getattr(start, "ends_tag")()  # noqa: B009
-    assert not getattr(start, "toggles_tag")()  # noqa: B009
+    assert not start.ends_tag()
+    assert not start.toggles_tag()
 
 
 @needs_display
-def test_text_iter_forward_search_misses_case_sensitive(buf: object) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")  # noqa: B009
-    it = getattr(buf, "get_iter_at_offset")(0)  # noqa: B009
-    assert getattr(it, "forward_search")("world", 0, None) is None  # noqa: B009
+def test_text_iter_forward_search_misses_case_sensitive(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
+    assert it.forward_search("world", 0, None) is None
 
 
 @needs_display
 def test_text_iter_forward_search_case_sensitive_hit(
-    Gtk: Namespace, buf: object
+    Gtk: Namespace, buf: _Gtk.TextBuffer
 ) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")  # noqa: B009
-    it = getattr(buf, "get_iter_at_offset")(0)  # noqa: B009
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
     assert isinstance(it, Gtk.TextIter)
-    match = getattr(it, "forward_search")("World", 0, None)  # noqa: B009
+    match = it.forward_search("World", 0, None)
     assert match is not None
     start, end = match
-    assert getattr(start, "get_offset")() == 6  # noqa: B009
-    assert getattr(end, "get_offset")() == 11  # noqa: B009
+    assert start.get_offset() == 6
+    assert end.get_offset() == 11
 
 
 @needs_display
-def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: object) -> None:
-    getattr(buf, "set_text")("Hello World Hello GNOME")  # noqa: B009
-    it = getattr(buf, "get_iter_at_offset")(0)  # noqa: B009
-    match = getattr(it, "forward_search")("world", Gtk.TextSearchFlags.CASE_INSENSITIVE, None)  # noqa: B009
+def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("Hello World Hello GNOME")
+    it = buf.get_iter_at_offset(0)
+    match = it.forward_search("world", Gtk.TextSearchFlags.CASE_INSENSITIVE, None)
     assert match is not None
     start, end = match
-    assert getattr(start, "get_offset")() == 6  # noqa: B009
-    assert getattr(end, "get_offset")() == 11  # noqa: B009
+    assert start.get_offset() == 6
+    assert end.get_offset() == 11
 
 
 # --------------------------------------------------------------------------
@@ -310,17 +312,17 @@ def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: object) 
 
 
 @needs_display
-def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
+def test_insert_text_signal_can_relocate_iter(buf: _Gtk.TextBuffer) -> None:
     def relocate_to_end(
-        buffer: object, location: object, text: object, length: object
+        buffer: _Gtk.TextBuffer, location: _Gtk.TextIter, text: object, length: object
     ) -> None:
-        getattr(location, "assign")(getattr(buffer, "get_end_iter")())  # noqa: B009
+        location.assign(buffer.get_end_iter())
 
-    getattr(buf, "set_text")("first line\n")  # noqa: B009
-    getattr(buf, "signal_for_name")("insert-text").connect(relocate_to_end)  # noqa: B009
-    getattr(buf, "place_cursor")(getattr(buf, "get_start_iter")())  # noqa: B009
-    getattr(buf, "insert_at_cursor")("second line\n")  # noqa: B009
-    assert getattr(buf, "get_property_by_name")("text") == "first line\nsecond line\n"  # noqa: B009
+    buf.set_text("first line\n")
+    buf.insert_text.connect(relocate_to_end)  # type: ignore[union-attr]
+    buf.place_cursor(buf.get_start_iter())
+    buf.insert_at_cursor("second line\n")
+    assert buf.get_property_by_name("text") == "first line\nsecond line\n"
 
 
 # --------------------------------------------------------------------------
@@ -329,9 +331,9 @@ def test_insert_text_signal_can_relocate_iter(buf: object) -> None:
 
 
 @needs_display
-def test_backward_find_char_walks_in_reverse(buf: object) -> None:
-    getattr(buf, "set_text")("abc")  # noqa: B009
-    end = getattr(buf, "get_iter_at_line")(99)  # noqa: B009
+def test_backward_find_char_walks_in_reverse(buf: _Gtk.TextBuffer) -> None:
+    buf.set_text("abc")
+    end = buf.get_iter_at_line(99)
     if isinstance(end, tuple):  # goi sometimes returns (bool, iter)
         end = end[1]
     seen: list[str] = []
@@ -340,7 +342,7 @@ def test_backward_find_char_walks_in_reverse(buf: object) -> None:
         seen.append(ch)
         return ch == "a"
 
-    assert getattr(end, "backward_find_char")(pred)  # noqa: B009
+    assert end.backward_find_char(pred)
     assert seen == ["c", "b", "a"]
 
 

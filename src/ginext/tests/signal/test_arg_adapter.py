@@ -31,19 +31,23 @@ each of these handler shapes works without raising:
 from __future__ import annotations
 
 import functools
+from typing import TYPE_CHECKING
 
 import pytest
 
 import ginext
 from ginext.signal.adapt import _make_arg_adapter
 
+if TYPE_CHECKING:
+    import ginext.Gio as Gio
 
-def _connect(cancellable: object, cb: object) -> object:
+
+def _connect(cancellable: Gio.Cancellable, cb: object) -> Gio.SignalConnection:
     """Connect a handler with static_owner to skip the warning."""
     return cancellable.cancelled.connect(cb, owner=ginext.static_owner)
 
 
-def test_zero_arg_lambda(cancellable: object) -> None:
+def test_zero_arg_lambda(cancellable: Gio.Cancellable) -> None:
     fires = []
     conn = _connect(cancellable, lambda: fires.append("called"))
     cancellable.cancel()
@@ -51,7 +55,7 @@ def test_zero_arg_lambda(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_one_arg_lambda_receives_source(cancellable: object) -> None:
+def test_one_arg_lambda_receives_source(cancellable: Gio.Cancellable) -> None:
     seen = []
     conn = _connect(cancellable, lambda src: seen.append(src))
     cancellable.cancel()
@@ -59,7 +63,7 @@ def test_one_arg_lambda_receives_source(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_varargs_passthrough_gets_all_args(cancellable: object) -> None:
+def test_varargs_passthrough_gets_all_args(cancellable: Gio.Cancellable) -> None:
     seen = []
 
     def handler(*args: object) -> None:
@@ -72,7 +76,7 @@ def test_varargs_passthrough_gets_all_args(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_callable_object_zero_arg(cancellable: object) -> None:
+def test_callable_object_zero_arg(cancellable: Gio.Cancellable) -> None:
     class Handler:
         def __init__(self) -> None:
             self.count = 0
@@ -87,7 +91,7 @@ def test_callable_object_zero_arg(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_callable_object_one_arg(cancellable: object) -> None:
+def test_callable_object_one_arg(cancellable: Gio.Cancellable) -> None:
     class Handler:
         def __init__(self) -> None:
             self.received: object = None
@@ -102,7 +106,7 @@ def test_callable_object_one_arg(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_partial_drops_extra_signal_args(cancellable: object) -> None:
+def test_partial_drops_extra_signal_args(cancellable: Gio.Cancellable) -> None:
     """A functools.partial binds extras at the END; signal args go to the
     callable first. So `partial(f, "tag")` means `f(signal_args..., "tag")`.
     The adapter must respect partial's residual arity."""
@@ -118,7 +122,7 @@ def test_partial_drops_extra_signal_args(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_uninspectable_callable_passthrough(cancellable: object) -> None:
+def test_uninspectable_callable_passthrough(cancellable: Gio.Cancellable) -> None:
     """list.append is a built-in method without inspect.signature support.
     The adapter should return it unchanged and let it run on the full
     signal-arg tuple."""
@@ -131,7 +135,7 @@ def test_uninspectable_callable_passthrough(cancellable: object) -> None:
     conn.disconnect()
 
 
-def test_signal_connection_callback_is_original(cancellable: object) -> None:
+def test_signal_connection_callback_is_original(cancellable: Gio.Cancellable) -> None:
     """`conn.callback` returns the user's original callable, not the
     adapter wrapper."""
 
@@ -153,7 +157,7 @@ def test_old_connect_user_data_uses_original_callback_arity(
     action = Gio.SimpleAction(name="arity-test")
     seen = []
     # old_signal_api returns SignalConnection; stub types connect() -> int
-    conn: object = action.connect(
+    conn: Gio.SignalConnection = action.connect(
         "notify::enabled", lambda tag: seen.append(tag), "tag"
     )
     action.set_enabled(False)

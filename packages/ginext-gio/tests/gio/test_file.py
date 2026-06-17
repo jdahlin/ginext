@@ -240,14 +240,14 @@ def test_replace_contents(tmp_gfile: tuple[Gio.File, Gio.FileIOStream]) -> None:
     file, _stream = tmp_gfile
     content = b"hello\0world\x7f!"
 
-    success, etag = getattr(file, "replace_contents")(  # noqa: B009
+    success, etag = file.replace_contents(
         content,
         None,
         False,
         Gio.FileCreateFlags.NONE,
         None,
     )
-    new_success, new_content, new_etag = getattr(file, "load_contents")(None)  # noqa: B009
+    new_success, new_content, new_etag = file.load_contents(None)
 
     assert success is True
     assert new_success is True
@@ -282,22 +282,22 @@ def hello_file() -> Generator[tuple[Gio.File, bytes]]:
         _unlink_with_retry(path)
 
 
-def _load_bytes_op(file: Gio.File, cancellable: object = None) -> AsyncOperation:
+def _load_bytes_op(file: Gio.File, cancellable: Any = None) -> AsyncOperation:
     """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
     def start(callback: Callable[[object, object], None]) -> None:
-        getattr(file, "load_bytes_async")(cancellable, callback)  # noqa: B009
+        file.load_bytes_async(cancellable, callback)
 
     def finish(result: object) -> bytes:
-        raw = getattr(file, "load_bytes_finish")(result)  # noqa: B009
+        raw = file.load_bytes_finish(result)
         gb: GLib.Bytes = raw[0]
         return bytes(gb.get_data())
 
     return aio.AsyncOperation(
         start,
         finish,
-        cancel=getattr(cancellable, "cancel") if cancellable else None,  # noqa: B009
+        cancel=cancellable.cancel if cancellable else None,
     )
 
 
@@ -417,7 +417,7 @@ def test_file_enumerator_async_iteration_yields_all_entries(
 
     async def main() -> list[str]:
         enumerator: Any = directory.enumerate_children("standard::name", 0, None)
-        found = [getattr(info, "get_name")() async for info in enumerator]  # noqa: B009
+        found = [info.get_name() async for info in enumerator]
         return found
 
     assert sorted(asyncio.run(main(), loop_factory=aio.EventLoop)) == sorted(names)
@@ -436,7 +436,7 @@ def test_file_enumerator_async_iteration_matches_sync(
 
     async def main() -> list[str]:
         enumerator: Any = directory.enumerate_children("standard::name", 0, None)
-        return sorted([getattr(info, "get_name")() async for info in enumerator])  # noqa: B009
+        return sorted([info.get_name() async for info in enumerator])
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == sync_names
 
@@ -472,7 +472,7 @@ def test_file_enumerator_async_iteration_crosses_batches() -> None:
             enumerator: Any = directory.enumerate_children(
                 "standard::name", 0, None
             )
-            return {getattr(info, "get_name")() async for info in enumerator}  # noqa: B009
+            return {info.get_name() async for info in enumerator}
 
         assert asyncio.run(main(), loop_factory=aio.EventLoop) == names
     finally:
@@ -492,6 +492,6 @@ def test_file_enumerator_async_iteration_under_eventloop(
 
     async def main() -> set[str]:
         enumerator: Any = directory.enumerate_children("standard::name", 0, None)
-        return {getattr(info, "get_name")() async for info in enumerator}  # noqa: B009
+        return {info.get_name() async for info in enumerator}
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == names

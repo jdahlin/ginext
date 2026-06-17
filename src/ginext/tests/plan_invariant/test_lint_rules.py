@@ -30,14 +30,15 @@ from pathlib import Path
 
 import pytest
 
-_PYPROJECT = Path(__file__).parents[4] / "pyproject.toml"
-_PRE_COMMIT = Path(__file__).parents[4] / ".pre-commit-config.yaml"
+_ROOT = Path(__file__).parents[4]
+_PYPROJECT = _ROOT / "pyproject.toml"
+_PRE_COMMIT = _ROOT / ".pre-commit-config.yaml"
 
 
 @pytest.fixture(scope="module")
 def ruff_config() -> dict:  # type: ignore[type-arg]
     data = tomllib.loads(_PYPROJECT.read_text())
-    return data["tool"]["ruff"]["lint"]  # type: ignore[return-value]
+    return data["tool"]["ruff"]["lint"]  # type: ignore[no-any-return]
 
 
 @pytest.fixture(scope="module")
@@ -85,8 +86,8 @@ FORBIDDEN_RUFF_IGNORES = [
     "rule,reason", FORBIDDEN_RUFF_IGNORES, ids=[r for r, _ in FORBIDDEN_RUFF_IGNORES]
 )
 def test_ruff_rule_not_globally_ignored(
-    rule: str, reason: str, ruff_config: dict
-) -> None:  # type: ignore[type-arg]
+    rule: str, reason: str, ruff_config: dict  # type: ignore[type-arg]
+) -> None:
     ignored = ruff_config.get("ignore", [])
     assert rule not in ignored, (
         f"ruff rule {rule!r} must not appear in [tool.ruff.lint] ignore. "
@@ -119,3 +120,18 @@ def test_pre_commit_hook_present(
         f"pre-commit hook {hook_id!r} is missing from .pre-commit-config.yaml. "
         f"Reason: {reason}. Do not remove it."
     )
+
+
+def test_no_noqa_b009_in_sources() -> None:
+    """B009 suppressions are banned — fix the type instead of silencing the rule."""
+    import re
+
+    pattern = re.compile(r"#\s*noqa:.*\bB009\b")
+    violations = []
+    for path in _ROOT.rglob("*.py"):
+        if ".venv" in path.parts or "build" in path.parts:
+            continue
+        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+            if pattern.search(line):
+                violations.append(f"{path.relative_to(_ROOT)}:{lineno}: {line.strip()}")
+    assert not violations, "Found # noqa: B009 suppressions:\n" + "\n".join(violations)

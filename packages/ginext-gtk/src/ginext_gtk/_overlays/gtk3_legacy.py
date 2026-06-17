@@ -19,11 +19,24 @@
 
 from __future__ import annotations
 
-import types
-from collections.abc import Callable, Iterable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from ginext import Gtk
+
+if TYPE_CHECKING:
+    import types
+    from collections.abc import Callable, Iterable, Iterator
+
+
+    class _Container(Protocol):
+        def get_children(self) -> list[object] | None: ...
+
+    class _Widget(Protocol):
+        def thaw_child_notify(self) -> None: ...
+
+    class _Editable(Protocol):
+        def insert_text(self, text: str, n_chars: int, position: int) -> int: ...
+        def get_selection_bounds(self) -> tuple[bool, int, int]: ...
 
 overlay = Gtk.overlay
 
@@ -54,8 +67,8 @@ if Gtk.__version__[0] == 3:
     class _FreezeChildNotifyContext:
         __slots__ = ("_obj",)
 
-        def __init__(self, obj: object) -> None:
-            self._obj = obj
+        def __init__(self, obj: _Widget) -> None:
+            self._obj: _Widget = obj
 
         def __enter__(self) -> _FreezeChildNotifyContext:
             return self
@@ -66,14 +79,14 @@ if Gtk.__version__[0] == 3:
             exc_value: BaseException | None,
             tb: types.TracebackType | None,
         ) -> Literal[False]:
-            getattr(self._obj, "thaw_child_notify")()  # noqa: B009
+            self._obj.thaw_child_notify()
             return False
 
     def _construct_target_list(targets: Iterable[object]) -> list[object]:
         target_entries: list[object] = []
         for entry in targets:
             if not isinstance(entry, Gtk.TargetEntry):
-                entry_seq = getattr(entry, "__iter__")()  # noqa: B009
+                entry_seq: Iterator[object] = iter(entry)  # type: ignore[call-overload]
                 entry = Gtk.TargetEntry.new(*entry_seq)
             target_entries.append(entry)
         return target_entries
@@ -82,7 +95,7 @@ if Gtk.__version__[0] == 3:
 
     @overlay.method("Widget")
     def freeze_child_notify(
-        fn: Callable[[object], object], self: object
+        fn: Callable[[object], object], self: _Widget
     ) -> _FreezeChildNotifyContext:
         fn(self)
         return _FreezeChildNotifyContext(self)
@@ -115,22 +128,22 @@ if Gtk.__version__[0] == 3:
 if Gtk.__version__[0] == 3:
 
     @overlay.method("Container")
-    def __contains__(self: object, child: object) -> bool:
-        children = getattr(self, "get_children")()  # noqa: B009
+    def __contains__(self: _Container, child: object) -> bool:
+        children = self.get_children()
         return child in ([] if children is None else list(children))
 
     @overlay.method("Container")
-    def __iter__(self: object) -> object:
-        children = getattr(self, "get_children")()  # noqa: B009
+    def __iter__(self: _Container) -> object:
+        children = self.get_children()
         return iter([] if children is None else children)
 
     @overlay.method("Container")
-    def __len__(self: object) -> int:
-        children = getattr(self, "get_children")()  # noqa: B009
+    def __len__(self: _Container) -> int:
+        children = self.get_children()
         return 0 if children is None else len(children)
 
     @overlay.method("Container")
-    def __bool__(self: object) -> bool:
+    def __bool__(self: _Container) -> bool:
         return True
 
 
@@ -141,14 +154,15 @@ if Gtk.__version__[0] == 3:
 if Gtk.__version__[0] == 3:
 
     @overlay.method("Editable")
-    def insert_text(self: object, text: str, position: int) -> object:
+    def insert_text(self: _Editable, text: str, position: int) -> object:
         # Call the GIR method directly by bypassing the overlay descriptor.
-        insert = getattr(Gtk.Editable, "insert_text")  # noqa: B009
+        # GTK3 Editable.insert_text has a different signature (text, n_chars, position).
+        insert: Callable[[_Editable, str, int, int], object] = Gtk.Editable.insert_text  # type: ignore[assignment]
         return insert(self, text, -1, position)
 
     @overlay.method("Editable")
-    def get_selection_bounds(self: object) -> tuple[int, int] | tuple[()]:
-        get_bounds = getattr(Gtk.Editable, "get_selection_bounds")  # noqa: B009
+    def get_selection_bounds(self: _Editable) -> tuple[int, int] | tuple[()]:
+        get_bounds: Callable[[_Editable], tuple[bool, int, int]] = Gtk.Editable.get_selection_bounds  # type: ignore[assignment]
         ok, start, end = get_bounds(self)
         return () if not ok else (start, end)
 

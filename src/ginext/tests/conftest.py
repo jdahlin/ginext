@@ -29,15 +29,22 @@ import sys
 import tempfile
 import uuid
 from dataclasses import dataclass
-import types
 from typing import TYPE_CHECKING, Protocol, cast
 
 import pytest
 
 if TYPE_CHECKING:
+    import types
     from collections.abc import Callable, Generator
     from ginext.gobject.gtype import GType as GTypeClass
     from ginext.GObject import Object as GObjectBase
+    import ginext.Gio as _Gio
+
+
+class _MesonpyFinder(Protocol):
+    _build_path: str
+    _build_cmd: list[str]
+    _top_level_modules: list[str]
 
 
 class MakeSubclass(Protocol):
@@ -187,8 +194,9 @@ def _suppress_editable_rebuild() -> tuple[list[str] | None, str | None]:
         modules = getattr(finder_obj, "_top_level_modules", None) or ()
         if "ginext" not in modules:
             continue
-        build_path = getattr(finder_obj, "_build_path")  # noqa: B009
-        ninja_cmd = getattr(finder_obj, "_build_cmd")  # noqa: B009
+        obj = cast("_MesonpyFinder", finder_obj)
+        build_path = obj._build_path
+        ninja_cmd = obj._build_cmd
         break
 
     if build_path is None:
@@ -441,7 +449,7 @@ def Gio() -> types.ModuleType:
 
 
 @pytest.fixture
-def cancellable(Gio: types.ModuleType) -> object:
+def cancellable(Gio: types.ModuleType) -> _Gio.Cancellable:
     return Gio.Cancellable()
 
 
