@@ -3,7 +3,6 @@ import unittest
 import tempfile
 import os.path
 import shutil
-import warnings
 
 try:
     import fcntl
@@ -11,9 +10,6 @@ except ImportError:
     fcntl = None
 
 from gi.repository import GLib
-from gi import PyGIDeprecationWarning
-
-
 class IOChannel(unittest.TestCase):
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
@@ -213,83 +209,6 @@ second line
         os.close(r)
 
     @unittest.skipIf(os.name == "nt", "NONBLOCK not implemented on Windows")
-    def test_deprecated_method_add_watch_no_data(self):
-        (r, w) = os.pipe()
-
-        ch = GLib.IOChannel(filedes=r)
-        ch.set_encoding(None)
-        ch.set_flags(ch.get_flags() | GLib.IOFlags.NONBLOCK)
-
-        cb_reads = []
-
-        def cb(channel, condition):
-            self.assertEqual(channel, ch)
-            self.assertEqual(condition, GLib.IOCondition.IN)
-            cb_reads.append(channel.read())
-            if len(cb_reads) == 2:
-                ml.quit()
-            return True
-
-        # io_add_watch() method is deprecated, use GLib.io_add_watch
-        with warnings.catch_warnings(record=True) as warn:
-            warnings.simplefilter("always")
-            ch.add_watch(GLib.IOCondition.IN, cb, priority=GLib.PRIORITY_HIGH)
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-
-        def write():
-            os.write(w, b"a")
-            GLib.idle_add(lambda: os.write(w, b"b") and False)
-
-        ml = GLib.MainLoop()
-        GLib.idle_add(write)
-        GLib.timeout_add(2000, ml.quit)
-        ml.run()
-
-        self.assertEqual(cb_reads, [b"a", b"b"])
-
-    @unittest.skipIf(os.name == "nt", "NONBLOCK not implemented on Windows")
-    def test_deprecated_method_add_watch_data_priority(self):
-        (r, w) = os.pipe()
-
-        ch = GLib.IOChannel(filedes=r)
-        ch.set_encoding(None)
-        ch.set_flags(ch.get_flags() | GLib.IOFlags.NONBLOCK)
-
-        cb_reads = []
-
-        def cb(channel, condition, data):
-            self.assertEqual(channel, ch)
-            self.assertEqual(condition, GLib.IOCondition.IN)
-            self.assertEqual(data, "hello")
-            cb_reads.append(channel.read())
-            if len(cb_reads) == 2:
-                ml.quit()
-            return True
-
-        ml = GLib.MainLoop()
-        # io_add_watch() method is deprecated, use GLib.io_add_watch
-        with warnings.catch_warnings(record=True) as warn:
-            warnings.simplefilter("always")
-            id = ch.add_watch(
-                GLib.IOCondition.IN, cb, "hello", priority=GLib.PRIORITY_HIGH
-            )
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-
-        self.assertEqual(
-            ml.get_context().find_source_by_id(id).priority, GLib.PRIORITY_HIGH
-        )
-
-        def write():
-            os.write(w, b"a")
-            GLib.idle_add(lambda: os.write(w, b"b") and False)
-
-        GLib.idle_add(write)
-        GLib.timeout_add(2000, ml.quit)
-        ml.run()
-
-        self.assertEqual(cb_reads, [b"a", b"b"])
-
-    @unittest.skipIf(os.name == "nt", "NONBLOCK not implemented on Windows")
     def test_add_watch_no_data(self):
         (r, w) = os.pipe()
 
@@ -399,94 +318,3 @@ second line
         ml.run()
 
         self.assertEqual(cb_reads, [b"a", b"b"])
-
-    @unittest.skipIf(os.name == "nt", "NONBLOCK not implemented on Windows")
-    def test_deprecated_add_watch_no_data(self):
-        (r, w) = os.pipe()
-
-        ch = GLib.IOChannel(filedes=r)
-        ch.set_encoding(None)
-        ch.set_flags(ch.get_flags() | GLib.IOFlags.NONBLOCK)
-
-        cb_reads = []
-
-        def cb(channel, condition):
-            self.assertEqual(channel, ch)
-            self.assertEqual(condition, GLib.IOCondition.IN)
-            cb_reads.append(channel.read())
-            if len(cb_reads) == 2:
-                ml.quit()
-            return True
-
-        with warnings.catch_warnings(record=True) as warn:
-            warnings.simplefilter("always")
-            id = GLib.io_add_watch(
-                ch, GLib.IOCondition.IN, cb, priority=GLib.PRIORITY_HIGH
-            )
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-
-        ml = GLib.MainLoop()
-        self.assertEqual(
-            ml.get_context().find_source_by_id(id).priority, GLib.PRIORITY_HIGH
-        )
-
-        def write():
-            os.write(w, b"a")
-            GLib.idle_add(lambda: os.write(w, b"b") and False)
-
-        GLib.idle_add(write)
-        GLib.timeout_add(2000, ml.quit)
-        ml.run()
-
-        self.assertEqual(cb_reads, [b"a", b"b"])
-
-    @unittest.skipIf(os.name == "nt", "NONBLOCK not implemented on Windows")
-    def test_deprecated_add_watch_with_data(self):
-        (r, w) = os.pipe()
-
-        ch = GLib.IOChannel(filedes=r)
-        ch.set_encoding(None)
-        ch.set_flags(ch.get_flags() | GLib.IOFlags.NONBLOCK)
-
-        cb_reads = []
-
-        def cb(channel, condition, data):
-            self.assertEqual(channel, ch)
-            self.assertEqual(condition, GLib.IOCondition.IN)
-            self.assertEqual(data, "hello")
-            cb_reads.append(channel.read())
-            if len(cb_reads) == 2:
-                ml.quit()
-            return True
-
-        with warnings.catch_warnings(record=True) as warn:
-            warnings.simplefilter("always")
-            id = GLib.io_add_watch(
-                ch, GLib.IOCondition.IN, cb, "hello", priority=GLib.PRIORITY_HIGH
-            )
-            self.assertTrue(issubclass(warn[0].category, PyGIDeprecationWarning))
-
-        ml = GLib.MainLoop()
-        self.assertEqual(
-            ml.get_context().find_source_by_id(id).priority, GLib.PRIORITY_HIGH
-        )
-
-        def write():
-            os.write(w, b"a")
-            GLib.idle_add(lambda: os.write(w, b"b") and False)
-
-        GLib.idle_add(write)
-
-        GLib.timeout_add(2000, ml.quit)
-        ml.run()
-
-        self.assertEqual(cb_reads, [b"a", b"b"])
-
-    def test_backwards_compat_flags(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", PyGIDeprecationWarning)
-
-            self.assertEqual(GLib.IOCondition.IN, GLib.IO_IN)
-            self.assertEqual(GLib.IOFlags.NONBLOCK, GLib.IO_FLAG_NONBLOCK)
-            self.assertEqual(GLib.IOFlags.IS_SEEKABLE, GLib.IO_FLAG_IS_SEEKABLE)
-            self.assertEqual(GLib.IOStatus.NORMAL, GLib.IO_STATUS_NORMAL)
