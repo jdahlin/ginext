@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, cast
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from ginext import Gio, GLib
+    from ginext.Gio import AsyncResult
 
 import pytest
 
@@ -110,7 +111,7 @@ def session_bus(_dbus_daemon: Bus) -> Generator[Gio.DBusConnection]:
         | Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION
     )
 
-    def _start_connect(cb: Callable[[object, object], None]) -> None:
+    def _start_connect(cb: Callable[[object, AsyncResult], None]) -> None:
         ginext.private.invoke(
             "Gio", "DBusConnection.new_for_address", addr, flags, None, None, cb
         )
@@ -129,7 +130,7 @@ def session_bus(_dbus_daemon: Bus) -> Generator[Gio.DBusConnection]:
     conn = asyncio.run(_connect(), loop_factory=aio.EventLoop)
     yield conn
 
-    def _start_close(cb: Callable[[object, object], None]) -> None:
+    def _start_close(cb: Callable[[object, AsyncResult], None]) -> None:
         ginext.private.invoke("Gio", "DBusConnection.close", conn, None, cb)
 
     async def _close() -> object:
@@ -154,7 +155,7 @@ def dbus_proxy(session_bus: Gio.DBusConnection) -> Generator[Gio.DBusProxy]:
     import ginext
     from ginext import Gio, aio
 
-    def _start_make(cb: Callable[[object, object], None]) -> None:
+    def _start_make(cb: Callable[[object, AsyncResult], None]) -> None:
         ginext.private.invoke(
             "Gio",
             "DBusProxy.new",
@@ -394,7 +395,7 @@ def test_signal_subscribe_receives_signal(session_bus: Gio.DBusConnection) -> No
         on_signal,
     ):
 
-        def _start_request(cb: Callable[[object, object], None]) -> None:
+        def _start_request(cb: Callable[[object, AsyncResult], None]) -> None:
             session_bus.call(
                 _DBUS_BUS_NAME,
                 _DBUS_OBJ_PATH,
@@ -493,7 +494,7 @@ def test_register_object_dispatches_method_call(
             (text,) = params.unpack()
             invocation.return_value(GLib.Variant("(s)", (text,)))
 
-    def _start_echo(cb: Callable[[object, object], None]) -> None:
+    def _start_echo(cb: Callable[[object, AsyncResult], None]) -> None:
         unique = session_bus.get_unique_name()
         session_bus.call(
             unique,

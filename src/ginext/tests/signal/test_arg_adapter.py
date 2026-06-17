@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 def _connect(cancellable: Gio.Cancellable, cb: object) -> SignalConnection:
     """Connect a handler with static_owner to skip the warning."""
-    conn: SignalConnection = cancellable.cancelled.connect(cb, owner=ginext.static_owner)
+    conn: SignalConnection = cancellable.cancelled.connect(cb, owner=ginext.static_owner)  # type: ignore[arg-type]
     return conn
 
 

@@ -55,7 +55,7 @@ def _load_bytes_op(file: Gio.File) -> AsyncOperation[bytes]:
     """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
-    def start(callback: Callable[[object, object], None]) -> None:
+    def start(callback: Callable[[object, AsyncResult], None]) -> None:
         file.load_bytes_async(None, callback)
 
     def finish(result: AsyncResult) -> bytes:
@@ -225,7 +225,7 @@ def test_task_cancellation_raises_cancelled_error(
     file, _expected = host_file
     cancellable = Gio.Cancellable()
 
-    def start(callback: Callable[[object, object], None]) -> None:
+    def start(callback: Callable[[object, AsyncResult], None]) -> None:
         file.load_bytes_async(cancellable, callback)
 
     def finish(result: AsyncResult) -> object:

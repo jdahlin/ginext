@@ -170,7 +170,7 @@ class AsyncOperation(Generic[_T]):
 
     def __init__(
         self,
-        start: Callable[[Callable[[object, object], None]], None],
+        start: Callable[[Callable[[object, AsyncResult], None]], None],
         finish: Callable[[AsyncResult], _T],
         cancel: Callable[[], None] | None = None,
     ) -> None:
