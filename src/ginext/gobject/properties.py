@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class _HasDoNotify(Protocol):
+class HasDoNotify(Protocol):
     def do_notify(self, *args: object) -> object: ...
 
 
@@ -230,7 +230,7 @@ else:
     Property = PropertyBase
 
 
-class _PspecProperty:
+class PspecProperty:
     """Descriptor synthesized from a GObject pspec.
 
     Makes an introspected or inherited GObject property reachable as a plain
@@ -466,7 +466,7 @@ def call_notify_override(obj: object, prop_name: str) -> None:
     overrides = type(obj).__dict__.get("_pygobject_signal_overrides", set())
     if "notify" not in overrides:
         return
-    if not isinstance(obj, _HasDoNotify):
+    if not isinstance(obj, HasDoNotify):
         return
     default_handler = obj.do_notify
     if not callable(default_handler):

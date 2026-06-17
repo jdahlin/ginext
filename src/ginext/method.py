@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from ginext.GIRepository import CallableInfo, FunctionInfo
 
 
-class _PackedUserData(tuple[object, ...]):
+class PackedUserData(tuple[object, ...]):
     """Marker the C kwarg/user_data resolver attaches when multiple
     trailing positional args pack into the closure user_data slot. The
     callback trampoline in shims.c sees this subclass and unpacks the
@@ -48,7 +48,7 @@ class _PackedUserData(tuple[object, ...]):
 
 from ginext import private as _private_hooks
 
-_private_hooks.register_hook("packed_user_data_type", _PackedUserData)
+_private_hooks.register_hook("packed_user_data_type", PackedUserData)
 
 
 def _keyword_only_message(name: str, after: int, given: int) -> str:
@@ -156,7 +156,7 @@ class FunctionBuilder:
                     )
                 return descriptor(*args, **kwargs)
 
-            return _GICallable(function, gimeta)
+            return GICallable(function, gimeta)
         return _attach_callable_metadata(
             descriptor,
             gimeta=gimeta,
@@ -165,7 +165,7 @@ class FunctionBuilder:
         )
 
 
-class _GICallable:
+class GICallable:
     """Callable descriptor for a GI method or static method.
 
     Behaves like the plain function it replaces — ``Cls.m`` is unbound,
@@ -369,7 +369,7 @@ def make_method(
         keyword_only_after=kw_only_after,
     )
     if arg_defaults or kw_only_after is not None:
-        return _GICallable(impl, gimeta)
+        return GICallable(impl, gimeta)
     return cast(
         "Callable[..., object]",
         _attach_callable_metadata(

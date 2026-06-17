@@ -65,12 +65,12 @@ from .resolve import classbuild_module, gobject_repo as gobject_repo
 from .subclass import register_python_subclass
 from .properties import (
     Property as Property,
-    _PspecProperty,
+    PspecProperty,
     own_annotations_dict,
 )
 
 # GObject.Object is the C base type, built below by init_gobject from the method
-# definitions in _GObjectBody. _GObjectBody subclasses the C type only for type
+# definitions in GObjectBody. GObjectBody subclasses the C type only for type
 # checking (so its bodies and GObject see the full API); at runtime it is a bare
 # namespace whose methods init_gobject installs on the C type.
 if TYPE_CHECKING:
@@ -82,11 +82,11 @@ _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
 
 
-def _synthesize_pspec_property(cls: type, py_name: str) -> _PspecProperty:
+def _synthesize_pspec_property(cls: type, py_name: str) -> PspecProperty:
     """Install (once) a descriptor for a GObject property the class didn't
     declare, so it reads/writes as a plain attribute. Also surface it in
     ``__annotations__`` so the class advertises the field, dataclass-style."""
-    descriptor = _PspecProperty(py_name)
+    descriptor = PspecProperty(py_name)
     setattr(cls, py_name, descriptor)
     annotations = own_annotations_dict(cls)
     if py_name not in annotations:
@@ -266,9 +266,9 @@ class GInterface(metaclass=GObjectMeta):
 
 
 # The GObject.Object method definitions. init_gobject installs these on the C
-# type; _GObjectBody itself is only the type-checking view of GObject.
+# type; GObjectBody itself is only the type-checking view of GObject.
 @dataclass_transform(field_specifiers=(Property,))
-class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
+class GObjectBody(_MethodsBase, metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     Signal: ClassVar[type[Signal]]
     _class_struct_name: ClassVar[str | None] = None
@@ -290,11 +290,11 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
 
 
 if TYPE_CHECKING:
-    GObject = _GObjectBody
+    GObject = GObjectBody
 else:
     GObject = private.init_gobject(GObjectMeta)
     private.GObject = GObject
-    del _GObjectBody
+    del GObjectBody
 
 if not TYPE_CHECKING:
     GObject.__init_subclass__ = classmethod(_obj_init_subclass)

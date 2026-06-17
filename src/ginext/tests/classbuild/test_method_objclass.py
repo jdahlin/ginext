@@ -13,9 +13,9 @@ class _HasObjclass(Protocol):
 
 def _has_objclass(method: object) -> TypeGuard[_HasObjclass]:
     from ginext import Gio
-    from ginext.method import _GICallable
+    from ginext.method import GICallable
 
-    return isinstance(method, (type(Gio.Cancellable.cancel), _GICallable))
+    return isinstance(method, (type(Gio.Cancellable.cancel), GICallable))
 
 
 def test_imported_method_descriptors_expose_objclass() -> None:

@@ -439,7 +439,7 @@ class OverlayRegistrar:
 
         if cached_fn is None:
             _, info = self._find_typelib_member(overlay_name)
-            cached_fn = _CachedTypelibCallable(
+            cached_fn = CachedTypelibCallable(
                 self._namespace,
                 info,
                 f"{self._ns_name}.{overlay_name}",
@@ -463,7 +463,7 @@ class OverlayRegistrar:
         )
 
 
-class _CachedTypelibCallable:
+class CachedTypelibCallable:
     __slots__ = ("_descriptor", "_has_self", "_info", "_namespace", "_qualified_name")
 
     def __init__(

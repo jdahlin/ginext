@@ -81,7 +81,7 @@ _classes_by_gtype: dict[tuple[str, int], type[Any]] = {}
 
 
 @runtime_checkable
-class _HasProfile(Protocol):
+class HasProfile(Protocol):
     _profile: abi.ABIProfile
 
 
@@ -348,7 +348,7 @@ def _concrete_impl_for_interface(iface_cls: type[GInterface]) -> type[GObject]:
 
 
 def wrapper_type_for_gtype(gtype: int, context: object | None = None) -> type:
-    profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
+    profile = context._profile if isinstance(context, HasProfile) else abi.NATIVE
     cached = _cached_class_for_gtype(profile.name, gtype)
     if cached is None:
         cached = _cached_python_defined_class_for_gtype(gtype)

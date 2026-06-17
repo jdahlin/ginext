@@ -22,9 +22,9 @@ class _HasCallableMetadata(Protocol):
 
 def _has_callable_metadata(method: object) -> TypeGuard[_HasCallableMetadata]:
     from ginext import GLib
-    from ginext.method import _GICallable
+    from ginext.method import GICallable
 
-    return isinstance(method, (type(GLib.get_user_name), _GICallable))
+    return isinstance(method, (type(GLib.get_user_name), GICallable))
 
 
 def test_imported_callables_expose_metadata() -> None:
