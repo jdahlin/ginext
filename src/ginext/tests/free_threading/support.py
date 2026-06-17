@@ -35,8 +35,9 @@ def free_threading_active() -> bool:
     )
 
 
-pytestmark = pytest.mark.skip(
-    reason="free-threading stress tests are disabled while unrelated work lands"
+pytestmark = pytest.mark.skipif(
+    not free_threading_active(),
+    reason="free-threading stress tests require a Py_GIL_DISABLED Python with PYTHON_GIL=0",
 )
 
 

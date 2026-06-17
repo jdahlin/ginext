@@ -21,6 +21,7 @@ import importlib
 import importlib.util
 from pathlib import Path
 import sys
+import threading
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -45,6 +46,7 @@ class PyGIDeprecationWarning(DeprecationWarning):
 
 
 _LOCAL_MODULES = {"aio", "cairo", "features", "gobject", "runtime"}
+_namespace_load_lock = threading.RLock()
 
 
 def _load_local_module(name: str) -> types.ModuleType:
@@ -85,19 +87,24 @@ def _load_namespace(
     if cached is not None:
         return cast("Namespace", cached)
 
-    namespace = Namespace(name, version, profile=profile)
-    cast("Any", sys.modules)[module_name] = namespace
-    if profile is abi.NATIVE:
-        globals()[name] = namespace
-    try:
-        load_overlay_module_for(namespace)
-    except BaseException:
-        # Roll back so a retry can re-attempt overlay load.
-        sys.modules.pop(module_name, None)
+    with _namespace_load_lock:
+        cached = sys.modules.get(module_name)
+        if cached is not None:
+            return cast("Namespace", cached)
+
+        namespace = Namespace(name, version, profile=profile)
+        cast("Any", sys.modules)[module_name] = namespace
         if profile is abi.NATIVE:
-            globals().pop(name, None)
-        raise
-    return namespace
+            globals()[name] = namespace
+        try:
+            load_overlay_module_for(namespace)
+        except BaseException:
+            # Roll back so a retry can re-attempt overlay load.
+            sys.modules.pop(module_name, None)
+            if profile is abi.NATIVE:
+                globals().pop(name, None)
+            raise
+        return namespace
 
 
 def _class_from_namespace_profile(

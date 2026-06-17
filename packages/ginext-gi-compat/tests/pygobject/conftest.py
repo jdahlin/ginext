@@ -52,7 +52,6 @@ _XFAIL_BY_NODE = {
     "test_object_lifecycle.py::test_subclass_with_slots_raises_warning": "test relies on missing compat path",
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_full_with_held_floating": "behaviour mismatch under ginext pygobject compat",
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_none_with_held_floating": "behaviour mismatch under ginext pygobject compat",
-    "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "flaky timing-sensitive SIGALRM test",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_gio_application": "TypeError under ginext pygobject compat",
     "test_overrides_gdk.py::TestGdk::test_file_list": "GSList<GFile> elements marshal as None in ginext; requires C-level fix",
     "test_overrides_gtk.py::TestBuilder::test_builder": "missing pygobject compat attribute",
@@ -91,6 +90,7 @@ _SKIP_BY_NODE = {
     "test_iochannel.py::IOChannel::test_fd_read": "IOChannel non-blocking pipe read returns empty bytes",
     "test_iochannel.py::IOChannel::test_file_read_chars": "IOChannel read_chars with count not supported in ginext",
     "test_iochannel.py::IOChannel::test_seek": "IOChannel seek with partial read not supported",
+    "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "flaky timing-sensitive SIGALRM test",
 }
 
 

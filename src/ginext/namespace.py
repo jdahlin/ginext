@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import keyword
+import threading
 import types
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +58,7 @@ class Namespace:
         self._version = private.require_namespace(name, version)
         self._profile = profile
         self._version_tuple = tuple(int(c) for c in self._version.split("."))
+        self._member_lock = threading.RLock()
         self.context = abi.NamespaceContext(self._name, self._version, self._profile)
         self.gimeta = types.SimpleNamespace(
             name=self._name,
@@ -90,74 +92,83 @@ class Namespace:
         return sorted(names)
 
     def __getattr__(self, name: str) -> Any:
-        # Dunders skipped — Python probes __wrapped__ etc. and shouldn't
-        # trigger first-access side effects (e.g. a namespace init hook).
-        if not name.startswith("_"):
-            run_first_access(self._name)
+        with self._member_lock:
+            cached = vars(self).get(name)
+            if cached is not None:
+                return cached
 
-        if name == "_deprecations":
-            return deprecations_proxy_for(self._name)
+            # Dunders skipped — Python probes __wrapped__ etc. and shouldn't
+            # trigger first-access side effects (e.g. a namespace init hook).
+            if not name.startswith("_"):
+                run_first_access(self._name)
 
-        if self._name == "GObject" and name == "Signal":
-            from .signal.descriptor import SignalDescriptor
+            if name == "_deprecations":
+                return deprecations_proxy_for(self._name)
 
-            setattr(self, name, SignalDescriptor)
-            return SignalDescriptor
+            if self._name == "GObject" and name == "Signal":
+                from .signal.descriptor import SignalDescriptor
 
-        entry = module_overlay_for(self.__name__, name)
-        if entry is not None:
-            value = install_module_overlay(self, name, entry)
-            # Deprecated overlays must NOT be cached: every access must
-            # go through __getattr__ so the warning fires each time.
-            if not isinstance(entry, DeprecatedOverlay):
-                setattr(self, name, value)
+                setattr(self, name, SignalDescriptor)
+                return SignalDescriptor
+
+            entry = module_overlay_for(self.__name__, name)
+            if entry is not None:
+                value = install_module_overlay(self, name, entry)
+                # Deprecated overlays must NOT be cached: every access must
+                # go through __getattr__ so the warning fires each time.
+                if not isinstance(entry, DeprecatedOverlay):
+                    setattr(self, name, value)
+                return value
+
+            lookup_name = (
+                name[:-1]
+                if name.endswith("_") and keyword.iskeyword(name[:-1])
+                else name
+            )
+            kind, info = private.namespace_find(
+                self.__name__, self._version, lookup_name
+            )
+            if is_attribute_hidden(self.__name__, lookup_name):
+                raise AttributeError(name)
+
+            # Deferred: ginext.GIRepository is a lazily-resolved GI namespace that
+            # isn't importable while ginext/__init__.py is still importing this
+            # module (bootstrap cycle). By first attribute access it is loaded.
+            from ginext.GIRepository import (
+                EnumInfo,
+                FlagsInfo,
+                ConstantInfo,
+                ObjectInfo,
+                InterfaceInfo,
+                StructInfo,
+                UnionInfo,
+                FunctionInfo,
+            )
+
+            match info:
+                case ConstantInfo(value=value):
+                    pass
+                # FlagsInfo must precede EnumInfo: it is a subclass of EnumInfo
+                case FlagsInfo():
+                    value = self._enum_builder.build_flags(name, info)
+                case EnumInfo():
+                    value = self._enum_builder.build_enum(name, info)
+                case FunctionInfo():
+                    value = self._function_builder.build_function(info)
+                case InterfaceInfo():
+                    value = self._class_builder.build_object_or_interface(info)
+                case ObjectInfo():
+                    value = self._class_builder.build_object_or_interface(info)
+                case StructInfo():
+                    value = self._record_builder.build_record(info)
+                case UnionInfo():
+                    value = self._record_builder.build_record(info)
+                case _:
+                    raise AttributeError(
+                        f"{self._name}.{name}: GI member kind {kind!r} is not supported"
+                    )
+            setattr(self, name, value)
             return value
-
-        lookup_name = (
-            name[:-1] if name.endswith("_") and keyword.iskeyword(name[:-1]) else name
-        )
-        kind, info = private.namespace_find(self.__name__, self._version, lookup_name)
-        if is_attribute_hidden(self.__name__, lookup_name):
-            raise AttributeError(name)
-
-        # Deferred: ginext.GIRepository is a lazily-resolved GI namespace that
-        # isn't importable while ginext/__init__.py is still importing this
-        # module (bootstrap cycle). By first attribute access it is loaded.
-        from ginext.GIRepository import (
-            EnumInfo,
-            FlagsInfo,
-            ConstantInfo,
-            ObjectInfo,
-            InterfaceInfo,
-            StructInfo,
-            UnionInfo,
-            FunctionInfo,
-        )
-
-        match info:
-            case ConstantInfo(value=value):
-                pass
-            # FlagsInfo must precede EnumInfo: it is a subclass of EnumInfo
-            case FlagsInfo():
-                value = self._enum_builder.build_flags(name, info)
-            case EnumInfo():
-                value = self._enum_builder.build_enum(name, info)
-            case FunctionInfo():
-                value = self._function_builder.build_function(info)
-            case InterfaceInfo():
-                value = self._class_builder.build_object_or_interface(info)
-            case ObjectInfo():
-                value = self._class_builder.build_object_or_interface(info)
-            case StructInfo():
-                value = self._record_builder.build_record(info)
-            case UnionInfo():
-                value = self._record_builder.build_record(info)
-            case _:
-                raise AttributeError(
-                    f"{self._name}.{name}: GI member kind {kind!r} is not supported"
-                )
-        setattr(self, name, value)
-        return value
 
     def cached_member(self, name: str) -> type | None:
         """Return the built class cached under ``name``, or None.
