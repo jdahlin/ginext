@@ -87,7 +87,9 @@ def test_gst_pbutils_core_paths(
     )
 
 
-def test_gst_controller_core_paths(namespace_loader: Callable[[str], Namespace]) -> None:
+def test_gst_controller_core_paths(
+    namespace_loader: Callable[[str], Namespace],
+) -> None:
     GstController = namespace_loader("GstController")
 
     source = GstController.InterpolationControlSource()
@@ -103,7 +105,9 @@ def test_gst_controller_core_paths(namespace_loader: Callable[[str], Namespace])
     assert GstController.LFOWaveform.SINE >= 0
 
 
-def test_gst_net_core_paths(namespace_loader: Callable[[str], Namespace], Gst: types.ModuleType) -> None:
+def test_gst_net_core_paths(
+    namespace_loader: Callable[[str], Namespace], Gst: types.ModuleType
+) -> None:
     GstNet = namespace_loader("GstNet")
 
     clock = Gst.SystemClock.obtain()
@@ -150,7 +154,9 @@ def test_gst_sdp_core_paths(namespace_loader: Callable[[str], Namespace]) -> Non
     assert parsed.get_uri() == "https://example.com"
 
 
-def test_gst_rtsp_core_paths(namespace_loader: Callable[[str], Namespace], Gst: types.ModuleType) -> None:
+def test_gst_rtsp_core_paths(
+    namespace_loader: Callable[[str], Namespace], Gst: types.ModuleType
+) -> None:
     GstRtsp = namespace_loader("GstRtsp")
 
     url = GstRtsp.RTSPUrl.parse("rtsp://example.com/test").url
@@ -251,7 +257,9 @@ def test_gst_webrtc_core_paths(namespace_loader: Callable[[str], Namespace]) -> 
         GstWebRTC.WebRTCDataChannel()
 
 
-def test_gst_allocators_core_paths(namespace_loader: Callable[[str], Namespace]) -> None:
+def test_gst_allocators_core_paths(
+    namespace_loader: Callable[[str], Namespace],
+) -> None:
     GstAllocators = namespace_loader("GstAllocators")
 
     allocator = GstAllocators.FdAllocator()

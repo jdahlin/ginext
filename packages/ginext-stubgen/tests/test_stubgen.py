@@ -121,7 +121,7 @@ def test_output_parses(native: str) -> None:
 
 def test_header_has_override_directive(native: str) -> None:
     assert (
-        '# mypy: disable-error-code='
+        "# mypy: disable-error-code="
         '"assignment,explicit-any,misc,name-defined,no-redef,override,type-arg,untyped-decorator,valid-type"'
         in native
     )
@@ -145,7 +145,9 @@ def test_checked_in_gobject_stub_exposes_notify_as_detailed_signal() -> None:
 
 
 def test_checked_in_stubs_widen_glib_bytes_inputs_to_accept_bytes() -> None:
-    stub_dir = Path(__file__).resolve().parents[2] / "ginext-stubs" / ".generated" / "ginext"
+    stub_dir = (
+        Path(__file__).resolve().parents[2] / "ginext-stubs" / ".generated" / "ginext"
+    )
     glib_path = stub_dir / "GLib.pyi"
     gtk_path = stub_dir / "Gtk.pyi"
     if not (glib_path.exists() and gtk_path.exists()):
@@ -154,8 +156,14 @@ def test_checked_in_stubs_widen_glib_bytes_inputs_to_accept_bytes() -> None:
     glib = glib_path.read_text(encoding="utf-8")
     gtk = gtk_path.read_text(encoding="utf-8")
 
-    assert "def compute_checksum_for_bytes(checksum_type: ChecksumType | int, data: bytes | Bytes) -> str | None:" in glib
-    assert '    def set_template(cls, template_bytes: "bytes | GLib.Bytes") -> None: ...' in gtk
+    assert (
+        "def compute_checksum_for_bytes(checksum_type: ChecksumType | int, data: bytes | Bytes) -> str | None:"
+        in glib
+    )
+    assert (
+        '    def set_template(cls, template_bytes: "bytes | GLib.Bytes") -> None: ...'
+        in gtk
+    )
 
 
 class TestNativeSignals:
@@ -179,7 +187,7 @@ class TestNativeSignals:
             "from ginext.GObject import SignalConnection, Signal, SignalMethod, "
             "DetailedSignal" in native
         )
-        assert "class Signal(Generic[_SigO, _SigP, _SigR]):" not in native
+        assert "class Signal(Generic[SigO, _SigP, SigR]):" not in native
 
     def test_no_string_connect_overloads_in_native(self, native: str) -> None:
         assert "def connect(self, signal: Literal[" not in native

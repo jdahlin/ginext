@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(scope="session")
-def dbus_session_bus() -> Generator[str, None, None]:
+def dbus_session_bus() -> Generator[str]:
     """A private session ``dbus-daemon`` for the test session.
 
     Starts its own bus, points ``DBUS_SESSION_BUS_ADDRESS`` at it for the

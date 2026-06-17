@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from ..overlay import OverlayRegistrar
-    from ..signal.bound import _PropertyDetail
+    from ..signal.bound import PropertyDetail
     from ..signal.connection import SignalConnection
 
 
@@ -50,7 +50,7 @@ overlay.hide_attribute("Value")
 @overlay.method("Object")
 def scoped(
     self: _gobject_root.GObject,
-    callback: "Callable[..., object]",
+    callback: Callable[..., object],
     *args: object,
     **kwargs: object,
 ) -> ScopedCallable:
@@ -128,13 +128,13 @@ overlay.constant("GEnum", _GEnum)
 overlay.constant("GFlags", _GFlags)
 
 
-class _FreezeNotifyContext:
+class FreezeNotifyContext:
     __slots__ = ("_obj",)
 
     def __init__(self, obj: object) -> None:
         self._obj = obj
 
-    def __enter__(self) -> _FreezeNotifyContext:
+    def __enter__(self) -> FreezeNotifyContext:
         return self
 
     def __exit__(
@@ -144,24 +144,24 @@ class _FreezeNotifyContext:
         return False
 
 
-class _NotifySignalSelector:
+class NotifySignalSelector:
     __slots__ = ("_source",)
 
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | "_PropertyDetail") -> _BoundSignal:
+    def __call__(self, detail: str | PropertyDetail) -> _BoundSignal:
         signal = _notify_bound_signal(self._source)
         return signal.detail_signal(detail)
 
 
-class _NotifyCompatProxy:
+class NotifyCompatProxy:
     __slots__ = ("_source",)
 
     def __init__(self, source: _gobject_root.GObject) -> None:
         self._source = source
 
-    def __call__(self, detail: str | "_PropertyDetail") -> object:
+    def __call__(self, detail: str | PropertyDetail) -> object:
         from .. import private
 
         return private.invoke("GObject", "Object.notify", self._source, str(detail))
@@ -180,28 +180,28 @@ def _notify_bound_signal(source: _gobject_root.GObject) -> _BoundSignal:
 
 
 @overlay.method("Object")
-def freeze_notify(fn: Any, self: Any) -> _FreezeNotifyContext:
+def freeze_notify(fn: Any, self: Any) -> FreezeNotifyContext:
     fn(self)
-    return _FreezeNotifyContext(self)
+    return FreezeNotifyContext(self)
 
 
 @overlay.property("Object")
-def notify(self: _gobject_root.GObject) -> _NotifySignalSelector | _NotifyCompatProxy:
+def notify(self: _gobject_root.GObject) -> NotifySignalSelector | NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
     if features.is_enabled(features.PYGOBJECT_COMPAT):
-        return _NotifyCompatProxy(self)
-    return _NotifySignalSelector(self)
+        return NotifyCompatProxy(self)
+    return NotifySignalSelector(self)
 
 
-class _HandlerBlockContext:
+class HandlerBlockContext:
     __slots__ = ("_obj", "_handler_id")
 
     def __init__(self, obj: _gobject_root.GObject, handler_id: int) -> None:
         self._obj = obj
         self._handler_id = handler_id
 
-    def __enter__(self) -> _HandlerBlockContext:
+    def __enter__(self) -> HandlerBlockContext:
         GObject.signal_handler_block(self._obj, self._handler_id)
         return self
 
@@ -226,8 +226,8 @@ def _normalize_handler_id(handler: object) -> int:
 @overlay.method("Object")
 def handler_block(
     self: _gobject_root.GObject, handler_id: int | SignalConnection
-) -> _HandlerBlockContext:
-    return _HandlerBlockContext(self, _normalize_handler_id(handler_id))
+) -> HandlerBlockContext:
+    return HandlerBlockContext(self, _normalize_handler_id(handler_id))
 
 
 @overlay.method("Object")
@@ -338,19 +338,19 @@ if (
     ]
 
 
-def _root_freeze_notify(self: _gobject_root.GObject) -> _FreezeNotifyContext:
+def _root_freeze_notify(self: _gobject_root.GObject) -> FreezeNotifyContext:
     GObject.Object.gimeta.typelib_methods["freeze_notify"](self)
-    return _FreezeNotifyContext(self)
+    return FreezeNotifyContext(self)
 
 
 def _root_notify(
     self: _gobject_root.GObject,
-) -> _NotifySignalSelector | _NotifyCompatProxy:
+) -> NotifySignalSelector | NotifyCompatProxy:
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError("notify")
     if features.is_enabled(features.PYGOBJECT_COMPAT):
-        return _NotifyCompatProxy(self)
-    return _NotifySignalSelector(self)
+        return NotifyCompatProxy(self)
+    return NotifySignalSelector(self)
 
 
 def _root_bind_property(

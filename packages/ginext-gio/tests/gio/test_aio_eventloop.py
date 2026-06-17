@@ -29,41 +29,44 @@ import asyncio
 import asyncio.streams
 import contextlib
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine, Generator
     from pathlib import Path
 
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
+    import ginext.Gio as Gio
+    from ginext.Gio import AsyncResult
 
 import pytest
 
-_T = TypeVar("_T")
+T = TypeVar("T")
 
 
-def _run(coro: Coroutine[object, object, _T]) -> _T:
+def _run(coro: Coroutine[object, object, T]) -> T:
     from ginext import aio
 
     return asyncio.run(coro, loop_factory=aio.EventLoop)
 
 
-def _load_bytes_op(file: object) -> _AsyncOperation:
-    """An _AsyncOperation over g_file_load_bytes_async / _finish."""
+def _load_bytes_op(file: Gio.File) -> AsyncOperation[bytes]:
+    """An AsyncOperation over g_file_load_bytes_async / _finish."""
     from ginext import aio
 
-    def start(callback: object) -> None:
-        getattr(file, "load_bytes_async")(None, callback)
+    def start(callback: Callable[[object, AsyncResult], None]) -> None:
+        file.load_bytes_async(None, callback)
 
-    def finish(result: object) -> bytes:
-        raw = getattr(file, "load_bytes_finish")(result)
-        return bytes(getattr(raw[0], "get_data")())
+    def finish(result: AsyncResult) -> bytes:
+        raw = file.load_bytes_finish(result)
+        return bytes(raw[0].get_data())
 
-    return aio._AsyncOperation(start, finish)
+    return aio.AsyncOperation(start, finish)
 
 
 @pytest.fixture
-def host_file(tmp_path: Path) -> Generator[tuple[object, bytes], None, None]:
+def host_file(tmp_path: Path) -> Generator[tuple[Gio.File, bytes]]:
     from ginext import Gio
 
     path = tmp_path / "host_file"
@@ -91,7 +94,7 @@ def test_exception_propagates_out_of_run() -> None:
         _run(main())
 
 
-def test_await_gio_op_completes(host_file: tuple[object, bytes]) -> None:
+def test_await_gio_op_completes(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> object:
@@ -131,7 +134,9 @@ def test_call_soon_runs_callback() -> None:
 # -- concurrency: other tasks running -----------------------------------------
 
 
-def test_gather_runs_two_coroutines_to_completion(host_file: tuple[object, bytes]) -> None:
+def test_gather_runs_two_coroutines_to_completion(
+    host_file: tuple[Gio.File, bytes],
+) -> None:
     file, expected = host_file
 
     async def counter(n: int) -> int:
@@ -151,7 +156,7 @@ def test_gather_runs_two_coroutines_to_completion(host_file: tuple[object, bytes
 
 
 def test_background_task_progresses_while_awaiting_io(
-    host_file: tuple[object, bytes],
+    host_file: tuple[Gio.File, bytes],
 ) -> None:
     """A background task keeps running while the foreground awaits real GIO
     I/O — proves the loop interleaves tasks, not just drains one."""
@@ -180,7 +185,7 @@ def test_background_task_progresses_while_awaiting_io(
     assert all(r == expected for r in results)
 
 
-def test_many_concurrent_gio_ops(host_file: tuple[object, bytes]) -> None:
+def test_many_concurrent_gio_ops(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> list[object]:
@@ -190,7 +195,7 @@ def test_many_concurrent_gio_ops(host_file: tuple[object, bytes]) -> None:
     assert results == [expected] * 10
 
 
-def test_create_task_then_await(host_file: tuple[object, bytes]) -> None:
+def test_create_task_then_await(host_file: tuple[Gio.File, bytes]) -> None:
     file, expected = host_file
 
     async def main() -> tuple[object, int]:
@@ -201,7 +206,7 @@ def test_create_task_then_await(host_file: tuple[object, bytes]) -> None:
             other += 1
         return task.result(), other
 
-    async def _wrap(awaitable: _AsyncOperation) -> object:
+    async def _wrap(awaitable: AsyncOperation[bytes]) -> bytes:
         return await awaitable
 
     data, other = _run(main())
@@ -212,21 +217,23 @@ def test_create_task_then_await(host_file: tuple[object, bytes]) -> None:
 # -- cancellation under the real loop -----------------------------------------
 
 
-def test_task_cancellation_raises_cancelled_error(host_file: tuple[object, bytes]) -> None:
+def test_task_cancellation_raises_cancelled_error(
+    host_file: tuple[Gio.File, bytes],
+) -> None:
     from ginext import Gio
 
     file, _expected = host_file
     cancellable = Gio.Cancellable()
 
-    def start(callback: object) -> None:
-        getattr(file, "load_bytes_async")(cancellable, callback)
+    def start(callback: Callable[[object, AsyncResult], None]) -> None:
+        file.load_bytes_async(cancellable, callback)
 
-    def finish(result: object) -> object:
-        return getattr(file, "load_bytes_finish")(result)
+    def finish(result: AsyncResult) -> object:
+        return file.load_bytes_finish(result)
 
     from ginext import aio
 
-    op = aio._AsyncOperation(start, finish, cancel=cancellable.cancel)
+    op = aio.AsyncOperation(start, finish, cancel=cancellable.cancel)
 
     async def main() -> object:
         async def runner() -> object:
@@ -257,7 +264,9 @@ def test_socket_round_trip_on_glib_loop() -> None:
     from ginext import aio
 
     async def main() -> bytes:
-        async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        async def handle(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
             writer.write(b"echo:" + await reader.readline())
             await writer.drain()
             writer.close()

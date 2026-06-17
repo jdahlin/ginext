@@ -27,10 +27,10 @@ if TYPE_CHECKING:
 
 class Signal(str):
     class BoundSignal(str):
-        def __new__(cls, signal: "Signal", gobj: object):
+        def __new__(cls, signal: Signal, gobj: object):
             return str.__new__(cls, str(signal))
 
-        def __init__(self, signal: "Signal", gobj: Any) -> None:
+        def __init__(self, signal: Signal, gobj: Any) -> None:
             self.signal = signal
             self.gobj = gobj
 
@@ -67,7 +67,7 @@ class Signal(str):
         func: Callable[..., Any] | None = None,
         flags: object = _gi.SIGNAL_RUN_FIRST,
         return_type: object = None,
-        arg_types: "Sequence[object] | None" = None,
+        arg_types: Sequence[object] | None = None,
         doc: str = "",
         accumulator: object = None,
         accu_data: object = None,
@@ -116,7 +116,7 @@ class Signal(str):
             accu_data=self.accu_data,
         )
 
-    def copy(self, new_name: str | None = None) -> "Signal":
+    def copy(self, new_name: str | None = None) -> Signal:
         return type(self)(
             name=new_name or str(self),
             func=self.func,
@@ -189,7 +189,7 @@ def install_signals(cls: type) -> None:
             setattr(cls, func_name, signal.func)
 
 
-class _CompatSignalDescriptor(SignalDescriptor):
+class CompatSignalDescriptor(SignalDescriptor):
     def __init__(
         self,
         *arg_types: type,
@@ -258,7 +258,7 @@ def iter_pygobject_signal_descriptors(
         signal_name = raw_name.replace("_", "-")
         resolved_arg_types = tuple(_compat_signal_type(t) for t in arg_types)
         resolved_return_type = _compat_signal_type(return_type)
-        descriptor = _CompatSignalDescriptor(
+        descriptor = CompatSignalDescriptor(
             *cast("tuple[type, ...]", resolved_arg_types),
             name=signal_name,
             return_type=cast("type | None", resolved_return_type),

@@ -31,12 +31,17 @@ from typing import TYPE_CHECKING, cast
 from . import private
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
     from .abi import NamespaceContext
     from .namespace import Namespace
     from ginext.GIRepository import CallableInfo, FunctionInfo
 
+    class _SupportsObjclass(Protocol):
+        __objclass__: type[object]
 
-class _PackedUserData(tuple[object, ...]):
+
+class PackedUserData(tuple[object, ...]):
     """Marker the C kwarg/user_data resolver attaches when multiple
     trailing positional args pack into the closure user_data slot. The
     callback trampoline in shims.c sees this subclass and unpacks the
@@ -47,7 +52,8 @@ class _PackedUserData(tuple[object, ...]):
 
 
 from ginext import private as _private_hooks
-_private_hooks.register_hook("packed_user_data_type", _PackedUserData)
+
+_private_hooks.register_hook("packed_user_data_type", PackedUserData)
 
 
 def _keyword_only_message(name: str, after: int, given: int) -> str:
@@ -66,7 +72,7 @@ def callable_name(info: CallableInfo) -> str:
 
 
 class Function:
-    def __init__(self, context: "NamespaceContext", info: FunctionInfo):
+    def __init__(self, context: NamespaceContext, info: FunctionInfo):
         name = callable_name(info)
         kw_only_after = sys.modules["ginext.overlay"].keyword_only_after_for(
             context.name, "", name
@@ -88,7 +94,7 @@ class Function:
         self.__doc__ = None
 
     @property
-    def __signature__(self) -> "inspect.Signature":
+    def __signature__(self) -> inspect.Signature:
         return _callable_signature(self.gimeta)
 
     def __call__(self, *args: object, **kwargs: object) -> object:
@@ -119,11 +125,11 @@ class Function:
 
 
 class FunctionBuilder:
-    def __init__(self, context: "NamespaceContext"):
+    def __init__(self, context: NamespaceContext):
         self._context = context
         self.functions: dict[str, types.SimpleNamespace] = {}
 
-    def build_function(self, info: "FunctionInfo") -> object:
+    def build_function(self, info: FunctionInfo) -> object:
         name = callable_name(info)
         kw_only_after = sys.modules["ginext.overlay"].keyword_only_after_for(
             self._context.name, "", name
@@ -155,7 +161,7 @@ class FunctionBuilder:
                     )
                 return descriptor(*args, **kwargs)
 
-            return _GICallable(function, gimeta)
+            return GICallable(function, gimeta)
         return _attach_callable_metadata(
             descriptor,
             gimeta=gimeta,
@@ -164,7 +170,7 @@ class FunctionBuilder:
         )
 
 
-class _GICallable:
+class GICallable:
     """Callable descriptor for a GI method or static method.
 
     Behaves like the plain function it replaces — ``Cls.m`` is unbound,
@@ -208,7 +214,7 @@ class _GICallable:
         return types.MethodType(self, obj)
 
     @property
-    def __signature__(self) -> "inspect.Signature":
+    def __signature__(self) -> inspect.Signature:
         return _callable_signature(self.gimeta)
 
     def __repr__(self) -> str:
@@ -225,25 +231,25 @@ def _attach_callable_metadata(
     descriptor.gimeta = gimeta
     descriptor.__name__ = name
     descriptor.__qualname__ = qualified_name
-    setattr(descriptor, "__module__", _callable_module_name(gimeta))
-    setattr(descriptor, "__doc__", None)
-    setattr(descriptor, "__defaults__", _callable_defaults(gimeta))
-    setattr(descriptor, "__kwdefaults__", _callable_kwdefaults(gimeta))
-    setattr(descriptor, "__annotations__", _callable_annotations(gimeta))
-    setattr(descriptor, "__annotate__", _callable_annotate(gimeta))
-    setattr(descriptor, "__type_params__", ())
+    descriptor.__module__ = _callable_module_name(gimeta)
+    descriptor.__doc__ = None
+    descriptor.__defaults__ = _callable_defaults(gimeta)
+    descriptor.__kwdefaults__ = _callable_kwdefaults(gimeta)
+    descriptor.__annotations__ = _callable_annotations(gimeta)
+    descriptor.__annotate__ = _callable_annotate(gimeta)
+    descriptor.__type_params__ = ()
     return descriptor
 
 
 def attach_owner_metadata(method: object, owner: type[object]) -> object:
     try:
-        setattr(method, "__objclass__", owner)
+        cast("_SupportsObjclass", method).__objclass__ = owner
     except (AttributeError, TypeError):
         pass
     return method
 
 
-def _callable_signature(gimeta: types.SimpleNamespace) -> "inspect.Signature":
+def _callable_signature(gimeta: types.SimpleNamespace) -> inspect.Signature:
     from . import signature
 
     return signature.callable_signature(gimeta)
@@ -342,9 +348,7 @@ def make_method(
 
     def _check_keyword_only(user_args: tuple[object, ...]) -> None:
         if kw_only_after is not None and len(user_args) > kw_only_after:
-            raise TypeError(
-                _keyword_only_message(name, kw_only_after, len(user_args))
-            )
+            raise TypeError(_keyword_only_message(name, kw_only_after, len(user_args)))
 
     def method(self: object, *args: object, **kwargs: object) -> object:
         if arg_defaults:
@@ -370,7 +374,7 @@ def make_method(
         keyword_only_after=kw_only_after,
     )
     if arg_defaults or kw_only_after is not None:
-        return _GICallable(impl, gimeta)
+        return GICallable(impl, gimeta)
     return cast(
         "Callable[..., object]",
         _attach_callable_metadata(

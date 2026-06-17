@@ -18,9 +18,6 @@ packages = ["src/ginext_stubgen"]
 "src/ginext_stubgen/native_overlays.toml" = "ginext_stubgen/native_overlays.toml"
 "src/ginext_stubgen/native_mode_overlays.toml" = "ginext_stubgen/native_mode_overlays.toml"
 
-[tool.mypy]
-exclude = ["^build/"]
-
 [tool.ruff]
 extend = "../../pyproject.toml"
 

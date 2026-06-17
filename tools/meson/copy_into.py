@@ -5,6 +5,7 @@ meson custom_target commands must run on Windows too, where /bin/sh is absent.
 Usage: copy_into.py INPUT DEST_DIR STAMP
 Copies INPUT into DEST_DIR (created if needed) and writes/updates STAMP.
 """
+
 import pathlib
 import shutil
 import sys

@@ -128,7 +128,7 @@ def test_load_bytes_async_missing_file_raises_file_not_found() -> None:
         def finish(r: Any) -> Any:
             return file.load_bytes_finish(r)
 
-        return await aio._AsyncOperation(start, finish)
+        return await aio.AsyncOperation(start, finish)
 
     with pytest.raises(FileNotFoundError):
         asyncio.run(main(), loop_factory=aio.EventLoop)

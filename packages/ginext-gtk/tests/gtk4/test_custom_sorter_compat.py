@@ -34,7 +34,7 @@ pytestmark = [pytest.mark.subprocess(timeout=30)]
 
 
 @pytest.fixture(autouse=True)
-def _compat_env(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
+def _compat_env(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
     monkeypatch.setenv("GINEXT_FEATURES", "pygobject_compat")
     monkeypatch.setenv("GINEXT_GTK_AUTO_INIT", "0")
     yield

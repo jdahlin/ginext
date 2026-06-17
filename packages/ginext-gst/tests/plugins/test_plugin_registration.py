@@ -14,12 +14,12 @@ from ginext_gst import PluginDesc, register_plugin_module
 from .support import author_request_class, author_transform_class, unique
 
 
-class _PluginModule(types.ModuleType):
+class PluginModule(types.ModuleType):
     PLUGIN: PluginDesc
 
 
 def _make_plugin_module(plugin: PluginDesc) -> types.ModuleType:
-    module = _PluginModule(unique("plugin_module"))
+    module = PluginModule(unique("plugin_module"))
     module.PLUGIN = plugin
     return module
 

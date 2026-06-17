@@ -127,7 +127,7 @@ def _rebuild_editable() -> None:
                 subprocess.run(
                     ninja_cmd, cwd=build_path, stdout=subprocess.DEVNULL, check=True
                 )
-            except (OSError, subprocess.SubprocessError):
+            except OSError, subprocess.SubprocessError:
                 pass
     finally:
         if saved is not None:

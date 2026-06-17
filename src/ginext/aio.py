@@ -34,12 +34,15 @@ pull it in lazily.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Generator, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, Generator, TypeVar, cast
 
 if TYPE_CHECKING:
     import asyncio
+    from ginext.Gio import AsyncResult
 
-__all__ = ["AsyncCallable", "EventLoop", "NamedReturn", "install"]
+__all__ = ["AsyncCallable", "AsyncOperation", "EventLoop", "NamedReturn", "install"]
+
+_T = TypeVar("_T")
 
 
 class NamedReturn(tuple[Any, ...]):
@@ -59,7 +62,7 @@ class NamedReturn(tuple[Any, ...]):
 
     _names: tuple[str, ...]
 
-    def __new__(cls, items: tuple[Any, ...], names: tuple[str, ...]) -> "NamedReturn":
+    def __new__(cls, items: tuple[Any, ...], names: tuple[str, ...]) -> NamedReturn:
         obj = super().__new__(cls, items)
         obj._names = tuple(names)
         return obj
@@ -103,7 +106,7 @@ def install() -> None:
         warnings.simplefilter("ignore", DeprecationWarning)
         base_policy = type(asyncio.get_event_loop_policy())
 
-        def new_event_loop(self: object) -> "EventLoop":
+        def new_event_loop(self: object) -> EventLoop:
             return EventLoop()
 
         policy_cls = type(
@@ -118,12 +121,12 @@ def install() -> None:
             pass
 
 
-def _set_result(future: asyncio.Future[object], value: object) -> None:
+def _set_result(future: asyncio.Future[Any], value: object) -> None:
     if not future.done():
         future.set_result(value)
 
 
-def _set_exception(future: asyncio.Future[object], exc: BaseException) -> None:
+def _set_exception(future: asyncio.Future[Any], exc: BaseException) -> None:
     if not future.done():
         future.set_exception(exc)
 
@@ -149,7 +152,7 @@ def _coerce_async_value(value: object) -> object:
     return value
 
 
-class _AsyncOperation:
+class AsyncOperation(Generic[_T]):
     """Awaitable wrapping a GIO async operation and its finish function.
 
     ``start(callback)`` kicks off the GIO ``*_async`` call with our ready
@@ -167,30 +170,30 @@ class _AsyncOperation:
 
     def __init__(
         self,
-        start: Callable[[Callable[[object, object], None]], None],
-        finish: Callable[[object], object],
+        start: Callable[[Callable[[object, AsyncResult], None]], None],
+        finish: Callable[[AsyncResult], _T],
         cancel: Callable[[], None] | None = None,
     ) -> None:
         self._start = start
         self._finish = finish
         self._cancel = cancel
 
-    def __await__(self) -> Generator[Any, None, object]:
+    def __await__(self) -> Generator[Any, None, _T]:
         import asyncio
 
         loop = asyncio.get_running_loop()
-        future = loop.create_future()
+        future: asyncio.Future[_T] = loop.create_future()
 
         if self._cancel is not None:
             cancel = self._cancel
 
-            def on_future_done(fut: asyncio.Future[object]) -> None:
+            def on_future_done(fut: asyncio.Future[_T]) -> None:
                 if fut.cancelled():
                     cancel()
 
             future.add_done_callback(on_future_done)
 
-        def on_ready(_source: object, result: object) -> None:
+        def on_ready(_source: object, result: AsyncResult) -> None:
             if future.done():
                 return
             try:
@@ -287,7 +290,7 @@ class AsyncCallable:
     def __repr__(self) -> str:
         return f"<AsyncCallable {self._owner_repr}>"
 
-    def __get__(self, obj: object, objtype: object = None) -> "AsyncCallable":
+    def __get__(self, obj: object, objtype: object = None) -> AsyncCallable:
         if obj is None or not self._has_self:
             return self
         return AsyncCallable(

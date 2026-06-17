@@ -66,13 +66,15 @@ def _install() -> None:
     def _is_instantiatable(cls: Any) -> bool:
         GObject = gobject_repo()
         return bool(
-            GObject.type_test_flags(int(cls), GObject.TypeFundamentalFlags.INSTANTIATABLE)
+            GObject.type_test_flags(
+                int(cls), GObject.TypeFundamentalFlags.INSTANTIATABLE
+            )
         )
 
     GTypeMeta.is_instantiatable = _is_instantiatable  # type: ignore[attr-defined]
 
     # --- fundamental property ---
-    def _fundamental_fget(cls: Any) -> "type[GType]":
+    def _fundamental_fget(cls: Any) -> type[GType]:
         GObject = gobject_repo()
         raw = int(GObject.type_fundamental(int(cls)))
         return compat_gtype_from_raw(raw, GObject.type_name(raw))
@@ -80,7 +82,7 @@ def _install() -> None:
     GTypeMeta.fundamental = property(_fundamental_fget)  # type: ignore[assignment]
 
     # --- from_name() classmethod ---
-    def _from_name(cls: Any, name: str) -> "type[GType]":
+    def _from_name(cls: Any, name: str) -> type[GType]:
         if not name:
             return GType.INVALID  # type: ignore[attr-defined]
         GObject = gobject_repo()
@@ -92,7 +94,7 @@ def _install() -> None:
     GTypeMeta.from_name = classmethod(_from_name)  # type: ignore[attr-defined]
 
     # --- parent property ---
-    def _parent_fget(cls: Any) -> "type[GType] | None":
+    def _parent_fget(cls: Any) -> type[GType] | None:
         GObject = gobject_repo()
         raw = int(GObject.type_parent(int(cls)))
         if raw == 0:
@@ -114,7 +116,6 @@ def _install() -> None:
     GType.INVALID = _invalid_cls  # type: ignore[attr-defined]
 
     GTypeMeta._gi_compat_installed = True  # type: ignore[attr-defined]
-
 
 
 def _install_record_compat() -> None:
@@ -176,7 +177,10 @@ def _install_record_compat() -> None:
             # Foreign types (e.g. cairo) use a dedicated conversion path in
             # gvalue.c (pygi_foreign_cairo_to_py); registering them under the
             # native profile would bypass that and return the wrong wrapper.
-            if info_obj is not None and not getattr(info_obj, "is_foreign", lambda: False)():
+            if (
+                info_obj is not None
+                and not getattr(info_obj, "is_foreign", lambda: False)()
+            ):
                 # Only register under native profile if no native class is
                 # already registered — avoid overwriting native registration
                 # when both native and compat tests run in the same worker.

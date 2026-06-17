@@ -17,7 +17,7 @@ from __future__ import annotations
 import typing
 
 if typing.TYPE_CHECKING:
-    from typing_extensions import Self
+    pass
 
 
 class GError(RuntimeError):
@@ -39,7 +39,7 @@ class GError(RuntimeError):
     def __repr__(self) -> str:
         return f"{GError.__module__.rsplit('.', 1)[-1]:s}.{GError.__name__:s}('{self.message:s}', '{self.domain:s}', {self.code:d})"
 
-    def copy(self) -> "GError":
+    def copy(self) -> GError:
         return GError(self.message, self.domain, self.code)
 
     def matches(self, domain: str | int, code: int) -> bool:
@@ -47,6 +47,6 @@ class GError(RuntimeError):
         raise NotImplementedError
 
     @staticmethod
-    def new_literal(domain: int, message: str, code: int) -> "GError":
+    def new_literal(domain: int, message: str, code: int) -> GError:
         """Placeholder that will be monkey patched in GLib overrides."""
         raise NotImplementedError

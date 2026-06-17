@@ -77,7 +77,6 @@ _XFAIL_BY_NODE = {
     "test_overrides_gtk.py::TestTreeModel::test_tree_store": "missing pygobject compat attribute",
     "test_overrides_gtk.py::TestTreeModel::test_tree_store_insert_after": "TypeError under ginext pygobject compat",
     "test_overrides_gtk.py::TestTreeModel::test_tree_store_insert_before": "TypeError under ginext pygobject compat",
-
     "test_properties.py::TestCGetPropertyMethod::test_annotated_glist": "get_property() arity mismatch",
     "test_properties.py::TestCGetPropertyMethod::test_boxed_glist": "get_property() arity mismatch",
     "test_properties.py::TestCGetPropertyMethod::test_boxed_glist_ctor": "boxed-glist Property from list ctor not implemented",
@@ -102,9 +101,7 @@ _XFAIL_BY_NODE = {
     "test_signature.py::Test::test_object_virtual_method": "vfunc signatures need pygobject classmethod-shaped binding; ginext binds the instance via PyMethod_New",
     "test_source.py::TestSource::test_extra_init_args": "GLib.Source subclass __init__ args not forwarded",
     "test_source.py::TestSource::test_python_unref_during_dispatch": "GLib.Source.new() positional ctor not implemented",
-
     "test_import_machinery.py::TestModule::test_static_binding_protection": "old static bindings (gobject, glib, etc.) are importable under ginext; the legacy namespace shim intentionally provides them",
-
     "test_signal.py::TestSignalDecorator::test_closures_called": "GObject.Signal decorator default handler not called during emit",
     "test_signal.py::TestSignalDecorator::test_connect_detailed": "detailed signal connect via BoundSignal.connect_detailed recurses through compat overlay",
     "test_signal.py::TestSignalDecorator::test_overridden_signal": "GObject.SignalOverride default handler not called during emit",
@@ -188,9 +185,9 @@ def pytest_collection_modifyitems(
     is_debug_python = hasattr(sys, "gettotalrefcount")
     is_win32 = sys.platform == "win32"
     is_darwin = sys.platform == "darwin"
-    is_py315_gil = sys.version_info >= (3, 15) and getattr(
-        sys, "_is_gil_enabled", lambda: True
-    )()
+    is_py315_gil = (
+        sys.version_info >= (3, 15) and getattr(sys, "_is_gil_enabled", lambda: True)()
+    )
     compat_warning_filters = (
         pytest.mark.filterwarnings(
             "ignore:connecting .* without an owner:ginext.signal.connection.UnownedSignalHandlerWarning"

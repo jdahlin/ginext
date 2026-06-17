@@ -276,7 +276,7 @@ def build_signature(
 def callable_signature(gimeta: Any) -> inspect.Signature:
     """Lazily build and cache the Signature for a GI callable wrapper.
 
-    Backs the `__signature__` of `method.Function` and `method._GICallable`; the
+    Backs the `__signature__` of `method.Function` and `method.GICallable`; the
     result is memoised on the wrapper's `gimeta` so repeated `inspect.signature()`
     calls are cheap. `gimeta.has_self` selects the leading `self` parameter for
     instance methods and vfuncs.
@@ -292,4 +292,5 @@ def callable_signature(gimeta: Any) -> inspect.Signature:
 
 
 from ginext import private as _private_hooks
+
 _private_hooks.register_hook("callable_signature", callable_signature)

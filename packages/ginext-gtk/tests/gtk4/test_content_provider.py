@@ -24,7 +24,9 @@ def test_new_for_value_accepts_gobject_instance_without_explicit_gvalue() -> Non
     class Item(GObject.Object):
         pass
 
-    provider = Gdk.ContentProvider.new_for_value(Item())  # Item is a GObject but stubs expect Value
+    provider = Gdk.ContentProvider.new_for_value(
+        Item()
+    )  # Item is a GObject but stubs expect Value
 
     assert isinstance(provider, Gdk.ContentProvider)
 
@@ -32,6 +34,8 @@ def test_new_for_value_accepts_gobject_instance_without_explicit_gvalue() -> Non
 def test_new_for_value_accepts_strv_without_explicit_gvalue() -> None:
     from ginext import Gdk
 
-    provider = Gdk.ContentProvider.new_for_value(["first", "second"])  # list[str] (strv) is accepted at runtime
+    provider = Gdk.ContentProvider.new_for_value(
+        ["first", "second"]
+    )  # list[str] (strv) is accepted at runtime
 
     assert isinstance(provider, Gdk.ContentProvider)

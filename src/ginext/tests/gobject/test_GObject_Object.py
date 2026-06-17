@@ -31,11 +31,9 @@ Validates:
 
 from __future__ import annotations
 
-import pytest
 
 import gc
 import threading
-import weakref
 from typing import Any
 
 from ginext import private as _core
@@ -118,7 +116,6 @@ def test_parallel_construction_under_nogil() -> None:
         t.join()
 
     assert not errors, errors
-
 
 
 def test_gobject_weak_ref_no_callback() -> None:

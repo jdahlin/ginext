@@ -33,9 +33,7 @@ from ginext.overlay.types import FirstAccessHook, LifecycleConfig
 
 
 @contextlib.contextmanager
-def _temporary_lifecycle(
-    ns_name: str, cfg: LifecycleConfig
-) -> Generator[None, None, None]:
+def _temporary_lifecycle(ns_name: str, cfg: LifecycleConfig) -> Generator[None]:
     sentinel = object()
     previous = state.lifecycle.get(ns_name, sentinel)
     state.lifecycle[ns_name] = cfg

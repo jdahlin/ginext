@@ -91,7 +91,9 @@ def _compat_finalize_dispose(self: Any) -> None:
         _compat_dispose_state[id(self)] = dispose_state
     try:
         base.run_dispose(self)
-    except (AttributeError, RuntimeError, TypeError, ValueError):
+    except (AttributeError, TypeError):
+        pass
+    except (RuntimeError, ValueError):
         pass
     finally:
         _compat_dispose_state.pop(id(self), None)
@@ -152,12 +154,17 @@ def emit(self: Any, signal_name: str, *args: object) -> object:
 def get_property(self: Any, name: str) -> object:
     prop_name = name.replace("_", "-")
     attr_name = prop_name.replace("-", "_")
-    # Only delegate to _CompatProperty getters (not generic Python property objects)
+    # Only delegate to CompatProperty getters (not generic Python property objects)
     # so that get_property() always reads GObject native storage for plain properties.
     descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(descriptor, "fget") and descriptor.fget is not None:
-        from gi._propertyhelper import _CompatProperty
-        if isinstance(descriptor, _CompatProperty):
+    if (
+        descriptor is not None
+        and hasattr(descriptor, "fget")
+        and descriptor.fget is not None
+    ):
+        from gi._propertyhelper import CompatProperty
+
+        if isinstance(descriptor, CompatProperty):
             return descriptor.fget(self)
     try:
         return type(self).gimeta.get_property(self, prop_name)
@@ -165,7 +172,7 @@ def get_property(self: Any, name: str) -> object:
         return self.get_property_by_name(prop_name)
 
 
-def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
+def _coerce_char_value(value: Any, pspec_info: dict | None) -> Any:
     """Coerce and validate a value for a gchar/guchar property pspec.
 
     Returns the coerced value, or raises OverflowError/TypeError on bad input.
@@ -180,9 +187,7 @@ def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
     # bytes → int
     if isinstance(value, (bytes, bytearray)):
         if len(value) != 1:
-            raise TypeError(
-                f"cannot marshal bytes of length {len(value)!r} as gchar"
-            )
+            raise TypeError(f"cannot marshal bytes of length {len(value)!r} as gchar")
         b = value[0]
         # For signed char: bytes values ≥128 are interpreted as negative
         value = b if (minimum is None or minimum >= 0) else (b if b < 128 else b - 256)
@@ -214,10 +219,11 @@ def _coerce_char_value(value: Any, pspec_info: "dict | None") -> Any:
     return value
 
 
-def _get_pspec_numeric_info(cls: Any, prop_name: str) -> "dict | None":
+def _get_pspec_numeric_info(cls: Any, prop_name: str) -> dict | None:
     """Return numeric pspec info (min/max/default) for a C property, or None."""
     try:
         from ginext import private
+
         pspec = cls.gimeta.param_spec(prop_name)
         if pspec is None:
             return None
@@ -233,8 +239,13 @@ def set_property(self: Any, name: str, value: object) -> None:
     attr_name = prop_name.replace("-", "_")
     # Check for Python-backed descriptor with setter
     descriptor = type(self).__dict__.get(attr_name)
-    if descriptor is not None and hasattr(type(descriptor), "__set__") and (
-        getattr(descriptor, "fset", None) is not None or getattr(descriptor, "fget", None) is not None
+    if (
+        descriptor is not None
+        and hasattr(type(descriptor), "__set__")
+        and (
+            getattr(descriptor, "fset", None) is not None
+            or getattr(descriptor, "fget", None) is not None
+        )
     ):
         type(descriptor).__set__(descriptor, self, value)
         call_notify_override(self, prop_name)
@@ -267,7 +278,7 @@ def get_properties(self: Any, *names: str) -> tuple[object, ...]:
     return tuple(self.get_property(name) for name in names)
 
 
-class _ParamSpecWrapper:
+class ParamSpecWrapper:
     """Wraps a ginext ParamSpec, adding flags_class / enum_class for compat."""
 
     __slots__ = ("_pspec", "_owner_cls")
@@ -276,6 +287,7 @@ class _ParamSpecWrapper:
     def __class__(self) -> type:
         try:
             from gi.repository import GObject as _GObj
+
             return _GObj.ParamSpec
         except Exception:
             return type(self._pspec)
@@ -284,9 +296,10 @@ class _ParamSpecWrapper:
         object.__setattr__(self, "_pspec", pspec)
         object.__setattr__(self, "_owner_cls", owner_cls)
 
-    def _get_numeric_info(self) -> "dict | None":
+    def _get_numeric_info(self) -> dict | None:
         try:
             from ginext import private
+
             pspec = object.__getattribute__(self, "_pspec")
             return private.param_spec_numeric_info(pspec)
         except Exception:
@@ -307,12 +320,14 @@ class _ParamSpecWrapper:
         if name == "flags":
             try:
                 from ginext import private
+
                 ptr = self._get_pspec_pointer()
                 if ptr:
                     ps_info = private.param_spec_info(ptr)
                     raw_flags = ps_info.get("flags", 0)
                     try:
                         from gi.repository import GObject as _GO
+
                         return _GO.ParamFlags(raw_flags)
                     except Exception:
                         return raw_flags
@@ -333,9 +348,17 @@ class _ParamSpecWrapper:
 
     def __dir__(self) -> list:
         base = dir(type(self)) + [
-            "owner_type", "flags_class", "enum_class",
-            "flags", "name", "nick", "blurb", "value_type",
-            "default_value", "minimum", "maximum",
+            "owner_type",
+            "flags_class",
+            "enum_class",
+            "flags",
+            "name",
+            "nick",
+            "blurb",
+            "value_type",
+            "default_value",
+            "minimum",
+            "maximum",
         ]
         base += dir(object.__getattribute__(self, "_pspec"))
         return sorted(set(base))
@@ -347,6 +370,7 @@ class _ParamSpecWrapper:
         namespace_name, class_name = result
         # Find the already-loaded namespace module (any profile).
         from gi import repository as _gi_repo
+
         ns_mod = getattr(_gi_repo, namespace_name, None)
         if ns_mod is None:
             raise AttributeError(f"namespace {namespace_name!r} not loaded")
@@ -366,7 +390,9 @@ def _namespace_find_by_gtype(gtype: int) -> tuple[str, str] | None:
             continue
         for name in names:
             try:
-                _kind, info = ginext.private.namespace_find(namespace_name, version, name)
+                _kind, info = ginext.private.namespace_find(
+                    namespace_name, version, name
+                )
             except (AttributeError, TypeError, ValueError):
                 continue
             if int(getattr(info, "gtype", 0)) == gtype:
@@ -380,7 +406,7 @@ def find_property(cls: Any, name: str) -> object:
     pspec = cls.gimeta.param_spec(prop_name)
     if pspec is None:
         raise AttributeError(f"no property '{name}'")
-    return _ParamSpecWrapper(pspec, owner_cls=cls)
+    return ParamSpecWrapper(pspec, owner_cls=cls)
 
 
 @overlay.method("Object")
@@ -487,15 +513,18 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                 and hasattr(val, "get_signal_args")
             ):
                 # PyGObject Signal (str subclass descriptor).  A ginext
-                # _CompatSignalDescriptor was registered in gimeta.signal_infos
+                # CompatSignalDescriptor was registered in gimeta.signal_infos
                 # during class building (from __gsignals__) — check there first.
                 # If missing (Signal defined directly as class attr, not via
-                # __gsignals__), register it now as a _CompatSignalDescriptor.
+                # __gsignals__), register it now as a CompatSignalDescriptor.
                 # Use duck-typing instead of isinstance(val, Signal) so that
                 # module reloads (e.g. test fixtures that pop gi._signalhelper
                 # from sys.modules) don't break class identity checks on
                 # existing Signal instances.
-                from gi._signalhelper import _CompatSignalDescriptor, _compat_signal_type
+                from gi._signalhelper import (
+                    CompatSignalDescriptor,
+                    _compat_signal_type,
+                )
 
                 gimeta = getattr(base, "gimeta", None)
                 if gimeta is None:
@@ -513,7 +542,7 @@ def _compat_signal_for_name(self: Any, name: str) -> _BoundSignal:
                     resolved_ret = cast(
                         "type | None", _compat_signal_type(val.return_type)
                     )
-                    sd = _CompatSignalDescriptor(
+                    sd = CompatSignalDescriptor(
                         *resolved_args,
                         name=signal_name,
                         return_type=resolved_ret,
@@ -551,9 +580,7 @@ def __repr__(self: Any) -> str:
     name = type(self).__name__
     if not self.is_bound():
         return f"<{module}.{name} object at 0x{id(self):x} ({type_name} unbound)>"
-    return (
-        f"<{module}.{name} object at 0x{id(self):x} ({type_name} at 0x{id(self):x})>"
-    )
+    return f"<{module}.{name} object at 0x{id(self):x} ({type_name} at 0x{id(self):x})>"
 
 
 @overlay.method("Object")
@@ -724,7 +751,7 @@ def handler_unblock_by_func(self: Any, callback: Callable[..., Any]) -> int:
     return count
 
 
-class _PythonBinding:
+class PythonBinding:
     """Pure-Python binding that applies transform functions via signal connections."""
 
     def __init__(
@@ -774,6 +801,7 @@ class _PythonBinding:
         self._handlers.append((weakref.ref(source), hid))
 
         if bidirectional:
+
             def _on_target(obj: Any, pspec: Any) -> None:
                 if not self._active or self._updating:
                     return
@@ -822,7 +850,7 @@ def _make_compat_bind_property(gobject_cls: Any) -> None:
         transform_from: Any,
         user_data: Any,
     ) -> object:
-        return _PythonBinding(
+        return PythonBinding(
             source,
             source_property,
             target,

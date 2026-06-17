@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from ginext.namespace import Namespace
 
 
-class _HasInstanceMethod(Protocol):
+class HasInstanceMethod(Protocol):
     def instance_method(self) -> object: ...
 
 
@@ -240,7 +240,7 @@ def test_unsigned_enum_param(t: Namespace) -> None:
 
 
 def test_instance_method(test_obj: object) -> None:
-    value = cast("_HasInstanceMethod", test_obj).instance_method()
+    value = cast("HasInstanceMethod", test_obj).instance_method()
     assert isinstance(value, int)
 
 

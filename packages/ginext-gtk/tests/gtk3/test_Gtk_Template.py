@@ -148,7 +148,9 @@ def test_template_class_has_fresh_gtype(TemplatedClass: Any, Gtk: Any) -> None:
 
     gt = GObject.type_from_name(TemplatedClass.gimeta.type_name)
     assert gt == TemplatedClass.gimeta.gtype
-    assert GObject.type_is_a(gt, Gtk.Box.gimeta.gtype)  # type_from_name returns int, accepted at runtime
+    assert GObject.type_is_a(
+        gt, Gtk.Box.gimeta.gtype
+    )  # type_from_name returns int, accepted at runtime
 
 
 @needs_display
@@ -281,7 +283,7 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
     )
     class Tile(Gtk.ListBoxRow, type_name="TileRoundTripTile"):  # type: ignore[misc,call-arg]
         _label = Gtk.Template.Child()
-        playlist: "Playlist | None" = gobject.Property(default=None)
+        playlist: Playlist | None = gobject.Property(default=None)
 
         def __init__(self, playlist: Any) -> None:
             super().__init__()
@@ -309,7 +311,10 @@ def test_gnome_music_playlist_tile_shape(Gtk: Any, capfd: Any) -> None:
     assert selected.get_property_by_name("playlist") is not None, (
         "get_selected_row().get_property_by_name('playlist') lost the factory __init__ write"
     )
-    assert selected.get_property_by_name("playlist").get_property_by_name("title") == "MostPlayed"
+    assert (
+        selected.get_property_by_name("playlist").get_property_by_name("title")
+        == "MostPlayed"
+    )
 
 
 def test_template_cannot_nest(Gtk: Any) -> None:

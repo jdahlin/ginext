@@ -103,7 +103,7 @@ class MetaClassHelper:
 
             if vfunc_info is None:
                 vfunc_info = find_vfunc_info_in_interface(
-                    cls.__bases__, vfunc_name[len("do_"):]
+                    cls.__bases__, vfunc_name[len("do_") :]
                 )
 
             if vfunc_info is not None:
@@ -169,7 +169,7 @@ def find_vfunc_conflict_in_bases(vfunc, bases):
     return None
 
 
-class _GObjectMetaBase(type):
+class GObjectMetaBase(type):
     """Metaclass for automatically registering GObject classes."""
 
     def __new__(cls, name, bases, namespace, **kwargs):
@@ -199,10 +199,10 @@ class _GObjectMetaBase(type):
         _gi.type_register(cls, namespace.get("__gtype_name__"))
 
 
-_gi._install_metaclass(_GObjectMetaBase)
+_gi._install_metaclass(GObjectMetaBase)
 
 
-class GObjectMeta(_GObjectMetaBase, MetaClassHelper):
+class GObjectMeta(GObjectMetaBase, MetaClassHelper):
     """Meta class used for GI GObject based types."""
 
     def __init__(cls, name, bases, dict_):
@@ -247,6 +247,7 @@ class GObjectMeta(_GObjectMetaBase, MetaClassHelper):
 
         try:
             from .docstring import generate_doc_string
+
             if cls.__module__.startswith(("gi.repository.", "gi.overrides")):
                 return generate_doc_string(cls.__info__)
         except (AttributeError, ImportError):
@@ -323,6 +324,7 @@ class StructMeta(type, MetaClassHelper):
             return ""
         try:
             from .docstring import generate_doc_string
+
             return generate_doc_string(cls.__info__)
         except (AttributeError, ImportError):
             return None

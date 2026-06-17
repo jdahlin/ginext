@@ -50,7 +50,7 @@ from ginext.namespace import Namespace
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _setup() -> Generator[object, None, None]:
+def _setup() -> Generator[object]:
     import ginext
     from ginext import features
 
@@ -153,7 +153,9 @@ def test_interface_async_method_is_wrapped(Gio: Namespace) -> None:
     )
 
 
-def test_async_call_during_coro_close_returns_awaitable(GLib: Namespace, Gio: Namespace) -> None:
+def test_async_call_during_coro_close_returns_awaitable(
+    GLib: Namespace, Gio: Namespace
+) -> None:
     """A coroutine whose `finally:` awaits an async method must not crash
     when the coroutine is closed by GC."""
     import os
@@ -163,7 +165,7 @@ def test_async_call_during_coro_close_returns_awaitable(GLib: Namespace, Gio: Na
         """Minimal awaitable that suspends the coroutine once without
         needing a running asyncio loop."""
 
-        def __await__(self) -> Generator[None, None, None]:
+        def __await__(self) -> Generator[None]:
             yield None
 
     fd, path = tempfile.mkstemp()
@@ -185,7 +187,9 @@ def test_async_call_during_coro_close_returns_awaitable(GLib: Namespace, Gio: Na
     Path(path).unlink()
 
 
-def test_interface_async_returns_future_under_asyncio(GLib: Namespace, Gio: Namespace) -> None:
+def test_interface_async_returns_future_under_asyncio(
+    GLib: Namespace, Gio: Namespace
+) -> None:
     """Calling it from inside an asyncio loop should return an
     awaitable asyncio.Future."""
 
@@ -244,7 +248,9 @@ def test_static_async_under_asyncio_returns_future(_setup: object) -> None:
     asyncio.run(main())
 
 
-def test_inherited_async_method_on_concrete_subclass(GLib: Namespace, Gio: Namespace) -> None:
+def test_inherited_async_method_on_concrete_subclass(
+    GLib: Namespace, Gio: Namespace
+) -> None:
     """`InputStream.close_async` is wrapped as an AsyncCallable; a
     concrete subclass like `MemoryInputStream` needs to inherit the
     wrap so `istream.close_async(...)` returns a Future."""

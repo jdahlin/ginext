@@ -56,7 +56,7 @@ def TestObj(Regress: Any) -> Any:
 # A module-level subclass — pygobject's tests use this pattern to drive
 # the GType-registration path that runs once per class, vs. the
 # instance-creation path that runs every test.
-class _ModuleSubclass:
+class ModuleSubclass:
     """Lazy holder so we don't open Regress at import time."""
 
     @staticmethod
@@ -102,7 +102,7 @@ def test_python_subclass_with_init(TestObj: Any) -> None:
     leak a ref. pygobject pins the wrapper alive across instance_init via
     a qdata key (`pygobject_instance_init_ref_count`); goi's wrapper
     lifecycle already handles this without that mechanism."""
-    DerivedObj = _ModuleSubclass.make(TestObj)
+    DerivedObj = ModuleSubclass.make(TestObj)
     inst = DerivedObj()
     assert isinstance(inst, DerivedObj)
     assert inst.__grefcount__ == 1
@@ -152,7 +152,7 @@ def test_two_distinct_subclasses(TestObj: Any) -> None:
 
 
 def test_subclass_wrapper_drop_then_release(TestObj: Any) -> None:
-    DerivedObj = _ModuleSubclass.make(TestObj)
+    DerivedObj = ModuleSubclass.make(TestObj)
     inst = DerivedObj()
     ref = weakref.ref(inst)
     del inst
@@ -343,7 +343,7 @@ def test_set_bare_keeps_subclass_alive(TestObj: Any) -> None:
     if not hasattr(container, "set_bare"):
         pytest.skip("Regress.TestObj.set_bare not exposed in this typelib version")
 
-    DerivedObj = _ModuleSubclass.make(TestObj)
+    DerivedObj = ModuleSubclass.make(TestObj)
     obj = DerivedObj()
     container.set_bare(obj)
     # GObject ref count: wrapper (1) + container's GObject ref (+1) = 2.
@@ -359,7 +359,7 @@ def test_set_bare_then_drop_keeps_object_alive(TestObj: Any) -> None:
     if not hasattr(container, "set_bare"):
         pytest.skip("Regress.TestObj.set_bare not exposed in this typelib version")
 
-    DerivedObj = _ModuleSubclass.make(TestObj)
+    DerivedObj = ModuleSubclass.make(TestObj)
     obj = DerivedObj()
     container.set_bare(obj)
     rc_before = obj.__grefcount__

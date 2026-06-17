@@ -15,15 +15,20 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-from typing import cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from ginext.tests.conftest import _MakeSubclass
+from ginext.tests.conftest import MakeSubclass
+
+if TYPE_CHECKING:
+    from ginext.GObject import Object as GObjectBase
 
 
 def test_two_level_subclass_registers_distinct_gtype(
-    GObject: object, Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         a: int = Property(default=1)  # type: ignore[operator]
@@ -31,12 +36,12 @@ def test_two_level_subclass_registers_distinct_gtype(
     class B(A):
         b: int = Property(default=2)  # type: ignore[operator]
 
-    assert getattr(A, "gimeta").gtype != getattr(B, "gimeta").gtype
-    assert getattr(A, "gimeta").gtype != getattr(GObject, "gimeta").gtype
+    assert A.gimeta.gtype != B.gimeta.gtype
+    assert A.gimeta.gtype != GObject.gimeta.gtype
 
 
 def test_subclass_pspecs_only_lists_locally_declared(
-    GObject: object, Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         inherited: int = Property(default=1)  # type: ignore[operator]
@@ -44,11 +49,11 @@ def test_subclass_pspecs_only_lists_locally_declared(
     class B(A):
         own: int = Property(default=2)  # type: ignore[operator]
 
-    assert set(getattr(A, "gimeta").pspecs) == {"inherited"}
-    assert set(getattr(B, "gimeta").pspecs) == {"own"}
+    assert set(A.gimeta.pspecs) == {"inherited"}
+    assert set(B.gimeta.pspecs) == {"own"}
 
 
-def test_three_level_parent_chain(GObject: object) -> None:
+def test_three_level_parent_chain(GObject: type[GObjectBase]) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         pass
 
@@ -58,12 +63,12 @@ def test_three_level_parent_chain(GObject: object) -> None:
     class C(B):
         pass
 
-    assert getattr(C, "gimeta").parent is B
-    assert getattr(B, "gimeta").parent is A
-    assert getattr(A, "gimeta").parent is GObject
+    assert C.gimeta.parent is B
+    assert B.gimeta.parent is A
+    assert A.gimeta.parent is GObject
 
 
-def test_subclass_prop_ids_restart_from_one(GObject: object, Property: object) -> None:
+def test_subclass_prop_ids_restart_from_one(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         a1: int = Property()  # type: ignore[operator]
         a2: int = Property()  # type: ignore[operator]
@@ -71,12 +76,12 @@ def test_subclass_prop_ids_restart_from_one(GObject: object, Property: object) -
     class B(A):
         b1: int = Property()  # type: ignore[operator]
 
-    assert getattr(A, "gimeta").prop_ids == {"a1": 1, "a2": 2}
-    assert getattr(B, "gimeta").prop_ids == {"b1": 1}
+    assert A.gimeta.prop_ids == {"a1": 1, "a2": 2}
+    assert B.gimeta.prop_ids == {"b1": 1}
 
 
 def test_two_subclasses_of_same_parent_dont_collide(
-    GObject: object, Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class Base(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=0)  # type: ignore[operator]
@@ -87,12 +92,14 @@ def test_two_subclasses_of_same_parent_dont_collide(
     class Right(Base):
         right_value: int = Property(default=2)  # type: ignore[operator]
 
-    assert getattr(Left, "gimeta").gtype != getattr(Right, "gimeta").gtype
-    assert getattr(Left, "gimeta").parent is Base
-    assert getattr(Right, "gimeta").parent is Base
+    assert Left.gimeta.gtype != Right.gimeta.gtype
+    assert Left.gimeta.parent is Base
+    assert Right.gimeta.parent is Base
 
 
-def test_multiple_inheritance_picks_first_base(GObject: object, Property: object) -> None:
+def test_multiple_inheritance_picks_first_base(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         a: int = Property()  # type: ignore[operator]
 
@@ -102,21 +109,21 @@ def test_multiple_inheritance_picks_first_base(GObject: object, Property: object
     class C(A, B):
         c: int = Property()  # type: ignore[operator]
 
-    assert getattr(C, "gimeta").parent is A
-    assert set(getattr(C, "gimeta").pspecs) == {"c"}
+    assert C.gimeta.parent is A
+    assert set(C.gimeta.pspecs) == {"c"}
 
 
-def test_read_inherited_property_default(GObject: object, Property: object) -> None:
+def test_read_inherited_property_default(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=42)  # type: ignore[operator]
 
     class B(A):
         pass
 
-    assert getattr(B(), "x") == 42
+    assert B().x == 42
 
 
-def test_write_inherited_property_then_read(GObject: object, Property: object) -> None:
+def test_write_inherited_property_then_read(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=0)  # type: ignore[operator]
 
@@ -124,11 +131,13 @@ def test_write_inherited_property_then_read(GObject: object, Property: object) -
         pass
 
     obj = B()
-    setattr(obj, "x", 7)
-    assert getattr(obj, "x") == 7
+    obj.x = 7
+    assert obj.x == 7
 
 
-def test_own_and_inherited_properties_dont_alias(GObject: object, Property: object) -> None:
+def test_own_and_inherited_properties_dont_alias(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=10)  # type: ignore[operator]
 
@@ -136,14 +145,14 @@ def test_own_and_inherited_properties_dont_alias(GObject: object, Property: obje
         y: int = Property(default=20)  # type: ignore[operator]
 
     obj = B()
-    assert (getattr(obj, "x"), getattr(obj, "y")) == (10, 20)
-    setattr(obj, "x", 1)
-    setattr(obj, "y", 2)
-    assert (getattr(obj, "x"), getattr(obj, "y")) == (1, 2)
+    assert (obj.x, obj.y) == (10, 20)
+    obj.x = 1
+    obj.y = 2
+    assert (obj.x, obj.y) == (1, 2)
 
 
 def test_inherited_property_independent_per_instance(
-    GObject: object, Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=0)  # type: ignore[operator]
@@ -152,12 +161,12 @@ def test_inherited_property_independent_per_instance(
         pass
 
     first, second = B(), B()
-    setattr(first, "x", 100)
-    assert getattr(second, "x") == 0
+    first.x = 100
+    assert second.x == 0
 
 
 def test_three_level_chain_all_properties_accessible(
-    GObject: object, Property: object
+    GObject: type[GObjectBase], Property: object
 ) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         a_val: int = Property(default=1)  # type: ignore[operator]
@@ -169,30 +178,32 @@ def test_three_level_chain_all_properties_accessible(
         c_val: int = Property(default=3)  # type: ignore[operator]
 
     obj = C()
-    assert (getattr(obj, "a_val"), getattr(obj, "b_val"), getattr(obj, "c_val")) == (1, 2, 3)
-    setattr(obj, "a_val", 100)
-    setattr(obj, "b_val", 200)
-    setattr(obj, "c_val", 300)
-    assert (getattr(obj, "a_val"), getattr(obj, "b_val"), getattr(obj, "c_val")) == (100, 200, 300)
+    assert (obj.a_val, obj.b_val, obj.c_val) == (1, 2, 3)
+    obj.a_val = 100
+    obj.b_val = 200
+    obj.c_val = 300
+    assert (obj.a_val, obj.b_val, obj.c_val) == (100, 200, 300)
 
 
-def test_five_level_chain(make_subclass: _MakeSubclass, Property: object, GObject: object) -> None:
+def test_five_level_chain(
+    make_subclass: MakeSubclass, Property: object, GObject: type[GObjectBase]
+) -> None:
     classes: list[object] = [GObject]
     for index in range(5):
         classes.append(
             make_subclass(
                 {f"f{index}": (int, Property(default=index))},  # type: ignore[operator]
-                base=cast(type, classes[-1]),
+                base=cast("type", classes[-1]),
                 prefix=f"L{index}",
             )
         )
 
-    obj = cast(type, classes[-1])()
+    obj = cast("type", classes[-1])()
     for index in range(5):
         assert getattr(obj, f"f{index}") == index
 
 
-def test_inheritance_with_mixed_types(GObject: object, Property: object) -> None:
+def test_inheritance_with_mixed_types(GObject: type[GObjectBase], Property: object) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         name: str = Property(default="alice")  # type: ignore[operator]
 
@@ -200,13 +211,15 @@ def test_inheritance_with_mixed_types(GObject: object, Property: object) -> None
         count: int = Property(default=0)  # type: ignore[operator]
 
     obj = B()
-    assert (getattr(obj, "name"), getattr(obj, "count")) == ("alice", 0)
-    setattr(obj, "name", "bob")
-    setattr(obj, "count", 42)
-    assert (getattr(obj, "name"), getattr(obj, "count")) == ("bob", 42)
+    assert (obj.name, obj.count) == ("alice", 0)
+    obj.name = "bob"
+    obj.count = 42
+    assert (obj.name, obj.count) == ("bob", 42)
 
 
-def test_inherited_readonly_still_rejects_write(GObject: object, Property: object) -> None:
+def test_inherited_readonly_still_rejects_write(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         ro: int = Property(default=1, readonly=True)  # type: ignore[operator]
 
@@ -215,10 +228,12 @@ def test_inherited_readonly_still_rejects_write(GObject: object, Property: objec
 
     obj = B()
     with pytest.raises(AttributeError, match="read-only"):
-        setattr(obj, "ro", 5)
+        obj.ro = 5
 
 
-def test_inherited_property_type_check_on_set(GObject: object, Property: object) -> None:
+def test_inherited_property_type_check_on_set(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=0)  # type: ignore[operator]
 
@@ -227,28 +242,32 @@ def test_inherited_property_type_check_on_set(GObject: object, Property: object)
 
     obj = B()
     with pytest.raises((TypeError, ValueError, OverflowError)):
-        setattr(obj, "x", "not an int")
+        obj.x = "not an int"  # type: ignore[assignment]
 
 
-def test_subclass_redeclares_parent_property_name(GObject: object, Property: object) -> None:
+def test_subclass_redeclares_parent_property_name(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     class A(GObject):  # type: ignore[misc,valid-type]
         x: int = Property(default=1)  # type: ignore[operator]
 
     class B(A):
         x: int = Property(default=2)  # type: ignore[operator]
 
-    assert getattr(A(), "x") == 1
-    assert getattr(B(), "x") == 2
-    assert getattr(A, "gimeta").pspecs["x"] != getattr(B, "gimeta").pspecs["x"]
+    assert A().x == 1
+    assert B().x == 2
+    assert A.gimeta.pspecs["x"] != B.gimeta.pspecs["x"]
 
 
-def test_property_from_interface_can_be_overridden(GObject: object, Property: object) -> None:
+def test_property_from_interface_can_be_overridden(
+    GObject: type[GObjectBase], Property: object
+) -> None:
     from ginext import Gio
 
     class MyAction(Gio.SimpleAction):
         enabled: bool = Property(default=False)  # type: ignore[operator]
 
     obj = MyAction(name="example")
-    assert getattr(obj, "enabled") is False
-    setattr(obj, "enabled", True)
-    assert getattr(obj, "enabled") is True
+    assert obj.enabled is False
+    obj.enabled = True
+    assert obj.enabled is True

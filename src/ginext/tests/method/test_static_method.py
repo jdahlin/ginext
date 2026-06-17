@@ -110,7 +110,9 @@ def test_goibench_bound_utf8_methods_return_expected_values(GoiBench: Any) -> No
     assert obj.get_label() == "bye"
 
 
-def test_goibench_bound_object_return_methods_return_expected_values(GoiBench: Any) -> None:
+def test_goibench_bound_object_return_methods_return_expected_values(
+    GoiBench: Any,
+) -> None:
     obj = GoiBench.Object.new()
 
     assert obj.lookup("undo") is obj

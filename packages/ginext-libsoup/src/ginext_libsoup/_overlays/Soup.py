@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping, MutableMapping
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+)
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -333,7 +341,7 @@ class StreamResponse:
         _raise_for_status(self.message)
 
 
-class _StreamContextManager:
+class StreamContextManager:
     def __init__(self, opener: Callable[[], Awaitable[StreamResponse]]) -> None:
         self._opener = opener
         self._response: StreamResponse | None = None
@@ -462,8 +470,9 @@ def _session_stream(
     params: Mapping[str, object] | Iterable[tuple[str, object]] | None = None,
     io_priority: int = GLib.PRIORITY_DEFAULT,
     cancellable: Gio.Cancellable | None = None,
-) -> _StreamContextManager:
+) -> StreamContextManager:
     """Open a streaming request as an async context manager."""
+
     async def open_stream() -> StreamResponse:
         request = _request_from_session(
             method,
@@ -479,7 +488,7 @@ def _session_stream(
             cancellable=cancellable,
         )
 
-    return _StreamContextManager(open_stream)
+    return StreamContextManager(open_stream)
 
 
 async def _session_get(
@@ -613,8 +622,9 @@ class AsyncClient:
         params: Mapping[str, object] | Iterable[tuple[str, object]] | None = None,
         io_priority: int = GLib.PRIORITY_DEFAULT,
         cancellable: Gio.Cancellable | None = None,
-    ) -> _StreamContextManager:
+    ) -> StreamContextManager:
         """Open a streaming response as an async context manager."""
+
         async def open_stream() -> StreamResponse:
             request = self.build_request(
                 method,
@@ -630,7 +640,7 @@ class AsyncClient:
                 cancellable=cancellable,
             )
 
-        return _StreamContextManager(open_stream)
+        return StreamContextManager(open_stream)
 
     async def request(
         self,

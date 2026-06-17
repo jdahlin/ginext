@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from ..gobject.gobjectclass import GObject
 
 
-class _StaticOwnerSentinel:
+class StaticOwnerSentinel:
     """Marker value for `owner=ginext.static_owner`.
 
     Selecting this disables both owner inference *and* the unowned
@@ -51,13 +51,13 @@ class _StaticOwnerSentinel:
         return "ginext.static_owner"
 
 
-static_owner = _StaticOwnerSentinel()
+static_owner = StaticOwnerSentinel()
 
 
 _OWNER_UNSET = object()
 
 
-class _WeakMethodCallable:
+class WeakMethodCallable:
     __slots__ = ("_func", "_self_ref")
 
     def __init__(self, bound_method: types.MethodType) -> None:
@@ -84,7 +84,7 @@ def _weaken_scoped_callback(
     callback: Callable[..., Any], owner: object
 ) -> Callable[..., Any]:
     if inspect.ismethod(callback) and callback.__self__ is not None:
-        return _WeakMethodCallable(callback)
+        return WeakMethodCallable(callback)
 
     if (
         not isinstance(callback, types.FunctionType)
@@ -150,7 +150,7 @@ class ScopedCallable:
 
     def __init__(
         self,
-        owner: "GObject",
+        owner: GObject,
         callback: Callable[..., Any],
         *args: object,
         **kwargs: object,
@@ -186,7 +186,7 @@ class ScopedCallable:
         return f"<scoped {self._callback!r} owner={host!r}>"
 
 
-class _WeakBoundCallable:
+class WeakBoundCallable:
     """Closure-side replacement for a bound method whose host is the owner.
 
     Holds the function side strongly (it's just a function object — no

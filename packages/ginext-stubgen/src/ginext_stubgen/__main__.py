@@ -231,7 +231,10 @@ def cmd_generate_all(args: argparse.Namespace) -> int:
     py_typed = out_dir / "py.typed"
     if py_typed.exists():
         py_typed.unlink()
-    no_cache: bool = getattr(args, "no_cache", False) or os.environ.get("GINEXT_STUBGEN_NO_CACHE") == "1"
+    no_cache: bool = (
+        getattr(args, "no_cache", False)
+        or os.environ.get("GINEXT_STUBGEN_NO_CACHE") == "1"
+    )
     cache_dir: Path | None = None if no_cache else (out_dir.parent / ".cache")
     written: list[str] = []
     for name, version in _DEFAULT_NAMESPACES:

@@ -58,9 +58,7 @@ def _squeezer_page_at(squeezer: Adw.Squeezer, index: int) -> Adw.SqueezerPage:
     raise IndexError("index out of range")
 
 
-def _view_stack_page_at(
-    view_stack: Adw.ViewStack, index: int
-) -> Adw.ViewStackPage:
+def _view_stack_page_at(view_stack: Adw.ViewStack, index: int) -> Adw.ViewStackPage:
     for position, child in enumerate(_widget_children(view_stack)):
         if position == index:
             return view_stack.get_page(child)
@@ -82,8 +80,7 @@ def carousel_getitem(self: Adw.Carousel, key: object) -> Gtk.Widget | list[Gtk.W
             return self.get_nth_page(_normalize_position(key, length))
         case _:
             raise TypeError(
-                "carousel indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"carousel indices must be integers or slices, not {type(key).__name__}"
             )
 
 
@@ -99,7 +96,9 @@ def sidebar_len(self: Adw.Sidebar) -> int:
 
 
 @overlay.method("Sidebar", name="__getitem__")
-def sidebar_getitem(self: Adw.Sidebar, key: object) -> Adw.SidebarSection | list[Adw.SidebarSection]:
+def sidebar_getitem(
+    self: Adw.Sidebar, key: object
+) -> Adw.SidebarSection | list[Adw.SidebarSection]:
     length = len(self)
     match key:
         case slice():
@@ -108,8 +107,7 @@ def sidebar_getitem(self: Adw.Sidebar, key: object) -> Adw.SidebarSection | list
             return _sidebar_section_at(self, _normalize_position(key, length))
         case _:
             raise TypeError(
-                "sidebar indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"sidebar indices must be integers or slices, not {type(key).__name__}"
             )
 
 
@@ -132,8 +130,7 @@ def sidebar_section_getitem(
     match key:
         case slice():
             return [
-                _sidebar_section_item_at(self, i)
-                for i in range(*key.indices(length))
+                _sidebar_section_item_at(self, i) for i in range(*key.indices(length))
             ]
         case int():
             return _sidebar_section_item_at(self, _normalize_position(key, length))
@@ -167,8 +164,7 @@ def squeezer_getitem(
             return _squeezer_page_at(self, _normalize_position(key, length))
         case _:
             raise TypeError(
-                "squeezer indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"squeezer indices must be integers or slices, not {type(key).__name__}"
             )
 
 
@@ -193,8 +189,7 @@ def tab_view_getitem(self: Adw.TabView, key: object) -> Adw.TabPage | list[Adw.T
             return self.get_nth_page(_normalize_position(key, length))
         case _:
             raise TypeError(
-                "tab view indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"tab view indices must be integers or slices, not {type(key).__name__}"
             )
 
 

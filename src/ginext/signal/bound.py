@@ -37,14 +37,14 @@ from .adapt import (
     _is_gobject_wrapper,
 )
 from .connection import SignalConnection, UnownedSignalHandlerWarning
-from .scoped import _OWNER_UNSET, ScopedCallable, _WeakBoundCallable, static_owner
+from .scoped import _OWNER_UNSET, ScopedCallable, WeakBoundCallable, static_owner
 
 if TYPE_CHECKING:
     from ..gobject.gobjectclass import GObject
     from ginext.GIRepository import SignalInfo
 
 
-class _PropertyDetail(Protocol):
+class PropertyDetail(Protocol):
     name: str
 
 
@@ -64,7 +64,7 @@ class Signal:
 
     def __init__(
         self,
-        source: "GObject",
+        source: GObject,
         name: str,
         info: SignalInfo | None,
         method: Callable[..., Any] | None = None,
@@ -96,7 +96,7 @@ class Signal:
             )
         return 0
 
-    def _detail_signal(self, detail: object) -> "Signal":
+    def _detail_signal(self, detail: object) -> Signal:
         from ..gobject.properties import PropertyBase as Property
 
         self._source_ptr()
@@ -116,10 +116,10 @@ class Signal:
             arg_gtypes=self._arg_gtypes,
         )
 
-    def detail_signal(self, detail: object) -> "Signal":
+    def detail_signal(self, detail: object) -> Signal:
         return self._detail_signal(detail)
 
-    def __getitem__(self, detail: object) -> "Signal":
+    def __getitem__(self, detail: object) -> Signal:
         return self._detail_signal(detail)
 
     def __call__(self, *args: object, **kwargs: object) -> object:
@@ -209,7 +209,7 @@ class Signal:
             signal_arg_limit = _accepted_signal_arg_count(callback)
 
         target_callable = (
-            _WeakBoundCallable(cast("Any", callback), None) if weaken else callback
+            WeakBoundCallable(cast("Any", callback), None) if weaken else callback
         )
         handler_id = self._source.signal_connect(
             self._name,

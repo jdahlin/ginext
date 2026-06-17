@@ -240,9 +240,7 @@ def child_watch_add(fn: Any, *args: Any, **kwargs: Any) -> Any:
 
 
 @overlay.replace
-def log_set_writer_func(
-    fn: Any, func: object = None, user_data: object = None
-) -> None:
+def log_set_writer_func(fn: Any, func: object = None, user_data: object = None) -> None:
     """Install a log writer function with an optional user_data argument."""
     fn(func, user_data)
 

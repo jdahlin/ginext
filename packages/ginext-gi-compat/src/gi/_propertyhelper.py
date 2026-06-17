@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, overload
 import struct
 
 from ginext.gobject.properties import (
-    Property,
     PropertyBase,
     RangeValue,
     call_notify_override,
@@ -31,35 +30,39 @@ from ginext.gobject.properties import (
 )
 
 
-def _gtype_inherent_bounds(type_obj: object) -> "tuple[int | float, int | float] | None":
+def _gtype_inherent_bounds(type_obj: object) -> tuple[int | float, int | float] | None:
     """Return (min, max) inherent bounds for a numeric GType, or None."""
+
     def _max(c: str) -> int:
         return 2 ** ((8 * struct.calcsize(c)) - 1) - 1
+
     def _umax(c: str) -> int:
         return 2 ** (8 * struct.calcsize(c)) - 1
+
     _BOUNDS: dict[str, tuple[int | float, int | float]] = {
-        "gchar":   (-128, 127),
-        "guchar":  (0, 255),
-        "gint":    (-_max("i") - 1, _max("i")),
-        "guint":   (0, _umax("I")),
-        "glong":   (-_max("l") - 1, _max("l")),
-        "gulong":  (0, _umax("L")),
-        "gint64":  (-_max("q") - 1, _max("q")),
+        "gchar": (-128, 127),
+        "guchar": (0, 255),
+        "gint": (-_max("i") - 1, _max("i")),
+        "guint": (0, _umax("I")),
+        "glong": (-_max("l") - 1, _max("l")),
+        "gulong": (0, _umax("L")),
+        "gint64": (-_max("q") - 1, _max("q")),
         "guint64": (0, _umax("Q")),
-        "gfloat":  (-3.4028234663852886e+38, 3.4028234663852886e+38),
-        "gdouble": (-1.7976931348623157e+308, 1.7976931348623157e+308),
+        "gfloat": (-3.4028234663852886e38, 3.4028234663852886e38),
+        "gdouble": (-1.7976931348623157e308, 1.7976931348623157e308),
     }
     name = gimeta_type_name(type_obj)
     if name is None:
         return None
     return _BOUNDS.get(name)
 
+
 T = TypeVar("T")
 
 _unset_sentinel = unset
 
 
-class _CompatProperty(Generic[T]):
+class CompatProperty(Generic[T]):
     """Standalone compat property descriptor — no Property inheritance.
 
     Provides PyGObject-compatible getter/setter decorator support on top of
@@ -124,13 +127,16 @@ class _CompatProperty(Generic[T]):
         # Validate enum/flags default values
         if value_type is not None:
             from enum import Flag, Enum
+
             if isinstance(value_type, type) and issubclass(value_type, (Flag, Enum)):
                 if default is _unset_sentinel and fget is None:
                     raise TypeError(
                         f"GObject.Property of enum/flags type {value_type.__name__!r}"
                         f" requires an explicit default value"
                     )
-                if default is not _unset_sentinel and not isinstance(default, value_type):
+                if default is not _unset_sentinel and not isinstance(
+                    default, value_type
+                ):
                     raise TypeError(
                         f"enum/flags default must be an instance of {value_type.__name__!r},"
                         f" not {type(default).__name__!r}"
@@ -140,12 +146,32 @@ class _CompatProperty(Generic[T]):
             raise TypeError(f"GObject.Property type {value_type!r} is not supported")
         if gimeta_type_name(value_type) == "GType" and default is not _unset_sentinel:
             raise TypeError("GType properties do not support defaults")
-        if value_type is bool and default is _unset_sentinel and fget is None and setter is None and not kwargs.get("getter"):
-            raise TypeError("GObject.Property of type bool requires an explicit default value")
-        if value_type is bool and default is not _unset_sentinel and not isinstance(default, (bool, int)):
-            raise TypeError(f"GObject.Property bool default must be bool or int, got {type(default).__name__!r}")
-        if value_type is object and default is not _unset_sentinel and default is not None:
-            raise TypeError("GObject.Property type=object does not support non-None defaults")
+        if (
+            value_type is bool
+            and default is _unset_sentinel
+            and fget is None
+            and setter is None
+            and not kwargs.get("getter")
+        ):
+            raise TypeError(
+                "GObject.Property of type bool requires an explicit default value"
+            )
+        if (
+            value_type is bool
+            and default is not _unset_sentinel
+            and not isinstance(default, (bool, int))
+        ):
+            raise TypeError(
+                f"GObject.Property bool default must be bool or int, got {type(default).__name__!r}"
+            )
+        if (
+            value_type is object
+            and default is not _unset_sentinel
+            and default is not None
+        ):
+            raise TypeError(
+                "GObject.Property type=object does not support non-None defaults"
+            )
         if (
             gimeta_type_name(value_type) == "GVariant"
             and default is not _unset_sentinel
@@ -153,7 +179,9 @@ class _CompatProperty(Generic[T]):
             and gimeta_type_name(type(default)) != "GVariant"
         ):
             raise TypeError("GVariant property default must be GLib.Variant or None")
-        _vtype_name = gimeta_type_name(value_type) or getattr(value_type, "gtype_name", None)
+        _vtype_name = gimeta_type_name(value_type) or getattr(
+            value_type, "gtype_name", None
+        )
         if (
             _vtype_name == "GStrv"
             and default is not _unset_sentinel
@@ -210,9 +238,11 @@ class _CompatProperty(Generic[T]):
     def _type_from_python(self, python_type: type) -> object:
         """Map a Python type to its corresponding GObject GType."""
         from gi.repository import GObject as _GObj
+
         # Check for GTypeMeta (GType constants like TYPE_INT, TYPE_NONE) first
         try:
             from ginext.gobject.gtype import GTypeMeta
+
             if isinstance(python_type, GTypeMeta):
                 return python_type
         except ImportError:
@@ -229,6 +259,7 @@ class _CompatProperty(Generic[T]):
         # Special-case the compat GObject base classes that lack __gtype__
         try:
             import ginext.private as _gp
+
             if python_type is _gp.GBoxed:
                 return _GObj.TYPE_BOXED
         except (ImportError, AttributeError):
@@ -243,11 +274,19 @@ class _CompatProperty(Generic[T]):
 
     def __repr__(self) -> str:
         _PY_TO_GTYPE = {
-            int: "gint", str: "gchararray", float: "gdouble",
-            bool: "gboolean", object: "gpointer", bytes: "gchararray",
+            int: "gint",
+            str: "gchararray",
+            float: "gdouble",
+            bool: "gboolean",
+            object: "gpointer",
+            bytes: "gchararray",
         }
         if self.type is not None:
-            type_name = _PY_TO_GTYPE.get(self.type) or gimeta_type_name(self.type) or repr(self.type)
+            type_name = (
+                _PY_TO_GTYPE.get(self.type)
+                or gimeta_type_name(self.type)
+                or repr(self.type)
+            )
         else:
             type_name = "unknown"
         name = getattr(self, "name", None)
@@ -259,9 +298,8 @@ class _CompatProperty(Generic[T]):
         self.name = name
         # install_properties is not auto-called for GObject subclasses (install_metaclass is a stub),
         # so raise the conflict error here instead — but only for GObject subclasses.
-        if (
-            any(hasattr(b, "__gtype__") for b in owner.__mro__)
-            and ("do_get_property" in owner.__dict__ or "do_set_property" in owner.__dict__)
+        if any(hasattr(b, "__gtype__") for b in owner.__mro__) and (
+            "do_get_property" in owner.__dict__ or "do_set_property" in owner.__dict__
         ):
             raise TypeError("GObject.Property conflicts with property vfuncs")
         # Inject the type into __annotations__ so register_gobject_subclass
@@ -285,17 +323,17 @@ class _CompatProperty(Generic[T]):
             if doc:
                 self.blurb = doc
 
-    def __call__(self, getter: object) -> "_CompatProperty[T]":
+    def __call__(self, getter: object) -> CompatProperty[T]:
         if not callable(getter):
             raise TypeError("GObject.Property getter must be callable")
         self.fget = getter
         self._infer_type_from_getter()
         return self
 
-    def getter(self, getter: object) -> "_CompatProperty[T]":
+    def getter(self, getter: object) -> CompatProperty[T]:
         return self(getter)
 
-    def setter(self, setter: object) -> "_CompatProperty[T]":
+    def setter(self, setter: object) -> CompatProperty[T]:
         if not callable(setter):
             raise TypeError("GObject.Property setter must be callable")
         self.fset = setter
@@ -370,7 +408,7 @@ if TYPE_CHECKING:
         minimum: RangeValue | None = None,
         getter: Any = None,
         setter: Any = None,
-    ) -> "_CompatProperty[Any]": ...
+    ) -> CompatProperty[Any]: ...
 
     def CompatProperty(
         value_type: type[T] | None = None,
@@ -379,14 +417,14 @@ if TYPE_CHECKING:
     ) -> Any: ...
 
 else:
-    CompatProperty = _CompatProperty
+    CompatProperty = CompatProperty
 
 
 def install_properties(cls: type) -> None:
     properties = {
         name: attr
         for name, attr in cls.__dict__.items()
-        if isinstance(attr, (PropertyBase, _CompatProperty))
+        if isinstance(attr, (PropertyBase, CompatProperty))
     }
     if not properties:
         return

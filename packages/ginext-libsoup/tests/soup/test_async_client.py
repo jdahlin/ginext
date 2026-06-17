@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Coroutine
 
 
-class _Handler(BaseHTTPRequestHandler):
+class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.startswith("/stream"):
             payload = b"streaming-body"
@@ -53,7 +53,7 @@ class _Handler(BaseHTTPRequestHandler):
         return
 
 
-def _run(coro: "Coroutine[object, object, None]") -> None:
+def _run(coro: Coroutine[object, object, None]) -> None:
     from ginext import aio
 
     asyncio.run(coro, loop_factory=aio.EventLoop)
@@ -75,10 +75,11 @@ def test_async_client_get() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             async with Soup.AsyncClient(headers={"X-Test": "client"}) as client:
                 response = await client.get(
@@ -110,7 +111,7 @@ def test_async_client_post_and_request_headers() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
@@ -148,17 +149,20 @@ def test_session_get_and_stream() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             session = Soup.Session()
             response = await session.get(f"{_server_url(server)}/hello")
             assert response.status_code == 200
             assert response.json()["path"] == "/hello"
 
-            async with session.stream("GET", f"{_server_url(server)}/stream") as streamed:
+            async with session.stream(
+                "GET", f"{_server_url(server)}/stream"
+            ) as streamed:
                 assert streamed.status_code == 200
                 assert streamed.headers["Content-Type"] == "application/octet-stream"
                 assert await streamed.read(5) == b"strea"
@@ -179,10 +183,11 @@ def test_native_session_async_methods_work_directly() -> None:
     from ginext import Soup
     from ginext import aio
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
+
         async def main() -> None:
             session = Soup.Session()
             message = Soup.Message.new("GET", f"{_server_url(server)}/hello")

@@ -10,7 +10,7 @@ from ginext import Gst
 
 
 def _runtime_time_args(value: object) -> object:
-    return getattr(Gst, "TIME_ARGS")(value)
+    return Gst.TIME_ARGS(value)  # type: ignore[arg-type]
 
 
 class TestTIME_ARGS:

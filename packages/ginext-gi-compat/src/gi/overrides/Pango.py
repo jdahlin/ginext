@@ -12,6 +12,7 @@ _raw_set_text = _Layout.set_text
 def _remove_from_method_infos(cls: type, name: str) -> None:
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:
@@ -28,9 +29,7 @@ _raw_layout_new_factory = _Layout.new
 
 def _layout_new(cls, context=None):
     if context is None:
-        raise TypeError(
-            "Pango.Layout requires a Pango.Context argument"
-        )
+        raise TypeError("Pango.Layout requires a Pango.Context argument")
     return _raw_layout_new_factory(context)
 
 

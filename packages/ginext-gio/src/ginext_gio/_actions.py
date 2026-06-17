@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _ACTION_METADATA_ATTR = "gimeta_action"
 _ACTION_BUCKET_KEY = "actions"
 _P = ParamSpec("_P")
-_R = TypeVar("_R")
+R = TypeVar("R")
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,8 +27,8 @@ class ActionSpec:
 
 def action(
     name: str, accels: Sequence[str] | None = None
-) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
-    def decorate(fn: Callable[_P, _R]) -> Callable[_P, _R]:
+) -> Callable[[Callable[_P, R]], Callable[_P, R]]:
+    def decorate(fn: Callable[_P, R]) -> Callable[_P, R]:
         setattr(
             fn,
             _ACTION_METADATA_ATTR,
@@ -56,7 +56,7 @@ def _gtk_bucket(owner: object) -> dict[str, object] | None:
     return None
 
 
-def install_application_actions(app: "Gio.Application") -> None:
+def install_application_actions(app: Gio.Application) -> None:
     from ginext import Gio
 
     specs_by_name: dict[str, ActionSpec] = {}

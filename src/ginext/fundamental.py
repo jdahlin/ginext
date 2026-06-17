@@ -31,7 +31,6 @@ module contributes:
 from __future__ import annotations
 
 import sys
-from typing import Any
 
 from . import private
 
@@ -62,5 +61,3 @@ class FundamentalMeta(type):
             if gimeta is not None:
                 names.update(gimeta.method_infos)
         return sorted(names)
-
-

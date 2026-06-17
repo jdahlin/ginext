@@ -26,7 +26,7 @@ class ResultTuple(tuple[object, ...]):
     _field_names: tuple[str | None, ...] = ()
 
     @classmethod
-    def _new_type(cls, names: list[str | None]) -> "type[ResultTuple]":
+    def _new_type(cls, names: list[str | None]) -> type[ResultTuple]:
         return cast(
             "type[ResultTuple]",
             type(

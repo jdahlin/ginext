@@ -24,7 +24,7 @@
 Declared ``Property()`` fields, introspected properties, and properties
 inherited from a native base class are all reachable as ``obj.name`` — a
 descriptor is synthesized from the pspec on first access (see
-``ginext.gobject.properties._PspecProperty``) and cached on the class. This is
+``ginext.gobject.properties.PspecProperty``) and cached on the class. This is
 what lets ``selected.playlist.title`` chain without ``get_property`` or
 ``.props``.
 """
@@ -133,7 +133,7 @@ def test_object_valued_property_chains(GObject: Any, Property: Any) -> None:
         title: str = Property(default="")
 
     class Outer(GObject):  # type: ignore[misc]
-        inner: "Inner | None" = Property(default=None)
+        inner: Inner | None = Property(default=None)
 
     leaf = Inner()
     leaf.title = "MostPlayed"

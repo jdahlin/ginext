@@ -67,7 +67,7 @@ class Error(RuntimeError):
         super().__init__(self.message)
 
     @classmethod
-    def new_literal(cls, domain: object, *args: object) -> "Error":
+    def new_literal(cls, domain: object, *args: object) -> Error:
         if len(args) != 2:
             raise TypeError(
                 "GLib.Error.new_literal(domain, message, code) expects 3 arguments"
@@ -192,6 +192,7 @@ def _exception_from_gerror(domain: int, code: int, message: str | None) -> Error
 
 
 from ginext import private as _private_hooks
+
 _private_hooks.register_hook("exception_from_gerror", _exception_from_gerror)
 
 

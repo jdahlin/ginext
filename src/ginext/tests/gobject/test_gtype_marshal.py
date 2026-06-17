@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+
 def test_new_with_properties_accepts_gobject_class() -> None:
     from ginext import Gio, GObject
 

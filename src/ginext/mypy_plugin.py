@@ -34,9 +34,12 @@ def check_native_gobject_class(ctx: ClassDefContext) -> None:
     for stmt in ctx.cls.defs.body:
         if not isinstance(stmt, AssignmentStmt):
             continue
-        if any(isinstance(lvalue, NameExpr) and lvalue.name == "__gtype_name__" for lvalue in stmt.lvalues):
+        if any(
+            isinstance(lvalue, NameExpr) and lvalue.name == "__gtype_name__"
+            for lvalue in stmt.lvalues
+        ):
             ctx.api.fail(
-                "Do not set __gtype_name__ on native GObject classes; use class Foo(..., type_name=\"RegisteredTypeName\") instead.",
+                'Do not set __gtype_name__ on native GObject classes; use class Foo(..., type_name="RegisteredTypeName") instead.',
                 stmt,
             )
 

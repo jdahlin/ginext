@@ -34,7 +34,7 @@ import pytest
 from ginext.overlay import state
 
 
-class _FakeNamespace:
+class FakeNamespace:
     """Minimal stand-in: the registrar only reads ``__name__`` for keyword_only."""
 
     __name__ = "GLib"
@@ -74,7 +74,7 @@ def test_registrar_records_method_and_function_cutoffs(kw_only_state: Any) -> No
     from ginext.overlay import keyword_only_after_for
     from ginext.overlay.registrar import OverlayRegistrar
 
-    registrar = OverlayRegistrar(cast("Any", _FakeNamespace()))
+    registrar = OverlayRegistrar(cast("Any", FakeNamespace()))
     registrar.keyword_only("KeyFile", "set_string", after=1)
     registrar.keyword_only("spawn_async", after=2)
 
@@ -87,7 +87,7 @@ def test_registrar_rejects_negative_cutoff(kw_only_state: Any) -> None:
     from ginext.overlay.registrar import OverlayRegistrar
 
     with pytest.raises(ValueError, match="must be >= 0"):
-        OverlayRegistrar(cast("Any", _FakeNamespace())).keyword_only(
+        OverlayRegistrar(cast("Any", FakeNamespace())).keyword_only(
             "spawn_async", after=-1
         )
 

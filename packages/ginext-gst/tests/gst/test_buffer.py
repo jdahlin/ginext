@@ -5,13 +5,18 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from ginext.namespace import Namespace
 
+if TYPE_CHECKING:
+    import ginext.Gst as GstTypes
 
-def _make_buffer(Gst: Namespace, payload: bytes) -> object:
-    buf = Gst.Buffer.new_allocate(None, len(payload), None)
+
+def _make_buffer(Gst: Namespace, payload: bytes) -> GstTypes.Buffer:
+    buf: GstTypes.Buffer = Gst.Buffer.new_allocate(None, len(payload), None)
     buf.fill(0, payload)
     return buf
 
@@ -30,7 +35,7 @@ class TestBuffer:
     def test_fill_and_extract_dup(self, Gst: Namespace) -> None:
         payload = b"hello world wxyz"
         buf = _make_buffer(Gst, payload)
-        data = getattr(buf, "extract_dup")(0, getattr(buf, "get_size")())
+        data = buf.extract_dup(0, buf.get_size())
         assert data == payload
 
     def test_pts_default(self, Gst: Namespace) -> None:
@@ -53,46 +58,46 @@ class TestBuffer:
     def test_map_returns_success_and_info(self, Gst: Namespace) -> None:
         payload = b"hello world wxyz"
         buf = _make_buffer(Gst, payload)
-        success, info = getattr(buf, "map")(Gst.MapFlags.READ)
+        success, info = buf.map(Gst.MapFlags.READ)
         assert success
         assert info is not None
-        getattr(buf, "unmap")(info)
+        buf.unmap(info)
 
     def test_map_size(self, Gst: Namespace) -> None:
         payload = b"x" * 64
         buf = _make_buffer(Gst, payload)
-        success, info = getattr(buf, "map")(Gst.MapFlags.READ)
+        success, info = buf.map(Gst.MapFlags.READ)
         assert success
-        assert getattr(info, "size") == len(payload)
-        getattr(buf, "unmap")(info)
+        assert info.size == len(payload)
+        buf.unmap(info)
 
     def test_map_data_bytes(self, Gst: Namespace) -> None:
         """map() overlay populates info.data via extract_dup."""
         payload = b"hello world wxyz"
         buf = _make_buffer(Gst, payload)
-        success, info = getattr(buf, "map")(Gst.MapFlags.READ)
+        success, info = buf.map(Gst.MapFlags.READ)
         assert success
         assert hasattr(info, "data"), f"MapInfo missing .data: {info!r}"
-        assert isinstance(getattr(info, "data"), (bytes, bytearray, memoryview))
-        assert bytes(getattr(info, "data")) == payload
-        getattr(buf, "unmap")(info)
+        assert isinstance(info.data, (bytes, bytearray, memoryview))
+        assert bytes(info.data) == payload
+        buf.unmap(info)
 
     def test_map_data_length_matches_size(self, Gst: Namespace) -> None:
         payload = b"x" * 64
         buf = _make_buffer(Gst, payload)
-        success, info = getattr(buf, "map")(Gst.MapFlags.READ)
+        success, info = buf.map(Gst.MapFlags.READ)
         assert success
-        assert len(getattr(info, "data")) == getattr(info, "size")
-        getattr(buf, "unmap")(info)
+        assert len(info.data) == info.size
+        buf.unmap(info)
 
     def test_map_empty_buffer(self, Gst: Namespace) -> None:
         payload = b"\x00"
         buf = _make_buffer(Gst, payload)
-        success, info = getattr(buf, "map")(Gst.MapFlags.READ)
+        success, info = buf.map(Gst.MapFlags.READ)
         assert success
-        assert getattr(info, "size") == 1
-        assert bytes(getattr(info, "data")) == payload
-        getattr(buf, "unmap")(info)
+        assert info.size == 1
+        assert bytes(info.data) == payload
+        buf.unmap(info)
 
     def test_map_overlay_loads_on_class_access(self, Gst: Namespace) -> None:
         """Buffer.map should be the overlay-patched version."""

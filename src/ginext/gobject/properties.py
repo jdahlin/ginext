@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class _HasDoNotify(Protocol):
+class HasDoNotify(Protocol):
     def do_notify(self, *args: object) -> object: ...
 
 
@@ -98,7 +98,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
     maximum: RangeValue | None
     minimum: RangeValue | None
     default: ValueType | None | object
-    owner: "type[GObject]"
+    owner: type[GObject]
 
     def __init__(
         self,
@@ -148,7 +148,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
         self.maximum = maximum
         self.minimum = minimum
 
-    def __set_name__(self, owner: "type[GObject]", name: str) -> None:
+    def __set_name__(self, owner: type[GObject], name: str) -> None:
         self.owner = owner
         self.name = name
 
@@ -166,9 +166,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
             return pspec
         raise AttributeError(f"property {name!r} has no installed ParamSpec")
 
-    def __get__(
-        self, obj: "GObject | None", objtype: "Type[GObject] | None" = None
-    ) -> T:
+    def __get__(self, obj: GObject | None, objtype: Type[GObject] | None = None) -> T:
         # Class-level access (`Foo.prop`) hits __get__ with obj=None. Return
         # the descriptor so callers can introspect Property metadata; users
         # who want the GParamSpec read it via `Foo.gimeta.pspecs[name]`.
@@ -179,7 +177,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
             return cast("T", int(cast("Any", value)))
         return cast("T", value)
 
-    def __set__(self, obj: "GObject", value: ValueType) -> None:
+    def __set__(self, obj: GObject, value: ValueType) -> None:
         if self.readonly:
             raise AttributeError(f"property {self.name!r} is read-only")
         self.owner.gimeta.set_property(obj, self.name, value)
@@ -187,6 +185,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
 
 
 if TYPE_CHECKING:
+
     @overload
     def Property(
         value_type: type[T],
@@ -225,13 +224,13 @@ if TYPE_CHECKING:
         construct_only: bool = ...,
         maximum: RangeValue | None = ...,
         minimum: RangeValue | None = ...,
-    ) -> "PropertyBase[object]": ...
+    ) -> PropertyBase[object]: ...
     def Property(*args: object, **kwargs: object) -> Any: ...
 else:
     Property = PropertyBase
 
 
-class _PspecProperty:
+class PspecProperty:
     """Descriptor synthesized from a GObject pspec.
 
     Makes an introspected or inherited GObject property reachable as a plain
@@ -248,7 +247,7 @@ class _PspecProperty:
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def __get__(self, obj: "GObject | None", objtype: object = None) -> object:
+    def __get__(self, obj: GObject | None, objtype: object = None) -> object:
         if obj is None:
             return self
         prop_name = self.name.replace("_", "-")
@@ -257,7 +256,7 @@ class _PspecProperty:
         except AttributeError:
             return obj.get_property_by_name(prop_name)
 
-    def __set__(self, obj: "GObject", value: object) -> None:
+    def __set__(self, obj: GObject, value: object) -> None:
         prop_name = self.name.replace("_", "-")
         try:
             type(obj).gimeta.set_property(obj, prop_name, value)
@@ -397,7 +396,7 @@ def _is_gtype_value_type(value_type: object) -> bool:
         return False
 
 
-def coerce_property_default(value_type: object, prop: "PropertyBase[object]") -> None:
+def coerce_property_default(value_type: object, prop: PropertyBase[object]) -> None:
     default = prop.default
     if gimeta_type_name(value_type) == "GVariant" and isinstance(default, str):
         prop.default = ginext_root().GLib.Variant.parse(None, default, None, None)
@@ -467,7 +466,7 @@ def call_notify_override(obj: object, prop_name: str) -> None:
     overrides = type(obj).__dict__.get("_pygobject_signal_overrides", set())
     if "notify" not in overrides:
         return
-    if not isinstance(obj, _HasDoNotify):
+    if not isinstance(obj, HasDoNotify):
         return
     default_handler = obj.do_notify
     if not callable(default_handler):

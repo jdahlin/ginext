@@ -27,12 +27,12 @@ from ginext import private
 from collections.abc import Callable
 
 
-class _DownloadBytesResult(NamedTuple):
+class DownloadBytesResult(NamedTuple):
     data: _GLib.Bytes
     out_stride: int
 
 
-class _DownloadBytesWithPlanesResult(NamedTuple):
+class DownloadBytesWithPlanesResult(NamedTuple):
     data: _GLib.Bytes
     out_stride: int
     out_offsets: list[int]
@@ -45,16 +45,16 @@ overlay = Gdk.overlay
 def _td_download_bytes(
     fn: Callable[[Gdk.TextureDownloader], tuple[_GLib.Bytes, int]],
     self: Gdk.TextureDownloader,
-) -> _DownloadBytesResult:
-    return _DownloadBytesResult(*fn(self))
+) -> DownloadBytesResult:
+    return DownloadBytesResult(*fn(self))
 
 
 @overlay.method("TextureDownloader", name="download_bytes_with_planes")
 def _td_download_bytes_with_planes(
     fn: Callable[[Gdk.TextureDownloader], tuple[_GLib.Bytes, int, list[int]]],
     self: Gdk.TextureDownloader,
-) -> _DownloadBytesWithPlanesResult:
-    return _DownloadBytesWithPlanesResult(*fn(self))
+) -> DownloadBytesWithPlanesResult:
+    return DownloadBytesWithPlanesResult(*fn(self))
 
 
 # ContentFormats: get_gtypes/get_mime_types already return plain lists at

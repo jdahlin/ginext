@@ -59,7 +59,9 @@ def bump(version: str) -> list[pathlib.Path]:
     # Longest names first so `gi` never shadows `ginext-gio` etc. in the
     # alternation (the trailing `>=` guard already prevents a false match, but
     # ordering keeps it obvious).
-    pin_alt = "|".join(re.escape(n) for n in sorted(PINNED_NAMES, key=len, reverse=True))
+    pin_alt = "|".join(
+        re.escape(n) for n in sorted(PINNED_NAMES, key=len, reverse=True)
+    )
     # `ginext-gio>=0.0.1` inside a dependency string, with optional extras/quote.
     pin_re = re.compile(rf'("(?:{pin_alt}))(\[[^\]]*\])?>=[^"\s,]+')
 

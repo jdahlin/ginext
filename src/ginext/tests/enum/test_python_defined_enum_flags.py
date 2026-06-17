@@ -32,7 +32,6 @@ from __future__ import annotations
 import itertools
 from typing import Any, cast
 
-import pytest
 
 _type_seq = itertools.count()
 

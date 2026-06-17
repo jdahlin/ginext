@@ -90,6 +90,7 @@ def _iochannel_next(self) -> str:
 def _remove_from_method_infos(cls: type, name: str) -> None:
     try:
         from ginext.gobject.resolve import own_gimeta
+
         for owner in cls.__mro__:
             gimeta = own_gimeta(owner)
             if gimeta is None:
@@ -138,7 +139,10 @@ for _alias, _member in _IO_COND_ALIASES.items():
 
 # IO_FLAG_IS_READABLE and IO_FLAG_IS_SEEKABLE are not in ginext's deprecations
 _IOFlags = _GLib.IOFlags
-for _alias, _member in (("IO_FLAG_IS_READABLE", "IS_READABLE"), ("IO_FLAG_IS_SEEKABLE", "IS_SEEKABLE")):
+for _alias, _member in (
+    ("IO_FLAG_IS_READABLE", "IS_READABLE"),
+    ("IO_FLAG_IS_SEEKABLE", "IS_SEEKABLE"),
+):
     try:
         setattr(_GLib, _alias, getattr(_IOFlags, _member))
     except AttributeError:
@@ -146,7 +150,11 @@ for _alias, _member in (("IO_FLAG_IS_READABLE", "IS_READABLE"), ("IO_FLAG_IS_SEE
 
 # IO_STATUS_NORMAL/EOF/AGAIN not in ginext's deprecations
 _IOStatus2 = _GLib.IOStatus
-for _alias, _member in (("IO_STATUS_NORMAL", "NORMAL"), ("IO_STATUS_EOF", "EOF"), ("IO_STATUS_AGAIN", "AGAIN")):
+for _alias, _member in (
+    ("IO_STATUS_NORMAL", "NORMAL"),
+    ("IO_STATUS_EOF", "EOF"),
+    ("IO_STATUS_AGAIN", "AGAIN"),
+):
     try:
         setattr(_GLib, _alias, getattr(_IOStatus2, _member))
     except AttributeError:

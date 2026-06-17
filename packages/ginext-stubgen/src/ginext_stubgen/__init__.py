@@ -784,6 +784,9 @@ class Parser:
             )
         array_el = parent.find("gi:array", NS)
         if array_el is not None:
+            child_type = array_el.find("gi:type", NS)
+            if child_type is not None and child_type.get("name") == "guint8":
+                return "bytes"
             inner = self._type_expr(
                 array_el, widen_enums=widen_enums, allow_pathlike=allow_pathlike
             )
@@ -1330,6 +1333,8 @@ def _widen_glib_bytes_input(type_expr: str) -> str:
         if widened == base:
             return type_expr
         return f"{widened} | None"
+    if type_expr == "bytes":
+        return "bytes | list[int]"
     if type_expr == "Bytes":
         return "bytes | Bytes"
     if type_expr == "GLib.Bytes":
@@ -1579,7 +1584,7 @@ class Emitter:
                 "from ginext.overlay.registrar import "
                 "OverlayRegistrar as _OverlayRegistrar"
             )
-            self.lines.append("from ginext.private import GIMeta as _GIMeta")
+            self.lines.append("from ginext.private import GIMeta")
             self.lines.append("")
             self.lines.append("overlay: _OverlayRegistrar")
             # ginext exposes the underlying typelib version as a tuple on every namespace.
@@ -1605,9 +1610,9 @@ class Emitter:
             self.lines.append("")
             return
 
-        self.lines.append("_SigO = TypeVar('_SigO')")
+        self.lines.append("SigO = TypeVar('SigO')")
         self.lines.append("_SigP = _ParamSpec('_SigP')")
-        self.lines.append("_SigR = TypeVar('_SigR')")
+        self.lines.append("SigR = TypeVar('SigR')")
         self.lines.append("")
         # In .pyi stubs, properties are declared as bare typed attributes;
         # @property is not needed and triggers [untyped-decorator].
@@ -1630,10 +1635,10 @@ class Emitter:
         # Signal = connect/emit only.
         # SignalMethod = also callable (method-backed signals).
         # DetailedSignal = callable with a detail key → returns scoped Signal.
-        self.lines.append("class Signal(Generic[_SigO, _SigP, _SigR]):")
+        self.lines.append("class Signal(Generic[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) "
-            "-> _SigR: ..."
+            "-> SigR: ..."
         )
         self.lines.append(
             "    def connect(self, handler: Callable[..., object], *, after: bool = ..., once: bool = ..., owner: Any = ...) -> SignalConnection: ..."
@@ -1643,21 +1648,21 @@ class Emitter:
         )
         self.lines.append(
             "    def emit(self, *args: _SigP.args, **kwargs: _SigP.kwargs) -> "
-            "_SigR: ..."
+            "SigR: ..."
         )
         self.lines.append(
             "    def disconnect(self, connection: SignalConnection) -> None: ..."
         )
-        self.lines.append("class SignalMethod(Signal[_SigO, _SigP, _SigR]):")
+        self.lines.append("class SignalMethod(Signal[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, *args: _SigP.args, **kwargs: _SigP.kwargs) "
-            "-> _SigR: ..."
+            "-> SigR: ..."
         )
         self.lines.append("")
-        self.lines.append("class DetailedSignal(Signal[_SigO, _SigP, _SigR]):")
+        self.lines.append("class DetailedSignal(Signal[SigO, _SigP, SigR]):")
         self.lines.append(
             "    def __call__(self, detail: str | GObject.Property) -> "
-            "'Signal[_SigO, _SigP, _SigR]': ..."
+            "'Signal[SigO, _SigP, SigR]': ..."
         )
         self.lines.append("")
 
@@ -1799,7 +1804,7 @@ class Emitter:
         # ginext's metaclass attaches `.gimeta` (GIMeta) to every built class;
         # it is read off the class object (`cls.gimeta`), so declare a ClassVar.
         if self.mode != "gi" and _take("gimeta"):
-            self.lines.append("    gimeta: ClassVar[_GIMeta]")
+            self.lines.append("    gimeta: ClassVar[GIMeta]")
             body_started = True
         for prop in klass.properties:
             if not _take(prop.py_name):
@@ -2169,7 +2174,9 @@ class Emitter:
             if not prop.writable or prop.py_name in emitted:
                 continue
             emitted.add(prop.py_name)
-            params.append(f"{prop.py_name}: {_widen_glib_bytes_input(prop.type_expr)} = ...")
+            params.append(
+                f"{prop.py_name}: {_widen_glib_bytes_input(prop.type_expr)} = ..."
+            )
         if not params:
             return "    def __init__(self, **kwargs: Any) -> None: ..."
         return (

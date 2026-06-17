@@ -168,8 +168,7 @@ def notebook_getitem(self: Gtk.Notebook, key: object) -> Gtk.Widget | list[Gtk.W
             return _notebook_page_at(self, _normalize_position(key, length))
         case _:
             raise TypeError(
-                "notebook indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"notebook indices must be integers or slices, not {type(key).__name__}"
             )
 
 
@@ -194,8 +193,7 @@ def stack_getitem(self: Gtk.Stack, key: object) -> Gtk.StackPage | list[Gtk.Stac
             return _stack_page_at(self, _normalize_position(key, length))
         case _:
             raise TypeError(
-                "stack indices must be integers or slices, not "
-                f"{type(key).__name__}"
+                f"stack indices must be integers or slices, not {type(key).__name__}"
             )
 
 
@@ -203,6 +201,7 @@ def stack_getitem(self: Gtk.Stack, key: object) -> Gtk.StackPage | list[Gtk.Stac
 def stack_iter(self: Gtk.Stack) -> Iterator[Gtk.StackPage]:
     for index in range(len(self)):
         yield _stack_page_at(self, index)
+
 
 __all__ = [
     "css",

@@ -58,6 +58,8 @@ if TYPE_CHECKING:
     class _InterfaceInfoWithPrerequisites(Protocol):
         def get_n_prerequisites(self) -> int: ...
         def get_prerequisite(self, index: int) -> ObjectInfo | InterfaceInfo: ...
+
+
 from .fundamental import Fundamental, FundamentalMeta
 from .gobject.gobjectclass import (
     GInterface,
@@ -73,13 +75,13 @@ from .overlay import (
 )
 from .signal.descriptor import SignalDescriptor
 
-_V = TypeVar("_V")
+V = TypeVar("V")
 
 _classes_by_gtype: dict[tuple[str, int], type[Any]] = {}
 
 
 @runtime_checkable
-class _HasProfile(Protocol):
+class HasProfile(Protocol):
     _profile: abi.ABIProfile
 
 
@@ -98,8 +100,8 @@ def _merge_class_dict_attr(
     return merged
 
 
-def _merge_gimeta_attr(bases: tuple[type, ...], attr_name: str) -> dict[str, _V]:
-    merged: dict[str, _V] = {}
+def _merge_gimeta_attr(bases: tuple[type, ...], attr_name: str) -> dict[str, V]:
+    merged: dict[str, V] = {}
     for base in reversed(bases):
         gimeta = own_gimeta(base)
         if gimeta is None:
@@ -114,7 +116,7 @@ class ClassBuilder:
     def __init__(self, context: abi.NamespaceContext):
         self._context = context
 
-    def _namespace_for_data(self, data: dict[str, Any]) -> "Namespace":
+    def _namespace_for_data(self, data: dict[str, Any]) -> Namespace:
         ns = sys.modules["ginext"]._load_namespace(
             data["namespace"], data["version"], profile=self._context.profile
         )
@@ -126,7 +128,7 @@ class ClassBuilder:
         name: str,
         *,
         is_interface: bool,
-        info: "ObjectInfo | InterfaceInfo",
+        info: ObjectInfo | InterfaceInfo,
     ) -> tuple[type, tuple[type, ...]]:
         parent_info = data["parent"]
         parent_cls: type
@@ -169,9 +171,7 @@ class ClassBuilder:
 
         return parent_cls, (*extra_bases, parent_cls)
 
-    def build_object_or_interface(
-        self, info: "ObjectInfo | InterfaceInfo"
-    ) -> type[Any]:
+    def build_object_or_interface(self, info: ObjectInfo | InterfaceInfo) -> type[Any]:
         from ginext.GIRepository import InterfaceInfo
 
         data = info.object_info()
@@ -304,7 +304,9 @@ class ClassBuilder:
                     continue
                 setattr(cls, attr_name, attr_value)
             cls._gobject_root_adopted = True
-        elif issubclass(parent_cls, Fundamental) and not issubclass(parent_cls, GObject):
+        elif issubclass(parent_cls, Fundamental) and not issubclass(
+            parent_cls, GObject
+        ):
             cls = cast("type[Any]", FundamentalMeta(name, bases, attrs))
         else:
             cls = cast("type[Any]", type(name, bases, attrs))
@@ -346,7 +348,7 @@ def _concrete_impl_for_interface(iface_cls: type[GInterface]) -> type[GObject]:
 
 
 def wrapper_type_for_gtype(gtype: int, context: object | None = None) -> type:
-    profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
+    profile = context._profile if isinstance(context, HasProfile) else abi.NATIVE
     cached = _cached_class_for_gtype(profile.name, gtype)
     if cached is None:
         cached = _cached_python_defined_class_for_gtype(gtype)
@@ -679,8 +681,8 @@ def method_for_instance(obj: object, name: str) -> object | None:
     return types.MethodType(cast("Any", method), obj)
 
 
-
 from . import private as _private
+
 _private.register_hook("Fundamental.getattr", method_for_instance)
 _private.register_hook("Object.wrap", wrapper_type_for_gtype)
 del _private

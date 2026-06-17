@@ -65,14 +65,13 @@ from .resolve import classbuild_module, gobject_repo as gobject_repo
 from .subclass import register_python_subclass
 from .properties import (
     Property as Property,
-    _PspecProperty,
+    PspecProperty,
     own_annotations_dict,
 )
 
 # GObject.Object is the C base type, built below by init_gobject from the method
-# definitions in _GObjectBody. _GObjectBody subclasses the C type only for type
-# checking (so its bodies and GObject see the full API); at runtime it is a bare
-# namespace whose methods init_gobject installs on the C type.
+# definitions in the GObject class. At runtime GObject is overwritten by the C
+# type; the class defined here is only the type-checking view.
 if TYPE_CHECKING:
     _MethodsBase = private.GObject
 else:
@@ -82,11 +81,11 @@ _compat_dispose_state: dict[int, dict[str, object]] = {}
 _G_TYPE_INTERFACE = 8
 
 
-def _synthesize_pspec_property(cls: type, py_name: str) -> _PspecProperty:
+def _synthesize_pspec_property(cls: type, py_name: str) -> PspecProperty:
     """Install (once) a descriptor for a GObject property the class didn't
     declare, so it reads/writes as a plain attribute. Also surface it in
     ``__annotations__`` so the class advertises the field, dataclass-style."""
-    descriptor = _PspecProperty(py_name)
+    descriptor = PspecProperty(py_name)
     setattr(cls, py_name, descriptor)
     annotations = own_annotations_dict(cls)
     if py_name not in annotations:
@@ -125,7 +124,7 @@ def _run_post_construct_hooks(obj: object) -> None:
             sys.excepthook(type(exc), exc, exc.__traceback__)
 
 
-def _finish_construction(obj: "GObject", handlers: dict[str, object]) -> None:
+def _finish_construction(obj: GObject, handlers: dict[str, object]) -> None:
     """Post-bind construction tail: run post-construct hooks, wire on_* handlers."""
     _run_post_construct_hooks(obj)
     for signal_attr_name, callback in handlers.items():
@@ -266,9 +265,10 @@ class GInterface(metaclass=GObjectMeta):
 
 
 # The GObject.Object method definitions. init_gobject installs these on the C
-# type; _GObjectBody itself is only the type-checking view of GObject.
+# type; this class is the type-checking view — at runtime it is overwritten by
+# the C type returned from init_gobject.
 @dataclass_transform(field_specifiers=(Property,))
-class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
+class GObject(_MethodsBase, metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     Signal: ClassVar[type[Signal]]
     _class_struct_name: ClassVar[str | None] = None
@@ -289,13 +289,9 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         def __getattr__(self, name: str) -> Any: ...
 
 
-
-if TYPE_CHECKING:
-    GObject = _GObjectBody
-else:
+if not TYPE_CHECKING:
     GObject = private.init_gobject(GObjectMeta)
     private.GObject = GObject
-    del _GObjectBody
 
 if not TYPE_CHECKING:
     GObject.__init_subclass__ = classmethod(_obj_init_subclass)

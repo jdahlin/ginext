@@ -75,7 +75,7 @@ _RUN_ARGV_OMITTED: object = object()
 
 
 @contextlib.contextmanager
-def _application_sigint_handler(application: Any) -> Generator[None, None, None]:
+def _application_sigint_handler(application: Any) -> Generator[None]:
     from ginext import GLib
 
     # The wakeup mechanism below relies on signal.set_wakeup_fd writing to a
@@ -180,7 +180,9 @@ def _register_gio_unix_deprecations() -> None:
         GioUnix = _ginext._load_namespace(
             "GioUnix", version, profile=_ginext.abi.PYGOBJECT
         )
-    except (ImportError, AttributeError, RuntimeError, LookupError):
+    except (ImportError, LookupError):
+        return
+    except (AttributeError, RuntimeError):
         return
     # GioUnix exposes a platform-dependent subset of these symbols: e.g.
     # DesktopAppInfo and the Unix{Input,Output}Stream types are absent on
@@ -326,9 +328,7 @@ def _validate_list_store_item(store: Any, item: Any) -> None:
     from ginext import GObject as _GObjectNS
 
     if not isinstance(item, private.GObject):
-        raise TypeError(
-            f"Expected a GObject, got {type(item).__name__!r}"
-        )
+        raise TypeError(f"Expected a GObject, got {type(item).__name__!r}")
     item_type = store.get_item_type()
     item_gtype = getattr(getattr(type(item), "gimeta", None), "gtype", None)
     if item_gtype is None or not _GObjectNS.type_is_a(item_gtype, item_type):
@@ -397,7 +397,9 @@ def insert_sorted(self: Any, item: Any, compare_func: Any, *user_data: Any) -> i
 
 
 @overlay.method("ListStore")
-def find_with_equal_func(self: Any, item: Any, equal_func: Any, *user_data: Any) -> tuple[bool, int]:
+def find_with_equal_func(
+    self: Any, item: Any, equal_func: Any, *user_data: Any
+) -> tuple[bool, int]:
     for i, stored in enumerate(self):
         if equal_func(stored, item, *user_data):
             return True, i
@@ -503,7 +505,7 @@ def __next__(self: Any) -> Any:
     raise StopIteration
 
 
-class _AsyncFileInfos:
+class AsyncFileInfos:
     """async iterator over a FileEnumerator, fetching FileInfo in batches via
     next_files_async / next_files_finish."""
 
@@ -514,18 +516,18 @@ class _AsyncFileInfos:
         self._index = 0
         self._done = False
 
-    def __aiter__(self) -> _AsyncFileInfos:
+    def __aiter__(self) -> AsyncFileInfos:
         return self
 
     async def __anext__(self) -> Any:
-        from ginext.aio import _AsyncOperation
+        from ginext.aio import AsyncOperation
 
         if self._index >= len(self._buffer):
             if self._done:
                 raise StopAsyncIteration
             self._buffer = cast(
                 "list[Any]",
-                await _AsyncOperation(
+                await AsyncOperation(
                     lambda callback: self._enumerator.next_files_async(
                         self._batch_size, 0, None, callback
                     ),
@@ -544,8 +546,8 @@ class _AsyncFileInfos:
 
 
 @overlay.method("FileEnumerator")
-def __aiter__(self: Any) -> _AsyncFileInfos:
-    return _AsyncFileInfos(self)
+def __aiter__(self: Any) -> AsyncFileInfos:
+    return AsyncFileInfos(self)
 
 
 def _action_map_add_action(action_map: Any, action: Any) -> None:
@@ -820,9 +822,9 @@ def menu_model_iter(self: Any) -> Iterator[Any]:
 
 @overlay.replace
 def bus_get(fn: Any, bus_type: Any, cancellable: Any = None) -> Any:
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
-    return _AsyncOperation(
+    return AsyncOperation(
         lambda cb: fn(bus_type, cancellable, cb),
         lambda r: Gio.bus_get_finish(cast("Any", r)),
     )
@@ -837,7 +839,7 @@ def _unpack_dbus_result(variant: Any) -> Any:
     return result
 
 
-class _DBusProxyMethodCall:
+class DBusProxyMethodCall:
     __slots__ = ("_proxy", "_method_name")
 
     def __init__(self, proxy: Any, method_name: str) -> None:
@@ -845,7 +847,7 @@ class _DBusProxyMethodCall:
         self._method_name = method_name
 
     def __call__(self, *args: Any, flags: int = 0, timeout: int = -1) -> Any:
-        from ginext.aio import _AsyncOperation
+        from ginext.aio import AsyncOperation
 
         if args and isinstance(args[0], str):
             signature, rest = args[0], args[1:]
@@ -857,7 +859,7 @@ class _DBusProxyMethodCall:
 
         proxy = self._proxy
         method = self._method_name
-        return _AsyncOperation(
+        return AsyncOperation(
             lambda cb: proxy.call(method, arg_variant, flags, timeout, None, cb),
             lambda r: _unpack_dbus_result(proxy.call_finish(r)),
         )
@@ -875,7 +877,7 @@ def _dbus_proxy_getattr(self: Any, name: str) -> Any:
     method = method_for_instance(self, name)
     if method is not None:
         return method
-    return _DBusProxyMethodCall(self, name)
+    return DBusProxyMethodCall(self, name)
 
 
 _dbus_proxy_getattr.__name__ = "__getattr__"
@@ -901,9 +903,9 @@ def new_for_bus(
     interface_name: Any,
     cancellable: Any = None,
 ) -> Any:
-    from ginext.aio import _AsyncOperation
+    from ginext.aio import AsyncOperation
 
-    return _AsyncOperation(
+    return AsyncOperation(
         lambda cb: fn(
             bus_type, flags, info, name, object_path, interface_name, cancellable, cb
         ),
@@ -911,7 +913,7 @@ def new_for_bus(
     )
 
 
-class _SignalSubscription:
+class SignalSubscription:
     __slots__ = ("_conn", "_id")
 
     def __init__(self, conn: Any, subscription_id: Any) -> None:
@@ -927,7 +929,7 @@ class _SignalSubscription:
             self._conn.signal_unsubscribe(self._id)
             self._id = None
 
-    def __enter__(self) -> _SignalSubscription:
+    def __enter__(self) -> SignalSubscription:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -946,7 +948,7 @@ def signal_subscribe(
     *,
     arg0: Any = None,
     flags: int = 0,
-) -> _SignalSubscription:
+) -> SignalSubscription:
     # GI strips user_data from GLib callbacks, so pass callback directly.
     # callback receives (conn, sender, object_path, interface_name, signal, params).
     sub_id = fn(
@@ -959,10 +961,10 @@ def signal_subscribe(
         flags,
         callback,
     )
-    return _SignalSubscription(self, sub_id)
+    return SignalSubscription(self, sub_id)
 
 
-class _ObjectRegistration:
+class ObjectRegistration:
     __slots__ = ("_conn", "_id")
 
     def __init__(self, conn: Any, registration_id: Any) -> None:
@@ -974,7 +976,7 @@ class _ObjectRegistration:
             self._conn.unregister_object(self._id)
             self._id = None
 
-    def __enter__(self) -> _ObjectRegistration:
+    def __enter__(self) -> ObjectRegistration:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -993,7 +995,7 @@ def register_object(
     method_call_fn: Any = None,
     get_property_fn: Any = None,
     set_property_fn: Any = None,
-) -> _ObjectRegistration:
+) -> ObjectRegistration:
     reg_id = self.register_object_with_closures2(
         object_path,
         interface_info,
@@ -1001,4 +1003,4 @@ def register_object(
         get_property_fn if get_property_fn is not None else _NOOP,
         set_property_fn if set_property_fn is not None else _NOOP,
     )
-    return _ObjectRegistration(self, reg_id)
+    return ObjectRegistration(self, reg_id)

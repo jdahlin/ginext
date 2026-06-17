@@ -42,7 +42,6 @@ from typing import TYPE_CHECKING, Any, cast
 from .. import abi, features, private
 from ..signal.descriptor import SignalDescriptor as Signal
 from .properties import (
-    Property,
     PropertyBase,
     _is_gtype_value_type,
     coerce_property_default,
@@ -60,20 +59,20 @@ def _own_annotations(cls: type) -> dict[str, object]:
     return annotationlib.get_annotations(cls)
 
 
-def _install_extension_metadata(cls: type) -> None:
+def _install_extension_metadata(cls: type[GObject]) -> None:
     gtk_actions: list[object] = []
     for attr in cls.__dict__.values():
         spec = getattr(attr, "gimeta_action", None)
         if spec is not None:
             gtk_actions.append(spec)
     if gtk_actions:
-        gimeta = cast("Any", getattr(cls, "gimeta"))
+        gimeta = cast("Any", cls.gimeta)
         bucket = gimeta.extensions.setdefault("Gtk", {})
         if isinstance(bucket, dict):
             bucket["actions"] = gtk_actions
 
 
-def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> None:
+def register_python_subclass(cls: type[GObject], *, type_name: str | None) -> None:
     from .gobjectclass import GObject
 
     # ClassBuilder pre-populates gimeta + signal tables for imported
@@ -187,7 +186,7 @@ def register_python_subclass(cls: "type[GObject]", *, type_name: str | None) -> 
 
 
 def _surface_inherited_properties(
-    cls: "type[GObject]", declared: dict[str, object]
+    cls: type[GObject], declared: dict[str, object]
 ) -> None:
     """Advertise every GObject property — the class's own plus those inherited
     from a native base — as a field on a Python-defined subclass: install a

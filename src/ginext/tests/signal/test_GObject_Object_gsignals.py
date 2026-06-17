@@ -37,15 +37,13 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-import pytest
-
 
 def test_gsignals_dict_ignored_in_native_mode() -> None:
     from ginext import GObject
 
     # __gsignals__ is a compat-only feature; native ginext ignores it silently
     class Pinger(GObject.Object, type_name="GoiTestPinger_GSignalsDict"):
-        __gsignals__ = {
+        __gsignals__: ClassVar[dict[str, object]] = {
             "ping": (GObject.SignalFlags.RUN_FIRST, None, ()),
         }
 

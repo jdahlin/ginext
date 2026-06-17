@@ -50,16 +50,16 @@ _SIGNAL_ARG_LIMIT_ATTR = "__ginext_signal_arg_limit__"
 
 
 @runtime_checkable
-class _HasGIMeta(Protocol):
+class HasGIMeta(Protocol):
     gimeta: private.GIMeta
 
 
 @runtime_checkable
-class _ConnectableSignal(Protocol):
+class ConnectableSignal(Protocol):
     def connect(self, callback: Callable[..., Any], **kwargs: object) -> object: ...
 
 
-class _CallbackArity(NamedTuple):
+class CallbackArity(NamedTuple):
     required_positional: int
     accepted_positional: int | None
 
@@ -99,7 +99,7 @@ def _connect_constructor_handler(
         )
     cb: Callable[..., Any] = cast("Callable[..., Any]", callback)
     cls = type(owner)
-    if not isinstance(cls, _HasGIMeta):
+    if not isinstance(cls, HasGIMeta):
         raise TypeError(f"{type(owner).__name__} has no GObject metadata")
     gimeta = cls.gimeta
     infos = gimeta.signal_infos
@@ -112,14 +112,14 @@ def _connect_constructor_handler(
             f"{signal_attr_name!r} (from on_{signal_attr_name}=){hint}"
         )
     sig = getattr(owner, signal_attr_name)
-    if not isinstance(sig, _ConnectableSignal):
+    if not isinstance(sig, ConnectableSignal):
         raise TypeError(
             f"{cls.__name__}.{signal_attr_name!r} is not a connectable signal"
         )
     sig.connect(cb, owner=owner)
 
 
-def _callback_positional_arity(callback: Callable[..., Any]) -> _CallbackArity | None:
+def _callback_positional_arity(callback: Callable[..., Any]) -> CallbackArity | None:
     """Return positional arity for `callback`, or None if uninspectable.
 
     `accepted_positional is None` means the callback takes ``*args``:
@@ -136,7 +136,7 @@ def _callback_positional_arity(callback: Callable[..., Any]) -> _CallbackArity |
     accepted = 0
     for p in sig.parameters.values():
         if p.kind is inspect.Parameter.VAR_POSITIONAL:
-            return _CallbackArity(required, None)
+            return CallbackArity(required, None)
         if p.kind not in (
             inspect.Parameter.POSITIONAL_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -145,7 +145,7 @@ def _callback_positional_arity(callback: Callable[..., Any]) -> _CallbackArity |
         accepted += 1
         if p.default is inspect.Parameter.empty:
             required += 1
-    return _CallbackArity(required, accepted)
+    return CallbackArity(required, accepted)
 
 
 def _callback_arity(callback: Callable[..., Any]) -> int | None:

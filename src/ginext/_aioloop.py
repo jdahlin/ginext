@@ -44,17 +44,18 @@ Ported and trimmed from PyGObject's ``gi/events.py`` selector integration
 from __future__ import annotations
 
 import asyncio
+import collections
 import selectors
 import sys
 import weakref
 from collections.abc import Callable, Generator, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from . import GLib, private
 
 
-class _SupportsFileno(Protocol):
+class SupportsFileno(Protocol):
     def fileno(self) -> int: ...
 
 
@@ -62,13 +63,13 @@ class _SupportsFileno(Protocol):
 # imported from `_typeshed.FileDescriptorLike`, which does not exist at runtime
 # — and this alias is used as a ``Mapping[...]`` base, which is evaluated
 # eagerly even under PEP 563.
-FileDescriptorLike = int | _SupportsFileno
+FileDescriptorLike = int | SupportsFileno
 
 __all__ = ["EventLoop"]
 
 
 def _fileobj_to_fd(fileobj: FileDescriptorLike) -> int:
-    return fileobj if isinstance(fileobj, int) else getattr(fileobj, "fileno")()
+    return fileobj if isinstance(fileobj, int) else fileobj.fileno()
 
 
 class _EventSource(GLib.Source):
@@ -76,11 +77,11 @@ class _EventSource(GLib.Source):
         return private.glib_event_source_new(cls)
 
 
-class _Source(_EventSource):
+class Source(_EventSource):
     """A GSource that polls the loop's registered fds and dispatches one
     asyncio `_run_once` iteration when fds are ready or a timeout is due."""
 
-    def __init__(self, selector: "_Selector") -> None:
+    def __init__(self, selector: Selector) -> None:
         super().__init__()
         self._dispatching = False
         self.set_can_recurse(False)
@@ -130,7 +131,7 @@ class _Source(_EventSource):
         return ready
 
 
-class _FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
+class FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
     def __init__(self, fd_to_key: dict[int, selectors.SelectorKey]) -> None:
         self._fd_to_key = fd_to_key
 
@@ -147,15 +148,15 @@ class _FileObjectMapping(Mapping[FileDescriptorLike, selectors.SelectorKey]):
         return iter(self._fd_to_key)
 
 
-class _Selector(selectors.BaseSelector):
+class Selector(selectors.BaseSelector):
     """A selector that registers asyncio's fds with GLib instead of polling."""
 
-    def __init__(self, loop: "EventLoop") -> None:
+    def __init__(self, loop: EventLoop) -> None:
         self._loop = loop
         self._fd_to_key: dict[int, selectors.SelectorKey] = {}
         self._fd_to_tag: dict[int, int] = {}
-        self._source: _Source | None = _Source(self)
-        self._map: _FileObjectMapping = _FileObjectMapping(self._fd_to_key)
+        self._source: Source | None = Source(self)
+        self._map: FileObjectMapping = FileObjectMapping(self._fd_to_key)
 
     def attach(self) -> None:
         assert self._source is not None
@@ -164,7 +165,7 @@ class _Selector(selectors.BaseSelector):
     def detach(self) -> None:
         if self._source is not None and hash(self._source):
             self._source.destroy()
-        self._source = _Source(self)
+        self._source = Source(self)
         self._fd_to_tag.clear()
         for key in self._fd_to_key.values():
             self._register_key(key)
@@ -220,6 +221,16 @@ class _Selector(selectors.BaseSelector):
 
 
 class EventLoop(asyncio.SelectorEventLoop):
+    if TYPE_CHECKING:
+        # Private asyncio.BaseEventLoop internals not in typeshed stubs.
+        _ready: collections.deque[asyncio.Handle]
+        _scheduled: list[asyncio.TimerHandle]
+        _selector: Selector
+
+        def _run_forever_setup(self) -> None: ...
+        def _run_forever_cleanup(self) -> None: ...
+        def _run_once(self) -> None: ...
+
     def __init__(self) -> None:
         if sys.platform == "win32":
             # The selector integration registers asyncio's fds with the GLib
@@ -235,7 +246,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         self._main_loop = GLib.MainLoop.new(self._context, False)
         self._may_iterate = False
         self._quit_funcs: list[Callable[[], object]] = []
-        super().__init__(_Selector(self))
+        super().__init__(Selector(self))
         # _run_once floors timeouts to 0; keep a small resolution so we do not
         # busy-loop on sub-millisecond timers.
         self._clock_resolution = 1e-3
@@ -246,18 +257,18 @@ class EventLoop(asyncio.SelectorEventLoop):
         return float(self._glib.get_monotonic_time()) / 1_000_000
 
     def _get_timeout_ms(self) -> int:
-        if getattr(self, "_ready"):
+        if self._ready:
             return 0
-        scheduled = getattr(self, "_scheduled")
+        scheduled = self._scheduled
         if scheduled:
-            timeout = int((getattr(scheduled[0], "_when") - self.time()) * 1000)
-            return timeout if timeout >= 0 else 0
+            timeout = int((scheduled[0].when() - self.time()) * 1000)
+            return max(timeout, 0)
         return -1
 
     # -- running --------------------------------------------------------------
 
     @contextmanager
-    def running(self, quit_func: Callable[[], object]) -> Generator[None, None, None]:
+    def running(self, quit_func: Callable[[], object]) -> Generator[None]:
         self._quit_funcs.append(quit_func)
         if self.is_running():
             try:
@@ -265,21 +276,21 @@ class EventLoop(asyncio.SelectorEventLoop):
             finally:
                 self._quit_funcs.pop()
             return
-        getattr(self, "_run_forever_setup")()
+        self._run_forever_setup()
         try:
             self._may_iterate = True
-            getattr(getattr(self, "_selector"), "attach")()
+            self._selector.attach()
             yield
         finally:
             self._may_iterate = False
-            getattr(getattr(self, "_selector"), "detach")()
-            getattr(self, "_run_forever_cleanup")()
+            self._selector.detach()
+            self._run_forever_cleanup()
             self._quit_funcs.pop()
 
     def _glib_dispatch(self) -> None:
         self._may_iterate = False
         try:
-            getattr(self, "_run_once")()
+            self._run_once()
         finally:
             self._may_iterate = True
 
@@ -287,7 +298,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         with self.running(self._main_loop.quit):
             self._main_loop.run()
 
-    def run_application(self, app: object, argv: object = None) -> int:
+    def run_application(self, app: Any, argv: object = None) -> int:
         """Run a Gio Application with this loop as the running asyncio loop.
 
         ``app.run()`` spins the same GLib main context, so coroutines started
@@ -295,7 +306,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         handlers) are driven by the application's loop — no second loop runs.
         """
         with self.running(self._main_loop.quit):
-            return int(getattr(app, "run")(argv))
+            return int(app.run(argv))
 
     def stop(self) -> None:
         if self._quit_funcs:

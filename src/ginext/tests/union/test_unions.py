@@ -142,5 +142,3 @@ def test_union_positional_pattern_match(utility: Namespace) -> None:
     union.integer = 42
 
     assert _match_union_positionally(union, utility.Union) == 42
-
-

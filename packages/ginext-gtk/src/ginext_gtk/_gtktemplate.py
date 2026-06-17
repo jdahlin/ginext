@@ -84,7 +84,7 @@ class TemplateSignal:
 
 
 @dataclass(slots=True, frozen=True)
-class _ChildType:
+class ChildType:
     name: str | None = None
     internal: bool = False
 
@@ -95,7 +95,7 @@ if TYPE_CHECKING:
     # do not produce an incompatible-types error — the annotation drives the type.
     def Child(name: str | None = None, *, internal: bool = False) -> Any: ...
 else:
-    Child = _ChildType
+    Child = ChildType
 
 
 def _gtk_bucket(owner: Any) -> dict[str, object]:
@@ -288,7 +288,7 @@ def _collect_template_children(cls: type[object]) -> list[TemplateChild]:
 
     # Explicit Child() instances take priority.
     for attr_name, value in cls.__dict__.items():
-        if isinstance(value, _ChildType):
+        if isinstance(value, ChildType):
             _add(attr_name, value.name or attr_name, value.internal)
 
     # Implicit binding: plain type annotations with no Child() value are also

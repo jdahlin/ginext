@@ -15,7 +15,9 @@ can be removed.
 
 from typing import Any
 
-def gobject_add_weak_notify(obj: object, callback: object, args: tuple[object, ...]) -> object: ...
+def gobject_add_weak_notify(
+    obj: object, callback: object, args: tuple[object, ...]
+) -> object: ...
 
 class BaseInfo:
     __match_args__ = ("name", "namespace")

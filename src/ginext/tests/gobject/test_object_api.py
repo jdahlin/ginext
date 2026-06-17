@@ -88,9 +88,7 @@ def test_freeze_notify_context(
 
     obj = TestObject()
     tracking = []
-    obj.notify("prop").connect(
-        lambda obj, _pspec: tracking.append(obj.prop), owner=obj
-    )
+    obj.notify("prop").connect(lambda obj, _pspec: tracking.append(obj.prop), owner=obj)
 
     obj.prop = 1
     with obj.freeze_notify():

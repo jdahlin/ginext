@@ -69,10 +69,13 @@ if sys.platform == "win32":
 
 
 def test_invoke_with_namespace_instance_as_first_use_in_fresh_process() -> None:
-    code = _subprocess_preamble() + """
+    code = (
+        _subprocess_preamble()
+        + """
 from ginext import GLib, private
 raise SystemExit(0 if private.invoke(GLib, "get_user_name") == GLib.get_user_name() else 1)
 """
+    )
     completed = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
@@ -163,7 +166,6 @@ def test_idle_add_default_priority_wraps_callback() -> None:
 
 
 def test_idle_add_with_explicit_priority_wraps_callback() -> None:
-    from ginext import GLib
 
     seen: list[int] = []
     fired: list[tuple[str, str]] = []

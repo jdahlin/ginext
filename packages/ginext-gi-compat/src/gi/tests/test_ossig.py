@@ -164,4 +164,3 @@ class TestSigintFallback(unittest.TestCase):
         t.start()
         t.join(5)
         self.assertFalse(failed)
-

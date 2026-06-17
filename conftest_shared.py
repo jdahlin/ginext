@@ -111,7 +111,7 @@ def rebuild_editable(
                 continue
             try:
                 subprocess.run(cmd, cwd=path, stdout=subprocess.DEVNULL, check=True)
-            except (OSError, subprocess.SubprocessError):
+            except OSError, subprocess.SubprocessError:
                 pass
     finally:
         if saved is not None:
@@ -221,9 +221,7 @@ def setup_gi_test_env(root: pathlib.Path, build_path: str | None = None) -> None
     if build_path:
         candidates.append(pathlib.Path(build_path) / "packages" / "typelib")
     candidates.append(root / "build" / "packages" / "typelib")
-    candidates.extend(
-        sorted((root / "build").glob("*/packages/typelib"))
-    )
+    candidates.extend(sorted((root / "build").glob("*/packages/typelib")))
 
     builddir = next(
         (c for c in candidates if (c / "Regress-1.0.typelib").exists()), None

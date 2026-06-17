@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import cast
 
 from ginext import Gio, GLib, GObject, Gtk, Pango
+
+_GZIP_ERRORS = (GLib.Error, OSError, EOFError, gzip.BadGzipFile, zlib.error)
 from ginext.gobject.gtype import GType
 
 from commander.components.archive import (
@@ -883,7 +885,7 @@ class CommanderPane(Gtk.Box, type_name="GoiCommanderPane"):
         try:
             tempdir, member = extract_gzip_member(file_)
             info = member.query_info(FILE_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE)
-        except (GLib.Error, OSError, EOFError, gzip.BadGzipFile, zlib.error) as error:
+        except _GZIP_ERRORS as error:
             self.status.set_text(f"Gzip open failed: {error}")
             return False
 

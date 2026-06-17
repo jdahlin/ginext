@@ -20,8 +20,7 @@ VolumeMonitor = Gio.VolumeMonitor
 
 
 _DBUS_STRUCT_WARN = (
-    "Positional/keyword construction is deprecated, "
-    "please use keyword arguments only"
+    "Positional/keyword construction is deprecated, please use keyword arguments only"
 )
 
 

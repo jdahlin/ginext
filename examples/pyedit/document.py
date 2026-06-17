@@ -97,7 +97,7 @@ class Document(GObject.Object, type_name="PyeditDocument"):
         # (marshal/string.c accepts str/bytes/bytearray).
         try:
             target.replace_contents(
-                data,  # type: ignore[arg-type]  # stub types data as list[int]; runtime marshal accepts bytes
+                data,
                 None,  # etag
                 False,  # make_backup
                 Gio.FileCreateFlags.NONE,

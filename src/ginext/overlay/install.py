@@ -48,7 +48,7 @@ def module_overlay_for(ns: str, name: str) -> ModuleEntry | None:
     return state.module_overlays.get((ns, name))
 
 
-class _DeprecationsProxy:
+class DeprecationsProxy:
     """Mutable dict-like view over a namespace's deprecated entries.
 
     Exposes the same pygobject-compat interface: ``ns._deprecations[name]``
@@ -92,8 +92,8 @@ class _DeprecationsProxy:
         return sum(1 for (ns2, _) in state.deprecated_entries if ns2 == ns)
 
 
-def deprecations_proxy_for(ns_name: str) -> _DeprecationsProxy:
-    return _DeprecationsProxy(ns_name)
+def deprecations_proxy_for(ns_name: str) -> DeprecationsProxy:
+    return DeprecationsProxy(ns_name)
 
 
 def class_method_overlays_for(ns: str, class_name: str) -> dict[str, BodyOverlay]:

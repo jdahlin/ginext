@@ -36,7 +36,7 @@ import sys
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pytest
 
@@ -60,7 +60,9 @@ def namespaces(gim: Namespace, regress: Namespace) -> dict[str, Namespace]:
     return {"gim": gim, "regress": regress}
 
 
-def _resolve(namespaces: dict[str, Namespace], ns: str, target: str) -> Callable[..., object]:
+def _resolve(
+    namespaces: dict[str, Namespace], ns: str, target: str
+) -> Callable[..., object]:
     result: object = namespaces[ns]
     for part in target.split("."):
         result = getattr(result, part)
@@ -290,7 +292,7 @@ class TestMaybeOptional:
         assert default is None
 
 
-class _FakeType:
+class FakeType:
     """Minimal GITypeInfo stand-in exposing only `get_tag()`."""
 
     def __init__(self, tag: int) -> None:
@@ -300,16 +302,16 @@ class _FakeType:
         return self._tag
 
 
-class _FakeInfo:
+class FakeInfo:
     """Minimal callable info whose `arg_names` references a non-existent arg."""
 
-    arg_names = ["ghost"]
+    arg_names: ClassVar[list[str]] = ["ghost"]
 
     def get_n_args(self) -> int:
         return 0
 
-    def get_return_type(self) -> _FakeType:
-        return _FakeType(0)  # _VOID
+    def get_return_type(self) -> FakeType:
+        return FakeType(0)  # _VOID
 
     def skip_return(self) -> bool:
         return False
@@ -323,12 +325,12 @@ class TestFallbacks:
 
     def test_unknown_tag_maps_to_any(self) -> None:
         # A tag outside the known set degrades to Any rather than raising.
-        assert signature.annotation_for_type(_FakeType(999), context=None) is Any
+        assert signature.annotation_for_type(FakeType(999), context=None) is Any
 
     def test_arg_name_without_arginfo_becomes_plain_param(self) -> None:
         # arg_names listing a name with no matching GIArgInfo yields a bare,
         # un-annotated parameter (and a void return collapses to None).
-        sig = signature.build_signature(_FakeInfo(), has_self=False, context=None)
+        sig = signature.build_signature(FakeInfo(), has_self=False, context=None)
         assert list(sig.parameters) == ["ghost"]
         assert sig.parameters["ghost"].annotation is inspect.Parameter.empty
         assert sig.return_annotation is None
@@ -341,7 +343,7 @@ class TestFallbacks:
 
         monkeypatch.setattr(signature, "_resolve_namespace", boom)
         assert (
-            signature.annotation_for_type(_FakeType(20), context=None) is Any
+            signature.annotation_for_type(FakeType(20), context=None) is Any
         )  # _ERROR
 
     def test_resolve_namespace_without_version_uses_ginext_attr(

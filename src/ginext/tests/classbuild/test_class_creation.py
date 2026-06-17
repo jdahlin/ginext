@@ -81,6 +81,7 @@ def test_class_construction_is_lazy() -> None:
     assert "Cancellable" in built_after - built_before
     assert "Application" not in built_after
 
+
 def test_native_wrap_does_not_fall_back_to_compat_profile_for_gio_objects() -> None:
     gi_repository = pytest.importorskip("gi.repository")
     # DesktopAppInfo is a Linux-only GioUnix API: the GioUnix namespace itself is

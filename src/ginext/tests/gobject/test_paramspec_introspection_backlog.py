@@ -85,12 +85,14 @@ def GIM(call_mode: str) -> Namespace:
 @pytest.fixture
 def simple_action_specs(Gio: Namespace) -> list[PropertyInfo]:
     import ginext
+
     return ginext.GObject.list_properties(Gio.SimpleAction)  # type: ignore[no-any-return]
 
 
 @pytest.fixture
 def props_object_specs(GIM: Namespace) -> list[PropertyInfo]:
     import ginext
+
     return ginext.GObject.list_properties(GIM.PropertiesObject)  # type: ignore[no-any-return]
 
 

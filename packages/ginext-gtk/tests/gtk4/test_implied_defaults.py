@@ -60,6 +60,7 @@ def test_gtk_4_implies_gdk_4(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:4.0")
 
     import ginext
+
     assert ginext.defaults.resolve_version("Gdk") == "4.0"
 
 
@@ -67,6 +68,7 @@ def test_gtk_4_implies_gsk_4(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:4.0")
 
     import ginext
+
     assert ginext.defaults.resolve_version("Gsk") == "4.0"
 
 
@@ -74,6 +76,7 @@ def test_gtk_3_implies_gdk_3(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:3.0")
 
     import ginext
+
     assert ginext.defaults.resolve_version("Gdk") == "3.0"
 
 
@@ -83,6 +86,7 @@ def test_direct_pin_overrides_implied(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:4.0,Gdk:3.0")
 
     import ginext
+
     assert ginext.defaults.resolve_version("Gdk") == "3.0"
 
 
@@ -92,6 +96,7 @@ def test_implied_default_only_used_without_direct_pin(
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:4.0")
 
     import ginext
+
     # Nothing else direct-pinned; implied chain applies.
     assert ginext.defaults.resolve_version("Gdk") == "4.0"
 
@@ -107,6 +112,7 @@ def test_implied_default_not_used_for_unrelated_namespace(
     monkeypatch.setenv("GINEXT_VERSIONS", "Gtk:4.0")
 
     import ginext
+
     # GLib is not in the implied table; resolution should fall back to
     # gidefaults / highest-installed, not to "4.0".
     assert ginext.defaults.resolve_version("GLib") != "4.0"

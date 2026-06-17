@@ -66,7 +66,7 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(autouse=True)
-def _old_signal_api() -> Generator[None, None, None]:
+def _old_signal_api() -> Generator[None]:
     from ginext import features
 
     features.set_enabled(features.OLD_SIGNAL_API, True)
@@ -88,7 +88,9 @@ def _old_signal_api() -> Generator[None, None, None]:
     ids=["zero", "one-str", "one-int", "four-mixed"],
 )
 def test_connect_forwards_user_data(
-    cancellable: _SignalSource, user_data: tuple[object, ...], expected_extras: tuple[object, ...]
+    cancellable: _SignalSource,
+    user_data: tuple[object, ...],
+    expected_extras: tuple[object, ...],
 ) -> None:
     """The handler receives `(signal_args..., *user_data)` on every call.
     Zero user_data is the legacy strict path; non-zero exercises the

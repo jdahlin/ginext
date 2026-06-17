@@ -64,7 +64,6 @@ def test_do_activate_overrides_default(Gio: Any) -> None:
     fired = []
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncActivate")):
-
         def do_activate(self) -> None:
             fired.append("activate")
 
@@ -79,7 +78,6 @@ def test_do_activate_receives_self(Gio: Any) -> None:
     captured = []
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncActivateSelf")):
-
         def do_activate(self) -> None:
             captured.append(self)
 
@@ -96,7 +94,6 @@ def test_do_shutdown_overrides_via_vtable(Gio: Any) -> None:
     fired = []
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncShutdown")):
-
         def do_activate(self) -> None:
             fired.append("activate")
 
@@ -131,7 +128,6 @@ def test_unrelated_do_attr_is_not_treated_as_vfunc(Gio: Any) -> None:
     installed and the method is reachable as a normal attribute."""
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncBogus")):
-
         def do_not_a_real_vfunc(self) -> Any:
             return 42
 
@@ -165,7 +161,6 @@ def test_override_chains_up_to_parent_vfunc(Gio: Any) -> None:
     seq = []
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncChainUp")):
-
         def do_startup(self) -> None:
             seq.append("override")
             Gio.Application.do_startup(self)
@@ -184,7 +179,6 @@ def test_no_subclass_chain_up_still_works(Gio: Any) -> None:
     invoke the parent's default-handler path with no weird recursion."""
 
     class MyApp(_Gio.Application, type_name=_unique_name("VfuncNoOverrideChain")):
-
         def do_activate(self) -> None:
             # Call parent's activate directly — parent's default impl
             # is a g_warning, but it doesn't crash and shouldn't
@@ -201,7 +195,6 @@ def test_super_do_startup_chains_up(Gio: Any) -> None:
     seq: list[str] = []
 
     class App(_Gio.Application, type_name=_unique_name("SuperChainUpApp")):
-
         def do_startup(self) -> None:
             seq.append("before")
             super().do_startup()
@@ -234,7 +227,6 @@ def test_chain_up_marshals_boxed_vfunc_arguments(Gio: Any, GLib: Any) -> None:
     class App(
         _Gio.Application, type_name=_unique_name("VfuncHandleLocalOptionsChainUp")
     ):
-
         def do_handle_local_options(self, options: object) -> int:
             assert isinstance(options, GLib.VariantDict)
             seen.append(options.lookup_value("string", None).unpack())

@@ -22,7 +22,7 @@
 """Cell-weakening for bound-method handlers.
 
 When `Signal.connect` resolves an owner that *is* the bound method's
-`__self__`, the closure receives a `_WeakBoundCallable` instead of the
+`__self__`, the closure receives a `WeakBoundCallable` instead of the
 raw bound method. The wrapper holds the unbound function strongly and
 the host weakly, so the closure doesn't pin its own owner. Every other
 shape (lambdas, free functions, partials, bound methods where the
@@ -48,7 +48,7 @@ from typing import Any, cast
 
 import ginext
 from ginext.gobject.gobjectclass import GObject
-from ginext.signal.scoped import _WeakBoundCallable
+from ginext.signal.scoped import WeakBoundCallable
 
 
 _seq = itertools.count()
@@ -191,8 +191,8 @@ def test_lambda_is_not_weakened() -> None:
         conn = source.cancelled.connect(lambda s: None)
     # The connection's callback is the lambda itself (introspection),
     # and the inner target stored in the closure is *not* a
-    # _WeakBoundCallable.
-    assert not isinstance(conn.callback, _WeakBoundCallable)
+    # WeakBoundCallable.
+    assert not isinstance(conn.callback, WeakBoundCallable)
     conn.disconnect()
 
 
@@ -262,7 +262,7 @@ def test_connection_callback_returns_original_bound_method() -> None:
 
 
 def test_unit_weak_bound_callable_no_ops_after_host_dies() -> None:
-    """Direct unit test of _WeakBoundCallable."""
+    """Direct unit test of WeakBoundCallable."""
 
     class Host:
         def __init__(self) -> None:
@@ -273,7 +273,7 @@ def test_unit_weak_bound_callable_no_ops_after_host_dies() -> None:
 
     host = Host()
     host_ref = weakref.ref(host)
-    wbc = _WeakBoundCallable(types.MethodType(Host.fire, host), None)
+    wbc = WeakBoundCallable(types.MethodType(Host.fire, host), None)
     wbc("a", "b")
     assert host.seen == [("a", "b")]
     del host
@@ -295,7 +295,7 @@ def test_unit_weak_bound_callable_arity_slicing() -> None:
             self.received = x
 
     host = Host()
-    wbc = _WeakBoundCallable(types.MethodType(Host.one_arg, host), 1)
+    wbc = WeakBoundCallable(types.MethodType(Host.one_arg, host), 1)
     wbc("a", "b", "c", "d")
     assert host.received == "a"
 
@@ -313,7 +313,7 @@ def test_unit_weak_bound_callable_zero_arity() -> None:
             self.calls += 1
 
     host = Host()
-    wbc = _WeakBoundCallable(types.MethodType(Host.fire, host), 0)
+    wbc = WeakBoundCallable(types.MethodType(Host.fire, host), 0)
     wbc("ignored", "args")
     assert host.calls == 1
 

@@ -46,6 +46,7 @@ def test_simple_variant_constructor(
     assert variant.get_type_string() == format_string
     assert getattr(variant, getter)() == expected
 
+
 def test_new_tuple_accepts_varargs() -> None:
     from ginext import GLib
 
