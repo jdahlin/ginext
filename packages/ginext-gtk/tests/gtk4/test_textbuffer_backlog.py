@@ -39,7 +39,7 @@ import pytest
 from ginext.namespace import Namespace
 
 
-class _StartsTagFn(Protocol):
+class StartsTagFn(Protocol):
     def __call__(self, *args: object) -> object: ...
 
 
@@ -82,12 +82,12 @@ def _text(buf: object) -> object:
     return buf.get_text(start, end, False)
 
 
-def _starts_tag(Gtk: Namespace) -> _StartsTagFn:
+def _starts_tag(Gtk: Namespace) -> StartsTagFn:
     # GTK4 renamed begins_tag → starts_tag in some versions; pick whichever exists.
-    fn: _StartsTagFn | None = getattr(Gtk.TextIter, "starts_tag", None)
+    fn: StartsTagFn | None = getattr(Gtk.TextIter, "starts_tag", None)
     if fn is not None:
         return fn
-    begins: _StartsTagFn = Gtk.TextIter.begins_tag
+    begins: StartsTagFn = Gtk.TextIter.begins_tag
     return begins
 
 

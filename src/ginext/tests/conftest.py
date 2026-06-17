@@ -51,7 +51,7 @@ class MakeSubclass(Protocol):
     ) -> type: ...
 
 
-class _MakePropertyClass(Protocol):
+class MakePropertyClass(Protocol):
     def __call__(
         self,
         annotation: type,
@@ -63,7 +63,7 @@ class _MakePropertyClass(Protocol):
     ) -> type: ...
 
 
-class _PropertyFactory(Protocol):
+class PropertyFactory(Protocol):
     def __call__(self, **kwargs: object) -> object: ...
 
 
@@ -625,7 +625,7 @@ def make_subclass(
 @pytest.fixture
 def make_property_class(
     make_subclass: MakeSubclass, Property: object
-) -> _MakePropertyClass:
+) -> MakePropertyClass:
     def _make(
         annotation: type,
         *,
@@ -635,7 +635,7 @@ def make_property_class(
         **property_kwargs: object,
     ) -> type:
         return make_subclass(
-            {name: (annotation, cast("_PropertyFactory", Property)(**property_kwargs))},
+            {name: (annotation, cast("PropertyFactory", Property)(**property_kwargs))},
             base=base,
             prefix=prefix,
         )

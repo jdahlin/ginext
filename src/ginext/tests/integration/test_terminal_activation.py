@@ -17,31 +17,31 @@ if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
 
 
-class _WidgetLike(Protocol):
+class WidgetLike(Protocol):
     def get_first_child(self) -> Gtk.Widget | None: ...
     def get_next_sibling(self) -> Gtk.Widget | None: ...
 
 
-class _TerminalLike(_WidgetLike, Protocol):
+class TerminalLike(WidgetLike, Protocol):
     pass
 
 
-class _TabViewLike(Protocol):
+class TabViewLike(Protocol):
     def get_n_pages(self) -> int: ...
 
 
-class _TabBarLike(_WidgetLike, Protocol):
+class TabBarLike(WidgetLike, Protocol):
     pass
 
 
-class _TerminalWindowLike(Protocol):
-    current_terminal: _TerminalLike | None
-    tab_view: _TabViewLike
-    tab_bar: _TabBarLike
+class TerminalWindowLike(Protocol):
+    current_terminal: TerminalLike | None
+    tab_view: TabViewLike
+    tab_bar: TabBarLike
 
 
-class _TerminalAppLike(Protocol):
-    def get_active_window(self) -> _TerminalWindowLike | None: ...
+class TerminalAppLike(Protocol):
+    def get_active_window(self) -> TerminalWindowLike | None: ...
     def activate(self) -> None: ...
     def quit(self) -> None: ...
     def run(self, argv: list[str]) -> int: ...
@@ -87,7 +87,7 @@ def test_terminal_runtime_activation_opens_real_tabs(
         f"org.ginext.TerminalRuntimeTest{os.getpid()}.t{uuid.uuid4().hex}",
     )
 
-    app = cast("_TerminalAppLike", app_cls())
+    app = cast("TerminalAppLike", app_cls())
     observed: dict[str, int] = {}
 
     def drive_activations() -> bool:

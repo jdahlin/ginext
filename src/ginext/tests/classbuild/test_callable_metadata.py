@@ -8,7 +8,7 @@ from collections.abc import Callable
 from typing import Protocol, TypeGuard
 
 
-class _HasCallableMetadata(Protocol):
+class HasCallableMetadata(Protocol):
     __module__: str
     __doc__: str | None
     __defaults__: tuple[object, ...] | None
@@ -20,7 +20,7 @@ class _HasCallableMetadata(Protocol):
     __qualname__: str
 
 
-def _has_callable_metadata(method: object) -> TypeGuard[_HasCallableMetadata]:
+def _has_callable_metadata(method: object) -> TypeGuard[HasCallableMetadata]:
     from ginext import GLib
     from ginext.method import GICallable
 

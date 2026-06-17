@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from collections.abc import Coroutine
 
 
-class _Handler(BaseHTTPRequestHandler):
+class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.startswith("/stream"):
             payload = b"streaming-body"
@@ -75,7 +75,7 @@ def test_async_client_get() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
@@ -111,7 +111,7 @@ def test_async_client_post_and_request_headers() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
@@ -149,7 +149,7 @@ def test_session_get_and_stream() -> None:
     ginext.private.require_namespace("Soup", "3.0")
     from ginext import Soup
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:
@@ -183,7 +183,7 @@ def test_native_session_async_methods_work_directly() -> None:
     from ginext import Soup
     from ginext import aio
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=_serve_forever, args=(server,), daemon=True)
     thread.start()
     try:

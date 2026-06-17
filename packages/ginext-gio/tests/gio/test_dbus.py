@@ -62,7 +62,7 @@ _DBUS_OBJ_PATH = "/org/freedesktop/DBus"
 _DBUS_IFACE = "org.freedesktop.DBus"
 
 
-class _Bus:
+class Bus:
     def __init__(self, address: str) -> None:
         self._address = address
 
@@ -71,7 +71,7 @@ class _Bus:
 
 
 @pytest.fixture(scope="module")
-def _dbus_daemon(dbus_session_bus: str) -> Generator[_Bus]:
+def _dbus_daemon(dbus_session_bus: str) -> Generator[Bus]:
     """Hand out the address of the private session dbus-daemon.
 
     Backed by the session-scoped ``dbus_session_bus`` fixture (in the gio
@@ -81,11 +81,11 @@ def _dbus_daemon(dbus_session_bus: str) -> Generator[_Bus]:
     GDBusConnection's weak-notify leak check.
     """
 
-    yield _Bus(dbus_session_bus)
+    yield Bus(dbus_session_bus)
 
 
 @pytest.fixture
-def session_bus(_dbus_daemon: _Bus) -> Generator[Gio.DBusConnection]:
+def session_bus(_dbus_daemon: Bus) -> Generator[Gio.DBusConnection]:
     """Per-test D-Bus connection to the private bus.
 
     Uses new_for_address instead of bus_get so each test gets a fresh,

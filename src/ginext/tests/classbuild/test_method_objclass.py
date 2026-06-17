@@ -7,11 +7,11 @@ from __future__ import annotations
 from typing import Protocol, TypeGuard
 
 
-class _HasObjclass(Protocol):
+class HasObjclass(Protocol):
     __objclass__: type[object]
 
 
-def _has_objclass(method: object) -> TypeGuard[_HasObjclass]:
+def _has_objclass(method: object) -> TypeGuard[HasObjclass]:
     from ginext import Gio
     from ginext.method import GICallable
 
