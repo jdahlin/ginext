@@ -37,6 +37,7 @@ import pytest
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from ginext.gobject.gtype import GType as GTypeClass
+    from ginext.GObject import Object as _GObjectBase
 
 
 class _MakeSubclass(Protocol):
@@ -414,7 +415,7 @@ def Property(gobject_module: types.ModuleType) -> object:
 
 
 @pytest.fixture(scope="session")
-def GObject(gobject_module: types.ModuleType) -> object:
+def GObject(gobject_module: types.ModuleType) -> type[_GObjectBase]:
     return gobject_module.GObject
 
 
@@ -599,7 +600,7 @@ def unique_type_name() -> Callable[[str], str]:
 
 @pytest.fixture
 def make_subclass(
-    GObject: object, unique_type_name: Callable[[str], str]
+    GObject: type[_GObjectBase], unique_type_name: Callable[[str], str]
 ) -> _MakeSubclass:
     def _make(
         fields: dict[str, tuple[type, object]] | None = None,
@@ -608,7 +609,7 @@ def make_subclass(
         prefix: str = "Sub",
         attrs: dict[str, object] | None = None,
     ) -> type:
-        base = base or cast("type", GObject)
+        base = base or GObject
         fields = fields or {}
         annotations = {name: typ for name, (typ, _) in fields.items()}
         body: dict[str, object] = {"__annotations__": annotations}
