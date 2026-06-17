@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import os
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import pytest
 
@@ -41,6 +41,51 @@ if TYPE_CHECKING:
     import types
     import ginext.Gtk as _Gtk
     from collections.abc import Generator
+
+    class _TextIter(Protocol):
+        def equal(self, other: object) -> bool: ...
+        def forward_chars(self, count: int) -> bool: ...
+        def backward_chars(self, count: int) -> bool: ...
+        def copy(self) -> _TextIter: ...
+        def has_tag(self, tag: object) -> bool: ...
+        def ends_tag(self, tag: object = ...) -> bool: ...
+        def toggles_tag(self, tag: object = ...) -> bool: ...
+        def forward_search(
+            self, text: str, flags: object, limit: object
+        ) -> tuple[_TextIter, _TextIter] | None: ...
+        def get_offset(self) -> int: ...
+        def assign(self, other: object) -> None: ...
+
+    class _TextTag(Protocol):
+        def get_property_by_name(self, name: str) -> object: ...
+
+    class _TextMark(Protocol):
+        def get_left_gravity(self) -> bool: ...
+
+    class _TextBuf(Protocol):
+        def create_tag(self, name: str | None = ..., **props: object) -> _TextTag: ...
+        def get_bounds(self) -> tuple[_TextIter, _TextIter]: ...
+        def get_text(self, start: object, end: object, include_hidden: bool) -> str: ...
+        def get_tag_table(self) -> object: ...
+        def get_property_by_name(self, name: str) -> object: ...
+        def create_mark(
+            self, name: str | None, pos: object, left_gravity: bool = ...
+        ) -> _TextMark: ...
+        def set_text(self, text: str, length: int = ...) -> None: ...
+        def insert(self, pos: object, text: object, length: int = ...) -> None: ...
+        def place_cursor(self, pos: object) -> None: ...
+        def insert_at_cursor(self, text: object, length: int = ...) -> None: ...
+        def get_selection_bounds(self) -> tuple[()] | tuple[_TextIter, _TextIter]: ...
+        def select_range(self, s: object, e: object) -> None: ...
+        def insert_with_tags(self, pos: object, text: str, *tags: object) -> None: ...
+        def get_start_iter(self) -> _TextIter: ...
+        def insert_with_tags_by_name(
+            self, pos: object, text: str, *names: str
+        ) -> None: ...
+        def get_iter_at_offset(self, offset: int) -> _TextIter: ...
+        def apply_tag(self, tag: object, s: object, e: object) -> None: ...
+        def get_iter_at_line(self, line: int) -> object: ...
+        insert_text: object  # signal
 
 
 class StartsTagFn(Protocol):
@@ -66,17 +111,17 @@ def Gtk() -> Generator[types.ModuleType]:
 
 
 @pytest.fixture
-def buf(Gtk: types.ModuleType) -> _Gtk.TextBuffer:
-    return Gtk.TextBuffer()
+def buf(Gtk: types.ModuleType) -> _TextBuf:
+    return cast("_TextBuf", Gtk.TextBuffer())
 
 
 @pytest.fixture
-def tagged_buf(Gtk: Namespace, buf: _Gtk.TextBuffer) -> tuple[_Gtk.TextBuffer, _Gtk.TextTag]:
+def tagged_buf(Gtk: Namespace, buf: _TextBuf) -> tuple[_TextBuf, _TextTag]:
     tag = buf.create_tag("title", font="Sans 18")
     return buf, tag
 
 
-def _text(buf: _Gtk.TextBuffer) -> object:
+def _text(buf: _TextBuf) -> str:
     start, end = buf.get_bounds()
     return buf.get_text(start, end, False)
 
@@ -96,19 +141,19 @@ def _starts_tag(Gtk: Namespace) -> StartsTagFn:
 
 
 @needs_display
-def test_tag_table_present(buf: _Gtk.TextBuffer) -> None:
+def test_tag_table_present(buf: _TextBuf) -> None:
     assert buf.get_tag_table() is not None
 
 
 @needs_display
-def test_create_tag_sets_properties(tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]) -> None:
+def test_create_tag_sets_properties(tagged_buf: tuple[_TextBuf, _TextTag]) -> None:
     _, tag = tagged_buf
     assert tag.get_property_by_name("name") == "title"
     assert tag.get_property_by_name("font") == "Sans 18"
 
 
 @needs_display
-def test_create_tag_anonymous(buf: _Gtk.TextBuffer) -> None:
+def test_create_tag_anonymous(buf: _TextBuf) -> None:
     tag = buf.create_tag(None, font="Sans 12")
     assert tag.get_property_by_name("name") is None
     assert tag.get_property_by_name("font") == "Sans 12"
@@ -120,7 +165,7 @@ def test_create_tag_anonymous(buf: _Gtk.TextBuffer) -> None:
 
 
 @needs_display
-def test_create_mark_default_gravity(buf: _Gtk.TextBuffer) -> None:
+def test_create_mark_default_gravity(buf: _TextBuf) -> None:
     start, _ = buf.get_bounds()
     mark = buf.create_mark(None, start)
     assert mark.get_left_gravity() is False
@@ -133,13 +178,13 @@ def test_create_mark_default_gravity(buf: _Gtk.TextBuffer) -> None:
 
 @needs_display
 @pytest.mark.parametrize("text", ["Hello Jane Hello Bob", "", "single line"])
-def test_set_text_default_length(buf: _Gtk.TextBuffer, text: str) -> None:
+def test_set_text_default_length(buf: _TextBuf, text: str) -> None:
     buf.set_text(text)
     assert _text(buf) == text
 
 
 @needs_display
-def test_insert_default_length(buf: _Gtk.TextBuffer) -> None:
+def test_insert_default_length(buf: _TextBuf) -> None:
     buf.set_text("")
     _, end = buf.get_bounds()
     buf.insert(end, "HelloHello")
@@ -148,7 +193,7 @@ def test_insert_default_length(buf: _Gtk.TextBuffer) -> None:
 
 
 @needs_display
-def test_insert_at_cursor_default_length(buf: _Gtk.TextBuffer) -> None:
+def test_insert_at_cursor_default_length(buf: _TextBuf) -> None:
     buf.set_text("HelloHello Bob")
     _, end = buf.get_bounds()
     cursor_iter = end.copy()
@@ -164,13 +209,13 @@ def test_insert_at_cursor_default_length(buf: _Gtk.TextBuffer) -> None:
 
 
 @needs_display
-def test_get_selection_bounds_empty(buf: _Gtk.TextBuffer) -> None:
+def test_get_selection_bounds_empty(buf: _TextBuf) -> None:
     buf.set_text("Hello Jane Hello Bob")
     assert buf.get_selection_bounds() == ()
 
 
 @needs_display
-def test_get_selection_bounds_after_select_range(buf: _Gtk.TextBuffer) -> None:
+def test_get_selection_bounds_after_select_range(buf: _TextBuf) -> None:
     buf.set_text("Hello Jane Hello Bob")
     start, end = buf.get_bounds()
     buf.select_range(start, end)
@@ -187,20 +232,20 @@ def test_get_selection_bounds_after_select_range(buf: _Gtk.TextBuffer) -> None:
 
 
 @needs_display
-def test_insert_with_tags_no_tags(buf: _Gtk.TextBuffer) -> None:
+def test_insert_with_tags_no_tags(buf: _TextBuf) -> None:
     buf.insert_with_tags(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
-def test_insert_with_tags_by_name_no_tags(buf: _Gtk.TextBuffer) -> None:
+def test_insert_with_tags_by_name_no_tags(buf: _TextBuf) -> None:
     buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello")
     assert _text(buf) == "HelloHello"
 
 
 @needs_display
 def test_insert_with_tags_applies_tag(
-    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
+    Gtk: Namespace, tagged_buf: tuple[_TextBuf, _TextTag]
 ) -> None:
     buf, tag = tagged_buf
     buf.insert_with_tags(buf.get_start_iter(), "HelloHello", tag)
@@ -212,7 +257,7 @@ def test_insert_with_tags_applies_tag(
 
 @needs_display
 def test_insert_with_tags_by_name_applies_tag(
-    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
+    Gtk: Namespace, tagged_buf: tuple[_TextBuf, _TextTag]
 ) -> None:
     buf, tag = tagged_buf
     buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "title")
@@ -223,7 +268,7 @@ def test_insert_with_tags_by_name_applies_tag(
 
 
 @needs_display
-def test_insert_with_tags_by_name_unknown_raises(buf: _Gtk.TextBuffer) -> None:
+def test_insert_with_tags_by_name_unknown_raises(buf: _TextBuf) -> None:
     with pytest.raises(ValueError):
         buf.insert_with_tags_by_name(buf.get_start_iter(), "HelloHello", "nope")
 
@@ -235,7 +280,7 @@ def test_insert_with_tags_by_name_unknown_raises(buf: _Gtk.TextBuffer) -> None:
 
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
-def test_insert_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) -> None:
+def test_insert_rejects_non_string(buf: _TextBuf, bad: object) -> None:
     start, _ = buf.get_bounds()
     with pytest.raises(TypeError):
         buf.insert(start, bad)
@@ -243,7 +288,7 @@ def test_insert_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) -> None:
 
 @needs_display
 @pytest.mark.parametrize("bad", [42, 4.2, b"bytes", None, ["list"]])
-def test_insert_at_cursor_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) -> None:
+def test_insert_at_cursor_rejects_non_string(buf: _TextBuf, bad: object) -> None:
     with pytest.raises(TypeError):
         buf.insert_at_cursor(bad)
 
@@ -255,7 +300,7 @@ def test_insert_at_cursor_rejects_non_string(buf: _Gtk.TextBuffer, bad: object) 
 
 @needs_display
 def test_text_iter_tag_boundaries(
-    Gtk: Namespace, tagged_buf: tuple[_Gtk.TextBuffer, _Gtk.TextTag]
+    Gtk: Namespace, tagged_buf: tuple[_TextBuf, _TextTag]
 ) -> None:
     buf, tag = tagged_buf
     buf.set_text("Hello Jane Hello Bob")
@@ -274,7 +319,7 @@ def test_text_iter_tag_boundaries(
 
 
 @needs_display
-def test_text_iter_forward_search_misses_case_sensitive(buf: _Gtk.TextBuffer) -> None:
+def test_text_iter_forward_search_misses_case_sensitive(buf: _TextBuf) -> None:
     buf.set_text("Hello World Hello GNOME")
     it = buf.get_iter_at_offset(0)
     assert it.forward_search("world", 0, None) is None
@@ -282,7 +327,7 @@ def test_text_iter_forward_search_misses_case_sensitive(buf: _Gtk.TextBuffer) ->
 
 @needs_display
 def test_text_iter_forward_search_case_sensitive_hit(
-    Gtk: Namespace, buf: _Gtk.TextBuffer
+    Gtk: Namespace, buf: _TextBuf
 ) -> None:
     buf.set_text("Hello World Hello GNOME")
     it = buf.get_iter_at_offset(0)
@@ -295,7 +340,7 @@ def test_text_iter_forward_search_case_sensitive_hit(
 
 
 @needs_display
-def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: _Gtk.TextBuffer) -> None:
+def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: _TextBuf) -> None:
     buf.set_text("Hello World Hello GNOME")
     it = buf.get_iter_at_offset(0)
     match = it.forward_search("world", Gtk.TextSearchFlags.CASE_INSENSITIVE, None)
@@ -312,14 +357,14 @@ def test_text_iter_forward_search_case_insensitive(Gtk: Namespace, buf: _Gtk.Tex
 
 
 @needs_display
-def test_insert_text_signal_can_relocate_iter(buf: _Gtk.TextBuffer) -> None:
+def test_insert_text_signal_can_relocate_iter(buf: _TextBuf) -> None:
     def relocate_to_end(
         buffer: _Gtk.TextBuffer, location: _Gtk.TextIter, text: object, length: object
     ) -> None:
         location.assign(buffer.get_end_iter())
 
     buf.set_text("first line\n")
-    buf.insert_text.connect(relocate_to_end)  # type: ignore[union-attr]
+    buf.insert_text.connect(relocate_to_end)  # type: ignore[attr-defined]
     buf.place_cursor(buf.get_start_iter())
     buf.insert_at_cursor("second line\n")
     assert buf.get_property_by_name("text") == "first line\nsecond line\n"
@@ -331,7 +376,7 @@ def test_insert_text_signal_can_relocate_iter(buf: _Gtk.TextBuffer) -> None:
 
 
 @needs_display
-def test_backward_find_char_walks_in_reverse(buf: _Gtk.TextBuffer) -> None:
+def test_backward_find_char_walks_in_reverse(buf: _TextBuf) -> None:
     buf.set_text("abc")
     end = buf.get_iter_at_line(99)
     if isinstance(end, tuple):  # goi sometimes returns (bool, iter)
@@ -342,7 +387,7 @@ def test_backward_find_char_walks_in_reverse(buf: _Gtk.TextBuffer) -> None:
         seen.append(ch)
         return ch == "a"
 
-    assert end.backward_find_char(pred)
+    assert end.backward_find_char(pred)  # type: ignore[attr-defined]
     assert seen == ["c", "b", "a"]
 
 

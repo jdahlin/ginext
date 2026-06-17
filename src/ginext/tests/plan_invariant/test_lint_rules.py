@@ -128,8 +128,9 @@ def test_no_noqa_b009_in_sources() -> None:
 
     pattern = re.compile(r"#\s*noqa:.*\bB009\b")
     violations = []
+    _SKIP = {".venv", "build", ".cache", ".tox"}
     for path in _ROOT.rglob("*.py"):
-        if ".venv" in path.parts or "build" in path.parts:
+        if _SKIP.intersection(path.parts):
             continue
         for lineno, line in enumerate(path.read_text().splitlines(), 1):
             if pattern.search(line):
