@@ -37,7 +37,6 @@ setup_gi_test_env(Path(__file__).resolve().parents[5])
 _XFAIL_BY_NODE = {
     "test_cancellable.py::test_does_not_expose_new": "constructor exposure differs after static constructor support",
     "test_enum_flags.py::test_enum_return_can_be_passed_back_as_arg": "enum/flags wrapper identity mismatch in combined compat run",
-    "test_everything.py::TestBoxed::test_boxed": "boxed property wrapper identity is unstable in the combined compat run",
     "test_gi.py::TestModule::test_dir": "missing pygobject compat attribute",
     "test_gi.py::TestModule::test_path": "missing pygobject compat attribute",
     "test_gi.py::TestModule::test_str": "behaviour mismatch under ginext pygobject compat",
@@ -353,6 +352,10 @@ _FREE_THREADED_XFAIL_BY_NODE = {
     "test_gtk_template.py::test_main_example": "Gtk template child binding is unstable under free-threaded Python",
 }
 
+_FREE_THREADED_XFAIL_NOT_RUN_BY_NODE = {
+    "test_signal.py::TestGSignalsError::test_invalid_type": "crashes xdist worker under free-threaded Python",
+}
+
 _PY315_GIL_XFAIL_NOT_RUN_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
 }
@@ -394,6 +397,10 @@ def pytest_collection_modifyitems(
         ):
             reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
+            continue
+        if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE:
+            reason = _FREE_THREADED_XFAIL_NOT_RUN_BY_NODE[relative_nodeid]
+            item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if is_py315_gil and relative_nodeid in _PY315_GIL_XFAIL_NOT_RUN_BY_NODE:
             reason = _PY315_GIL_XFAIL_NOT_RUN_BY_NODE[relative_nodeid]

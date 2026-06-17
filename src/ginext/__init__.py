@@ -47,6 +47,8 @@ class PyGIDeprecationWarning(DeprecationWarning):
 
 _LOCAL_MODULES = {"aio", "cairo", "features", "gobject", "runtime"}
 _namespace_load_lock = threading.RLock()
+_namespace_cache: dict[str, Namespace] = {}
+_namespace_loading: dict[str, Namespace] = {}
 
 
 def _load_local_module(name: str) -> types.ModuleType:
@@ -83,16 +85,20 @@ def _load_namespace(
         if _module_name_override is not None
         else _namespace_module_name(name, profile)
     )
-    cached = sys.modules.get(module_name)
+    cached = _namespace_cache.get(module_name)
     if cached is not None:
-        return cast("Namespace", cached)
+        return cached
 
     with _namespace_load_lock:
-        cached = sys.modules.get(module_name)
+        cached = _namespace_cache.get(module_name)
         if cached is not None:
-            return cast("Namespace", cached)
+            return cached
+        loading = _namespace_loading.get(module_name)
+        if loading is not None:
+            return loading
 
         namespace = Namespace(name, version, profile=profile)
+        _namespace_loading[module_name] = namespace
         cast("Any", sys.modules)[module_name] = namespace
         if profile is abi.NATIVE:
             globals()[name] = namespace
@@ -100,10 +106,15 @@ def _load_namespace(
             load_overlay_module_for(namespace)
         except BaseException:
             # Roll back so a retry can re-attempt overlay load.
-            sys.modules.pop(module_name, None)
+            if sys.modules.get(module_name) is namespace:
+                sys.modules.pop(module_name, None)
             if profile is abi.NATIVE:
-                globals().pop(name, None)
+                if globals().get(name) is namespace:
+                    globals().pop(name, None)
             raise
+        finally:
+            _namespace_loading.pop(module_name, None)
+        _namespace_cache[module_name] = namespace
         return namespace
 
 
