@@ -241,14 +241,28 @@ def setup_gi_test_env(root: pathlib.Path, build_path: str | None = None) -> None
 
 
 def preload_gi_test_libraries(builddir: pathlib.Path) -> None:
-    # Force the in-tree test typelibs through ginext's normal namespace loader
-    # so their shared libraries are loaded from typelib metadata.
-    from ginext import private
+    # Updating LD_LIBRARY_PATH after process startup is not enough for dlopen on
+    # Linux, so load the test libraries explicitly by absolute path. On Windows
+    # this is essential for a different reason: girepository loads a typelib's
+    # referenced shared library via g_module_open, which does NOT honor
+    # os.add_dll_directory, so the .dll must already be resident in the process
+    # (e.g. one Regress function returning a Utility.Object would otherwise fail
+    # to lazily load utility.dll and leave the type registered as void).
+    import sys
 
-    for namespace in ("Utility", "Regress", "GIMarshallingTests", "GoiBench"):
-        path = builddir / f"{namespace}-1.0.typelib"
+    from ginext.private import preload_shared_library
+
+    if sys.platform == "win32":
+        suffix, prefix = ".dll", ""
+    elif sys.platform == "darwin":
+        suffix, prefix = ".dylib", "lib"
+    else:
+        suffix, prefix = ".so", "lib"
+
+    for base in ("utility", "regress", "gimarshallingtests", "goibench"):
+        path = builddir / f"{prefix}{base}{suffix}"
         if path.exists():
-            private.require_namespace(namespace, "1.0")
+            preload_shared_library(str(path))
 
 
 def configure_subprocess_marker(config: pytest.Config) -> None:

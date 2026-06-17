@@ -123,6 +123,7 @@ _XFAIL_BY_NODE = {
     "test_object_marshaling.py::TestVFuncsWithHeldFloatingArg::test_vfunc_in_floating_transfer_none_with_held_floating": "behaviour mismatch under ginext pygobject compat",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_gio_application": "TypeError under ginext pygobject compat",
     "test_ossig.py::TestOverridesWakeupOnAlarm::test_glib_mainloop": "TypeError under ginext pygobject compat",
+    "test_ossig.py::TestSigintFallback::test_no_replace_if_set_by_glib": "missing pygobject compat attribute",
     "test_overrides_gdk.py::TestGdk::test_file_list": "TypeError under ginext pygobject compat",
     "test_overrides_gdk.py::TestGdk::test_paintable_flags": "missing pygobject compat attribute",
     "test_overrides_gdk.py::TestGdk::test_rgba": "missing pygobject compat attribute",

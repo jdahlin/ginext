@@ -53,11 +53,13 @@ import pytest
 @pytest.fixture(scope="module")
 def GstPlay() -> Any:
     try:
-        import ginext
+        import goi
 
-        ginext.defaults.require("GstPlay", "1.0")
-        return ginext.GstPlay
-    except AttributeError, ImportError, ValueError:
+        goi.require_version("GstPlay", "1.0")
+        from goi.repository import GstPlay
+
+        return GstPlay
+    except ImportError, ValueError:
         pytest.skip("GstPlay-1.0 typelib not available")
 
 

@@ -33,6 +33,7 @@ import types
 import weakref
 from typing import TYPE_CHECKING, Any, Callable
 
+from .. import private
 from .adapt import _accepted_signal_arg_count, _make_cell
 
 if TYPE_CHECKING:
@@ -202,24 +203,25 @@ class _WeakBoundCallable:
     owner) the regular adapter path runs unchanged.
     """
 
-    __slots__ = ("_func", "_self_ref", "_n_args")
+    __slots__ = ("_func", "_self_ref", "_self_ptr", "_n_args")
 
     def __init__(self, bound_method: types.MethodType, n_args: int | None) -> None:
         self._func = bound_method.__func__
         host = bound_method.__self__
         self._self_ref = weakref.ref(host)
+        pointer_value = getattr(host, "pointer_value", None)
+        if callable(pointer_value):
+            self._self_ptr = pointer_value()
+        else:
+            self._self_ptr = None
         self._n_args = n_args
 
     def __call__(self, *signal_args: object) -> object:
         host = self._self_ref()
+        if host is None and self._self_ptr is not None:
+            host = private.GObject.from_c(self._self_ptr)
         if host is None:
             return None
-        if self._n_args is None:
-            return self._func(host, *signal_args)
-        return self._func(host, *signal_args[: self._n_args])
-
-    def __pygi_call_with_owner__(self, owner: object, *signal_args: object) -> object:
-        host = self._self_ref() or owner
         if self._n_args is None:
             return self._func(host, *signal_args)
         return self._func(host, *signal_args[: self._n_args])

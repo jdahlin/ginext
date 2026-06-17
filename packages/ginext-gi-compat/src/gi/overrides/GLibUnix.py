@@ -7,4 +7,9 @@
 
 from __future__ import annotations
 
+# signal_add_full was renamed to signal_add; declare it as a deprecated alias.
+# _DEPRECATED_ATTRS is processed by gi.repository._apply_overrides to install
+# a deprecating proxy around the namespace.
+_DEPRECATED_ATTRS: dict[str, str] = {"signal_add_full": "signal_add"}
+
 __all__: list[str] = []

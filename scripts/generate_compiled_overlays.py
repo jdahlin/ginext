@@ -311,8 +311,7 @@ def main() -> int:
                     "    { NULL, GOI_OVERLAY_PARAM_REQUIRED, "
                     "GOI_OVERLAY_DEFAULT_NONE, NULL, 0LL, 0 },"
                 )
-            for param in params:
-                lines.append(emit_param_row(param))
+            lines.extend(emit_param_row(param) for param in params)
             lines.append("};")
             lines.append("")
 
@@ -330,8 +329,7 @@ def main() -> int:
                 lines.append(f"static const GoiOverlayTupleItem {arr_name}[] = {{")
                 for item_kind, ival, bval, sval in tuple_items:
                     lines.append(
-                        "    { %s, %s, %s, %s },"
-                        % (
+                        "    {{ {}, {}, {}, {} }},".format(
                             item_kind,
                             c_int(ival),
                             c_bool(bval),
@@ -360,18 +358,10 @@ def main() -> int:
                     tuple_ref = None
                     tuple_len = 0
                 lines.append(
-                    "    { %s, %s, %s, %s, %s, %s, %s, %s, %d },"
-                    % (
-                        c_string(name),
-                        kind,
-                        c_string_or_null(from_name),
-                        c_string_or_null(value_name),
-                        c_int(vi),
-                        c_bool(vb),
-                        c_string_or_null(vs),
-                        tuple_ref if tuple_ref is not None else "NULL",
-                        tuple_len,
-                    )
+                    f"    {{ {c_string(name)}, {kind}, {c_string_or_null(from_name)},"
+                    f" {c_string_or_null(value_name)}, {c_int(vi)}, {c_bool(vb)},"
+                    f" {c_string_or_null(vs)},"
+                    f" {tuple_ref if tuple_ref is not None else 'NULL'}, {tuple_len} }},"
                 )
             lines.append("};")
             lines.append("")
@@ -410,22 +400,12 @@ def main() -> int:
                 wrapper_spec.get("return")
             )
             lines.append(
-                "    { %s, { %s, %s, params_%s, %d, calls_%s, %d, "
-                "{ %s, %s, %s, %s, %s } } },"
-                % (
-                    c_string(wrapper_name),
-                    kind_enum,
-                    c_string(target_identifier),
-                    wrapper_id,
-                    len(wrapper_spec.get("params", [])),
-                    wrapper_id,
-                    len(wrapper_spec.get("call", {})),
-                    ret_kind,
-                    c_string_or_null(ret_from),
-                    c_int(ret_int),
-                    c_bool(ret_bool),
-                    c_string_or_null(ret_string),
-                )
+                f"    {{ {c_string(wrapper_name)}, {{ {kind_enum},"
+                f" {c_string(target_identifier)}, params_{wrapper_id},"
+                f" {len(wrapper_spec.get('params', []))}, calls_{wrapper_id},"
+                f" {len(wrapper_spec.get('call', {}))}, {{ {ret_kind},"
+                f" {c_string_or_null(ret_from)}, {c_int(ret_int)},"
+                f" {c_bool(ret_bool)}, {c_string_or_null(ret_string)} }} }} }},"
             )
         lines.append("};")
         lines.append("")
@@ -458,8 +438,7 @@ def main() -> int:
                         f"expected a table, got {pspec!r}"
                     )
                 lines.append(
-                    "    { %s, %s, %s },"
-                    % (
+                    "    {{ {}, {}, {} }},".format(
                         c_string(pname),
                         c_string_or_null(pspec.get("getter")),
                         c_string_or_null(pspec.get("setter")),
@@ -470,8 +449,7 @@ def main() -> int:
             lines.append(f"static const char *init_kwargs_{class_id}[] = {{")
             if not init_kwargs:
                 lines.append("    NULL,")
-            for kw in init_kwargs:
-                lines.append(f"    {c_string(kw)},")
+            lines.extend(f"    {c_string(kw)}," for kw in init_kwargs)
             lines.append("};")
             lines.append("")
             methods = class_spec.get("methods", {}) or {}
@@ -495,8 +473,7 @@ def main() -> int:
                     continue
                 m_call_map = mspec.get("call", {}) or {}
                 lines.append(f"static const GoiOverlayParamSpec params_{m_id}[] = {{")
-                for param in mparams:
-                    lines.append(emit_param_row(param))
+                lines.extend(emit_param_row(param) for param in mparams)
                 lines.append("};")
                 lines.append("")
                 # Tuple-literal call values aren't supported for class
@@ -519,8 +496,7 @@ def main() -> int:
                                 f"call {c_name!r}: tuple literals unsupported"
                             )
                         lines.append(
-                            "    { %s, %s, %s, %s, %s, %s, %s, NULL, 0 },"
-                            % (
+                            "    {{ {}, {}, {}, {}, {}, {}, {}, NULL, 0 }},".format(
                                 c_string(nm),
                                 kind,
                                 c_string_or_null(from_name),
@@ -566,8 +542,7 @@ def main() -> int:
                 mparams = mspec.get("params", []) or []
                 entry_ref = f"&entry_{m_id}" if mparams else "NULL"
                 lines.append(
-                    "    { %s, %s, %s, %s },"
-                    % (
+                    "    {{ {}, {}, {}, {} }},".format(
                         c_string(mname),
                         c_bool(trailing_user_data),
                         c_string(from_function)
@@ -613,7 +588,9 @@ def main() -> int:
                             f"{enum_name!r} member must be a string"
                         )
                     lines.append(
-                        "    { %s, %s }," % (c_string(enum_name), c_string(arm_member))
+                        "    {{ {}, {} }},".format(
+                            c_string(enum_name), c_string(arm_member)
+                        )
                     )
                 lines.append("};")
                 lines.append("")
@@ -639,22 +616,10 @@ def main() -> int:
                     bu_arms_ref = "NULL"
                     bu_n_arms = 0
                 lines.append(
-                    "    { %s, props_%s, %d, init_kwargs_%s, %d, %s, "
-                    "methods_%s, %d, %s, %s, %s, %d },"
-                    % (
-                        c_string(class_name),
-                        class_id,
-                        len(props),
-                        class_id,
-                        len(init_kwargs),
-                        c_bool(constructor_kwonly),
-                        class_id,
-                        len(methods),
-                        bu_disc,
-                        bu_enum,
-                        bu_arms_ref,
-                        bu_n_arms,
-                    )
+                    f"    {{ {c_string(class_name)}, props_{class_id}, {len(props)},"
+                    f" init_kwargs_{class_id}, {len(init_kwargs)}, {c_bool(constructor_kwonly)},"
+                    f" methods_{class_id}, {len(methods)}, {bu_disc}, {bu_enum},"
+                    f" {bu_arms_ref}, {bu_n_arms} }},"
                 )
             lines.append("};")
             lines.append("")
@@ -708,8 +673,7 @@ def main() -> int:
 
         if require_list:
             lines.append(f"static const char *const require_{ns_id}[] = {{")
-            for r in require_list:
-                lines.append(f"    {c_string(r)},")
+            lines.extend(f"    {c_string(r)}," for r in require_list)
             lines.append("};")
             lines.append("")
             require_ref = f"require_{ns_id}"
@@ -722,8 +686,9 @@ def main() -> int:
             )
             for fn, env_gate, warn in first_access_calls:
                 lines.append(
-                    "    { %s, %s, %s },"
-                    % (c_string(fn), c_string_or_null(env_gate), c_bool(warn))
+                    "    {{ {}, {}, {} }},".format(
+                        c_string(fn), c_string_or_null(env_gate), c_bool(warn)
+                    )
                 )
             lines.append("};")
             lines.append("")
@@ -733,19 +698,9 @@ def main() -> int:
 
         class_entries_ref = f"class_entries_{ns_id}" if classes else "NULL"
         namespace_rows.append(
-            "    { %s, %s, entries_%s, %d, %s, %d, %s, %d, %s, %d },"
-            % (
-                c_string(namespace),
-                c_string(version),
-                ns_id,
-                len(wrappers),
-                class_entries_ref,
-                len(classes),
-                require_ref,
-                len(require_list),
-                first_access_ref,
-                len(first_access_calls),
-            )
+            f"    {{ {c_string(namespace)}, {c_string(version)}, entries_{ns_id},"
+            f" {len(wrappers)}, {class_entries_ref}, {len(classes)}, {require_ref},"
+            f" {len(require_list)}, {first_access_ref}, {len(first_access_calls)} }},"
         )
 
     lines.append("static const GoiCompiledOverlayNamespace g_namespaces[] = {")

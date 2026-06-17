@@ -19,8 +19,9 @@ def _write_init_pyi(namespaces: list[str], out_dir: Path) -> None:
         "from typing import Any",
         "",
     ]
-    for namespace in sorted(namespaces):
-        lines.append(f"from . import {namespace} as {namespace}")
+    lines.extend(
+        f"from . import {namespace} as {namespace}" for namespace in sorted(namespaces)
+    )
     lines += [
         "",
         "def __getattr__(name: str) -> Any: ...",

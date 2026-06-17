@@ -136,14 +136,15 @@ def _install_record_compat() -> None:
     RecordMeta.__getattr__ = _meta_getattr  # type: ignore[method-assign]
 
     # When __info__ is explicitly set on a record class (e.g. for testing),
-    # validate it through the C record setup path so invalid values still raise
-    # TypeError before normal construction.
+    # RecordBase.__new__ must use it instead of gimeta.info so that
+    # private.record_new raises TypeError for invalid values.
     _original_new = RecordBase.__new__
 
     def _compat_new(cls: Any, *args: Any, **kwargs: Any) -> Any:
         custom_info = cls.__dict__.get("__info__")
         if custom_info is not None and not args and not kwargs:
-            private.record_setup_class(cls, custom_info)
+            # Let C code raise TypeError for invalid info objects
+            return private.record_new(cls, custom_info)
         return _original_new(cls, *args, **kwargs)
 
     RecordBase.__new__ = _compat_new  # type: ignore[method-assign]
@@ -189,7 +190,7 @@ def _install_record_compat() -> None:
                     original_profile = gimeta.profile
                     gimeta.profile = abi.NATIVE
                     try:
-                        private.record_setup_class(cls, info_obj)
+                        private.register_boxed_class(cls, gtype_val, info_obj)
                     finally:
                         gimeta.profile = original_profile
         return cls

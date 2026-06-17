@@ -25,8 +25,6 @@ import enum
 import types
 from typing import TYPE_CHECKING, Any, ClassVar, TypeVar, cast
 
-from ginext import private
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,112 +35,12 @@ if TYPE_CHECKING:
 _ENUM_PICKLE_REGISTRY: dict[int, Any] = {}
 _enum_classes_by_key: dict[tuple[str, str, str, str], type[Any]] = {}
 _EnumT = TypeVar("_EnumT")
+_enum_base_hook: Callable[[type], type] | None = None
 
 
-def _register_genum(type_name: str, members: dict[str, int]) -> int:
-    return private.register_static(_GEnumMeta._G_TYPE_ENUM, type_name, members)
-
-
-def _register_gflags(type_name: str, members: dict[str, int]) -> int:
-    return private.register_static(_GFlagsMeta._G_TYPE_FLAGS, type_name, members)
-
-
-def _make_user_gtype(gtype_int: int) -> Any:
-    from .gobject.gtype import compat_gtype_from_raw
-    from .gobject import gobjectclass as _gobjectclass_mod
-
-    GObject = _gobjectclass_mod.gobject_repo()
-    name = GObject.type_name(gtype_int)
-    return compat_gtype_from_raw(gtype_int, name)
-
-
-class _GEnumMeta(enum.EnumType):
-    # G_TYPE_ENUM = 48 (fundamental type index 12 << 2)
-    _G_TYPE_ENUM: int = 48
-
-    def __new__(
-        mcs: type[_GEnumMeta],
-        name: str,
-        bases: tuple[type, ...],
-        namespace: dict[str, Any],
-        **kwargs: Any,
-    ) -> _GEnumMeta:
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)  # type: ignore[arg-type]
-        if not any(getattr(b, "__genum_base__", False) for b in bases):
-            return cls
-        type_name = namespace.get("__gtype_name__") or name
-        raw_members: dict[str, Any] = dict(cls.__members__)
-        members: dict[str, int] = {k: int(v) for k, v in raw_members.items()}
-        gtype_int = _register_genum(type_name, members)
-        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
-        from . import abi, classbuild
-
-        classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
-        return cls
-
-
-class _GFlagsMeta(enum.EnumType):
-    _G_TYPE_FLAGS: int = 52
-
-    def __new__(
-        mcs: type[_GFlagsMeta],
-        name: str,
-        bases: tuple[type, ...],
-        namespace: dict[str, Any],
-        **kwargs: Any,
-    ) -> _GFlagsMeta:
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)  # type: ignore[arg-type]
-        if not any(getattr(b, "__gflags_base__", False) for b in bases):
-            return cls
-        type_name = namespace.get("__gtype_name__") or name
-        raw_members_f: dict[str, Any] = dict(cls.__members__)
-        members: dict[str, int] = {k: int(v) for k, v in raw_members_f.items()}
-        gtype_int = _register_gflags(type_name, members)
-        cls.__gtype__ = _make_user_gtype(gtype_int)  # type: ignore[attr-defined]
-        from . import abi, classbuild
-
-        classbuild._classes_by_gtype[(abi.NATIVE.name, gtype_int)] = cls
-        return cls
-
-
-class _GTypeLazy:
-    """Descriptor that lazily initialises __gtype__ for GEnum/GFlags base classes."""
-
-    def __init__(self, gtype_int: int) -> None:
-        self._gtype_int = gtype_int
-        self._cached: Any = None
-
-    def __get__(self, obj: Any, objtype: Any = None) -> Any:
-        if self._cached is None:
-            self._cached = _make_user_gtype(self._gtype_int)
-        return self._cached
-
-    def __set_name__(self, owner: Any, name: str) -> None:
-        pass
-
-
-class GEnum(int, enum.ReprEnum, metaclass=_GEnumMeta):
-    """Base class for Python-defined GObject enum types.
-
-    Subclass this and define integer members; the metaclass registers the
-    type with the GObject type system via g_enum_register_static.
-    """
-
-    __genum_base__ = True
-    # G_TYPE_ENUM = 48 — lazy so GObject namespace isn't loaded at import time
-    __gtype__ = _GTypeLazy(48)
-
-
-class GFlags(enum.IntFlag, metaclass=_GFlagsMeta):
-    """Base class for Python-defined GObject flags types.
-
-    Subclass this and define integer members; the metaclass registers the
-    type with the GObject type system via g_flags_register_static.
-    """
-
-    __gflags_base__ = True
-    # G_TYPE_FLAGS = 52
-    __gtype__ = _GTypeLazy(52)
+def register_enum_base_hook(hook: Callable[[type], type]) -> None:
+    global _enum_base_hook
+    _enum_base_hook = hook
 
 
 def _enum_reconstruct(class_id: int, value: int) -> enum.IntEnum:
@@ -258,6 +156,12 @@ class EnumBuilder:
         gtype = info.gtype
         enum_base: type = base
         module_name = context.module_name()
+        if (
+            context.profile.pygobject_compat
+            and gtype > 255
+            and _enum_base_hook is not None
+        ):
+            enum_base = _enum_base_hook(base)
 
         cls: type[Any] = cast("Any", enum_base)(
             name, members, module=module_name, qualname=name

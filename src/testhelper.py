@@ -78,12 +78,16 @@ def constant_strip_prefix(name: str, prefix: str) -> str:
     return name[stripped:]
 
 
-def value_array_get_nth_type(value_or_array: object, index: int) -> object:
-    item_types = getattr(value_or_array, "_ginext_compat_value_array_item_types", None)
-    if item_types is None:
-        holder = GObject.Value(GObject.ValueArray, value_or_array)
-        item_types = getattr(holder, "_ginext_compat_value_array_item_types", ())
-    return item_types[index]
+def value_array_get_nth_type(value_or_array: object, index: int) -> int:
+    from ginext import private
+
+    temp = None
+    if isinstance(value_or_array, GObject.Value):
+        holder: GObject.Value = value_or_array
+    else:
+        temp = GObject.Value(GObject.ValueArray, value_or_array)
+        holder = temp
+    return int(private.gvalue_array_get_nth_type(holder, index))
 
 
 def connectcallbacks(obj: GObject.Object) -> None:

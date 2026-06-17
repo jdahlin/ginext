@@ -21,26 +21,52 @@
 
 from __future__ import annotations
 
+from typing import cast
+
+
+class _GTypeCarrier:
+    def __init__(self, gtype: object) -> None:
+        self.__gtype__ = gtype
+
 
 def test_new_with_properties_accepts_gobject_class() -> None:
+    import ginext
     from ginext import Gio, GObject
 
-    obj = GObject.new_with_properties(Gio.Cancellable, {})
-    assert isinstance(obj, Gio.Cancellable)
+    ptr = GObject.new_with_properties(Gio.Cancellable, {})
+    assert isinstance(ptr, int)
+    assert ptr
+    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
 
 
 def test_new_with_properties_accepts_gtype_object() -> None:
+    import ginext
     from ginext import Gio, GObject
 
-    obj = GObject.new_with_properties(Gio.Cancellable.gimeta.gtype, {})
-    assert isinstance(obj, Gio.Cancellable)
+    ptr = GObject.new_with_properties(Gio.Cancellable.gimeta.gtype, {})
+    assert isinstance(ptr, int)
+    assert ptr
+    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
+
+
+def test_new_with_properties_accepts_object_with_gtype() -> None:
+    import ginext
+    from ginext import Gio, GObject
+
+    ptr = GObject.new_with_properties(_GTypeCarrier(Gio.Cancellable.gimeta.gtype), {})
+    assert isinstance(ptr, int)
+    assert ptr
+    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
 
 
 def test_new_with_properties_accepts_gobject_instance_as_type() -> None:
+    import ginext
     from ginext import Gio, GObject
 
-    obj = GObject.new_with_properties(Gio.Cancellable(), {})
-    assert isinstance(obj, Gio.Cancellable)
+    ptr = GObject.new_with_properties(Gio.Cancellable(), {})
+    assert isinstance(ptr, int)
+    assert ptr
+    cast("ginext.private.GObject", ginext.private.GObject.from_c(ptr)).release_ref()
 
 
 def test_interface_list_properties_accepts_gtype_object() -> None:
@@ -48,6 +74,20 @@ def test_interface_list_properties_accepts_gtype_object() -> None:
 
     props = GObject.interface_list_properties(Gio.Action.gimeta.gtype)
     assert any(p.name == "enabled" for p in props)
+
+
+def test_interface_list_properties_accepts_object_with_gtype() -> None:
+    from ginext import Gio, GObject
+
+    props = GObject.interface_list_properties(_GTypeCarrier(Gio.Action.gimeta.gtype))
+    assert any(p.name == "name" for p in props)
+
+
+def test_invoke_gtype_argument_accepts_object_with_gtype() -> None:
+    from ginext import Gio
+
+    store = Gio.ListStore(item_type=_GTypeCarrier(Gio.FileInfo.gimeta.gtype))
+    assert isinstance(store, Gio.ListStore)
 
 
 def test_invoke_gtype_argument_accepts_gobject_instance_as_type() -> None:

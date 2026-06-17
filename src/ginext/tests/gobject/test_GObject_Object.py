@@ -31,9 +31,11 @@ Validates:
 
 from __future__ import annotations
 
+import pytest
 
 import gc
 import threading
+import weakref
 from typing import Any
 
 from ginext import private as _core
@@ -116,6 +118,25 @@ def test_parallel_construction_under_nogil() -> None:
         t.join()
 
     assert not errors, errors
+
+
+@pytest.mark.xfail(
+    reason="Python weakref-to-wrapper behaviour differs under ginext", strict=False
+)
+def test_python_weakref_to_wrapper_not_supported() -> None:
+    """Python-level `weakref.ref(gobj)` is intentionally not supported.
+
+    With no toggle refs, a Python weakref tracks wrapper liveness, not
+    GObject liveness — the wrapper can be GC'd while the GObject lives on
+    in C, and a future re-entry creates a new wrapper. Use
+    `gobj.weak_ref(callback)` for "tell me when the GObject dies"."""
+    obj = _new_gobject()
+    try:
+        weakref.ref(obj)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("expected TypeError")
 
 
 def test_gobject_weak_ref_no_callback() -> None:

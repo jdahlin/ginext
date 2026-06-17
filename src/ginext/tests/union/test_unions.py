@@ -17,8 +17,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
 
 from ginext.namespace import Namespace
@@ -38,19 +36,6 @@ def regress() -> Namespace:
 @pytest.fixture(scope="module")
 def utility() -> Namespace:
     return load_test_namespace("Utility")
-
-
-if TYPE_CHECKING:
-
-    def _match_union_positionally(union: object, cls: object) -> int | None: ...
-else:
-
-    def _match_union_positionally(union: object, cls: object) -> int | None:
-        match union:
-            case cls(integer, _real):
-                return integer
-            case _:
-                return None
 
 
 def test_union_default_constructor_and_field(gm: Namespace) -> None:
@@ -141,4 +126,23 @@ def test_union_positional_pattern_match(utility: Namespace) -> None:
     union = utility.Union()
     union.integer = 42
 
-    assert _match_union_positionally(union, utility.Union) == 42
+    match union:
+        case utility.Union(integer, _real):
+            assert integer == 42
+        case _:  # pragma: no cover - guards against a matching regression
+            raise AssertionError("Union did not match positionally")
+
+
+@pytest.mark.xfail(
+    reason="anonymous union is not represented in the typelib",
+    run=False,
+    strict=False,
+)
+def test_utility_tagged_value_nested_anonymous_union(utility: Namespace) -> None:
+    value = utility.TaggedValue()
+
+    value.tag = 1
+    value.value.v_integer = 42
+
+    assert value.tag == 1
+    assert value.value.v_integer == 42

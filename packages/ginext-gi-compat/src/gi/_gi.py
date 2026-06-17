@@ -26,7 +26,6 @@ from ginext.gobject.gtype import (
     GType as GType,
     compat_gtype_from_raw as _compat_gtype_from_raw,
 )
-from . import _repository_helpers
 
 # Ensure GTypeMeta/GType compat patches (including GType.INVALID) are applied
 # before we access them below. This is done here rather than in gi/__init__.py
@@ -785,9 +784,7 @@ class Repository:
     def is_registered(self, namespace: str, version: str | None = None) -> bool:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        if version == "":
-            return False
-        return bool(_repository_helpers.repository().is_registered(namespace, version))
+        return _private._gobject.namespace_is_registered(namespace, version)
 
     def require(
         self, namespace: str, version: str | None = None, flags: int = 0
@@ -800,7 +797,6 @@ class Repository:
             if version is not None:
                 v = version
         _private.require_namespace(namespace, v)
-        _repository_helpers.require(namespace, v)
         from gi import repository as gi_repository
 
         return getattr(gi_repository, namespace)
@@ -808,16 +804,14 @@ class Repository:
     def get_dependencies(self, namespace: str, version: str | None = None) -> list[str]:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        return list(_repository_helpers.repository().get_dependencies(namespace))
+        return _private._gobject.namespace_get_dependencies(namespace)
 
     def get_immediate_dependencies(
         self, namespace: str, version: str | None = None
     ) -> list[str]:
         if not isinstance(namespace, str):
             raise TypeError("namespace must be a string")
-        return list(
-            _repository_helpers.repository().get_immediate_dependencies(namespace)
-        )
+        return _private._gobject.namespace_get_immediate_dependencies(namespace)
 
     def get_version(self, namespace: str) -> str:
         resolved = ginext.defaults.resolve_namespace_name(namespace)
@@ -828,8 +822,7 @@ class Repository:
 
     def get_typelib_path(self, namespace: str) -> str:
         try:
-            version = self.get_version(namespace) or None
-            return _repository_helpers.typelib_path(namespace, version) or ""
+            return _private._gobject.namespace_get_typelib_path(namespace)
         except AttributeError, RuntimeError:
             return ""
 

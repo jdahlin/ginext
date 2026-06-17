@@ -336,6 +336,14 @@ def test_value_uchar():
         v.set_value(256)
 
 
+def test_value_set_boxed_deprecate_non_boxed():
+    v = GObject.Value(GObject.TYPE_POINTER)
+    with pytest.warns(PyGIDeprecationWarning):
+        v.get_boxed()
+    with pytest.warns(PyGIDeprecationWarning):
+        v.set_boxed(None)
+
+
 def test_value_boolean():
     v = GObject.Value(GObject.TYPE_BOOLEAN)
     for getter, setter in [(v.get_value, v.set_value), (v.get_boolean, v.set_boolean)]:

@@ -73,7 +73,7 @@ T = TypeVar("T", bound=ValueType)
 class PropertyMeta(type):
     def __instancecheck__(cls, instance: object) -> bool:
         try:
-            if isinstance(instance, private.PropertyDescriptor):
+            if isinstance(instance, private.DeclaredProperty):
                 return True
         except AttributeError:
             pass
@@ -97,7 +97,7 @@ class PropertyBase(Generic[T], metaclass=PropertyMeta):
     construct_only: bool
     maximum: RangeValue | None
     minimum: RangeValue | None
-    default: ValueType | None | object
+    default: T
     owner: type[GObject]
 
     def __init__(

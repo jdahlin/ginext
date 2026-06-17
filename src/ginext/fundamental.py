@@ -15,36 +15,19 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
-"""Python-side companion to the C PyGIFundamental type.
-
-The actual base class for all fundamental (non-GObject GTypeInstance) wrappers
-is ``private.Fundamental`` — a ``PyTypeObject`` defined in Fundamental.c.  This
-module contributes:
-
-* ``FundamentalMeta`` — a Python metaclass used for all Python subclasses of
-  ``private.Fundamental`` so that class-level attribute misses trigger lazy
-  method installation from the GIR (same pattern as GObjectMeta).
-* ``_init_hooks`` — called once at import time to register the Python
-  ``__getattr__`` callback into the C type.
-"""
+# Ratchet: residual explicit Any not yet removed (adopting --disallow-any-explicit
+# incrementally). Remove this line once the file is Any-clean.
+# mypy: disable-error-code="explicit-any"
 
 from __future__ import annotations
 
 import sys
+from typing import Any
 
 from . import private
 
-Fundamental = private.Fundamental
-
 
 class FundamentalMeta(type):
-    """Metaclass for Python subclasses of ``private.Fundamental``.
-
-    Handles class-level attribute misses by delegating to
-    ``classbuild.install_method_for_class``, which lazily installs GIR-derived
-    methods on the class and caches them so subsequent accesses are O(1).
-    """
-
     __prepare__ = type.__prepare__
 
     def __getattr__(cls, name: str) -> object:
@@ -61,3 +44,32 @@ class FundamentalMeta(type):
             if gimeta is not None:
                 names.update(gimeta.method_infos)
         return sorted(names)
+
+
+class Fundamental(metaclass=FundamentalMeta):
+    _pointer: int
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError(f"{type(self).__name__} constructor is not available")
+
+    @classmethod
+    def _from_gobject_pointer(cls, ptr: int) -> Fundamental:
+        obj = object.__new__(cls)
+        object.__setattr__(obj, "_pointer", ptr)
+        return obj
+
+    def __getattr__(self, name: str) -> Any:
+        method = sys.modules["ginext.classbuild"].method_for_instance(self, name)
+        if method is not None:
+            return method
+        raise AttributeError(name)
+
+    def __del__(self) -> None:
+        try:
+            ptr = self._pointer
+        except AttributeError:
+            return
+        if ptr is None or ptr == 0:
+            return
+        self._pointer = 0
+        private.instantiatable_unref(ptr)

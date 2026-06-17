@@ -15,20 +15,27 @@
 
 from __future__ import annotations
 
+import enum
 import functools
 import math
 import struct
 import sys
+import warnings
 from typing import Any, Callable, Iterable, cast
 
 import ginext
+from gi import PyGIDeprecationWarning
 from gi._propertyhelper import CompatProperty as Property
 from ginext.gobject.gobjectclass import GObject as _GObject
 from ginext.gobject.gobjectclass import GInterface as _GInterface
 from ginext.gobject.gtype import GType
 from ginext.gobject.gtype import compat_gtype_from_raw
 from ginext.gobject.resolve import own_gimeta
-from ginext.enum import GIEnum, GIFlags, GEnum as _GEnum, GFlags as _GFlags
+from ginext.enum import (
+    GIEnum,
+    GIFlags,
+    register_enum_base_hook as _register_enum_base_hook,
+)
 from ginext.namespace import Namespace
 from gi._compat_namespace import CompatNamespace
 from ginext.signal.connection import SignalConnection
@@ -38,7 +45,6 @@ from ginext.signal.descriptor import SignalDescriptor
 __path__: list[str] = []
 
 _GFLOAT_MAX = 3.4028234663852886e38
-_VALUE_ARRAY_ITEM_TYPES_ATTR = "_ginext_compat_value_array_item_types"
 
 _CTYPES_IMPORTED = False
 _CTYPES_GOBLIB: Any = None
@@ -135,16 +141,21 @@ _MISSING = object()
 _GOBJECT_VALUE_CLASS_KEY = "_gi_repository_gobject_value_class"
 
 
-def _install_genum_compat_properties() -> None:
-    def _value_name(self: GIEnum) -> str:
+class GEnum(GIEnum):
+    @property
+    def value_name(self) -> str:
         return getattr(type(self), "_value_names", {}).get(int(self), self.name)
 
-    def _value_nick(self: GIEnum) -> str:
+    @property
+    def value_nick(self) -> str:
         return getattr(type(self), "_value_nicks", {}).get(
             int(self), self.name.lower().replace("_", "-")
         )
 
-    def _value_names(self: GIFlags) -> list[str]:
+
+class GFlags(GIFlags):
+    @property
+    def value_names(self) -> list[str]:
         names: dict[int, str] = getattr(type(self), "_value_names", {})
         return [
             names.get(int(member), member.name or "")
@@ -152,7 +163,8 @@ def _install_genum_compat_properties() -> None:
             if member in self
         ]
 
-    def _value_nicks(self: GIFlags) -> list[str]:
+    @property
+    def value_nicks(self) -> list[str]:
         nicks: dict[int, str] = getattr(type(self), "_value_nicks", {})
         return [
             nicks.get(int(member), (member.name or "").lower().replace("_", "-"))
@@ -160,62 +172,22 @@ def _install_genum_compat_properties() -> None:
             if member in self
         ]
 
-    def _first_value_name(self: GIFlags) -> str:
-        names = self.value_names  # type: ignore[attr-defined]
+    @property
+    def first_value_name(self) -> str:
+        names = self.value_names
         return names[0] if names else "0"
 
-    def _first_value_nick(self: GIFlags) -> str:
-        nicks = self.value_nicks  # type: ignore[attr-defined]
+    @property
+    def first_value_nick(self) -> str:
+        nicks = self.value_nicks
         return nicks[0] if nicks else "0"
 
-    _GEnum.value_name = property(_value_name)  # type: ignore[attr-defined]
-    _GEnum.value_nick = property(_value_nick)  # type: ignore[attr-defined]
-    GIEnum.value_name = property(_value_name)  # type: ignore[attr-defined]
-    GIEnum.value_nick = property(_value_nick)  # type: ignore[attr-defined]
-    _GFlags.value_names = property(_value_names)  # type: ignore[attr-defined]
-    _GFlags.value_nicks = property(_value_nicks)  # type: ignore[attr-defined]
-    _GFlags.first_value_name = property(_first_value_name)  # type: ignore[attr-defined]
-    _GFlags.first_value_nick = property(_first_value_nick)  # type: ignore[attr-defined]
-    GIFlags.value_names = property(_value_names)  # type: ignore[attr-defined]
-    GIFlags.value_nicks = property(_value_nicks)  # type: ignore[attr-defined]
-    GIFlags.first_value_name = property(_first_value_name)  # type: ignore[attr-defined]
-    GIFlags.first_value_nick = property(_first_value_nick)  # type: ignore[attr-defined]
 
-    # Make ginext.GEnum virtually include GIEnum subclasses so that
-    # issubclass(GIMarshallingTests.GEnum, GObject.GEnum) works even though
-    # introspected GEnum types inherit GIEnum rather than ginext.GEnum.
-    # GIFlags subclasses that lack a GType (e.g. NoTypeFlags) are explicitly
-    # excluded from GFlags so test_flags_has_no_gtype remains green.
-    _GEnumMeta = type(_GEnum)
-    _GFlagsMeta = type(_GFlags)
-
-    def _genum_subclasscheck(self: type, C: type) -> bool:
-        # self is the class being checked against (an instance of _GEnumMeta)
-        if self is _GEnum:
-            try:
-                if type.__subclasscheck__(GIEnum, C):
-                    return True
-            except TypeError:
-                pass
-        return type.__subclasscheck__(self, C)
-
-    def _gflags_subclasscheck(self: type, C: type) -> bool:
-        if self is _GFlags:
-            try:
-                if type.__subclasscheck__(GIFlags, C) and "__gtype__" in vars(C):
-                    return True
-            except TypeError:
-                pass
-        return type.__subclasscheck__(self, C)
-
-    _GEnumMeta.__subclasscheck__ = _genum_subclasscheck  # type: ignore[attr-defined]
-    _GFlagsMeta.__subclasscheck__ = _gflags_subclasscheck  # type: ignore[attr-defined]
+def _gi_enum_base_hook(base: type) -> type:
+    return GFlags if issubclass(base, enum.IntFlag) else GEnum
 
 
-_install_genum_compat_properties()
-
-GEnum = _GEnum  # type: ignore[assignment]
-GFlags = _GFlags  # type: ignore[assignment]
+_register_enum_base_hook(_gi_enum_base_hook)
 
 # Register the pygobject-compat GObject.Object overlays early so they are
 # installed when GObject.Object is built (regardless of whether gi.repository.GObject
@@ -275,9 +247,7 @@ def _value_gtype_info(namespace: Namespace, g_type: object) -> tuple[Any, str | 
             gimeta, "type_name", None
         )
         if g_type is getattr(ginext.GLib, "Error", None):
-            from gi import _repository_helpers
-
-            return _repository_helpers.gerror_gtype(), "GError"
+            return int(ginext.private.gerror_get_type()), "GError"
         # Prefer gimeta.gtype (own GType) over __gtype__ which may be inherited
         if gimeta is not None and hasattr(gimeta, "gtype"):
             return gimeta.gtype, type_name
@@ -390,24 +360,12 @@ def _make_gobject_value_class(namespace: Namespace) -> type:
                 and not isinstance(value, namespace.ValueArray)
             ):
                 array = namespace.ValueArray.new(0)
-                item_types = []
                 for item in cast("Iterable[object]", value):
                     if isinstance(item, base):
-                        item_types.append(item.g_type)
                         array.append(item)
                     else:
-                        item_value = type(self)(type(item), item)
-                        item_types.append(item_value.g_type)
-                        array.append(item_value)
-                setattr(array, _VALUE_ARRAY_ITEM_TYPES_ATTR, tuple(item_types))
-                setattr(self, _VALUE_ARRAY_ITEM_TYPES_ATTR, tuple(item_types))
+                        array.append(type(self)(type(item), item))
                 value = array
-            elif type_name == "GValueArray" and value is not None:
-                setattr(
-                    self,
-                    _VALUE_ARRAY_ITEM_TYPES_ATTR,
-                    tuple(getattr(value, _VALUE_ARRAY_ITEM_TYPES_ATTR, ())),
-                )
             if raw == int(namespace.TYPE_CHAR):
                 value = _coerce_char_value(value, unsigned=False)
             if raw == int(namespace.TYPE_UCHAR):
@@ -434,6 +392,29 @@ def _make_gobject_value_class(namespace: Namespace) -> type:
             _check_gfloat_range(value)
             self.set_value(value)
             return None
+
+        def get_boxed(self) -> object:
+            g_type = self.g_type
+            if not getattr(g_type, "is_a", lambda other: False)(namespace.TYPE_BOXED):
+                warnings.warn(
+                    "Calling get_boxed() on a non-boxed GValue is deprecated",
+                    PyGIDeprecationWarning,
+                    stacklevel=2,
+                )
+                return self.get_value()
+            return self._typelib_get_boxed()
+
+        def set_boxed(self, value: object) -> object:
+            g_type = self.g_type
+            if not getattr(g_type, "is_a", lambda other: False)(namespace.TYPE_BOXED):
+                warnings.warn(
+                    "Calling set_boxed() on a non-boxed GValue is deprecated",
+                    PyGIDeprecationWarning,
+                    stacklevel=2,
+                )
+                self.set_value(value)
+                return None
+            return self._typelib_set_boxed(value)
 
     Value.__name__ = "Value"
     Value.__qualname__ = "Value"
@@ -466,7 +447,6 @@ def _install_gobject_compat(namespace: Namespace) -> object:
     _install_gobject_props(_gobject_cls)
     namespace.type_from_name = _gobject_type_from_name
     namespace.Value = _make_gobject_value_class(namespace)
-    _install_value_array_tracking(namespace)
     namespace.TYPE_INVALID = compat_gtype_from_raw(0, "invalid")
     namespace.TYPE_NONE = GType.NONE
     namespace.TYPE_BOOLEAN = GType.BOOLEAN
@@ -523,27 +503,6 @@ def _install_gobject_compat(namespace: Namespace) -> object:
     namespace.signal_handlers_unblock_matched = _signal_handlers_unblock_matched
     namespace.signal_handlers_disconnect_matched = _signal_handlers_disconnect_matched
     return namespace
-
-
-def _install_value_array_tracking(namespace: Namespace) -> None:
-    value_array_cls = getattr(namespace, "ValueArray", None)
-    if value_array_cls is None:
-        return
-    if getattr(value_array_cls, "_ginext_compat_tracks_item_types", False):
-        return
-
-    raw_append = value_array_cls.append
-
-    def append(self: Any, value: object) -> object:
-        result = raw_append(self, value)
-        if isinstance(value, namespace.Value):
-            item_types = list(getattr(self, _VALUE_ARRAY_ITEM_TYPES_ATTR, ()))
-            item_types.append(value.g_type)
-            setattr(self, _VALUE_ARRAY_ITEM_TYPES_ATTR, tuple(item_types))
-        return result
-
-    value_array_cls.append = append
-    value_array_cls._ginext_compat_tracks_item_types = True
 
 
 def _install_gobject_signal_methods(gobject_cls: Any) -> None:
@@ -673,7 +632,7 @@ def _gobject_newv(cls: type, *args: object) -> object:
 
 def _register_pyobject_gtype() -> int:
     """Register a named pointer GType 'PyObject' and return its GType value."""
-    return int(ginext.private.register_static(int(GType.POINTER), "PyObject"))
+    return int(ginext.private.pointer_type_register_static("PyObject"))
 
 
 _PYOBJECT_GTYPE: int = _register_pyobject_gtype()
@@ -746,7 +705,7 @@ def _resolve_gtype_for_compat(arg: object) -> int:
             g = own_gimeta(base)
             if g is not None and hasattr(g, "gtype"):
                 gtype = int(g.gtype)
-                return gtype if gtype else -1
+                return gtype or -1
         gtype_attr = getattr(arg, "__gtype__", None)
         if gtype_attr is not None:
             try:
@@ -759,15 +718,13 @@ def _resolve_gtype_for_compat(arg: object) -> int:
         g = own_gimeta(base)
         if g is not None and hasattr(g, "gtype"):
             gtype = int(g.gtype)
-            return gtype if gtype else -1
+            return gtype or -1
     return -1
 
 
 def _gobject_type_from_name(name: str) -> object:
     if name == "GError":
-        from gi import _repository_helpers
-
-        return compat_gtype_from_raw(_repository_helpers.gerror_gtype(), "GError")
+        return compat_gtype_from_raw(int(ginext.private.gerror_get_type()), "GError")
     result = ginext.GObject.type_from_name(name)
     raw = int(result) if result is not None else 0
     if raw == 0:
@@ -1518,8 +1475,8 @@ def __getattr__(name: str) -> Any:
         _install_gio_compat(namespace)
     elif name == "Gtk":
         _install_gtk_compat(namespace)
-    extra_attrs = _apply_overrides(name, namespace)
-    proxy = _NamespaceModuleProxy(namespace, extra_attrs)
+    extra_attrs, deprecated = _apply_overrides(name, namespace)
+    proxy = _NamespaceModuleProxy(namespace, extra_attrs, deprecated)
     # Replace the globals entry with the proxy so attribute access goes through
     # the proxy (types.ModuleType subclass, optional deprecation warnings).
     # sys.modules keeps the raw namespace so ginext internals still find it.
@@ -1533,36 +1490,55 @@ import types as _types
 class _NamespaceModuleProxy(_types.ModuleType):
     """Wraps a ginext namespace as a types.ModuleType so isinstance checks pass.
 
-    ``__getattr__`` is stored as ``functools.partial(getattr, ns)`` in the
-    instance dict when there are no extra_attrs, so the C-level call has zero
-    extra Python frames and ginext's own stacklevel values stay correct.
+    Optionally intercepts deprecated attribute names (from override modules that
+    define ``_DEPRECATED_ATTRS``) to emit PyGIDeprecationWarning.
+
+    When there are no deprecated attrs, ``__getattr__`` is stored as
+    ``functools.partial(getattr, ns)`` in the instance dict.  Python's module
+    C-level machinery calls it without adding a Python frame, so existing
+    ``stacklevel`` values in ginext overlay warnings remain correct.  When
+    deprecated attrs are present a Python closure is used instead (the
+    GLibUnix deprecation tests do not check ``w.filename``).
     """
 
     def __init__(
         self,
         ns: Any,
         extra_attrs: dict[str, Any] | None = None,
+        deprecated: dict[str, tuple[Any, str]] | None = None,
     ) -> None:
         _types.ModuleType.__init__(self, ns.__name__)
         self.__dict__["_ns"] = ns
         self.__dict__["_extra_attrs"] = extra_attrs or {}
+        self.__dict__["_deprecated"] = deprecated or {}
 
-        if extra_attrs:
-            _extra = extra_attrs
+        if extra_attrs or deprecated:
+            _extra = extra_attrs or {}
+            _deprecated = deprecated or {}
             _ns = ns
+            _ns_name = ns.__name__
 
             def _getattr_with_overrides(name: str) -> Any:
                 if name in _extra:
                     return _extra[name]
+                if name in _deprecated:
+                    value, replacement = _deprecated[name]
+                    warnings.warn(
+                        f"{_ns_name}.{name} is deprecated; use {_ns_name}.{replacement} instead",
+                        PyGIDeprecationWarning,
+                        stacklevel=2,
+                    )
+                    return value
                 return getattr(_ns, name)
 
             self.__dict__["__getattr__"] = _getattr_with_overrides
         else:
-            # Use functools.partial so the C-level call has zero extra Python frames.
+            # Use functools.partial so the C-level call has zero extra Python
+            # frames — ginext's own stacklevel=3 warnings stay correctly sourced.
             self.__dict__["__getattr__"] = functools.partial(getattr, ns)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name == "_ns":
+        if name in ("_ns", "_deprecated"):
             self.__dict__[name] = value
             return
         ns = self.__dict__.get("_ns")
@@ -1581,26 +1557,35 @@ class _NamespaceModuleProxy(_types.ModuleType):
     def __dir__(self) -> list[str]:
         ns = self.__dict__.get("_ns")
         extra_attrs: dict[str, Any] = self.__dict__.get("_extra_attrs", {})
-        return sorted(set(dir(ns) if ns is not None else []) | set(extra_attrs.keys()))
+        deprecated: dict[str, tuple[Any, str]] = self.__dict__.get("_deprecated", {})
+        return sorted(
+            set(dir(ns) if ns is not None else [])
+            | set(extra_attrs.keys())
+            | set(deprecated.keys())
+        )
 
     def __repr__(self) -> str:
         ns = self.__dict__.get("_ns")
         return repr(ns) if ns is not None else _types.ModuleType.__repr__(self)
 
 
-def _apply_overrides(name: str, namespace: Any) -> dict[str, Any]:
+def _apply_overrides(
+    name: str, namespace: Any
+) -> tuple[dict[str, Any], dict[str, tuple[Any, str]]]:
     """Load gi/overrides/<name>.py and apply exported symbols to namespace.
 
-    Returns extra_attrs: __all__ items from the override that the proxy should
-    expose directly (non-type constants are NOT written to the raw namespace so
-    the typelib value remains accessible via get_introspection_module()).
+    Returns (extra_attrs, deprecated):
+    - extra_attrs: __all__ items from the override that the proxy should expose
+      directly (non-type constants are NOT written to the raw namespace so the
+      typelib value remains accessible via get_introspection_module()).
+    - deprecated: mapping of deprecated attr names to (value, replacement) pairs.
     """
     import importlib
 
     try:
         override_mod = importlib.import_module(f"gi.overrides.{name}")
     except ImportError:
-        return {}
+        return {}, {}
     extra_attrs: dict[str, Any] = {}
     all_names = getattr(override_mod, "__all__", [])
     for attr in all_names:
@@ -1622,7 +1607,15 @@ def _apply_overrides(name: str, namespace: Any) -> dict[str, Any]:
         if orig is not None and isinstance(val, type) and isinstance(orig, type):
             if issubclass(val, orig):
                 setattr(namespace, attr, val)
-    return extra_attrs
+    deprecated_map: dict[str, str] = getattr(override_mod, "_DEPRECATED_ATTRS", {})
+    deprecated: dict[str, tuple[Any, str]] = {}
+    for attr, replacement in deprecated_map.items():
+        try:
+            value = getattr(namespace, replacement)
+        except AttributeError:
+            continue
+        deprecated[attr] = (value, replacement)
+    return extra_attrs, deprecated
 
 
 def __dir__() -> list[str]:

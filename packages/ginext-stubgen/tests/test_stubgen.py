@@ -129,11 +129,7 @@ def test_header_has_override_directive(native: str) -> None:
 
 def test_checked_in_gobject_stub_exposes_notify_as_detailed_signal() -> None:
     stub_path = (
-        Path(__file__).resolve().parents[2]
-        / "ginext-stubs"
-        / ".generated"
-        / "ginext"
-        / "GObject.pyi"
+        Path(__file__).resolve().parents[2] / "ginext-stubs" / "ginext" / "GObject.pyi"
     )
     if not stub_path.exists():
         pytest.skip("generated ginext/GObject.pyi absent (run `make stubs`)")
@@ -145,9 +141,7 @@ def test_checked_in_gobject_stub_exposes_notify_as_detailed_signal() -> None:
 
 
 def test_checked_in_stubs_widen_glib_bytes_inputs_to_accept_bytes() -> None:
-    stub_dir = (
-        Path(__file__).resolve().parents[2] / "ginext-stubs" / ".generated" / "ginext"
-    )
+    stub_dir = Path(__file__).resolve().parents[2] / "ginext-stubs" / "ginext"
     glib_path = stub_dir / "GLib.pyi"
     gtk_path = stub_dir / "Gtk.pyi"
     if not (glib_path.exists() and gtk_path.exists()):

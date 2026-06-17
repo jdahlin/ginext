@@ -55,6 +55,11 @@ class _HasGIMeta(Protocol):
 
 
 @runtime_checkable
+class _HasSignalLookup(Protocol):
+    def signal_for_name(self, name: str) -> object: ...
+
+
+@runtime_checkable
 class _ConnectableSignal(Protocol):
     def connect(self, callback: Callable[..., Any], **kwargs: object) -> object: ...
 
@@ -112,6 +117,8 @@ def _connect_constructor_handler(
             f"{signal_attr_name!r} (from on_{signal_attr_name}=){hint}"
         )
     sig = getattr(owner, signal_attr_name)
+    if not hasattr(sig, "connect") and isinstance(owner, _HasSignalLookup):
+        sig = owner.signal_for_name(signal_attr_name)
     if not isinstance(sig, _ConnectableSignal):
         raise TypeError(
             f"{cls.__name__}.{signal_attr_name!r} is not a connectable signal"

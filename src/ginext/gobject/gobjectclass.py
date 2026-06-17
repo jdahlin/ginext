@@ -227,30 +227,23 @@ def _obj_getattr(self: Any, name: str) -> Any:
         if name == "__gtype__":
             return type(self).__gtype__
         try:
-            compat_property_for_name = object.__getattribute__(
-                self, "_compat_property_for_name"
-            )
+            return self._compat_property_for_name(name)
         except AttributeError:
             pass
-        else:
-            try:
-                return compat_property_for_name(name)
-            except AttributeError:
-                pass
     if name.replace("-", "_") in type(self).gimeta.signal_infos:
         if not features.is_enabled(features.NEW_SIGNAL_API):
             raise AttributeError(name)
-        return _obj_signal_for_name(self, name)
+        return self.signal_for_name(name)
     if not features.is_enabled(features.NEW_SIGNAL_API):
         raise AttributeError(name)
-    return _obj_signal_for_name(self, name)
+    return self.signal_for_name(name)
 
 
 # A layout-free mixin sibling of GObject.Object, so `class Foo(GObject.Object,
 # SomeInterface)` has a consistent MRO. Never instantiated as itself.
 @dataclass_transform(field_specifiers=(Property,))
 class GInterface(metaclass=GObjectMeta):
-    gimeta: ClassVar[private.GIMeta] = private.GIMeta.from_type_name("GTypeInterface")
+    gimeta: ClassVar[private.GIMeta]
     _class_struct_name: ClassVar[str | None] = None
     __slots__ = ()
 
@@ -287,7 +280,7 @@ class _GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         ) -> None: ...
         def __setattr__(self, name: str, value: object) -> None: ...
         def __getattr__(self, name: str) -> Any: ...
-
+        def signal_for_name(self, name: str) -> _SignalInstance: ...
 
 if TYPE_CHECKING:
     GObject = _GObjectBody
@@ -296,8 +289,20 @@ else:
     private.GObject = GObject
     del _GObjectBody
 
+GInterface.gimeta = private.GIMeta.from_type_name("GTypeInterface")
+GObject.Signal = Signal
+GObject.gimeta = private.GIMeta.from_type_name("GObject")
+
 if not TYPE_CHECKING:
-    GObject.__init_subclass__ = classmethod(_obj_init_subclass)
-    private.register_hook("Object.post_init", _finish_construction)
-    private.register_hook("Object.getattr", _obj_getattr)
-    private.register_hook("Object.setattr", _obj_setattr)
+    # Hand every foundational instance hook to C at bootstrap. __getattr__ and
+    # __setattr__ back the tp_getattro/tp_setattro slots and _finish_construction
+    # backs tp_init; __init_subclass__ and signal_for_name are installed straight
+    # onto the C type by register_gobject_callbacks. C never imports this module —
+    # the dependency is one-directional — and there is no overlay round-trip.
+    private.register_gobject_callbacks(
+        getattr=_obj_getattr,
+        setattr=_obj_setattr,
+        finish_construction=_finish_construction,
+        init_subclass=_obj_init_subclass,
+        signal_for_name=_obj_signal_for_name,
+    )

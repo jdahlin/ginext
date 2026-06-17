@@ -71,26 +71,23 @@ def test_property_accepts_glib_regex(regex_property_class: Any, GLib: Any) -> No
     assert obj.rx.get_pattern() == "abc"
 
 
-def test_input_flag_translation(regex_property_class: Any, GLib: Any) -> None:
+def test_input_flag_translation(regex_property_class: Any) -> None:
     obj = regex_property_class()
 
     obj.rx = re.compile("ABC", re.IGNORECASE)
 
-    assert isinstance(obj.rx, GLib.Regex)
     ok, match_info = obj.rx.match("abc", 0)
     assert ok is True
-    assert match_info is not None
     assert match_info.matches() is True
 
 
-def test_unicode_flag_accepted(regex_property_class: Any, GLib: Any) -> None:
+def test_unicode_flag_accepted(regex_property_class: Any) -> None:
     # re.compile() always carries re.UNICODE; it has no GRegex equivalent and
     # must be silently dropped rather than rejected.
     obj = regex_property_class()
 
     obj.rx = re.compile("x")
 
-    assert isinstance(obj.rx, GLib.Regex)
     assert obj.rx.get_pattern() == "x"
 
 

@@ -127,13 +127,13 @@ def _resolve_interface(iface_info: Any, context: Any) -> Any:
 
 
 def _callable_annotation(callback_info: Any, context: Any) -> Any:
-    """Best-effort callback annotation for a callback interface."""
-    args = [
+    """`Callable[[arg types...], return type]` for a callback interface."""
+    arg_types = [
         annotation_for_type(callback_info.get_arg(i).get_type_info(), context)
         for i in range(callback_info.get_n_args())
     ]
     ret = annotation_for_type(callback_info.get_return_type(), context)
-    return collections.abc.Callable[args, ret]
+    return collections.abc.Callable[arg_types, ret]
 
 
 def annotation_for_type(type_info: Any, context: Any) -> Any:
@@ -289,8 +289,3 @@ def callable_signature(gimeta: Any) -> inspect.Signature:
             keyword_only_after=getattr(gimeta, "keyword_only_after", None),
         )
     return cast("inspect.Signature", gimeta.signature)
-
-
-from ginext import private as _private_hooks
-
-_private_hooks.register_hook("callable_signature", callable_signature)

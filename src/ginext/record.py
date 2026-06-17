@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import keyword
+import struct
 import types
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Self, cast
@@ -107,10 +108,30 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                     except TypeError:
                         pass
                 return cast("Self", cast("Any", method)())
-        obj = super().__new__(cls)
-        return obj
+        obj = private.record_new(cls, cls.gimeta.info)
+        _ensure_anonymous_union_storage(cls, obj)
+        return cast("Self", obj)
+
+    def __eq__(self, other: object) -> bool:
+        if self.__class__ is not other.__class__:
+            return NotImplemented
+        return private.record_pointer_equal(self, other)
+
+    def __hash__(self) -> int:
+        return hash(private.record_pointer_value(self))
+
+    def __repr__(self) -> str:
+        module = (
+            type(self).__module__.removeprefix("ginext.").removeprefix("gi.repository.")
+        )
+        return (
+            f"<{module}.{type(self).__name__} object at 0x{id(self):x} "
+            f"({type(self).gimeta.type_name} at 0x{private.record_pointer_value(self):x})>"
+        )
 
     def __getattr__(self, name: str) -> object:
+        if name == "copy":
+            return types.MethodType(_record_copy, self)
         if name in type(self).gimeta.method_infos:
             found = install_method_for_record_class(type(self), name)
             if found is not None:
@@ -120,13 +141,19 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
                 return types.MethodType(cast("Any", method), self)
         if name in type(self).gimeta.hidden_fields:
             raise AttributeError(name)
-        found = install_method_for_record_class(type(self), name)
-        if found is None:
-            raise AttributeError(name)
-        method, has_self = found
-        if not has_self:
-            return method
-        return types.MethodType(cast("Any", method), self)
+        anonymous = type(self).gimeta.anonymous_unions.get(name)
+        if anonymous is not None:
+            return _AnonymousUnionProxy(self, anonymous)
+        try:
+            return private.record_field_get(self, type(self).gimeta.info, name)
+        except AttributeError:
+            found = install_method_for_record_class(type(self), name)
+            if found is None:
+                raise
+            method, has_self = found
+            if not has_self:
+                return method
+            return types.MethodType(cast("Any", method), self)
 
     def __setattr__(self, name: str, value: object) -> None:
         if name.startswith("_"):
@@ -134,7 +161,7 @@ class RecordBase(private.GBoxed, metaclass=RecordMeta):
             return
         if name in type(self).gimeta.hidden_fields:
             raise AttributeError(name)
-        super().__setattr__(name, value)
+        private.record_field_set(self, type(self).gimeta.info, name, value)
 
 
 class RecordBuilder:
@@ -185,6 +212,7 @@ class RecordBuilder:
                 version=data["version"],
                 profile=profile,
                 hidden_fields=set(),
+                anonymous_unions={},
                 method_owner_name=self._context.qualified_name(name),
                 method_infos={},
                 typelib_methods={},
@@ -198,12 +226,21 @@ class RecordBuilder:
                 method_info.is_method(),
             )
 
+        # A record's fields have a meaningful order (the C layout), so expose
+        # them as __match_args__ for positional pattern matching, e.g.
+        # `case Color(red, green, blue)`. GObject classes are deliberately left
+        # out — their property order is not a contract.
+        match_args = private.record_field_names(info)
+        if match_args:
+            attrs["__match_args__"] = match_args
+
         bases: tuple[type, ...] = (RecordBase,)
         extra_bases = class_bases_overlay_for(self._context.name, name)
         if extra_bases:
             bases = (*extra_bases, *bases)
         cls = cast("type[Any]", type(name, bases, attrs))
-        private.record_setup_class(cls, info)
+        private.register_boxed_class(cls, gtype, info)
+        private.record_install_field_descriptors(cls, info)
         _record_classes_by_key[key] = cls
         if cacheable_gtype:
             _record_classes_by_gtype[gtype_key] = cls
@@ -226,6 +263,59 @@ def _checked_instance_method(
         wrapper.__name__ = cls.__name__
         wrapper.__qualname__ = wrapper.__name__
     return wrapper
+
+
+def _record_copy(self: RecordBase) -> object:
+    return private.record_copy(self)
+
+
+def _ensure_anonymous_union_storage(cls: type[RecordBase], obj: object) -> None:
+    required = cls.gimeta.size
+    for metadata in cls.gimeta.anonymous_unions.values():
+        offset = _anonymous_union_offset(cls, metadata)
+        fields = metadata["fields"]
+        slot_size = max(_ctype_size(t) for t in fields.values())
+        required = max(required, offset + slot_size)
+    if required > cls.gimeta.size:
+        private.record_ensure_size(obj, required)
+
+
+class _AnonymousUnionProxy:
+    __slots__ = ("_parent", "_metadata", "_offset")
+    _parent: RecordBase
+    _metadata: dict[str, Any]
+    _offset: int
+
+    def __init__(self, parent: RecordBase, metadata: dict[str, object]):
+        super().__setattr__("_parent", parent)
+        super().__setattr__("_metadata", metadata)
+        offset = metadata.get("offset")
+        if offset is None:
+            offset = _anonymous_union_offset(type(parent), metadata)
+        super().__setattr__("_offset", offset)
+
+    def __getattr__(self, name: str) -> object:
+        fields = self._metadata["fields"]
+        if name not in fields:
+            raise AttributeError(name)
+        return private.record_memory_get(self._parent, self._offset, fields[name])
+
+    def __setattr__(self, name: str, value: object) -> None:
+        fields = self._metadata["fields"]
+        if name not in fields:
+            raise AttributeError(name)
+        private.record_memory_set(self._parent, self._offset, fields[name], value)
+
+
+def _anonymous_union_offset(cls: type[RecordBase], metadata: dict[str, Any]) -> int:
+    offset = metadata.get("offset")
+    if offset is not None:
+        return cast("int", offset)
+    fields = metadata["fields"]
+    align = max(_ctype_size(t) for t in fields.values())
+    offset = cls.gimeta.info.anonymous_union_offset(metadata["previous_field"], align)
+    metadata["offset"] = offset
+    return cast("int", offset)
 
 
 def _lookup_record_method(
@@ -279,3 +369,15 @@ def install_method_for_record_class(
 def reset_for_test() -> None:
     _record_classes_by_key.clear()
     _record_classes_by_gtype.clear()
+
+
+def _ctype_size(type_name: str) -> int:
+    if type_name in {"gpointer", "gconstpointer"}:
+        return struct.calcsize("P")
+    if type_name in {"gdouble", "double"}:
+        return struct.calcsize("d")
+    if type_name in {"glong", "long"}:
+        return struct.calcsize("l")
+    if type_name in {"gint", "int"}:
+        return struct.calcsize("i")
+    return struct.calcsize("P")

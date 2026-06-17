@@ -118,7 +118,7 @@ def _convert_callback_arg(value: object, expected: CallbackArgType) -> object:
         return value
     if not issubclass(expected_type, GObject):
         return value
-    return value
+    return sys.modules["ginext"].private.GObject.from_c(value)
 
 
 def _resolve_callback_arg_type(expected: CallbackArgType) -> type | None:

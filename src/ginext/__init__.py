@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 from . import abi
 from . import defaults
-from . import runtime as _runtime  # registers result_tuple_new_type hook
 from .namespace import Namespace
 from .overlay import load_overlay_module_for
 from .signal.bound import Signal
@@ -115,22 +114,6 @@ def _class_from_namespace_profile(
         namespace_name, version, profile=cast("abi.ABIProfile", profile)
     )
     return getattr(namespace, type_name)
-
-
-def _load_namespace_for_c(namespace_name: str) -> object:
-    resolved = defaults.resolve_namespace_name(namespace_name)
-    if resolved is None:
-        raise AttributeError(namespace_name)
-    namespace, version = resolved
-    return _load_namespace(namespace, version)
-
-
-from ginext import private as _private_hooks
-
-_private_hooks.register_hook(
-    "class_from_namespace_profile", _class_from_namespace_profile
-)
-_private_hooks.register_hook("load_namespace", _load_namespace_for_c)
 
 
 def __getattr__(name: str) -> Any:

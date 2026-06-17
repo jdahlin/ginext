@@ -82,6 +82,22 @@ def test_class_construction_is_lazy() -> None:
     assert "Application" not in built_after
 
 
+def test_method_descriptor_does_not_rebuild_plan() -> None:
+    from ginext import runtime
+    import ginext
+
+    cancellable_type = ginext.Gio.Cancellable
+
+    cancellable = cancellable_type()
+    runtime.reset_stats()
+    assert cancellable.is_cancelled() is False
+
+    runtime.reset_stats()
+    assert cancellable.is_cancelled() is False
+
+    assert runtime.stats()["plan_gi_metadata_calls"] == 0
+
+
 def test_native_wrap_does_not_fall_back_to_compat_profile_for_gio_objects() -> None:
     gi_repository = pytest.importorskip("gi.repository")
     # DesktopAppInfo is a Linux-only GioUnix API: the GioUnix namespace itself is

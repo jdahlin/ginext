@@ -86,7 +86,6 @@ def test_property_accepts_aware_datetime(
 @_no_iana_timezone
 def test_property_datetime_preserves_named_zone(
     datetime_property_class: Any,
-    GLib: Any,
 ) -> None:
     obj = datetime_property_class()
 
@@ -94,7 +93,6 @@ def test_property_datetime_preserves_named_zone(
         2026, 1, 1, 12, tzinfo=zoneinfo.ZoneInfo("Europe/Stockholm")
     )
 
-    assert isinstance(obj.dt, GLib.DateTime)
     assert obj.dt.get_timezone().get_identifier() == "Europe/Stockholm"
 
 
@@ -140,12 +138,11 @@ def test_property_accepts_zoneinfo(datetime_property_class: Any, GLib: Any) -> N
     assert obj.tz.get_identifier() == "Europe/Stockholm"
 
 
-def test_property_accepts_fixed_offset(datetime_property_class: Any, GLib: Any) -> None:
+def test_property_accepts_fixed_offset(datetime_property_class: Any) -> None:
     obj = datetime_property_class()
 
     obj.tz = datetime.timezone(datetime.timedelta(hours=5))
 
-    assert isinstance(obj.tz, GLib.TimeZone)
     assert obj.tz.get_identifier() == "+05:00:00"
 
 

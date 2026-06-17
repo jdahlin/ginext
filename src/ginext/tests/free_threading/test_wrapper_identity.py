@@ -27,7 +27,7 @@ pytestmark = support.pytestmark
 
 
 def test_same_gobject_wrap_is_stable_across_threads() -> None:
-    from ginext import Gio
+    from ginext import Gio, private
 
     obj = Gio.Cancellable()
     n_threads = 16
@@ -37,8 +37,11 @@ def test_same_gobject_wrap_is_stable_across_threads() -> None:
     def worker() -> None:
         barrier.wait()
         for _ in range(per_thread):
-            if not obj.is_bound():
-                raise AssertionError("GObject wrapper became unbound")
+            wrapped = private.GObject.from_c(obj)
+            if wrapped is not obj:
+                raise AssertionError(
+                    "same GObject pointer produced a different wrapper"
+                )
 
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
         futures = [executor.submit(worker) for _ in range(n_threads)]

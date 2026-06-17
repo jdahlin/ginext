@@ -108,12 +108,11 @@ def test_gio_not_found_maps_to_builtin_file_not_found() -> None:
     finally:
         features.reset_for_test()
 
-    glib_error = error
     assert isinstance(error, GLib.Error)
-    assert glib_error.domain == "g-io-error-quark"
-    assert glib_error.matches(Gio.IOErrorEnum.NOT_FOUND)
     assert isinstance(error, Gio.NotFoundError)
     assert isinstance(error, FileNotFoundError)
+    assert error.domain == "g-io-error-quark"
+    assert error.matches(Gio.IOErrorEnum.NOT_FOUND)
 
 
 def test_pygobject_compat_disables_builtin_error_mapping_by_default() -> None:

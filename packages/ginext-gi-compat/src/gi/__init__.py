@@ -60,9 +60,7 @@ def require_foreign(namespace: str, symbol: str | None = None) -> None:
         raise ImportError(f"cannot import name {symbol!r} from foreign namespace")
     if namespace == "cairo":
         ginext.private.require_namespace("cairo", "1.0")
-        from ginext.private import _cairo
-
-        _cairo.ensure_gobject_types()
+        ginext.private.ensure_cairo_gobject_types()
 
 
 def __getattr__(name: str) -> Any:

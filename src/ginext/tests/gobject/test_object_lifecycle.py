@@ -166,16 +166,159 @@ def test_subclass_wrapper_drop_then_release(TestObj: Any) -> None:
 
 
 def test_distinct_instances_keep_distinct_wrapper_identity(TestObj: Any) -> None:
+    from ginext import private
+
     a = TestObj()
     b = TestObj()
-    assert a.is_bound() is True
-    assert b.is_bound() is True
+    assert private.GObject.from_c(a) is a
+    assert private.GObject.from_c(b) is b
     assert a is not b
+
+
+def test_preallocated_construction_state_skips_second_native_allocation(
+    unique_type_name: Any,
+) -> None:
+    from ginext import private
+    from ginext.gobject import gobjectclass as gobject
+
+    calls: list[str] = []
+
+    class Preallocated(
+        gobject.GObject, type_name=unique_type_name("PreallocatedState")
+    ):
+        def __init__(self) -> None:
+            calls.append("__init__")
+            super().__init__()
+            self.initialized = True
+
+    ptr = Preallocated.construct_with_properties({})
+    obj = Preallocated.__new__(Preallocated)
+    obj.prime_construction_state(ptr)
+
+    original_repo = gobject.gobject_repo
+
+    class _ExplodingRepo:
+        def new_with_properties(self, *_args: object, **_kwargs: object) -> int:
+            raise AssertionError("unexpected second native allocation")
+
+    gobject.gobject_repo = lambda: _ExplodingRepo()  # type: ignore[assignment, return-value]
+    try:
+        Preallocated.__init__(obj)
+    finally:
+        gobject.gobject_repo = original_repo
+
+    assert calls == ["__init__"]
+    assert private.GObject.from_c(obj) is obj
+    assert obj.initialized is True
+
+
+def test_preallocated_construction_state_preserves_parent_init_chain(
+    unique_type_name: Any,
+) -> None:
+    from ginext import private
+    from ginext.gobject import gobjectclass as gobject
+
+    order: list[str] = []
+
+    class Base(gobject.GObject, type_name=unique_type_name("PreallocatedBase")):
+        def __init__(self) -> None:
+            order.append("base1")
+            super().__init__()
+            order.append("base2")
+
+    class Child(Base, type_name=unique_type_name("PreallocatedChild")):
+        def __init__(self) -> None:
+            order.append("child1")
+            super().__init__()
+            order.append("child2")
+
+    ptr = Child.construct_with_properties({})
+    obj = Child.__new__(Child)
+    obj.prime_construction_state(ptr)
+    Child.__init__(obj)
+
+    assert private.GObject.from_c(obj) is obj
+    assert order == ["child1", "base1", "base2", "child2"]
+
+
+def test_wrap_preallocated_construction_defers_pointer_binding_until_init(
+    unique_type_name: Any,
+) -> None:
+    from ginext import private
+    from ginext.gobject import gobjectclass as gobject
+
+    seen: list[bool] = []
+
+    class Deferred(gobject.GObject, type_name=unique_type_name("PreallocatedDeferred")):
+        def __init__(self) -> None:
+            seen.append(self.is_bound())
+            super().__init__()
+            seen.append(self.is_bound())
+
+    ptr = Deferred.construct_with_properties({})
+    obj = Deferred.new_preallocated_from_c(ptr)
+
+    assert obj.is_bound() is False
+
+    Deferred.__init__(obj)
+
+    assert private.GObject.from_c(obj) is obj
+    assert seen == [False, True]
+
+
+def test_preallocated_shell_for_python_type(
+    unique_type_name: Any,
+) -> None:
+    from ginext import private
+    from ginext.gobject import gobjectclass as gobject
+
+    class DeferredViaPrivate(
+        gobject.GObject, type_name=unique_type_name("PreallocatedViaPrivate")
+    ):
+        def __init__(self) -> None:
+            super().__init__()
+            self.initialized = True
+
+    ptr = DeferredViaPrivate.construct_with_properties({})
+    obj = DeferredViaPrivate.new_preallocated_from_c(ptr)
+
+    assert isinstance(obj, DeferredViaPrivate)
+    assert obj.is_bound() is False
+
+    obj.__init__()  # type: ignore[misc]
+
+    assert obj.initialized is True
+    assert private.GObject.from_c(obj) is obj
+
+
+def test_wrapper_owns_ref_state_lives_with_the_pointer(unique_type_name: Any) -> None:
+    from ginext import private
+    from ginext.gobject import gobjectclass as gobject
+
+    class Deferred(gobject.GObject, type_name=unique_type_name("WrapperOwnsRefState")):
+        pass
+
+    owned = Deferred()
+    assert owned.owns_ref() is True
+    assert not hasattr(owned, "_gobject_owns_ref")
+
+    ptr = Deferred.construct_with_properties({})
+
+    deferred = Deferred.new_preallocated_from_c(ptr)
+    Deferred.__init__(deferred)
+
+    assert deferred.owns_ref() is False
+    assert not hasattr(deferred, "_gobject_owns_ref")
+
+    bound = private.GObject.from_c(deferred)
+    assert deferred.owns_ref() is True
+    assert bound is deferred
 
 
 def test_gobject_pointer_is_not_exposed_as_a_python_attribute(
     unique_type_name: Any,
 ) -> None:
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     class Slotted(gobject.GObject, type_name=unique_type_name("WrapperPointerSlot")):
@@ -183,35 +326,30 @@ def test_gobject_pointer_is_not_exposed_as_a_python_attribute(
 
     obj = Slotted()
 
-    assert obj.is_bound() is True
-    assert "__gobject_ptr__" not in dir(obj)
-    assert not hasattr(obj, "pointer_value")
-    assert not hasattr(type(obj), "new_bound_from_c")
-    assert not hasattr(type(obj), "new_preallocated_from_c")
-    assert not hasattr(type(obj), "construct_with_properties")
+    assert private.GObject.from_c(obj) is obj
 
 
 def test_c_constructed_python_subclass_runs_init_once(
     unique_type_name: Any,
 ) -> None:
     from ginext import GObject as GObjectNS
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     calls: list[str] = []
-    instances: list[object] = []
 
     class CConstructed(gobject.GObject, type_name=unique_type_name("CConstructed")):
         def __init__(self) -> None:
             calls.append("__init__")
             super().__init__()
             self.initialized = True
-            instances.append(self)
 
-    obj = GObjectNS.new_with_properties(CConstructed, {})
+    ptr = GObjectNS.new_with_properties(CConstructed, {})
+    obj = cast("CConstructed", private.GObject.from_c(ptr))
+    same = cast("CConstructed", private.GObject.from_c(ptr))
 
     assert calls == ["__init__"]
-    assert obj is instances[0]
-    assert isinstance(obj, CConstructed)
+    assert obj is same
     assert obj.initialized is True
 
 
@@ -219,10 +357,10 @@ def test_c_constructed_python_subclass_preserves_parent_init_chain(
     unique_type_name: Any,
 ) -> None:
     from ginext import GObject as GObjectNS
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     order: list[str] = []
-    instances: list[object] = []
 
     class Base(gobject.GObject, type_name=unique_type_name("CConstructedBase")):
         def __init__(self) -> None:
@@ -235,12 +373,11 @@ def test_c_constructed_python_subclass_preserves_parent_init_chain(
             order.append("child1")
             super().__init__()
             order.append("child2")
-            instances.append(self)
 
-    obj = GObjectNS.new_with_properties(Child, {})
+    ptr = GObjectNS.new_with_properties(Child, {})
+    obj = cast("Child", private.GObject.from_c(ptr))
 
     assert isinstance(obj, Child)
-    assert obj is instances[0]
     assert order == ["child1", "base1", "base2", "child2"]
 
 
@@ -248,10 +385,10 @@ def test_c_constructed_python_subclass_preserves_properties_and_python_state(
     unique_type_name: Any,
 ) -> None:
     from ginext import GObject as GObjectNS
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     seen_in_init: list[int] = []
-    instances: list[object] = []
 
     class WithProperty(gobject.GObject, type_name=unique_type_name("CConstructedProp")):
         number: int = gobject.Property(default=0)
@@ -260,13 +397,11 @@ def test_c_constructed_python_subclass_preserves_properties_and_python_state(
             super().__init__()
             self.marker = "set-in-init"
             seen_in_init.append(self.number)
-            instances.append(self)
 
-    obj = GObjectNS.new_with_properties(WithProperty, {"number": 42})
+    ptr = GObjectNS.new_with_properties(WithProperty, {"number": 42})
+    obj = cast("WithProperty", private.GObject.from_c(ptr))
 
     assert seen_in_init == [0]
-    assert obj is instances[0]
-    assert isinstance(obj, WithProperty)
     assert obj.marker == "set-in-init"
     assert obj.number == 42
 
@@ -276,6 +411,7 @@ def test_c_constructed_python_subclass_init_failure_drops_stale_wrapper_state(
     unique_type_name: Any,
 ) -> None:
     from ginext import GObject as GObjectNS
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     wrapper_refs: list[weakref.ReferenceType[object]] = []
@@ -287,16 +423,19 @@ def test_c_constructed_python_subclass_init_failure_drops_stale_wrapper_state(
             wrapper_refs.append(weakref.ref(self))
             raise RuntimeError("boom")
 
-    obj = GObjectNS.new_with_properties(Failing, {})
+    ptr = GObjectNS.new_with_properties(Failing, {})
     assert len(wrapper_refs) == 1
     stale = cast("Failing | None", wrapper_refs[0]())
     assert stale is not None
     assert stale.is_bound() is False
 
+    obj = cast("Failing", private.GObject.from_c(ptr))
+
     assert isinstance(obj, Failing)
     assert obj is not stale
     assert not hasattr(obj, "marker")
     assert not hasattr(obj, "_gobject_construction_state")
+    assert private.GObject.from_c(ptr) is obj
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
@@ -304,6 +443,7 @@ def test_c_constructed_python_subclass_init_failure_preserves_construct_properti
     unique_type_name: Any,
 ) -> None:
     from ginext import GObject as GObjectNS
+    from ginext import private
     from ginext.gobject import gobjectclass as gobject
 
     seen_in_init: list[int] = []
@@ -318,10 +458,10 @@ def test_c_constructed_python_subclass_init_failure_preserves_construct_properti
             seen_in_init.append(self.number)
             raise RuntimeError("boom")
 
-    obj = GObjectNS.new_with_properties(FailingWithProperty, {"number": 42})
+    ptr = GObjectNS.new_with_properties(FailingWithProperty, {"number": 42})
+    obj = cast("FailingWithProperty", private.GObject.from_c(ptr))
 
     assert seen_in_init == [0]
-    assert isinstance(obj, FailingWithProperty)
     assert obj.number == 42
 
 
