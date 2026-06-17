@@ -70,9 +70,8 @@ from .properties import (
 )
 
 # GObject.Object is the C base type, built below by init_gobject from the method
-# definitions in GObjectBody. GObjectBody subclasses the C type only for type
-# checking (so its bodies and GObject see the full API); at runtime it is a bare
-# namespace whose methods init_gobject installs on the C type.
+# definitions in the GObject class. At runtime GObject is overwritten by the C
+# type; the class defined here is only the type-checking view.
 if TYPE_CHECKING:
     _MethodsBase = private.GObject
 else:
@@ -266,9 +265,10 @@ class GInterface(metaclass=GObjectMeta):
 
 
 # The GObject.Object method definitions. init_gobject installs these on the C
-# type; GObjectBody itself is only the type-checking view of GObject.
+# type; this class is the type-checking view — at runtime it is overwritten by
+# the C type returned from init_gobject.
 @dataclass_transform(field_specifiers=(Property,))
-class GObjectBody(_MethodsBase, metaclass=GObjectMeta):
+class GObject(_MethodsBase, metaclass=GObjectMeta):
     gimeta: ClassVar[private.GIMeta]
     Signal: ClassVar[type[Signal]]
     _class_struct_name: ClassVar[str | None] = None
@@ -289,12 +289,9 @@ class GObjectBody(_MethodsBase, metaclass=GObjectMeta):
         def __getattr__(self, name: str) -> Any: ...
 
 
-if TYPE_CHECKING:
-    GObject = GObjectBody
-else:
+if not TYPE_CHECKING:
     GObject = private.init_gobject(GObjectMeta)
     private.GObject = GObject
-    del GObjectBody
 
 if not TYPE_CHECKING:
     GObject.__init_subclass__ = classmethod(_obj_init_subclass)
