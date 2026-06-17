@@ -169,9 +169,12 @@ def dbus_proxy(session_bus: Gio.DBusConnection) -> Generator[Gio.DBusProxy]:
         )
 
     async def _make() -> Gio.DBusProxy:
-        return await aio.AsyncOperation(
-            _start_make,
-            lambda r: Gio.DBusProxy.new_finish(r),  # type: ignore[arg-type]  # r is AsyncResult at runtime
+        return cast(
+            "Gio.DBusProxy",
+            await aio.AsyncOperation(
+                _start_make,
+                lambda r: Gio.DBusProxy.new_finish(r),  # type: ignore[arg-type]  # r is AsyncResult at runtime
+            ),
         )
 
     proxy = asyncio.run(_make(), loop_factory=aio.EventLoop)
@@ -216,7 +219,9 @@ def _assert_live_session_connection(conn: Gio.DBusConnection) -> None:
     # ginext.Gio.DBusConnection for the same GType, since the two namespaces do
     # not share wrapped classes. get_unique_name() is unique to a live
     # GDBusConnection, so it proves bus_get resolved to a real, open connection.
-    assert conn.get_unique_name().startswith(":")
+    unique_name = conn.get_unique_name()
+    assert unique_name is not None
+    assert unique_name.startswith(":")
     assert not conn.is_closed()
 
 
@@ -306,7 +311,7 @@ def test_proxy_getitem_missing_property_raises_key_error(
     dbus_proxy: Gio.DBusProxy,
 ) -> None:
     with pytest.raises(KeyError):
-        _ = dbus_proxy["NoSuchProperty"]  # type: ignore[index]
+        _ = dbus_proxy["NoSuchProperty"]
 
 
 # ── DBusConnection.signal_subscribe ──────────────────────────────────────────
@@ -406,7 +411,7 @@ def test_signal_subscribe_receives_signal(session_bus: Gio.DBusConnection) -> No
         async def _request_name() -> object:
             return await aio.AsyncOperation(
                 _start_request,
-                lambda r: session_bus.call_finish(r),
+                lambda r: getattr(session_bus, "call_finish")(r),  # noqa: B009
             )
 
         asyncio.run(_request_name(), loop_factory=aio.EventLoop)
@@ -513,7 +518,7 @@ def test_register_object_dispatches_method_call(
                 "GLib.Variant",
                 await aio.AsyncOperation(
                     _start_echo,
-                    lambda r: session_bus.call_finish(r),
+                    lambda r: getattr(session_bus, "call_finish")(r),  # noqa: B009
                 ),
             )
         return result.unpack()

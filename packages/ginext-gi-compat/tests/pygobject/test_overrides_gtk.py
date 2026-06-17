@@ -716,7 +716,7 @@ class TestGtk(unittest.TestCase):
                 try:
                     klass = getattr(Gtk, element)
                     info = klass.__info__
-                except NotImplementedError, AttributeError:
+                except (NotImplementedError, AttributeError):
                     continue
 
                 # Get all parent classes and interfaces klass inherits from

@@ -40,7 +40,7 @@ def _discover_implied_defaults() -> dict[tuple[str, str], dict[str, str]]:
     for entry in metadata.entry_points(group="ginext.implied_defaults"):
         try:
             data = entry.load()
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             continue
         if callable(data):
             data = data()

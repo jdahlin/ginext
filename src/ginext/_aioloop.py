@@ -261,7 +261,7 @@ class EventLoop(asyncio.SelectorEventLoop):
             return 0
         scheduled = self._scheduled
         if scheduled:
-            timeout = int((scheduled[0]._when - self.time()) * 1000)
+            timeout = int((scheduled[0].when() - self.time()) * 1000)
             return max(timeout, 0)
         return -1
 

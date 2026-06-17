@@ -447,7 +447,7 @@ def _resolve_to_gtype(arg: object) -> int:
     if isinstance(arg, GTypeMeta):
         try:
             return int(arg)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             pass
         return -1
 

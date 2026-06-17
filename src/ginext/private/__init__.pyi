@@ -153,7 +153,7 @@ class CallableDescriptor:
     gimeta: types.SimpleNamespace
     __name__: str
     __qualname__: str
-    __module__: str | None
+    __module__: str
     __doc__: str | None
     __defaults__: tuple[Any, ...] | None
     __kwdefaults__: dict[str, Any] | None

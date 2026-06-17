@@ -187,8 +187,8 @@ def _suppress_editable_rebuild() -> tuple[list[str] | None, str | None]:
         modules = getattr(finder_obj, "_top_level_modules", None) or ()
         if "ginext" not in modules:
             continue
-        build_path = finder_obj._build_path
-        ninja_cmd = finder_obj._build_cmd
+        build_path = getattr(finder_obj, "_build_path")  # noqa: B009
+        ninja_cmd = getattr(finder_obj, "_build_cmd")  # noqa: B009
         break
 
     if build_path is None:
@@ -289,7 +289,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 subprocess.run(
                     ninja_cmd, cwd=build_path, stdout=subprocess.DEVNULL, check=True
                 )
-            except OSError, subprocess.SubprocessError:
+            except (OSError, subprocess.SubprocessError):
                 pass
     finally:
         if saved is not None:
@@ -416,7 +416,7 @@ def Property(gobject_module: types.ModuleType) -> object:
 
 @pytest.fixture(scope="session")
 def GObject(gobject_module: types.ModuleType) -> type[GObjectBase]:
-    return gobject_module.GObject
+    return cast("type[GObjectBase]", gobject_module.GObject)
 
 
 @pytest.fixture(scope="session")

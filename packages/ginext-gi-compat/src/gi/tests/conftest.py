@@ -468,7 +468,7 @@ def _install_pygobject_compat_layer() -> object:
     for namespace in ("GLib", "GObject", "Gio", "GIMarshallingTests", "Regress"):
         try:
             getattr(gi.repository, namespace)
-        except AttributeError, ImportError, RuntimeError:
+        except (AttributeError, ImportError, RuntimeError):
             pass
     return gi.repository
 

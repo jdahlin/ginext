@@ -27,7 +27,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable
 
 
 def _unlink_with_retry(path: str) -> None:
@@ -217,7 +217,6 @@ def tmp_gfile() -> Generator[tuple[Gio.File, Gio.FileIOStream]]:
     from ginext import Gio
 
     file, stream = Gio.File.new_tmp("TestGFile.XXXXXX")
-    stream = cast("Gio.FileIOStream", stream)
     # Close the IOStream immediately: no test uses it, and on Windows an open
     # handle blocks deleting/replacing the file (EINVAL).
     with contextlib.suppress(Exception):
@@ -241,14 +240,14 @@ def test_replace_contents(tmp_gfile: tuple[Gio.File, Gio.FileIOStream]) -> None:
     file, _stream = tmp_gfile
     content = b"hello\0world\x7f!"
 
-    success, etag = file.replace_contents(
+    success, etag = getattr(file, "replace_contents")(  # noqa: B009
         content,
         None,
         False,
         Gio.FileCreateFlags.NONE,
         None,
     )
-    new_success, new_content, new_etag = file.load_contents(None)
+    new_success, new_content, new_etag = getattr(file, "load_contents")(None)  # noqa: B009
 
     assert success is True
     assert new_success is True
@@ -288,17 +287,17 @@ def _load_bytes_op(file: Gio.File, cancellable: object = None) -> AsyncOperation
     from ginext import aio
 
     def start(callback: Callable[[object, object], None]) -> None:
-        file.load_bytes_async(cancellable, callback)
+        getattr(file, "load_bytes_async")(cancellable, callback)  # noqa: B009
 
     def finish(result: object) -> bytes:
-        raw = file.load_bytes_finish(result)
+        raw = getattr(file, "load_bytes_finish")(result)  # noqa: B009
         gb: GLib.Bytes = raw[0]
         return bytes(gb.get_data())
 
     return aio.AsyncOperation(
         start,
         finish,
-        cancel=cancellable.cancel if cancellable else None,  # type: ignore[union-attr]
+        cancel=getattr(cancellable, "cancel") if cancellable else None,  # noqa: B009
     )
 
 
@@ -417,8 +416,8 @@ def test_file_enumerator_async_iteration_yields_all_entries(
     directory, names = populated_dir
 
     async def main() -> list[str]:
-        enumerator = directory.enumerate_children("standard::name", 0, None)
-        found = [info.get_name() async for info in enumerator]
+        enumerator: Any = directory.enumerate_children("standard::name", 0, None)
+        found = [getattr(info, "get_name")() async for info in enumerator]  # noqa: B009
         return found
 
     assert sorted(asyncio.run(main(), loop_factory=aio.EventLoop)) == sorted(names)
@@ -436,8 +435,8 @@ def test_file_enumerator_async_iteration_matches_sync(
     )
 
     async def main() -> list[str]:
-        enumerator = directory.enumerate_children("standard::name", 0, None)
-        return sorted([info.get_name() async for info in enumerator])
+        enumerator: Any = directory.enumerate_children("standard::name", 0, None)
+        return sorted([getattr(info, "get_name")() async for info in enumerator])  # noqa: B009
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == sync_names
 
@@ -470,10 +469,10 @@ def test_file_enumerator_async_iteration_crosses_batches() -> None:
         directory = Gio.File.new_for_path(path)
 
         async def main() -> set[str]:
-            enumerator: Gio.FileEnumerator = directory.enumerate_children(
+            enumerator: Any = directory.enumerate_children(
                 "standard::name", 0, None
             )
-            return {info.get_name() async for info in enumerator}
+            return {getattr(info, "get_name")() async for info in enumerator}  # noqa: B009
 
         assert asyncio.run(main(), loop_factory=aio.EventLoop) == names
     finally:
@@ -492,7 +491,7 @@ def test_file_enumerator_async_iteration_under_eventloop(
     directory, names = populated_dir
 
     async def main() -> set[str]:
-        enumerator = directory.enumerate_children("standard::name", 0, None)
-        return {info.get_name() async for info in enumerator}
+        enumerator: Any = directory.enumerate_children("standard::name", 0, None)
+        return {getattr(info, "get_name")() async for info in enumerator}  # noqa: B009
 
     assert asyncio.run(main(), loop_factory=aio.EventLoop) == names

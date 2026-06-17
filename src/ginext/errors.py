@@ -38,7 +38,7 @@ def _domain_to_string(domain: object) -> object:
             from ginext import GLib
 
             name = GLib.quark_to_string(domain)
-        except AttributeError, ImportError, RuntimeError:
+        except (AttributeError, ImportError, RuntimeError):
             return str(domain)
         return name if name is not None else str(domain)
     return domain
@@ -170,7 +170,7 @@ def _gio_exception_class(domain: int, code: int) -> type[Error] | None:
         return None
     try:
         from ginext import Gio
-    except ImportError, RuntimeError:
+    except (ImportError, RuntimeError):
         return None
     if int(domain) != int(Gio.io_error_quark()):
         return None

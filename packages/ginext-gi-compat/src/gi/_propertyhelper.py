@@ -262,7 +262,7 @@ class CompatProperty(Generic[T]):
 
             if python_type is _gp.GBoxed:
                 return _GObj.TYPE_BOXED
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             pass
         # If it's a GObject class with __gtype__, return that
         if hasattr(python_type, "__gtype__"):

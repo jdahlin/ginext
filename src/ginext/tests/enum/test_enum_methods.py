@@ -57,7 +57,7 @@ def GstPlay() -> Any:
 
         ginext.defaults.require("GstPlay", "1.0")
         return ginext.GstPlay
-    except AttributeError, ImportError, ValueError:
+    except (AttributeError, ImportError, ValueError):
         pytest.skip("GstPlay-1.0 typelib not available")
 
 

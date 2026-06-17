@@ -83,7 +83,7 @@ if _Widget is not None:
         # ginext returns a ResultTuple: (ret_bool, dest_x, dest_y)
         try:
             ret = result[0]
-        except TypeError, IndexError:
+        except (TypeError, IndexError):
             return result
         if not ret:
             return None

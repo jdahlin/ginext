@@ -66,14 +66,14 @@ if Gtk.__version__[0] == 3:
             exc_value: BaseException | None,
             tb: types.TracebackType | None,
         ) -> Literal[False]:
-            self._obj.thaw_child_notify()
+            getattr(self._obj, "thaw_child_notify")()  # noqa: B009
             return False
 
     def _construct_target_list(targets: Iterable[object]) -> list[object]:
         target_entries: list[object] = []
         for entry in targets:
             if not isinstance(entry, Gtk.TargetEntry):
-                entry_seq = entry.__iter__()
+                entry_seq = getattr(entry, "__iter__")()  # noqa: B009
                 entry = Gtk.TargetEntry.new(*entry_seq)
             target_entries.append(entry)
         return target_entries
@@ -116,17 +116,17 @@ if Gtk.__version__[0] == 3:
 
     @overlay.method("Container")
     def __contains__(self: object, child: object) -> bool:
-        children = self.get_children()
+        children = getattr(self, "get_children")()  # noqa: B009
         return child in ([] if children is None else list(children))
 
     @overlay.method("Container")
     def __iter__(self: object) -> object:
-        children = self.get_children()
+        children = getattr(self, "get_children")()  # noqa: B009
         return iter([] if children is None else children)
 
     @overlay.method("Container")
     def __len__(self: object) -> int:
-        children = self.get_children()
+        children = getattr(self, "get_children")()  # noqa: B009
         return 0 if children is None else len(children)
 
     @overlay.method("Container")
@@ -143,12 +143,12 @@ if Gtk.__version__[0] == 3:
     @overlay.method("Editable")
     def insert_text(self: object, text: str, position: int) -> object:
         # Call the GIR method directly by bypassing the overlay descriptor.
-        insert = Gtk.Editable.insert_text
+        insert = getattr(Gtk.Editable, "insert_text")  # noqa: B009
         return insert(self, text, -1, position)
 
     @overlay.method("Editable")
     def get_selection_bounds(self: object) -> tuple[int, int] | tuple[()]:
-        get_bounds = Gtk.Editable.get_selection_bounds
+        get_bounds = getattr(Gtk.Editable, "get_selection_bounds")  # noqa: B009
         ok, start, end = get_bounds(self)
         return () if not ok else (start, end)
 

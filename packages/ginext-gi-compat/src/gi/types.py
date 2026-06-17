@@ -250,7 +250,7 @@ class GObjectMeta(GObjectMetaBase, MetaClassHelper):
 
             if cls.__module__.startswith(("gi.repository.", "gi.overrides")):
                 return generate_doc_string(cls.__info__)
-        except AttributeError, ImportError:
+        except (AttributeError, ImportError):
             pass
 
         return None
@@ -326,7 +326,7 @@ class StructMeta(type, MetaClassHelper):
             from .docstring import generate_doc_string
 
             return generate_doc_string(cls.__info__)
-        except AttributeError, ImportError:
+        except (AttributeError, ImportError):
             return None
 
 

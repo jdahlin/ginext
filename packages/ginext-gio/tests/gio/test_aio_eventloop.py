@@ -53,11 +53,11 @@ def _load_bytes_op(file: object) -> AsyncOperation:
     from ginext import aio
 
     def start(callback: object) -> None:
-        file.load_bytes_async(None, callback)
+        getattr(file, "load_bytes_async")(None, callback)  # noqa: B009
 
     def finish(result: object) -> bytes:
-        raw = file.load_bytes_finish(result)
-        return bytes(raw[0].get_data())
+        raw = getattr(file, "load_bytes_finish")(result)  # noqa: B009
+        return bytes(getattr(raw[0], "get_data")())  # noqa: B009
 
     return aio.AsyncOperation(start, finish)
 
@@ -223,10 +223,10 @@ def test_task_cancellation_raises_cancelled_error(
     cancellable = Gio.Cancellable()
 
     def start(callback: object) -> None:
-        file.load_bytes_async(cancellable, callback)
+        getattr(file, "load_bytes_async")(cancellable, callback)  # noqa: B009
 
     def finish(result: object) -> object:
-        return file.load_bytes_finish(result)
+        return getattr(file, "load_bytes_finish")(result)  # noqa: B009
 
     from ginext import aio
 

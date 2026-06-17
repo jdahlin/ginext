@@ -102,7 +102,7 @@ def load_overrides(introspection_module: object) -> object:
     for var in override_all:
         try:
             item = getattr(override_mod, var)
-        except AttributeError, TypeError:
+        except (AttributeError, TypeError):
             continue
         setattr(proxy, var, item)
 

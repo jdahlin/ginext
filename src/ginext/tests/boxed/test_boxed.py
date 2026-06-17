@@ -109,7 +109,7 @@ def test_option_entry_arg_field_rejects_non_int() -> None:
     option_entry = GLib.OptionEntry()
 
     with pytest.raises(TypeError, match="integer"):
-        option_entry.arg = "STRING"  # tests that str value is rejected by C marshaller
+        option_entry.arg = "STRING"  # type: ignore[assignment]  # tests that str value is rejected by C marshaller
 
 
 @pytest.mark.parametrize(
@@ -128,7 +128,7 @@ def test_option_entry_long_name_round_trip(
     from ginext import GLib
 
     option_entry = GLib.OptionEntry()
-    option_entry.long_name = value
+    option_entry.long_name = value  # type: ignore[assignment]
 
     assert option_entry.long_name == expected
 
@@ -150,7 +150,7 @@ def test_option_entry_long_name_rejects_non_str() -> None:
     option_entry = GLib.OptionEntry()
 
     with pytest.raises(TypeError, match="expected str"):
-        option_entry.long_name = 42  # tests that int value is rejected by str field
+        option_entry.long_name = 42  # type: ignore[assignment]  # tests that int value is rejected by str field
 
 
 def test_option_entry_arg_data_accepts_none() -> None:

@@ -65,7 +65,7 @@ class TestOverridesWakeupOnAlarm(unittest.TestCase):
             try:
                 with wakeup_on_signal():
                     pass
-            except ValueError, EnvironmentError:
+            except (ValueError, EnvironmentError):
                 failed.append(1)
 
         t = threading.Thread(target=target)

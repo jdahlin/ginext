@@ -392,7 +392,7 @@ def _gimeta_gtype(value: object, default: int) -> int:
 def _is_gtype_value_type(value_type: object) -> bool:
     try:
         return _gimeta_gtype(value_type, 0) == _gimeta_gtype(GType.GTYPE, -1)
-    except AttributeError, TypeError:
+    except (AttributeError, TypeError):
         return False
 
 
@@ -443,7 +443,7 @@ def resolve_annotations(raw_annotations: dict[str, object]) -> dict[str, object]
         for name, value in list(unresolved.items()):
             try:
                 resolved = eval(value, frame.f_globals, frame.f_locals)
-            except NameError, TypeError, SyntaxError:
+            except (NameError, TypeError, SyntaxError):
                 continue
             if isinstance(resolved, str):
                 if resolved != value:

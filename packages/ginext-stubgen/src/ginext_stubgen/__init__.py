@@ -2422,7 +2422,7 @@ def _foreign_enum_like(ns_name: str) -> frozenset[str]:
                         "{http://www.gtk.org/introspection/core/1.0}enumeration",
                     ):
                         names.add(name)
-        except OSError, ET.ParseError:
+        except (OSError, ET.ParseError):
             pass
     result = frozenset(names)
     _foreign_enum_cache[ns_name] = result
@@ -2735,7 +2735,7 @@ def gir_search_dirs() -> list[Path]:
             ).strip()
             if out:
                 dirs.append(Path(out))
-        except subprocess.CalledProcessError, OSError:
+        except (subprocess.CalledProcessError, OSError):
             pass
         # The base GObject/Gio/GLib GIRs are shipped with glib, not with
         # gobject-introspection. On Homebrew (macOS) they live under glib's
@@ -2746,7 +2746,7 @@ def gir_search_dirs() -> list[Path]:
                     [pkg_config, "--variable=datadir", pkg],
                     text=True,
                 ).strip()
-            except subprocess.CalledProcessError, OSError:
+            except (subprocess.CalledProcessError, OSError):
                 continue
             if datadir:
                 dirs.append(Path(datadir) / "gir-1.0")
@@ -2758,7 +2758,7 @@ def gir_search_dirs() -> list[Path]:
     if brew:
         try:
             prefix = subprocess.check_output([brew, "--prefix"], text=True).strip()
-        except subprocess.CalledProcessError, OSError:
+        except (subprocess.CalledProcessError, OSError):
             prefix = ""
         if prefix:
             dirs.append(Path(prefix) / "share" / "gir-1.0")

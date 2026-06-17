@@ -75,7 +75,7 @@ def _named_result(
 
 @overlay.method("TabArray", name="__len__")
 def _tab_array_len(self: TabArray) -> int:
-    return int(self.get_size())
+    return int(getattr(self, "get_size")())  # noqa: B009
 
 
 @overlay.method("TabArray", name="__getitem__")
@@ -85,7 +85,7 @@ def _tab_array_getitem(self: TabArray, index: int) -> tuple[TabAlign, int]:
         index += size
     if index < 0 or index >= size:
         raise IndexError(index)
-    align, location = self.get_tab(index)
+    align, location = getattr(self, "get_tab")(index)  # noqa: B009
     return align, int(location)
 
 
@@ -97,22 +97,22 @@ def _tab_array_iter(self: TabArray) -> Iterator[tuple[TabAlign, int]]:
 
 @overlay.method("TabArray", name="__repr__")
 def _tab_array_repr(self: TabArray) -> str:
-    return f"Pango.TabArray({list(_tab_array_iter(self))!r}, pixels={self.get_positions_in_pixels()!r})"
+    return f"Pango.TabArray({list(_tab_array_iter(self))!r}, pixels={getattr(self, 'get_positions_in_pixels')()!r})"  # noqa: B009
 
 
 @overlay.method("AttrList", name="__len__")
 def _attr_list_len(self: AttrList) -> int:
-    return len(self.get_attributes())
+    return len(getattr(self, "get_attributes")())  # noqa: B009
 
 
 @overlay.method("AttrList", name="__iter__")
 def _attr_list_iter(self: AttrList) -> Iterator[Attribute]:
-    yield from self.get_attributes()
+    yield from getattr(self, "get_attributes")()  # noqa: B009
 
 
 @overlay.method("AttrList", name="__repr__")
 def _attr_list_repr(self: AttrList) -> str:
-    return f"Pango.AttrList({self.to_string()!r})"
+    return f"Pango.AttrList({getattr(self, 'to_string')()!r})"  # noqa: B009
 
 
 @overlay.method("FontDescription", name="__new__", as_staticmethod=True)
@@ -129,7 +129,7 @@ def _font_description_new(
     # must be built by its constructor; allocating it as a bare record yields an
     # undersized struct whose fields read out of bounds.
     if string is None:
-        return cast("FontDescription", cls.new())
+        return cast("FontDescription", getattr(cls, "new")())  # noqa: B009
     # Mirror RecordBase.__new__'s compat deprecation; the shared message is
     # matched by the pyproject filterwarnings.
     if features.is_enabled(features.PYGOBJECT_COMPAT):

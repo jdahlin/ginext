@@ -386,14 +386,14 @@ def _namespace_find_by_gtype(gtype: int) -> tuple[str, str] | None:
             continue
         try:
             names = ginext.private.namespace_dir(namespace_name, version)
-        except AttributeError, TypeError, ValueError:
+        except (AttributeError, TypeError, ValueError):
             continue
         for name in names:
             try:
                 _kind, info = ginext.private.namespace_find(
                     namespace_name, version, name
                 )
-            except AttributeError, TypeError, ValueError:
+            except (AttributeError, TypeError, ValueError):
                 continue
             if int(getattr(info, "gtype", 0)) == gtype:
                 return namespace_name, name
@@ -616,7 +616,7 @@ def _compat_property_for_name(self: Any, name: str) -> object:
     except AttributeError:
         try:
             return self.get_property_by_name(prop_name)
-        except AttributeError, TypeError:
+        except (AttributeError, TypeError):
             raise AttributeError(name) from None
 
 

@@ -242,7 +242,7 @@ def test_inherited_property_type_check_on_set(
 
     obj = B()
     with pytest.raises((TypeError, ValueError, OverflowError)):
-        obj.x = "not an int"
+        obj.x = "not an int"  # type: ignore[assignment]
 
 
 def test_subclass_redeclares_parent_property_name(

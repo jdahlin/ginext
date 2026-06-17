@@ -801,7 +801,7 @@ def _install_treepath_compat(tree_path_cls: Any) -> None:
             raise TypeError(f"could not parse subscript '{path}' as a tree path")
         try:
             return _raw_new_from_string(path_str)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             raise TypeError(f"could not parse subscript '{path}' as a tree path")
 
     tree_path_cls.__new__ = staticmethod(_tp_new)

@@ -778,7 +778,7 @@ class Repository:
         namespace, version = resolved
         try:
             kind, info = _private.namespace_find(namespace, version, name)
-        except AttributeError, ImportError, RuntimeError:
+        except (AttributeError, ImportError, RuntimeError):
             return None
         return _wrap_info(info) or RepositoryInfo(namespace, name, kind, info)
 
@@ -830,13 +830,13 @@ class Repository:
         try:
             version = self.get_version(namespace) or None
             return _repository_helpers.typelib_path(namespace, version) or ""
-        except AttributeError, RuntimeError:
+        except (AttributeError, RuntimeError):
             return ""
 
     def get_infos(self, namespace: str) -> list[RepositoryInfo]:
         try:
             names = _private.namespace_dir(namespace)
-        except AttributeError, RuntimeError:
+        except (AttributeError, RuntimeError):
             return []
         resolved = ginext.defaults.resolve_namespace_name(namespace)
         if resolved is None:
@@ -848,7 +848,7 @@ class Repository:
                 kind, info = _private.namespace_find(namespace, version, name)
                 w = _wrap_info(info) or RepositoryInfo(namespace, name, kind, info)
                 result.append(w)
-            except AttributeError, ImportError, RuntimeError:
+            except (AttributeError, ImportError, RuntimeError):
                 pass
         return result
 

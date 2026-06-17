@@ -67,7 +67,7 @@ class NamedReturn(tuple[Any, ...]):
     def __getattr__(self, name: str) -> Any:
         try:
             index = self._names.index(name)
-        except AttributeError, ValueError:
+        except (AttributeError, ValueError):
             raise AttributeError(name) from None
         return self[index]
 
@@ -216,7 +216,7 @@ def _bind(fn: Callable[..., Any], obj: object, objtype: object) -> Callable[...,
         return partial(fn, obj)
     try:
         bound = descriptor_get(fn, obj, objtype)
-    except AttributeError, TypeError, SystemError:
+    except (AttributeError, TypeError, SystemError):
         bound = None
     if bound is None or bound is fn:
         return partial(fn, obj)
