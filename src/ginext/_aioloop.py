@@ -44,12 +44,13 @@ Ported and trimmed from PyGObject's ``gi/events.py`` selector integration
 from __future__ import annotations
 
 import asyncio
+import collections
 import selectors
 import sys
 import weakref
 from collections.abc import Callable, Generator, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from . import GLib, private
 
@@ -220,6 +221,16 @@ class Selector(selectors.BaseSelector):
 
 
 class EventLoop(asyncio.SelectorEventLoop):
+    if TYPE_CHECKING:
+        # Private asyncio.BaseEventLoop internals not in typeshed stubs.
+        _ready: collections.deque[asyncio.Handle]
+        _scheduled: list[asyncio.TimerHandle]
+        _selector: Selector
+
+        def _run_forever_setup(self) -> None: ...
+        def _run_forever_cleanup(self) -> None: ...
+        def _run_once(self) -> None: ...
+
     def __init__(self) -> None:
         if sys.platform == "win32":
             # The selector integration registers asyncio's fds with the GLib
@@ -287,7 +298,7 @@ class EventLoop(asyncio.SelectorEventLoop):
         with self.running(self._main_loop.quit):
             self._main_loop.run()
 
-    def run_application(self, app: object, argv: object = None) -> int:
+    def run_application(self, app: Any, argv: object = None) -> int:
         """Run a Gio Application with this loop as the running asyncio loop.
 
         ``app.run()`` spins the same GLib main context, so coroutines started

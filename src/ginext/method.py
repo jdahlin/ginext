@@ -238,8 +238,8 @@ def _attach_callable_metadata(
 
 def attach_owner_metadata(method: object, owner: type[object]) -> object:
     try:
-        method.__objclass__ = owner
-    except AttributeError, TypeError:
+        setattr(method, "__objclass__", owner)
+    except (AttributeError, TypeError):
         pass
     return method
 

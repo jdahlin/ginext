@@ -153,6 +153,13 @@ class CallableDescriptor:
     gimeta: types.SimpleNamespace
     __name__: str
     __qualname__: str
+    __module__: str | None
+    __doc__: str | None
+    __defaults__: tuple[Any, ...] | None
+    __kwdefaults__: dict[str, Any] | None
+    __annotations__: dict[str, Any]
+    __annotate__: Callable[..., dict[str, Any]] | None
+    __type_params__: tuple[Any, ...]
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 

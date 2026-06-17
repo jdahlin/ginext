@@ -59,7 +59,7 @@ def _own_annotations(cls: type) -> dict[str, object]:
     return annotationlib.get_annotations(cls)
 
 
-def _install_extension_metadata(cls: type) -> None:
+def _install_extension_metadata(cls: type[GObject]) -> None:
     gtk_actions: list[object] = []
     for attr in cls.__dict__.values():
         spec = getattr(attr, "gimeta_action", None)
