@@ -112,7 +112,7 @@ def test_python_defined_interface_impl_dispatches_vfunc(
     GObject: type[object], gi_marshalling_tests: Any, unique_type_name: Any
 ) -> None:
     def __init__(self: Any) -> None:
-        super(type(self), self).__init__()
+        GObject.__init__(self)
         self.val = None
 
     def do_test_int8_in(self: Any, int8: int) -> None:

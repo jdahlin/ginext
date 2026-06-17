@@ -33,12 +33,6 @@ import itertools
 from typing import Any, cast
 
 
-pytestmark = pytest.mark.xfail(
-    reason="Python-defined GObject.GEnum/GObject.GFlags registration pending",
-    run=False,
-    strict=False,
-)
-
 _type_seq = itertools.count()
 
 

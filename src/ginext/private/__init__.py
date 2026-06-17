@@ -16,7 +16,7 @@
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
 """Re-export the C-implemented surface so callers can write
-`ginext.private.GIMeta`, `ginext.private.DeclaredProperty`, etc.
+`ginext.private.GIMeta`, `ginext.private.PropertyDescriptor`, etc.
 
 GIMeta is now a C heap type with `gtype` / `type_name` / `parent` /
 `pspecs` / `prop_ids` properties plus `from_type_name` classmethod and
@@ -114,35 +114,21 @@ GIMeta = _gobject.GIMeta
 GObject = None
 GObjectMeta = _gobject.GObjectMeta
 init_gobject = _gobject.init_gobject
-register_gobject_callbacks = _gobject.register_gobject_callbacks
+register_gtype_pytype = _gobject.register_gtype_pytype
 GBoxed = _gobject.GBoxed
-DeclaredProperty = _gobject.DeclaredProperty
+PropertyDescriptor = _gobject.PropertyDescriptor
 build_callable_descriptor = _gobject.build_callable_descriptor
 invoke = _gobject.invoke
 class_struct_wrapper = _gobject.class_struct_wrapper
 installed_versions = _gobject.installed_versions
-preload_shared_library = _gobject.preload_shared_library
 invoke_callable_descriptor = _gobject.invoke_callable_descriptor
-invoke_stats = _gobject.invoke_stats
 namespace_dir = _gobject.namespace_dir
 namespace_find = _gobject.namespace_find
 synthetic_callable = _gobject.synthetic_callable
 callable_async_info = _gobject.callable_async_info
-instantiatable_unref = _gobject.instantiatable_unref
-record_field_get = _gobject.record_field_get
-record_field_set = _gobject.record_field_set
-record_ensure_size = _gobject.record_ensure_size
-record_memory_get = _gobject.record_memory_get
-record_memory_set = _gobject.record_memory_set
-record_copy = _gobject.record_copy
-record_pointer_equal = _gobject.record_pointer_equal
-record_pointer_value = _gobject.record_pointer_value
-record_install_field_descriptors = _gobject.record_install_field_descriptors
-record_field_names = _gobject.record_field_names
-record_new = _gobject.record_new
-register_boxed_class = _gobject.register_boxed_class
+Fundamental = _gobject.Fundamental
+record_setup_class = _gobject.record_setup_class
 require_namespace = _gobject.require_namespace
-reset_invoke_stats = _gobject.reset_invoke_stats
 gvalue_get_type = _gobject.gvalue_get_type
 gvalue_get_gtype = _gobject.gvalue_get_gtype
 gvalue_init_value = _gobject.gvalue_init_value
@@ -150,14 +136,8 @@ gvalue_unset_value = _gobject.gvalue_unset_value
 gvalue_reset_value = _gobject.gvalue_reset_value
 gvalue_get_value = _gobject.gvalue_get_value
 gvalue_set_value = _gobject.gvalue_set_value
-gvalue_array_get_nth_type = _gobject.gvalue_array_get_nth_type
-gvalue_set_to_py_fallback = _gobject.gvalue_set_to_py_fallback
-gvalue_get_to_py_fallback = _gobject.gvalue_get_to_py_fallback
-gvalue_set_from_py_converter = _gobject.gvalue_set_from_py_converter
-gvalue_get_from_py_converter = _gobject.gvalue_get_from_py_converter
 gvalue_set_data_int = _gobject.gvalue_set_data_int
 gvalue_set_data_uint64 = _gobject.gvalue_set_data_uint64
-gvalue_new_for_gtype = _gobject.gvalue_new_for_gtype
 gvalue_wrap_pointer = _gobject.gvalue_wrap_pointer
 
 
@@ -170,35 +150,24 @@ def register_converter(to_py, from_py):
     from a Python object (raise NotImplementedError for a type it does not
     cover). Either may be None.
     """
-    gvalue_set_to_py_fallback(to_py)
-    gvalue_set_from_py_converter(from_py)
-
-
-def get_converters():
-    """Return the currently-installed ``(to_py, from_py)`` converters."""
-    return gvalue_get_to_py_fallback(), gvalue_get_from_py_converter()
+    if to_py is not None:
+        register_hook("gvalue.to_py", to_py)
+    if from_py is not None:
+        register_hook("gvalue.from_py", from_py)
 
 
 gstrv_get_type = _gobject.gstrv_get_type
-gerror_get_type = _gobject.gerror_get_type
-ensure_cairo_gobject_types = _gobject.ensure_cairo_gobject_types
 glib_event_source_new = _gobject.glib_event_source_new
 type_has_value_table = _gobject.type_has_value_table
-pointer_type_register_static = _gobject.pointer_type_register_static
+register_static = _gobject.register_static
 param_spec_info = _gobject.param_spec_info
 param_spec_default_value = _gobject.param_spec_default_value
 param_spec_numeric_info = _gobject.param_spec_numeric_info
-getargs_b = _gobject.getargs_b
-getargs_B = _gobject.getargs_B
-getargs_h = _gobject.getargs_h
-getargs_H = _gobject.getargs_H
-getargs_i = _gobject.getargs_i
-getargs_I = _gobject.getargs_I
-getargs_l = _gobject.getargs_l
-getargs_L = _gobject.getargs_L
-getargs_n = _gobject.getargs_n
-getargs_k = _gobject.getargs_k
-getargs_K = _gobject.getargs_K
-getargs_f = _gobject.getargs_f
-getargs_d = _gobject.getargs_d
-getargs_s = _gobject.getargs_s
+register_hook = _gobject.register_hook
+register_coercion = _gobject.register_coercion
+
+
+def preload_shared_library(path: str) -> None:
+    import ctypes
+
+    ctypes.CDLL(path)

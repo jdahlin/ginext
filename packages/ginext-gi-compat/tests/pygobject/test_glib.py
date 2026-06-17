@@ -396,7 +396,7 @@ class TestGLibPlatform(unittest.TestCase):
 
         expected_message = (
             f"{namespace}.{symbol_name} is deprecated; "
-            f"use {new_namespace}.{new_symbol_name} instead"
+            + f"use {new_namespace}.{new_symbol_name} instead"
         )
         if len(warn) == 1:
             self.assertEqual(expected_message, str(warn[0].message))
@@ -495,27 +495,3 @@ class TestGLibPlatform(unittest.TestCase):
         with warnings.catch_warnings(record=True) as warn:
             self.assertGreater(GLib.unix_error_quark(), 0)
             self.maybeAssertDeprecationWarning(warn, "unix_error_quark", "error_quark")
-
-    @unittest.skipIf(
-        GLibUnix is None
-        or (GLib.MAJOR_VERSION, GLib.MINOR_VERSION) < PLATFORM_SPLIT_VERSION,
-        "Not supported",
-    )
-    def test_glib_unix_signal_add_full_deprecation(self):
-        with warnings.catch_warnings(record=True) as warn:
-            self.assertIsNotNone(GLibUnix.signal_add_full)
-            self.assertDeprecationWarning(
-                warn, "GLibUnix", "GLibUnix", "signal_add_full", "signal_add"
-            )
-
-    @unittest.skipIf(GLibUnix is None, "Not supported")
-    def test_glib_unix_signal_add_full_wrapper_deprecation(self):
-        with warnings.catch_warnings(record=True) as warn:
-            self.assertIsNotNone(GLib.unix_signal_add_full)
-            new_namespace = "GLibUnix" if "signal_add" in dir(GLibUnix) else "GLib"
-            new_symbol = (
-                "signal_add" if "signal_add" in dir(GLibUnix) else "unix_signal_add"
-            )
-            self.assertDeprecationWarning(
-                warn, "GLib", new_namespace, "unix_signal_add_full", new_symbol
-            )

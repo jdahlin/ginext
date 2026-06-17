@@ -36,7 +36,7 @@ import sys
 import types
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pytest
 
@@ -305,7 +305,7 @@ class _FakeType:
 class _FakeInfo:
     """Minimal callable info whose `arg_names` references a non-existent arg."""
 
-    arg_names = ["ghost"]
+    arg_names: ClassVar[list[str]] = ["ghost"]
 
     def get_n_args(self) -> int:
         return 0

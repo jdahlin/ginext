@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import cast
 
 from ginext import Gio, GLib, GObject, Gtk, Pango
+
+_GZIP_ERRORS = (GLib.Error, OSError, EOFError, gzip.BadGzipFile, zlib.error)
 from ginext.gobject.gtype import GType
 
 from commander.components.archive import (
@@ -26,8 +28,6 @@ from commander.components.location import (
     list_location_choices,
 )
 from commander.fs import File
-
-_GZIP_ERRORS = (GLib.Error, OSError, EOFError, gzip.BadGzipFile, zlib.error)
 
 FILE_ATTRIBUTES = ",".join(
     (

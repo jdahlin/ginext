@@ -31,7 +31,7 @@ event_loop_compat_xfail = pytest.mark.xfail(
 
 class GLibEventLoopTestsMixin:
     @abc.abstractmethod
-    def create_event_loop(self) -> gi.events.GLibEventLoop: ...
+    def create_event_loop(self) -> "gi.events.GLibEventLoop": ...
 
     def test_call_soon(self):
         loop = self.create_event_loop()

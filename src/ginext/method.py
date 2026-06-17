@@ -46,6 +46,11 @@ class _PackedUserData(tuple[object, ...]):
     __slots__ = ()
 
 
+from ginext import private as _private_hooks
+
+_private_hooks.register_hook("packed_user_data_type", _PackedUserData)
+
+
 def _keyword_only_message(name: str, after: int, given: int) -> str:
     plural = "" if after == 1 else "s"
     return (
@@ -212,12 +217,12 @@ class _GICallable:
 
 
 def _attach_callable_metadata(
-    descriptor: private.MethodDescriptor,
+    descriptor: private.CallableDescriptor,
     *,
     gimeta: types.SimpleNamespace,
     name: str,
     qualified_name: str,
-) -> private.MethodDescriptor:
+) -> private.CallableDescriptor:
     descriptor.gimeta = gimeta
     descriptor.__name__ = name
     descriptor.__qualname__ = qualified_name

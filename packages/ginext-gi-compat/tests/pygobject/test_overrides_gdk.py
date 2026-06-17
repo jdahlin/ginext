@@ -167,7 +167,7 @@ class TestGdk(unittest.TestCase):
 
         event = Gdk.Event()
         event.type = Gdk.EventType.SCROLL
-        self.assertRaises(AttributeError, lambda: event.foo_bar)
+        self.assertRaises(AttributeError, lambda: getattr(event, "foo_bar"))
 
     @unittest.skipIf(GDK4, "not in gdk4")
     def test_scroll_event(self):

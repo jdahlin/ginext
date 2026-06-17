@@ -122,6 +122,11 @@ overlay.deprecated("G_MININT64", -(2**63), "GLib.MININT64")
 overlay.deprecated("G_MAXUINT64", GLib.MAXUINT64, "GLib.MAXUINT64")
 overlay.constant("Property", _gobject_root.Property)
 
+from ginext.enum import GEnum as _GEnum, GFlags as _GFlags
+
+overlay.constant("GEnum", _GEnum)
+overlay.constant("GFlags", _GFlags)
+
 
 class _FreezeNotifyContext:
     __slots__ = ("_obj",)
@@ -169,12 +174,9 @@ class _NotifyCompatProxy:
 
 
 def _notify_bound_signal(source: _gobject_root.GObject) -> _BoundSignal:
-    try:
-        return source.signal_for_name("notify")
-    except AttributeError:
-        info = GObject.Object.gimeta.signal_infos["notify"]
-        method = GObject.Object.gimeta.signal_method_backings.get("notify")
-        return _BoundSignal(source, "notify", cast("Any", info), method)
+    info = GObject.Object.gimeta.signal_infos["notify"]
+    method = GObject.Object.gimeta.signal_method_backings.get("notify")
+    return _BoundSignal(source, "notify", cast("Any", info), method)
 
 
 @overlay.method("Object")
@@ -395,7 +397,7 @@ _root.force_floating = force_floating  # type: ignore[attr-defined]
 
 
 # GObject.list_properties(type_or_instance) — pygobject compat function.
-# Accepts: Python class with gimeta, string type name, __gtype__ object, or instance.
+# Accepts: Python class with gimeta, string type name, GType object, or instance.
 # Returns a list of ParamSpec-like objects with .name and .value_type attributes.
 # Caches results by GType so repeated calls return the same list (enabling == comparisons).
 
@@ -418,8 +420,10 @@ def interface_list_properties(fn: Any, type_or_gtype: object) -> list[Any]:
 
 
 def _interface_list_properties(gtype: int) -> list[PropertyInfo]:
+    result: list[PropertyInfo] = []
     raw: list[Any] = interface_list_properties(gtype)  # type: ignore[arg-type]
-    result: list[PropertyInfo] = [PropertyInfo(pspec) for pspec in raw]
+    for pspec in raw:
+        result.append(PropertyInfo(pspec))
     return result
 
 
@@ -427,27 +431,16 @@ def _resolve_to_gtype(arg: object) -> int:
     """Return the GType for arg, or -1 on failure (TypeError should be raised by caller)."""
     # Handle instances: delegate to their class
     if not isinstance(arg, type) and not isinstance(arg, str):
-        # Check for __gtype__ (compat GTypeMeta)
-        gtype_attr = getattr(type(arg), "__gtype__", None)
-        if gtype_attr is not None and type(arg) is not type:
-            return _resolve_to_gtype(type(arg))
         # Check for GObject instance via gimeta on the class
         cls = type(arg)
         gimeta = getattr(cls, "gimeta", None)
         if gimeta is not None and hasattr(gimeta, "gtype"):
             return int(gimeta.gtype)
-        # Try __gtype__ on instance (e.g. GTypeMeta is itself a type but subclasses type)
-        gtype = getattr(arg, "__gtype__", None)
-        if gtype is not None:
-            try:
-                return int(gtype)
-            except TypeError, ValueError:
-                pass
         return -1
 
     if isinstance(arg, str):
         result = int(GObject.type_from_name(arg))
-        return result or -1
+        return result if result else -1
 
     # arg is a type/class
     # First check for GTypeMeta (the gtype object itself is a class)
@@ -467,7 +460,7 @@ def _resolve_to_gtype(arg: object) -> int:
             break
     if gimeta is not None and hasattr(gimeta, "gtype"):
         gt = int(gimeta.gtype)
-        return gt or -1
+        return gt if gt else -1
     return -1
 
 

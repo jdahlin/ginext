@@ -180,9 +180,9 @@ def _register_gio_unix_deprecations() -> None:
         GioUnix = _ginext._load_namespace(
             "GioUnix", version, profile=_ginext.abi.PYGOBJECT
         )
-    except ImportError, LookupError:
+    except (ImportError, LookupError):
         return
-    except AttributeError, RuntimeError:
+    except (AttributeError, RuntimeError):
         return
     # GioUnix exposes a platform-dependent subset of these symbols: e.g.
     # DesktopAppInfo and the Unix{Input,Output}Stream types are absent on
@@ -651,7 +651,8 @@ def __init__(self: Any, *args: Any, **kwargs: Any) -> None:
     import warnings
     from ginext import PyGIWarning
 
-    super(type(self), self).__init__(*args, **kwargs)
+    parent_init = type(self).__mro__[1].__dict__["__init__"]
+    parent_init(self, *args, **kwargs)
     warnings.warn(
         "Gio.VolumeMonitor shouldn't be instantiated directly, "
         "use Gio.VolumeMonitor.get() instead.",

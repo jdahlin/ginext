@@ -82,6 +82,14 @@ class GTypeMeta(type):
         return f"<GType {cls.gtype_name} ({int(cls)})>"
 
     @property
+    def parent(cls) -> type[GType] | None:
+        GObject = gobject_repo()
+        p = int(GObject.type_parent(int(cls)))
+        if p == 0:
+            return None
+        return compat_gtype_from_raw(p, GObject.type_name(p))
+
+    @property
     def children(cls) -> list[type[GType]]:
         GObject = gobject_repo()
         return [

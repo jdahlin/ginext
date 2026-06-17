@@ -60,7 +60,7 @@ if TYPE_CHECKING:
         def get_prerequisite(self, index: int) -> ObjectInfo | InterfaceInfo: ...
 
 
-from .fundamental import Fundamental
+from .fundamental import Fundamental, FundamentalMeta
 from .gobject.gobjectclass import (
     GInterface,
     GObject,
@@ -304,12 +304,18 @@ class ClassBuilder:
                     continue
                 setattr(cls, attr_name, attr_value)
             cls._gobject_root_adopted = True
+        elif issubclass(parent_cls, Fundamental) and not issubclass(
+            parent_cls, GObject
+        ):
+            cls = cast("type[Any]", FundamentalMeta(name, bases, attrs))
         else:
             cls = cast("type[Any]", type(name, bases, attrs))
         if data["vfuncs"]:
             gimeta.install_native_vfunc_attrs(cls, info)
         if data["gtype"]:
             _classes_by_gtype[(profile.name, data["gtype"])] = cls
+            if profile.name == abi.NATIVE.name:
+                private.register_gtype_pytype(int(data["gtype"]), cls)
         install_class_overlay(cls, self._context.name, name)
         return cls
 
@@ -341,63 +347,29 @@ def _concrete_impl_for_interface(iface_cls: type[GInterface]) -> type[GObject]:
     return cast("type[GObject]", impl)
 
 
-def wrap_object_from_c(ptr: int, gtype: int, context: object | None = None) -> GObject:
+def wrapper_type_for_gtype(gtype: int, context: object | None = None) -> type:
     profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
     cached = _cached_class_for_gtype(profile.name, gtype)
     if cached is None:
         cached = _cached_python_defined_class_for_gtype(gtype)
     if cached is not None:
         if issubclass(cached, GObject):
-            return cached.new_bound_from_c(ptr)
+            return cached
         if issubclass(cached, GInterface):
-            impl = _concrete_impl_for_interface(cached)
-            return impl.new_bound_from_c(ptr)
-        return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
+            return _concrete_impl_for_interface(cached)
+        return cached
     data = private.GIMeta.info_by_gtype(gtype).object_info()
     namespace = sys.modules["ginext"]._load_namespace(
         data["namespace"],
         data["version"],
         profile=profile,
     )
-    cls = getattr(namespace, data["name"])
+    cls: type = getattr(namespace, data["name"])
     if issubclass(cls, GObject):
-        return cast("GObject", cls.new_bound_from_c(ptr))
+        return cls
     if issubclass(cls, GInterface):
-        impl = _concrete_impl_for_interface(cls)
-        return impl.new_bound_from_c(ptr)
-    return cast("GObject", cls._from_gobject_pointer(ptr))
-
-
-def wrap_preallocated_object_from_c(
-    ptr: int, gtype: int, context: object | None = None
-) -> GObject:
-    profile = context._profile if isinstance(context, _HasProfile) else abi.NATIVE
-    cached = _cached_class_for_gtype(profile.name, gtype)
-    if cached is None:
-        cached = _cached_python_defined_class_for_gtype(gtype)
-    if cached is not None:
-        if issubclass(cached, GObject):
-            gimeta = own_gimeta(cached)
-            if gimeta is not None and getattr(gimeta, "gi_info", None) is None:
-                return cached.new_preallocated_from_c(ptr)
-            return cached.new_bound_from_c(ptr, owns_ref=False)
-        if issubclass(cached, GInterface):
-            impl = _concrete_impl_for_interface(cached)
-            return impl.new_bound_from_c(ptr, owns_ref=False)
-        return cast("GObject", cast("Any", cached)._from_gobject_pointer(ptr))
-    data = private.GIMeta.info_by_gtype(gtype).object_info()
-    namespace = sys.modules["ginext"]._load_namespace(
-        data["namespace"],
-        data["version"],
-        profile=profile,
-    )
-    cls = getattr(namespace, data["name"])
-    if issubclass(cls, GObject):
-        return cast("GObject", cls.new_bound_from_c(ptr, owns_ref=False))
-    if issubclass(cls, GInterface):
-        impl = _concrete_impl_for_interface(cls)
-        return impl.new_bound_from_c(ptr, owns_ref=False)
-    return cast("GObject", cls._from_gobject_pointer(ptr))
+        return _concrete_impl_for_interface(cls)
+    return cls
 
 
 def register_class_for_gtype(cls: type) -> None:
@@ -406,6 +378,8 @@ def register_class_for_gtype(cls: type) -> None:
     if gtype:
         profile = gimeta.profile if gimeta is not None else abi.NATIVE
         _classes_by_gtype[(profile.name, gtype)] = cls
+        if profile.name == abi.NATIVE.name:
+            private.register_gtype_pytype(int(gtype), cls)
 
 
 def _cached_class_for_gtype(profile_name: str, gtype: int) -> type[Any] | None:
@@ -707,10 +681,8 @@ def method_for_instance(obj: object, name: str) -> object | None:
     return types.MethodType(cast("Any", method), obj)
 
 
-# Hand the wrapper factories to C so it never imports this module to fetch them
-# (the inverse of the old PyImport_ImportModule("ginext.classbuild")). Registered
-# at import — before any GObject is wrapped from C.
-private.register_gobject_callbacks(
-    wrap_object=wrap_object_from_c,
-    wrap_preallocated=wrap_preallocated_object_from_c,
-)
+from . import private as _private
+
+_private.register_hook("Fundamental.getattr", method_for_instance)
+_private.register_hook("Object.wrap", wrapper_type_for_gtype)
+del _private

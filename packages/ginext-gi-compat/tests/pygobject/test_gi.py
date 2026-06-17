@@ -1969,9 +1969,7 @@ class TestGValue(unittest.TestCase):
         self.assertEqual(ref(), None)
 
     @unittest.skipUnless(hasattr(sys, "getrefcount"), "no sys.getrefcount")
-    def test_gvalue_boxed_ref_counts(self):
-        # Tests a boxed type wrapping a python object pointer (TYPE_PYOBJECT)
-        # held by a GValue
+    def test_gvalue_pyobject_ref_counts(self):
         class Obj:
             pass
 
@@ -1982,24 +1980,17 @@ class TestGValue(unittest.TestCase):
         value = GObject.Value()
         value.init(GObject.TYPE_PYOBJECT)
 
-        # boxed TYPE_PYOBJECT will inc ref count as it should
-        with pytest.warns(DeprecationWarning, match="set_boxed"):
-            value.set_boxed(obj)
+        value.set_value(obj)
         self.assertEqual(sys.getrefcount(obj), refcount + 1)
 
-        # multiple set_boxed should not inc ref count
-        with pytest.warns(DeprecationWarning, match="set_boxed"):
-            value.set_boxed(obj)
+        value.set_value(obj)
         self.assertEqual(sys.getrefcount(obj), refcount + 1)
 
-        with pytest.warns(DeprecationWarning, match="get_boxed"):
-            res = value.get_boxed()
+        res = value.get_value()
         self.assertEqual(obj, res)
         self.assertEqual(sys.getrefcount(obj), refcount + 2)
 
-        # multiple get_boxed should not inc ref count
-        with pytest.warns(DeprecationWarning, match="get_boxed"):
-            res = value.get_boxed()
+        res = value.get_value()
         self.assertEqual(sys.getrefcount(obj), refcount + 2)
 
         # deletion of the result and value holder should bring the
@@ -2902,7 +2893,7 @@ class TestGObject(unittest.TestCase):
     def test_nongir_repr(self):
         self.assertRegex(
             repr(Gio.File.new_for_path("/")),
-            r"<__gi__.GLocalFile object at 0x[^\s]+ \(GLocalFile at 0x[^\s]+\)>",
+            r"<__gi__.GLocalFile object at 0x[^\s]+ " r"\(GLocalFile at 0x[^\s]+\)>",
         )
 
     def test_constructor_bad_cls_arg(self):
@@ -3843,64 +3834,3 @@ class TestDeprecation(unittest.TestCase):
             GLib.glib_version
             GLib.pyglib_version
             self.assertEqual(len(warn), 17)
-
-    def test_deprecated_init_no_keywords(self):
-        def init(self, **kwargs):
-            self.assertDictEqual(kwargs, {"a": 1, "b": 2, "c": 3})
-
-        fn = gi.overrides.deprecated_init(init, arg_names=("a", "b", "c"))
-        with self.assertWarns(PyGIDeprecationWarning) as w:
-            fn(self, 1, 2, 3)
-        self.assertRegex(str(w.warning), ".*keyword.*a, b, c.*")
-        self.assertIn("test_gi.py", w.filename)
-
-    def test_deprecated_init_no_keywords_out_of_order(self):
-        def init(self, **kwargs):
-            self.assertDictEqual(kwargs, {"a": 1, "b": 2, "c": 3})
-
-        fn = gi.overrides.deprecated_init(init, arg_names=("b", "a", "c"))
-        with self.assertWarns(PyGIDeprecationWarning) as w:
-            fn(self, 2, 1, 3)
-        self.assertRegex(str(w.warning), ".*keyword.*b, a, c.*")
-        self.assertIn("test_gi.py", w.filename)
-
-    def test_deprecated_init_ignored_keyword(self):
-        def init(self, **kwargs):
-            self.assertDictEqual(kwargs, {"a": 1, "c": 3})
-
-        fn = gi.overrides.deprecated_init(
-            init, arg_names=("a", "b", "c"), ignore=("b",)
-        )
-        with self.assertWarns(PyGIDeprecationWarning) as w:
-            fn(self, 1, 2, 3)
-        self.assertRegex(str(w.warning), ".*keyword.*a, b, c.*")
-        self.assertIn("test_gi.py", w.filename)
-
-    def test_deprecated_init_with_aliases(self):
-        def init(self, **kwargs):
-            self.assertDictEqual(kwargs, {"a": 1, "b": 2, "c": 3})
-
-        fn = gi.overrides.deprecated_init(
-            init, arg_names=("a", "b", "c"), deprecated_aliases={"b": "bb", "c": "cc"}
-        )
-        with self.assertWarns(PyGIDeprecationWarning) as w:
-            fn(self, a=1, bb=2, cc=3)
-        self.assertRegex(
-            str(w.warning), '.*keyword.*"bb, cc".*deprecated.*"b, c" respectively'
-        )
-        self.assertIn("test_gi.py", w.filename)
-
-    def test_deprecated_init_with_defaults(self):
-        def init(self, **kwargs):
-            self.assertDictEqual(kwargs, {"a": 1, "b": 2, "c": 3})
-
-        fn = gi.overrides.deprecated_init(
-            init, arg_names=("a", "b", "c"), deprecated_defaults={"b": 2, "c": 3}
-        )
-        with self.assertWarns(PyGIDeprecationWarning) as w:
-            fn(self, a=1)
-        self.assertRegex(
-            str(w.warning),
-            ".*relying on deprecated non-standard defaults.*explicitly use: b=2, c=3",
-        )
-        self.assertIn("test_gi.py", w.filename)

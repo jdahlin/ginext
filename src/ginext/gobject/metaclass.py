@@ -34,14 +34,10 @@ like a dataclass) lives in the ``TYPE_CHECKING`` stub.
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING, dataclass_transform
 
 from .. import features, private
 from .gtype import compat_gtype_from_raw
 from .resolve import classbuild_module, own_gimeta
-
-if TYPE_CHECKING:
-    from .properties import Property
 
 
 def _is_root_gobject_class(cls: type) -> bool:
@@ -56,6 +52,10 @@ def _gobjectmeta_getattr(cls: GObjectMeta, name: str) -> object:
         if gimeta is not None:
             type_name = gimeta.type_name
             return compat_gtype_from_raw(int(gimeta.gtype), type_name)
+    if name == "Signal" and _is_root_gobject_class(cls):
+        from ..signal.descriptor import SignalDescriptor
+
+        return SignalDescriptor
     found = classbuild_module().install_method_for_class(cls, name)
     if found is not None:
         method, has_self = found
@@ -100,22 +100,7 @@ def _gobjectmeta_dir(cls: GObjectMeta) -> list[str]:
     return sorted(names)
 
 
-# Wire the metatype slots to the bodies above (partial registration is allowed).
-private.register_gobject_callbacks(
-    meta_getattr=_gobjectmeta_getattr,
-    meta_dir=_gobjectmeta_dir,
-)
+GObjectMeta = private.GObjectMeta
 
-
-if TYPE_CHECKING:
-    # The runtime metaclass is the C metatype; this stub carries the
-    # dataclass-transform typing view for `class Foo(GObject.Object)`. __getattr__
-    # mirrors the old metaclass's lazy class-method install so attribute access on
-    # GObject classes stays open (e.g. `cls._class_struct_name`).
-    @dataclass_transform(field_specifiers=(Property,))
-    class GObjectMeta(type):
-        gimeta: private.GIMeta
-
-        def __getattr__(cls, name: str) -> object: ...
-else:
-    GObjectMeta = private.GObjectMeta
+private.register_hook("ObjectClass.getattr", _gobjectmeta_getattr)
+private.register_hook("ObjectClass.dir", _gobjectmeta_dir)

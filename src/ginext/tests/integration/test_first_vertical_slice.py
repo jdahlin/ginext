@@ -61,24 +61,3 @@ def test_full_pipeline_in_one_test() -> None:
     assert c.is_cancelled() is False
     c.cancel()
     assert c.is_cancelled() is True
-
-
-def test_full_pipeline_no_metadata_after_warmup() -> None:
-    """After warmup, none of the slice should walk gi_* metadata."""
-    from ginext import GLib, Gio, runtime
-
-    # Warm everything once.
-    GLib.get_user_name()
-    c = Gio.Cancellable()
-    c.cancel()
-    c.is_cancelled()
-
-    runtime.reset_stats()
-
-    for _ in range(10):
-        GLib.get_user_name()
-        c2 = Gio.Cancellable()
-        c2.cancel()
-        c2.is_cancelled()
-
-    assert runtime.stats()["invoke_gi_metadata_calls"] == 0

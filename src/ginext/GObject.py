@@ -17,20 +17,20 @@
 
 from __future__ import annotations
 
-from typing import Any
+import ginext
 
-from . import _load_namespace, defaults
+from . import defaults
 
 
 def _namespace() -> object:
-    return _load_namespace(
+    return ginext._load_namespace(
         "GObject",
         defaults.resolve_version("GObject") or "2.0",
         _module_name_override=f"{__name__}._namespace",
     )
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> object:
     return getattr(_namespace(), name)
 
 

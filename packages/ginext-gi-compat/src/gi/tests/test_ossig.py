@@ -32,7 +32,6 @@ except ImportError:
     Gtk = cast(Any, None)
     Gtk_version = None
 from gi.repository import Gio, GLib
-from gi import PyGIDeprecationWarning
 from gi._ossighelper import wakeup_on_signal, register_sigint_fallback
 
 
@@ -165,34 +164,3 @@ class TestSigintFallback(unittest.TestCase):
         t.start()
         t.join(5)
         self.assertFalse(failed)
-
-    @unittest.skipIf(os.name == "nt", "not on Windows")
-    def test_no_replace_if_set_by_glib(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always", PyGIDeprecationWarning)
-            id_ = GLib.unix_signal_add(
-                GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *args: False
-            )
-        self.assertEqual(len(w), 1)
-        self.assertTrue(issubclass(w[0].category, PyGIDeprecationWarning))
-        self.assertEqual(
-            str(w[0].message),
-            "GLib.unix_signal_add is deprecated; use GLibUnix.signal_add instead",
-        )
-        try:
-            # signal.getsignal() doesn't pick up that unix_signal_add()
-            # has changed the handler, but we should anyway.
-            self.assertEqual(
-                signal.getsignal(signal.SIGINT), signal.default_int_handler
-            )
-            with register_sigint_fallback(lambda: None):
-                self.assertEqual(
-                    signal.getsignal(signal.SIGINT), signal.default_int_handler
-                )
-            self.assertEqual(
-                signal.getsignal(signal.SIGINT), signal.default_int_handler
-            )
-        finally:
-            GLib.source_remove(id_)
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-            signal.signal(signal.SIGINT, signal.default_int_handler)

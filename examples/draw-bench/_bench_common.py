@@ -24,6 +24,7 @@ into the venv directly.
 
 from __future__ import annotations
 
+import importlib
 import os
 import pathlib
 import sys
@@ -123,12 +124,12 @@ def setup_backend() -> tuple[Any, str]:
                 f"set PYTHONPATH so real PyGObject wins"
             )
         gi.require_version("GoiBench", "1.0")
-        from gi.repository import GoiBench
+        GoiBench = importlib.import_module("gi.repository.GoiBench")
     else:
         from ginext import defaults
 
         defaults.require("GoiBench", "1.0")
-        from ginext import GoiBench
+        GoiBench = importlib.import_module("ginext.GoiBench")
     return GoiBench, backend
 
 

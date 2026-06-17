@@ -104,7 +104,7 @@ class Signal(str):
                 raise TypeError(f"{self!s} has no default handler")
             return self.func(obj, *args, **kwargs)
 
-        name = str(self) or getattr(obj, "__name__", "")
+        name = str(self) if str(self) else getattr(obj, "__name__", "")
         return type(self)(
             name=name,
             func=cast("Callable[..., Any]", obj),

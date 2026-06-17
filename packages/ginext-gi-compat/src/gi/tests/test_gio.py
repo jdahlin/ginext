@@ -189,7 +189,7 @@ Exec={GLib.find_program_in_path("true")} action
                 self.assertEqual(
                     str(warn[0].message),
                     "Gio.DesktopAppInfo is deprecated; "
-                    "use GioUnix.DesktopAppInfo instead",
+                    + "use GioUnix.DesktopAppInfo instead",
                 )
 
             self.assertIsNotNone(app_info)
@@ -254,7 +254,7 @@ Exec={GLib.find_program_in_path("true")} action
                 self.assertEqual(
                     str(warn[0].message),
                     "Gio.unix_mount_points_get is deprecated; "
-                    "use GioUnix.mount_points_get instead",
+                    + "use GioUnix.mount_points_get instead",
                 )
 
             self.assertIsNotNone(mount_points)
@@ -283,7 +283,7 @@ Exec={GLib.find_program_in_path("true")} action
                 self.assertEqual(
                     str(warn[0].message),
                     "Gio.UnixInputStream is deprecated; "
-                    "use GioUnix.InputStream instead",
+                    + "use GioUnix.InputStream instead",
                 )
 
             self.assertIsNotNone(input_stream)
@@ -308,7 +308,7 @@ Exec={GLib.find_program_in_path("true")} action
                 self.assertEqual(
                     str(warn[0].message),
                     "Gio.UnixMountMonitor is deprecated; "
-                    "use GioUnix.MountMonitor instead",
+                    + "use GioUnix.MountMonitor instead",
                 )
 
             self.assertIsNotNone(monitor)
@@ -327,7 +327,7 @@ Exec={GLib.find_program_in_path("true")} action
                 self.assertEqual(
                     str(warn[0].message),
                     "Gio.UnixInputStreamClass is deprecated; "
-                    "use GioUnix.InputStreamClass instead",
+                    + "use GioUnix.InputStreamClass instead",
                 )
 
             self.assertIsNotNone(input_stream_class)
