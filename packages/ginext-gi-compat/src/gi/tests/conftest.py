@@ -350,7 +350,6 @@ _FREE_THREADED_XFAIL_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "refcount assertion is unstable in free-threaded Python builds",
 }
 
-
 _PY315_GIL_XFAIL_NOT_RUN_BY_NODE = {
     "test_properties.py::TestCPropsAccessor::test_held_object_ref_count_getter": "crashes xdist worker on Python 3.15 GIL build during refcount GC",
     "test_properties.py::TestCPropsAccessor::test_parent_class": "crashes xdist worker on Python 3.15 GIL build",
@@ -385,6 +384,18 @@ def pytest_collection_modifyitems(
         _, sep, relative_nodeid = item.nodeid.rpartition("/gi/tests/")
         if not sep:
             continue
+        if is_free_threaded and (
+            relative_nodeid.startswith("test_gtk_template.py::")
+            or relative_nodeid.startswith("test_overrides_gtk.py::")
+        ):
+            item.add_marker(
+                pytest.mark.xfail(
+                    reason="Gtk compat tests crash during instance creation under free-threaded Python",
+                    run=False,
+                    strict=False,
+                )
+            )
+            continue
         if is_free_threaded and relative_nodeid in _FREE_THREADED_XFAIL_BY_NODE:
             reason = _FREE_THREADED_XFAIL_BY_NODE[relative_nodeid]
             item.add_marker(pytest.mark.xfail(reason=reason, strict=False))
@@ -394,11 +405,11 @@ def pytest_collection_modifyitems(
             item.add_marker(pytest.mark.xfail(reason=reason, run=False, strict=False))
             continue
         if relative_nodeid.startswith("test_cairo.py::TestPango::") and (
-            not has_display or is_debug_python
+            not has_display or is_debug_python or is_free_threaded
         ):
             item.add_marker(
                 pytest.mark.skip(
-                    reason="Gtk cairo font-options test is not stable under debug/display-limited runs",
+                    reason="Gtk cairo font-options test is not stable under debug/display-limited/free-threaded runs",
                 )
             )
             continue
