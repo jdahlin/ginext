@@ -213,7 +213,9 @@ class TestProcess(unittest.TestCase):
         )
 
 
-@pytest.mark.skipif(os.name == "nt", reason="not on Windows")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="child_setup/fd semantics are POSIX-only"
+)
 def test_spawn_async_fds_with_child_setup(tmp_path):
     callback_file = tmp_path / "child_setup_called"
 
